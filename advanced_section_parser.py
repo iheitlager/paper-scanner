@@ -1,7 +1,6 @@
 import json
 import re
 import argparse
-from pathlib import Path
 
 
 class AcademicPaperParser:
@@ -14,13 +13,16 @@ class AcademicPaperParser:
         # Dictionary to store normalized section names and their variations
         self.section_aliases = {
             "TITLE_AUTHORS": ["TITLE", "AUTHORS", "TITLE_AND_AUTHORS"],
-            "ABSTRACT_SUMMARY": ["ABSTRACT", "SUMMARY"],
+            "ABSTRACT_SUMMARY": ["ABSTRACT", "SUMMARY", "DOCUMENT_SUMMARY"],
             "RESEARCH_QUESTION": ["RESEARCH_QUESTIONS", "RESEARCH_OBJECTIVES", "HYPOTHESIS"],
             "METHODOLOGY": ["METHODS", "RESEARCH_METHODOLOGY", "APPROACH"],
-            "KEY_FINDINGS": ["FINDINGS", "RESULTS", "MAIN_FINDINGS"],
+            "KEY_FINDINGS": ["FINDINGS", "RESULTS", "MAIN_FINDINGS, KEY_POINTS"],
             "LIMITATIONS": ["LIMITATIONS_AND_CONSTRAINTS", "CONSTRAINTS", "STUDY_LIMITATIONS"],
             "FUTURE_WORK": ["FUTURE_RESEARCH", "FURTHER_WORK"],
-            "CITATIONS": ["REFERENCES", "BIBLIOGRAPHY", "CITED_WORKS"]
+            "CONCLUSIONS": ["RESULTS"],
+            "CITATIONS": ["REFERENCES", "BIBLIOGRAPHY", "CITED_WORKS"],
+            "MECHANISMS": ["SOCIAL_MECHANISMS"],
+            "VENDORS": ["IT_SUPPLIERS", "IT_VENDORS"]
         }
         
         # Create reverse mapping for normalization

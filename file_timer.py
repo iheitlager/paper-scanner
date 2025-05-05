@@ -1,36 +1,27 @@
 #!/usr/bin/env -S python
 
 """
-File Parser
+File Time
 
-Takes a JSONLines list with content from Claude
-Each line is a scanned document and parsed for real content
-Results are stored back in JSONLines
+This allows only one line to be submitted to allow for API usage
 """
 
-import json
 import sys
 import argparse
-from advanced_section_parser import AcademicPaperParser
+import time
 
-def scan_lines(f_in, f_out):
-    results = []
-    parser = AcademicPaperParser()
+def scan_lines(f_in, f_out, t):
 
     for line in f_in:
-        item = json.loads(line.strip())
-        result = parser.process_paper_analysis(item['analysis'])
-        result['file_path'] = item['file_path']
-        f_out.write(json.dumps(result) + '\n')
-        results += [item]
+        f_out.write(line)
+        time.sleep(t)
 
-    print(f"Parsing complete! {len(results)} results saved", file=sys.stderr)
         
-    return results        
 
 def main():
     parser = argparse.ArgumentParser(description="Parse Claude.ai output and store results in JSON")
     parser.add_argument("-i", "--input", nargs='?', type=argparse.FileType('r'), default=sys.stdin, help="Input JSONLines file with file pathnames (default: stdin)")
+    parser.add_argument("-t", "--time", nargs='?', type=int, default=0, help="Amount of seconds to wait for each line")
     parser.add_argument("-o", "--output", nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="Output JSONLines file (default: stdout)")
     
     args = parser.parse_args()
@@ -40,7 +31,7 @@ def main():
         parser.print_help()
         return 0
 
-    scan_lines(args.input, args.output)
+    scan_lines(args.input, args.output, args.time)
 
     # close all filehandles
     if args.input is not sys.stdin:
