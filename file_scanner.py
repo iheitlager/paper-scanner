@@ -79,7 +79,7 @@ def write_jsonlines(data, output_file=None):
             print(json.dumps(item))
 
 def main():
-    parser = argparse.ArgumentParser(description="Scan PDFs in folder and write them as JSON Lines")
+    parser = argparse.ArgumentParser(description="Scan PDFs in folder and write the list as JSONLines")
     parser.add_argument("folder", help="Folder to scan for PDF files")
     parser.add_argument("-o", "--output", help="Output JSONLines file (defaults to stdout if not specified)")
     parser.add_argument("-f", "--filter", help="Use this JSONLines file as a filter")
