@@ -12,8 +12,14 @@ import os
 import json
 import sys
 import argparse
+import time
+import datetime
 from pypdf import PdfReader
 from anthropic import Anthropic
+
+
+MAX_TOKENS = 20_000
+WAIT_TIME = 61
 
 class PDFClaudeScanner:
     def __init__(self, api_key, model="claude-3-7-sonnet-20250219"):
@@ -48,7 +54,7 @@ class PDFClaudeScanner:
         self.system_prompt = """
         ## Academic Paper Analysis
         You are a research assistant analyzing academic papers, currently busy understanding how incumbent firms can make use of IT Service providers as external resources for the benefit of (digital) innnovation. For the provided PDF content:
-        1. TITLE_AUTHORS: Extract the paper title and authors
+        1. TITLE_AUTHORS: Extract the paper title , authors and publication year
         2. ABSTRACT_SUMMARY: Summarize the abstract in 2-3 sentences
         3. RESEARCH_QUESTION: Identify the main research question or hypothesis
         4. METHODOLOGY: Describe the research methodology used
@@ -56,9 +62,11 @@ class PDFClaudeScanner:
         6. LIMITATIONS: Note any limitations or constraints mentioned
         7. FUTURE_WORK: Highlight suggestions for future research
         8. CITATIONS: Extract key papers cited that appear important to the research on the importance of using external resources
-        9. IT_VENDORS: List any use of external IT Service Providers
-        10. MECHANISMS: list all the mentioned mechanisms for provider-customer interaction using the following pattern:
+        9. IT_SUPPLIER: Does the article mention the use of IT Service Providers. Answer Yes/No with a how
+        10.VENDORS: List any use of external IT Service Providers/Suppliers/Vendors
+        11. MECHANISMS: list all the mentioned mechanisms for provider-customer interaction using the following pattern:
         [Action Verb]-Driven [Outcome]: [Brief definition highlighting key practice and value]
+
         Structure your analysis for easy conversion to JSON format.
         """
 
@@ -74,34 +82,53 @@ class PDFClaudeScanner:
             print(f"Error extracting text from {pdf_path}: {e}", file=sys.stderr)
             return None
 
-    def analyze_with_claude(self, pdf_text, custom_prompt=None):
-        """Send the PDF text to Claude for analysis."""
-        try:
-            # Use custom prompt if provided, otherwise use default system prompt
-            system_message = custom_prompt if custom_prompt else self.system_prompt
-            
-            # Call Claude API
-            response = self.client.messages.create(
-                model=self.model,
-                system=system_message,
-                max_tokens=20000,
-                messages=[
-                    {"role": "user", "content": f"Here is the PDF content to analyze:\n\n{pdf_text}"}
-                ]
-            )
-            return response.content[0].text
-        except Exception as e:
-            print(f"Error calling Claude API: {e}", file=sys.stderr)
-            return None
+    def analyze_with_claude(self, pdf_text, custom_prompt=None, max_retries=5):
+        """Send the PDF text to Claude for analysis with automatic retry on rate limits."""
+        retries = 0
+        
+        while retries <= max_retries:
+            try:
+                # Use custom prompt if provided, otherwise use default system prompt
+                system_message = custom_prompt if custom_prompt else self.system_prompt
+                
+                # Call Claude API
+                response = self.client.messages.create(
+                    model=self.model,
+                    system=system_message,
+                    max_tokens=MAX_TOKENS,
+                    messages=[
+                        {"role": "user", "content": f"Here is the PDF content to analyze:\n\n{pdf_text}"}
+                    ]
+                )
+                return response.content[0].text
+                
+            except Exception as e:
+                # Check if it's a rate limit error (429)
+                if hasattr(e, 'status_code') and e.status_code == 429:
+                    retries += 1
+                    wait_time = WAIT_TIME  # X seconds sleep
+                    
+                    print(f"Rate limit exceeded. Waiting for {wait_time} seconds before retry {retries}/{max_retries}...", 
+                        file=sys.stderr)
+                    time.sleep(wait_time)
+                    continue
+                
+                # Log the other/unexpected error
+                print(f"Error calling Claude API: {e}", file=sys.stderr)
+                return None
 
-    def process_pdfs(self, f_in, f_out, custom_prompt=None):
+        print(f"Maximum retries ({max_retries}) reached. Giving up.", file=sys.stderr)
+        return None
+
+    def process_pdfs(self, f_in, f_out, custom_prompt=None, include_metadata=True):
         """Process all PDFs in a directory and save results to a JSON file."""
         results = []
         
-
-
         for line in f_in:
             pdf_file = json.loads(line.strip())['file_path']
+            processing_time = {
+                'start_time': datetime.datetime.now(datetime.timezone.utc).isoformat()
+            }
             print(f"Processing {pdf_file} ...", file=sys.stderr)
             pdf_text = self.extract_text_from_pdf(pdf_file)
             print(f"length {len(pdf_text.split())} ...", file=sys.stderr)
@@ -109,12 +136,17 @@ class PDFClaudeScanner:
             if pdf_text:
                 analysis = self.analyze_with_claude(pdf_text, custom_prompt)
                 if analysis:
+                    processing_time['end_time'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
                     item = {
                         "file_path": str(pdf_file),
                         "analysis": analysis
                     }
+                    if include_metadata:
+                        item['timing'] = processing_time
 
                     f_out.write(json.dumps(item) + '\n')
+                    f_out.flush()
                     results += [item]
 
         print(f"Analysis complete! {len(results)} results saved", file=sys.stderr)
@@ -126,6 +158,7 @@ def main():
     parser = argparse.ArgumentParser(description="Scan PDFs with Claude.ai and store results in JSON")
     parser.add_argument("-i", "--input", nargs='?', type=argparse.FileType('r'), default=sys.stdin, help="Input JSONLines file with file pathnames (default: stdin)")
     parser.add_argument("-o", "--output", nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="Output JSONLines file (default: stdout)")
+    parser.add_argument("--no-metadata", action="store_true", help="Don't include file metadata")
     parser.add_argument("--api_key", help="Anthropic API key (or set ANTHROPIC_API_KEY env var)")
     parser.add_argument("--model", default="claude-3-7-sonnet-20250219", help="Claude model to use")
     parser.add_argument("--custom_prompt", help="Path to file containing custom system prompt")
@@ -150,7 +183,11 @@ def main():
 
     # Initialize scanner and process PDFs
     scanner = PDFClaudeScanner(api_key, model=args.model)
-    scanner.process_pdfs(args.input, args.output, custom_prompt)
+    scanner.process_pdfs(
+        args.input, 
+        args.output,
+        custom_prompt,
+        include_metadata=not args.no_metadata)
 
     # close all filehandles
     if args.input is not sys.stdin:

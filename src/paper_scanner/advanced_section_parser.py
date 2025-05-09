@@ -1,6 +1,7 @@
 import json
 import re
 import argparse
+import sys
 
 
 class AcademicPaperParser:
@@ -49,13 +50,13 @@ class AcademicPaperParser:
         # Try multiple header patterns
         patterns = [
             # ## SECTION_NAME
-            r'##\s+([A-Z_]+)\s*\n(.*?)(?=##\s+[A-Z_]+|\Z)',
+            r'##[0-9\.\s]+([A-Z_]+)\s*\n+(.*?)(?=##[0-9\.\s]+[A-Z_]+|\Z)',
             
-            # SECTION_NAME:
-            r'([A-Z_]+):\s*\n(.*?)(?=(?:[A-Z_]+):\s*\n|\Z)',
+            # # SECTION_NAME:
+            # r'([A-Z_]+):\s*\n(.*?)(?=(?:[A-Z_]+):\s*\n|\Z)',
             
-            # SECTION_NAME
-            r'(?:^|\n)([A-Z_]+)\s*\n(.*?)(?=(?:^|\n)[A-Z_]+\s*\n|\Z)'
+            # # SECTION_NAME
+            # r'(?:^|\n)([A-Z_]+)\s*\n(.*?)(?=(?:^|\n)[A-Z_]+\s*\n|\Z)'
         ]
         
         sections = {}
@@ -68,7 +69,6 @@ class AcademicPaperParser:
                     normalized_name = self.normalize_section_name(section_name)
                     sections[normalized_name] = content.strip()
                 break
-        
         return sections
     
     def extract_title_and_authors(self, title_authors_text):
@@ -141,7 +141,24 @@ class AcademicPaperParser:
         
         # Return as a single step if no separators found
         return [methodology_text.strip()]
-    
+
+    def parse_steps(self, steps_text):
+        """
+        Extract steps into a structured list.
+        """
+        results = []
+        # Split by paragraphs if no clear structure
+        paragraphs = [p.strip() for p in steps_text.split('\n\n') if p.strip()]
+
+        for paragraph in paragraphs:
+            # Look for numbered steps
+            numbered_steps = re.findall(r'\d+\.\s*(.+?)(?=\d+\.|\Z)', paragraph)
+            for step in numbered_steps:
+                results.append(step)
+
+        return results
+
+
     def process_paper_analysis(self, text):
         """
         Process academic paper analysis and return structured data.
@@ -170,6 +187,10 @@ class AcademicPaperParser:
         if "METHODOLOGY" in sections:
             result["METHODOLOGY_STEPS"] = self.parse_methodology_steps(sections["METHODOLOGY"])
         
+        # Process MECHANISMS if present
+        if "MECHANISMS" in sections:
+            result["MECHANISMS_SPLIT"] = self.parse_steps(sections["MECHANISMS"])
+
         return result
     
     def to_json(self, structured_data, indent=2):

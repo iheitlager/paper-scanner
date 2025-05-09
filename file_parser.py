@@ -11,7 +11,7 @@ Results are stored back in JSONLines
 import json
 import sys
 import argparse
-from advanced_section_parser import AcademicPaperParser
+from paper_scanner.advanced_section_parser import AcademicPaperParser
 
 def scan_lines(f_in, f_out):
     results = []
@@ -22,6 +22,7 @@ def scan_lines(f_in, f_out):
         result = parser.process_paper_analysis(item['analysis'])
         result['file_path'] = item['file_path']
         f_out.write(json.dumps(result) + '\n')
+        f_out.flush()
         results += [item]
 
     print(f"Parsing complete! {len(results)} results saved", file=sys.stderr)
