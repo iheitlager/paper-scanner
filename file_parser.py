@@ -13,14 +13,23 @@ import sys
 import argparse
 from paper_scanner.advanced_section_parser import AcademicPaperParser
 
+
 def scan_lines(f_in, f_out):
     results = []
     parser = AcademicPaperParser()
 
     for line in f_in:
-        item = json.loads(line.strip())
-        result = parser.process_paper_analysis(item['analysis'])
-        result['file_path'] = item['file_path']
+        try:
+            item = json.loads(line.strip())
+        except Exception as e:
+            print(f"Error parsing in line {len(results)+1}", file=sys.stderr)
+            return None
+
+        if 'analysis' in item:
+            result = parser.process_paper_analysis(item['analysis'])
+            result['file_path'] = item['file_path']
+        else:
+            result = item
         f_out.write(json.dumps(result) + '\n')
         f_out.flush()
         results += [item]
@@ -28,6 +37,7 @@ def scan_lines(f_in, f_out):
     print(f"Parsing complete! {len(results)} results saved", file=sys.stderr)
         
     return results        
+
 
 def main():
     parser = argparse.ArgumentParser(description="Parse Claude.ai output and store results in JSON")
@@ -39,15 +49,17 @@ def main():
     # if we are interactive, do error message
     if args.input is sys.stdin and sys.stdin.isatty():
         parser.print_help()
-        return 0
+        return 1
 
-    scan_lines(args.input, args.output)
+    results = scan_lines(args.input, args.output)
 
     # close all filehandles
     if args.input is not sys.stdin:
         args.input.close()
     if args.output is not sys.stdout:
         args.output.close()
+
+    return 0 if results else 1
 
 if __name__ == "__main__":
     sys.exit(main())

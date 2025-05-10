@@ -23,7 +23,7 @@ class AcademicPaperParser:
             "CONCLUSIONS": ["RESULTS"],
             "CITATIONS": ["REFERENCES", "BIBLIOGRAPHY", "CITED_WORKS"],
             "MECHANISMS": ["SOCIAL_MECHANISMS"],
-            "VENDORS": ["IT_SUPPLIERS", "IT_VENDORS"]
+            "IT_SUPPLIER": ["IT_SUPPLIERS", "IT_VENDORS"]
         }
         
         # Create reverse mapping for normalization
@@ -50,7 +50,7 @@ class AcademicPaperParser:
         # Try multiple header patterns
         patterns = [
             # ## SECTION_NAME
-            r'##[0-9\.\s]+([A-Z_]+)\s*\n+(.*?)(?=##[0-9\.\s]+[A-Z_]+|\Z)',
+            r'##[0-9\.\s]+([A-Z_\:]+)\s*\n+(.*?)(?=##[0-9\.\s]+[A-Z_]+|\Z)',
             
             # # SECTION_NAME:
             # r'([A-Z_]+):\s*\n(.*?)(?=(?:[A-Z_]+):\s*\n|\Z)',
@@ -146,15 +146,24 @@ class AcademicPaperParser:
         """
         Extract steps into a structured list.
         """
+        patterns = [
+            r'\d+\.\s*(.+?)(?=\d+\.|\Z)',   # starts with numbers.
+            r'(.+)'                         # basically catch all
+        ]
+        
         results = []
-        # Split by paragraphs if no clear structure
-        paragraphs = [p.strip() for p in steps_text.split('\n\n') if p.strip()]
+
+        # Split by paragraphs
+        paragraphs = [p.strip() for p in steps_text.replace('\n\n','\n').split('\n') if p.strip()]
 
         for paragraph in paragraphs:
-            # Look for numbered steps
-            numbered_steps = re.findall(r'\d+\.\s*(.+?)(?=\d+\.|\Z)', paragraph)
-            for step in numbered_steps:
-                results.append(step)
+            for pattern in patterns:
+                # Look for steps
+                steps = re.findall(pattern, paragraph)
+                if steps:
+                    for step in steps:
+                        results.append(step)
+                    break
 
         return results
 
@@ -189,7 +198,11 @@ class AcademicPaperParser:
         
         # Process MECHANISMS if present
         if "MECHANISMS" in sections:
-            result["MECHANISMS_SPLIT"] = self.parse_steps(sections["MECHANISMS"])
+            result["MECHANISMS"] = self.parse_steps(sections["MECHANISMS"])
+
+        # Process VENDORS if present
+        if "VENDORS" in sections:
+            result["VENDORS"] = self.parse_steps(sections["VENDORS"])
 
         return result
     

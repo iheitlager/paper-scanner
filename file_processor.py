@@ -26,30 +26,7 @@ class PDFClaudeScanner:
         """Initialize the PDF scanner with Claude API credentials."""
         self.client = Anthropic(api_key=api_key)
         self.model = model
-        # self.system_prompt = """
-        # You are an expert PDF analyzer. Extract and summarize the key information from the PDF content provided.
-        # Organize your response in these sections:
-        # 1. DOCUMENT_SUMMARY: A concise summary of what this document is about (2-3 sentences)
-        # 2. KEY_POINTS: The 3-5 most important points or findings in the document
-        # 3. CONCLUSIONS: Main conclusions or recommendations if any
-        
-        # Format your response in a way that could be easily parsed into a structured format.
-        # """
-        # self.system_prompt = """
-        # ## Academic Paper Analysis
-        # You are a research assistant analyzing academic papers. For the provided PDF content:
 
-        # 1. TITLE_AUTHORS: Extract the paper title and authors
-        # 2. ABSTRACT_SUMMARY: Summarize the abstract in 2-3 sentences
-        # 3. RESEARCH_QUESTION: Identify the main research question or hypothesis
-        # 4. METHODOLOGY: Describe the research methodology used
-        # 5. KEY_FINDINGS: List the 3-5 most significant findings or results
-        # 6. LIMITATIONS: Note any limitations or constraints mentioned
-        # 7. FUTURE_WORK: Highlight suggestions for future research
-        # 8. CITATIONS: Extract key papers cited that appear important to the research
-
-        # Structure your analysis for easy conversion to JSON format.
-        # """
 
         self.system_prompt = """
         ## Academic Paper Analysis
@@ -65,7 +42,7 @@ class PDFClaudeScanner:
         9. IT_SUPPLIER: Does the article mention the use of IT Service Providers. Answer Yes/No with a how
         10.VENDORS: List any use of external IT Service Providers/Suppliers/Vendors
         11. MECHANISMS: list all the mentioned mechanisms for provider-customer interaction using the following pattern:
-        [Action Verb]-Driven [Outcome]: [Brief definition highlighting key practice and value]
+            [Action Verb]-Driven [Outcome]: [Brief definition highlighting key practice and value]
 
         Structure your analysis for easy conversion to JSON format.
         """
