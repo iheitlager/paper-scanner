@@ -20,13 +20,14 @@ from anthropic import Anthropic
 
 MAX_TOKENS = 20_000
 WAIT_TIME = 61
+DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
 class PDFClaudeScanner:
-    def __init__(self, api_key, model="claude-3-7-sonnet-20250219"):
+    def __init__(self, api_key, verbose=False, model=DEFAULT_MODEL):
         """Initialize the PDF scanner with Claude API credentials."""
         self.client = Anthropic(api_key=api_key)
+        self.verbose = verbose
         self.model = model
-
 
         self.system_prompt = """
         The methodological framework adopted in this study employs a context-mechanism-outcome (CMO) 
@@ -58,14 +59,22 @@ class PDFClaudeScanner:
         developments in information systems research that emphasize the importance of contextual sensitivity and 
         mechanism-based explanations (Avgerou, 2019). 
 
-        ## Academic Paper Analysis
         You are a research assistant analyzing academic papers, take the paper and summarize this:  
-        1. TITLE_AUTHORS: Extract the paper title , authors and publication year
+
+        # Academic Paper Analysis
+        1. PAPER_HEADER:
+        1.1. TITLE: Extract the paper title
+        1.2. AUTHORS: Extract the authors
+        1.3. YEAR: Extract the publication year
         2. SUMMARY: Provide a two paragraph summary  
-        3. IT_SUPPLIER: Identify the various IT suppliers in the paper, if any. Be sure to be clear on regular suppliers 
-        4. SUPPLIER_ROLE: Summarize the roles these IT suppliers play, if any 
-        5. METHODOLOGY: Research Methodology, be clear if there is an empirical base and if this is qualitative or quantitative research  
-        6. Find all mechanisms of innovation between client and suppliers  
+        3. RESEARCH_QUESTION: Identify the main research question or hypothesis  
+        4. METHODOLOGY: Describe the research methodology
+        4.1. EMPIRICAL_BASE: be clear if there is an empirical base
+        4.2. METHODOLOGY_CLASS: is this qualitative or quantitative research  
+        5. VENDORS: Identify the various vendors and suppliers in the paper
+        5.1. IT_SUPPLIER: List the individual IT suppliers and their role for innovation, these are not regular suppliers 
+        5.2. REGULAR_SUPPLIER: list the regular suppliers
+        6. INNOVATION_MECHANISMS: Find all mechanisms of innovation between client and suppliers  
         6.1. CONTEXTS: in which incumbents and client attract suppliers to support them  
         6.2. MECHANISMS: of innovation following the pattern [Action Verb]-Driven [Outcome]: [Brief definition highlighting key practice and value].  
         6.3. OUTCOMES: describing benefits for clients per benefit
@@ -73,6 +82,10 @@ class PDFClaudeScanner:
         Structure your analysis for easy conversion to JSON format.
         """
 
+    def log(self, message):
+        if self.verbose:
+            print(message, file=sys.stderr)
+           
     def extract_text_from_pdf(self, pdf_path):
         """Extract text content from a PDF file."""
         try:
@@ -111,8 +124,7 @@ class PDFClaudeScanner:
                     retries += 1
                     wait_time = WAIT_TIME  # X seconds sleep
                     
-                    print(f"Rate limit exceeded. Waiting for {wait_time} seconds before retry {retries}/{max_retries}...", 
-                        file=sys.stderr)
+                    self.log(f"Rate limit exceeded. Waiting for {wait_time} seconds before retry {retries}/{max_retries}...")
                     time.sleep(wait_time)
                     continue
                 
@@ -120,10 +132,10 @@ class PDFClaudeScanner:
                 print(f"Error calling Claude API: {e}", file=sys.stderr)
                 return None
 
-        print(f"Maximum retries ({max_retries}) reached. Giving up.", file=sys.stderr)
+        self.log(f"Maximum retries ({max_retries}) reached. Giving up.")
         return None
 
-    def process_pdfs(self, f_in, f_out, custom_prompt=None, include_metadata=True):
+    def process_pdfs(self, f_in, f_out, custom_prompt=None, include_metadata=True, verbose=False):
         """Process all PDFs in a directory and save results to a JSON file."""
         results = []
         
@@ -132,9 +144,9 @@ class PDFClaudeScanner:
             processing_time = {
                 'start_time': datetime.datetime.now(datetime.timezone.utc).isoformat()
             }
-            print(f"Processing {pdf_file} ...", file=sys.stderr)
+            self.log(f"Processing {pdf_file} ...")
             pdf_text = self.extract_text_from_pdf(pdf_file)
-            print(f"length {len(pdf_text.split())} ...", file=sys.stderr)
+            self.log(f"length {len(pdf_text.split())} ...")
             
             if pdf_text:
                 analysis = self.analyze_with_claude(pdf_text, custom_prompt)
@@ -152,6 +164,8 @@ class PDFClaudeScanner:
                     f_out.flush()
                     results += [item]
            
+    
+        self.log(f"Analysis complete! {len(results)} results returned")
         return results
 
 
@@ -161,9 +175,9 @@ def main():
     parser.add_argument("-o", "--output", nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="Output JSONLines file (default: stdout)")
     parser.add_argument("--no-metadata", action="store_true", help="Don't include file metadata")
     parser.add_argument("--api_key", help="Anthropic API key (or set ANTHROPIC_API_KEY env var)")
-    parser.add_argument("--model", default="claude-sonnet-4-20250514", help="Claude model to use")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="Claude model to use")
     parser.add_argument("--custom_prompt", help="Path to file containing custom system prompt")
-    parser.add_argument("-v", "--verbose", default=False, action="store_true", help="Be verbose")
+    parser.add_argument("-q", "--quiet", dest='verbose', default=True, action="store_false", help="Be quiet")
 
     args = parser.parse_args()
 
@@ -184,16 +198,13 @@ def main():
             custom_prompt = f.read()
 
     # Initialize scanner and process PDFs
-    scanner = PDFClaudeScanner(api_key, model=args.model)
+    scanner = PDFClaudeScanner(api_key, verbose=args.verbose, model=args.model)
     results = scanner.process_pdfs(
         args.input, 
         args.output,
         custom_prompt,
-        include_metadata=not args.no_metadata)
-    
-    if args.verbose:
-        print(f"Analysis complete! {len(results)} results returned", file=sys.stderr)
-
+        include_metadata=not args.no_metadata
+    )
 
     # close all filehandles
     if args.input is not sys.stdin:

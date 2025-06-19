@@ -1,7 +1,6 @@
 import json
 import re
 import argparse
-import sys
 
 
 class AcademicPaperParser:
@@ -13,8 +12,8 @@ class AcademicPaperParser:
     def __init__(self):
         # Dictionary to store normalized section names and their variations
         self.section_aliases = {
-            "TITLE_AUTHORS": ["TITLE", "AUTHORS", "TITLE_AND_AUTHORS"],
-            "ABSTRACT_SUMMARY": ["ABSTRACT", "SUMMARY", "DOCUMENT_SUMMARY"],
+            "PAPER_HEADER": ["TITLE_AND_AUTHORS"],
+            # "ABSTRACT_SUMMARY": ["ABSTRACT", "SUMMARY", "DOCUMENT_SUMMARY"],
             "RESEARCH_QUESTION": ["RESEARCH_QUESTIONS", "RESEARCH_OBJECTIVES", "HYPOTHESIS"],
             "METHODOLOGY": ["METHODS", "RESEARCH_METHODOLOGY", "APPROACH"],
             "KEY_FINDINGS": ["FINDINGS", "RESULTS", "MAIN_FINDINGS, KEY_POINTS"],
@@ -22,8 +21,6 @@ class AcademicPaperParser:
             "FUTURE_WORK": ["FUTURE_RESEARCH", "FURTHER_WORK"],
             "CONCLUSIONS": ["RESULTS"],
             "CITATIONS": ["REFERENCES", "BIBLIOGRAPHY", "CITED_WORKS"],
-            "MECHANISMS": ["SOCIAL_MECHANISMS"],
-            "IT_SUPPLIER": ["IT_SUPPLIERS", "IT_VENDORS"]
         }
         
         # Create reverse mapping for normalization
@@ -71,28 +68,22 @@ class AcademicPaperParser:
                 break
         return sections
     
-    def extract_title_and_authors(self, title_authors_text):
+    def extract_paper_header(self, header_text):
         """
-        Separate title and authors from combined title_authors section.
+        Separate title and authors from combined paper_header section.
         """
-        # Try to find patterns like "TITLE" by AUTHOR1, AUTHOR2, and AUTHOR3
-        match = re.search(r'"([^"]+)"\s+by\s+(.+)', title_authors_text)
-        
-        if match:
-            title = match.group(1).strip()
-            authors = [author.strip() for author in re.split(r',|\s+and\s+', match.group(2))]
-            return {"title": title, "authors": authors}
-        
-        # Alternative pattern without quotes: TITLE by AUTHOR1, AUTHOR2, and AUTHOR3
-        match = re.search(r'(.+?)\s+by\s+(.+)', title_authors_text)
-        
-        if match:
-            title = match.group(1).strip()
-            authors = [author.strip() for author in re.split(r',|\s+and\s+', match.group(2))]
-            return {"title": title, "authors": authors}
-        
-        # If no clear separation, return the whole text as title
-        return {"title": title_authors_text, "authors": []}
+        # Try to find paper header patterns 
+        fields = ["TITLE",'AUTHORS','YEAR']
+        items = {}
+
+        for l in header_text.split('\n\n'):
+            match = re.search(r'\**\d+\.\d+\.\s+\**(.*)\:\*+\s+(.*)', l)
+            if match:
+                key = match.group(1).strip()
+                if key in fields:
+                    items[key] = match.group(2).strip()
+
+        return items
     
     def extract_research_questions(self, research_question_text):
         """
@@ -116,31 +107,57 @@ class AcademicPaperParser:
         
         # Return as a single question if no separators found
         return [research_question_text.strip()]
-    
+
     def parse_methodology_steps(self, methodology_text):
         """
-        Extract methodology steps into a structured list.
+        Extract methodology separate items.
         """
-        # Look for numbered steps
-        numbered_steps = re.findall(r'\d+\.\s*(.+?)(?=\d+\.|\Z)', methodology_text, re.DOTALL)
+        fields = ["EMPIRICAL_BASE",'METHODOLOGY_CLASS']
+        items = {}
+
+        for l in methodology_text.split('\n\n'):
+            match = re.search(r'\**\d+\.\d+\.\s+\**([A-Z_]*)\:\*+\s+(.*)', l)
+            if match:
+                key = match.group(1).strip()
+                if key in fields:
+                    items[key] = match.group(2).strip()
+
+        return items
         
-        if numbered_steps:
-            return [step.strip() for step in numbered_steps]
-        
-        # Look for bullet points
-        bulleted_steps = re.findall(r'[•*-]\s*(.+?)(?=[•*-]|\Z)', methodology_text, re.DOTALL)
-        
-        if bulleted_steps:
-            return [step.strip() for step in bulleted_steps]
-        
-        # Split by paragraphs if no clear structure
-        paragraphs = [p.strip() for p in methodology_text.split('\n\n') if p.strip()]
-        
-        if len(paragraphs) > 1:
-            return paragraphs
-        
-        # Return as a single step if no separators found
-        return [methodology_text.strip()]
+    def parse_innovation_mechanisms(self, methodology_text):
+        """
+        Extract innovation mechanisms separate items.
+        """
+        fields = ["CONTEXTS", 'MECHANISMS', 'OUTCOMES']
+        items = {}
+
+        for l in methodology_text.split('\n\n'):
+            matches = re.findall(r'\**\d+\.\d+\.\s+\**([A-Z]+)\:\*+\s+(.*)', l, re.DOTALL)
+            if matches:
+                for section_name, content in matches:
+                    section_name = section_name.strip()
+                    if section_name in fields:
+                        items[section_name] = content.strip().split('\n')
+
+        return items
+    
+
+    def parse_vendors(self, vendors_text):
+        """
+        Extract vendors separate items.
+        """
+        fields = ["IT_SUPPLIER", 'REGULAR_SUPPLIER']
+        items = {}
+
+        for l in vendors_text.split('\n\n'):
+            matches = re.findall(r'\**\d+\.\d+\.\s+\**([A-Z_]+)\:\*+\s+(.*)', l, re.DOTALL)
+            if matches:
+                for section_name, content in matches:
+                    section_name = section_name.strip()
+                    if section_name in fields:
+                        items[section_name] = content.strip().split('\n')
+
+        return items
 
     def parse_steps(self, steps_text):
         """
@@ -182,27 +199,31 @@ class AcademicPaperParser:
         for key, value in sections.items():
             result[key] = value
         
-        # Process TITLE_AUTHORS if present
-        if "TITLE_AUTHORS" in sections:
-            title_authors = self.extract_title_and_authors(sections["TITLE_AUTHORS"])
-            result["TITLE"] = title_authors["title"]
-            result["AUTHORS"] = title_authors["authors"]
+        # # Process PAPER_HEADER if present
+        if "PAPER_HEADER" in sections:
+            paper_header = self.extract_paper_header(sections["PAPER_HEADER"])
+            result.update(paper_header)
         
-        # Process RESEARCH_QUESTION if present
-        if "RESEARCH_QUESTION" in sections:
-            result["RESEARCH_QUESTIONS"] = self.extract_research_questions(sections["RESEARCH_QUESTION"])
+        # # Process RESEARCH_QUESTION if present
+        # if "RESEARCH_QUESTION" in sections:
+        #     result["RESEARCH_QUESTIONS"] = self.extract_research_questions(sections["RESEARCH_QUESTION"])
         
-        # Process METHODOLOGY if present
+        # # Process METHODOLOGY if present
         if "METHODOLOGY" in sections:
-            result["METHODOLOGY_STEPS"] = self.parse_methodology_steps(sections["METHODOLOGY"])
+            methodology = self.parse_methodology_steps(sections["METHODOLOGY"])
+            result.update(methodology)
         
-        # Process MECHANISMS if present
-        if "MECHANISMS" in sections:
-            result["MECHANISMS"] = self.parse_steps(sections["MECHANISMS"])
+        # # Process MECHANISMS if present
+        if "INNOVATION_MECHANISMS" in sections:
+            mechanisms = self.parse_innovation_mechanisms(sections["INNOVATION_MECHANISMS"])
+            result.update(mechanisms)
+        # if "MECHANISMS" in sections:
+        #     result["MECHANISMS"] = self.parse_steps(sections["MECHANISMS"])
 
-        # Process VENDORS if present
+        # # Process VENDORS if present
         if "VENDORS" in sections:
-            result["VENDORS"] = self.parse_steps(sections["VENDORS"])
+            vendors = self.parse_vendors(sections["VENDORS"])
+            result.update(vendors)
 
         return result
     
