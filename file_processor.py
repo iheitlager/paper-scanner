@@ -29,20 +29,46 @@ class PDFClaudeScanner:
 
 
         self.system_prompt = """
+        The methodological framework adopted in this study employs a context-mechanism-outcome (CMO) 
+        configuration, as initially developed by Pawson and Tilley (1997) in their realist evaluation 
+        approach. This framework enables an in-depth analysis of how IT suppliers contribute to digital 
+        innovation processes within incumbent organizations, yielding a nuanced understanding of the 
+        causal pathways between contextual factors, activation mechanisms, and paradoxical outcomes—wherein 
+        suppliers may simultaneously function as knowledge providers, resource providers, and service providers 
+        (Nambisan et al., 2019). The CMO configuration is particularly suited for this investigation as it 
+        accommodates the complex, non-linear nature of digital innovation processes and the multi-faceted 
+        roles assumed by external IT partners (Lycett, 2013). For data collection and analysis, we conducted 
+        a research synthesis based on a structured literature review, following the methodological guidelines 
+        established by Tranfield et al. (2003) and refined by Denyer and Tranfield (2009). The systematic 
+        review process encompassed: (1) formulation of research questions; (2) location of studies through 
+        database searches in Scopus, Web of Science, and AIS electronic library, using predetermined keywords 
+        related to IT suppliers, digital innovation, and incumbent transformation; (3) study selection and 
+        evaluation based on explicit inclusion/exclusion criteria; (4) analysis, by using LLMs to extract, and 
+        synthesis, by using LLMs to combine, of findings; and (5) reporting and dissemination. This approach 
+        enabled us to extract and synthesize relevant mechanisms from a diverse body of empirical studies spanning 
+        information systems, innovation management, and organizational studies (Webster and Watson, 2002). The 
+        analytical procedure involved iterative coding of the identified literature to extract contextual 
+        conditions, mechanisms, and outcomes related to IT supplier contributions to digital innovation. Following 
+        Saldaña's (2021) approach to qualitative coding, we first employed descriptive coding to identify key 
+        concepts, followed by pattern coding to establish relationships between these concepts. The synthesis 
+        phase utilized the CMO framework to organize the findings into coherent, more general, configurations 
+        that explicate how specific contextual factors trigger mechanisms leading to the paradoxical outcomes 
+        where IT suppliers simultaneously function in knowledge provision, resource allocation, and service 
+        delivery capacities (Berente and Yoo, 2012). This analytical approach aligns with recent methodological 
+        developments in information systems research that emphasize the importance of contextual sensitivity and 
+        mechanism-based explanations (Avgerou, 2019). 
+
         ## Academic Paper Analysis
-        You are a research assistant analyzing academic papers, currently busy understanding how incumbent firms can make use of IT Service providers as external resources for the benefit of (digital) innnovation. For the provided PDF content:
+        You are a research assistant analyzing academic papers, take the paper and summarize this:  
         1. TITLE_AUTHORS: Extract the paper title , authors and publication year
-        2. ABSTRACT_SUMMARY: Summarize the abstract in 2-3 sentences
-        3. RESEARCH_QUESTION: Identify the main research question or hypothesis
-        4. METHODOLOGY: Describe the research methodology used
-        5. KEY_FINDINGS: List the 3-5 most significant findings or results
-        6. LIMITATIONS: Note any limitations or constraints mentioned
-        7. FUTURE_WORK: Highlight suggestions for future research
-        8. CITATIONS: Extract key papers cited that appear important to the research on the importance of using external resources
-        9. IT_SUPPLIER: Does the article mention the use of IT Service Providers. Answer Yes/No with a how
-        10.VENDORS: List any use of external IT Service Providers/Suppliers/Vendors
-        11. MECHANISMS: list all the mentioned mechanisms for provider-customer interaction using the following pattern:
-            [Action Verb]-Driven [Outcome]: [Brief definition highlighting key practice and value]
+        2. SUMMARY: Provide a two paragraph summary  
+        3. IT_SUPPLIER: Identify the various IT suppliers in the paper, if any. Be sure to be clear on regular suppliers 
+        4. SUPPLIER_ROLE: Summarize the roles these IT suppliers play, if any 
+        5. METHODOLOGY: Research Methodology, be clear if there is an empirical base and if this is qualitative or quantitative research  
+        6. Find all mechanisms of innovation between client and suppliers  
+        6.1. CONTEXTS: in which incumbents and client attract suppliers to support them  
+        6.2. MECHANISMS: of innovation following the pattern [Action Verb]-Driven [Outcome]: [Brief definition highlighting key practice and value].  
+        6.3. OUTCOMES: describing benefits for clients per benefit
 
         Structure your analysis for easy conversion to JSON format.
         """
@@ -125,9 +151,7 @@ class PDFClaudeScanner:
                     f_out.write(json.dumps(item) + '\n')
                     f_out.flush()
                     results += [item]
-
-        print(f"Analysis complete! {len(results)} results saved", file=sys.stderr)
-            
+           
         return results
 
 
@@ -137,9 +161,10 @@ def main():
     parser.add_argument("-o", "--output", nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="Output JSONLines file (default: stdout)")
     parser.add_argument("--no-metadata", action="store_true", help="Don't include file metadata")
     parser.add_argument("--api_key", help="Anthropic API key (or set ANTHROPIC_API_KEY env var)")
-    parser.add_argument("--model", default="claude-3-7-sonnet-20250219", help="Claude model to use")
+    parser.add_argument("--model", default="claude-sonnet-4-20250514", help="Claude model to use")
     parser.add_argument("--custom_prompt", help="Path to file containing custom system prompt")
-    
+    parser.add_argument("-v", "--verbose", default=False, action="store_true", help="Be verbose")
+
     args = parser.parse_args()
 
     # if we are interactive, do error message
@@ -160,11 +185,15 @@ def main():
 
     # Initialize scanner and process PDFs
     scanner = PDFClaudeScanner(api_key, model=args.model)
-    scanner.process_pdfs(
+    results = scanner.process_pdfs(
         args.input, 
         args.output,
         custom_prompt,
         include_metadata=not args.no_metadata)
+    
+    if args.verbose:
+        print(f"Analysis complete! {len(results)} results returned", file=sys.stderr)
+
 
     # close all filehandles
     if args.input is not sys.stdin:

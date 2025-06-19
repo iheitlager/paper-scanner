@@ -10,28 +10,38 @@ If no output file is specified, writes to stdout.
 import sys
 import json
 import argparse
+from enum import Enum
 from collections import defaultdict
 
-def combine_lines(f_in, f_out, data_dict):
+class SetOperation(Enum):
+    MERGE = "MERGE"
+    INTERSECT = "INTERSECT"
+    EXCEPT = "EXCEPT"
+
+def combine_lines(f_in, f_out, data_dict, set_operation=SetOperation.MERGE):
     results = []
 
     for line in f_in:
+        include = False
         try:
             item = json.loads(line.strip())
         except Exception as e:
-            print(f"Error parsing in line {len(results)+1}", file=sys.stderr)
+            print(f"Error parsing in line {len(results)+1}: {e}", file=sys.stderr)
             return None
 
+        # see if we can merge key
         for mkey, t in data_dict.items():
             if mkey in item:
                 for rkey, values in t.items():
                     if item[mkey] in values:
+                        include = True
                         item[rkey] = values[item[mkey]]
-        f_out.write(json.dumps(item) + '\n')
-        f_out.flush()
-        results += [item]
 
-    print(f"Merge complete! {len(results)} results returned", file=sys.stderr)
+        # add the line to results, take intersect option into account
+        if set_operation == SetOperation.MERGE or include != (set_operation == SetOperation.EXCEPT):
+            f_out.write(json.dumps(item) + '\n')
+            f_out.flush()
+            results += [item]
         
     return results  
 
@@ -60,7 +70,7 @@ def prep_dictionary(file_path):
             
                     # Validate required fields
                     if not all([key, add, match, result_value]):
-                        print(f"Warning: Line {line_num} missing required fields: {line}", file=sys.stderr)
+                        print(f"Warning: Line {len(results)+1} missing required fields: {line}", file=sys.stderr)
                         continue
             
                     # Initialize the structure if not exists
@@ -101,7 +111,27 @@ def main():
     parser.add_argument("-i", "--input", nargs='?', type=argparse.FileType('r'), default=sys.stdin, help="Input JSONLines file with file pathnames (default: stdin)")
     parser.add_argument("-o", "--output", nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="Output JSONLines file (default: stdout)")
     parser.add_argument("-d", "--datafile", help="Use this JSONLines file to combine")
-    
+    parser.add_argument("-v", "--verbose", default=False, action="store_true", help="Be verbose")
+
+    # Create mutually exclusive group for set operations
+    set_group = parser.add_mutually_exclusive_group()
+    set_group.add_argument(
+        '-s', '--intersect',
+        action='store_const',
+        const=SetOperation.INTERSECT,
+        dest='set_type',
+        help='Use INTERSECT operation to find common elements'
+    )
+    set_group.add_argument(
+        '-e', '--except',
+        action='store_const',
+        const=SetOperation.EXCEPT,
+        dest='set_type',
+        help='Use EXCEPT operation to find lines not matched'
+    )
+    # Set default value for set_type
+    parser.set_defaults(set_type=SetOperation.MERGE)
+
     args = parser.parse_args()
     
     
@@ -117,7 +147,10 @@ def main():
         parser.print_help()
         return 1
 
-    results = combine_lines(args.input, args.output, combine_dict)
+    results = combine_lines(args.input, args.output, combine_dict, args.set_type)
+
+    if args.verbose:
+        print(f"Merge complete! {len(results)} results returned", file=sys.stderr)
 
     # close all filehandles
     if args.input is not sys.stdin:

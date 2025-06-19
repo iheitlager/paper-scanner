@@ -22,7 +22,7 @@ def scan_lines(f_in, f_out):
         try:
             item = json.loads(line.strip())
         except Exception as e:
-            print(f"Error parsing in line {len(results)+1}", file=sys.stderr)
+            print(f"Error parsing in line {len(results)+1}: {e}", file=sys.stderr)
             return None
 
         if 'analysis' in item:
@@ -34,7 +34,6 @@ def scan_lines(f_in, f_out):
         f_out.flush()
         results += [item]
 
-    print(f"Parsing complete! {len(results)} results saved", file=sys.stderr)
         
     return results        
 
@@ -43,7 +42,8 @@ def main():
     parser = argparse.ArgumentParser(description="Parse Claude.ai output and store results in JSON")
     parser.add_argument("-i", "--input", nargs='?', type=argparse.FileType('r'), default=sys.stdin, help="Input JSONLines file with file pathnames (default: stdin)")
     parser.add_argument("-o", "--output", nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="Output JSONLines file (default: stdout)")
-    
+    parser.add_argument("-v", "--verbose", default=False, action="store_true", help="Be verbose")
+   
     args = parser.parse_args()
 
     # if we are interactive, do error message
@@ -52,6 +52,9 @@ def main():
         return 1
 
     results = scan_lines(args.input, args.output)
+
+    if args.verbose:
+        print(f"Parsing complete! {len(results)} results saved", file=sys.stderr)
 
     # close all filehandles
     if args.input is not sys.stdin:
