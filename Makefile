@@ -49,6 +49,12 @@ $(VIRTUALENV)/bin/python: # create the local virtualenv
 	virtualenv $(VIRTUALENV)
 	echo "To activate 'source $(VIRTUALENV)/bin/activate'"
 
+update: ## update all packages
+	@$(PYTHON) -m pip install --upgrade pip
+	@$(PYTHON) -m pip install --upgrade anthropic
+	@$(PYTHON) -m pip install --upgrade pypdf
+	@$(PYTHON) -m pip install --upgrade requests
+
 help: ## Shows help screen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
 	@echo ""
