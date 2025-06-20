@@ -15,7 +15,7 @@ import datetime
 from pathlib import Path
 
 
-def scan_for_pdfs(folder_path, recursive=True, include_metadata=True, file_filter=[]):
+def scan_for_pdfs(folder_path, f_out, recursive=True, include_metadata=True, file_filter=[], verbose=False):
     """
     Scan a folder for PDF files and return a list of file information.
     
@@ -32,7 +32,8 @@ def scan_for_pdfs(folder_path, recursive=True, include_metadata=True, file_filte
     
     # Check if folder exists
     if not folder_path.exists() or not folder_path.is_dir():
-        raise ValueError(f"The path '{folder_path}' is not a valid directory")
+        print(f"The path '{folder_path}' is not a valid directory", file=sys.stderr)
+        return None
     
     # Determine the glob pattern based on recursion preference
     pattern = "**/*.pdf" if recursive else "*.pdf"
@@ -56,42 +57,25 @@ def scan_for_pdfs(folder_path, recursive=True, include_metadata=True, file_filte
                     "modified_time": datetime.datetime.fromtimestamp(stat.st_mtime).isoformat(),
                     "accessed_time": datetime.datetime.fromtimestamp(stat.st_atime).isoformat()
                 })
-            
+
+            f_out.write(json.dumps(file_info) + '\n')
+            f_out.flush()            
             results.append(file_info)
     
     return results
 
-def write_jsonlines(data, output_file=None):
-    """
-    Write data to a JSONLines file or stdout.
-    
-    Args:
-        data: List of dictionaries to write
-        output_file: Path to the output file, or None to write to stdout
-    """
-    if output_file:
-        with open(output_file, 'w', encoding='utf-8') as f:
-            for item in data:
-                f.write(json.dumps(item) + '\n')
-    else:
-        # Write to stdout
-        for item in data:
-            print(json.dumps(item))
-
 def main():
     parser = argparse.ArgumentParser(description="Scan PDFs in folder and write the list as JSONLines")
     parser.add_argument("folder", help="Folder to scan for PDF files")
-    parser.add_argument("-o", "--output", help="Output JSONLines file (defaults to stdout if not specified)")
+    parser.add_argument("-o", "--output", nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="Output JSONLines file (default: stdout)")
     parser.add_argument("-f", "--filter", help="Use this JSONLines file as a filter")
     parser.add_argument("-r", "--recursive", action="store_true", help="Scan subfolders recursively")
     parser.add_argument("--no-metadata", action="store_true", help="Don't include file metadata")
+    parser.add_argument("-v", "--verbose", default=False, action="store_true", help="Be verbose")
     
     args = parser.parse_args()
-    
-    
-    # try:
-        # Only print status messages to stderr if they won't interfere with stdout output
-    if args.output:
+     
+    if args.output and args.verbose:
         print(f"Scanning {args.folder} for PDF files...", file=sys.stderr)
     
     file_filter = []
@@ -102,22 +86,22 @@ def main():
 
     results = scan_for_pdfs(
         args.folder, 
+        args.output,
         recursive=args.recursive, 
         include_metadata=not args.no_metadata,
-        file_filter=file_filter
+        file_filter=file_filter,
+        verbose=args.verbose
     )
-    
-    write_jsonlines(results, args.output)
-    
-    if args.output:
+       
+    if args.output and args.verbose:
         print(f"Found {len(results)} PDF files", file=sys.stderr)
+    if args.output and args.verbose:
         print(f"Results written to {args.output}", file=sys.stderr)
-        
-    # except Exception as e:
-    #     print(f"Error: {e}", file=sys.stderr)
-    #     return 1
+
+    if args.output is not sys.stdout:
+        args.output.close()
     
-    return 0
+    return 0 if results else 1
 
 if __name__ == "__main__":
     main()
