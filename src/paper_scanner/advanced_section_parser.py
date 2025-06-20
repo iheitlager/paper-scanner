@@ -132,7 +132,7 @@ class AcademicPaperParser:
         items = {}
 
         for l in methodology_text.split('\n\n'):
-            matches = re.findall(r'\**\d+\.\d+\.\s+\**([A-Z]+)\:\*+\s+(.*)', l, re.DOTALL)
+            matches = re.findall(r'[\*\#]*\d+\.\d+\.\s+[\*\#]*([A-Z]+)\:\*+\s+(.*)', l, re.DOTALL)
             if matches:
                 for section_name, content in matches:
                     section_name = section_name.strip()

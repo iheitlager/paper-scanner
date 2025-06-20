@@ -140,7 +140,8 @@ class PDFClaudeScanner:
         results = []
         
         for line in f_in:
-            pdf_file = json.loads(line.strip())['file_path']
+            item = json.loads(line.strip())
+            pdf_file = item['file_path']
             processing_time = {
                 'start_time': datetime.datetime.now(datetime.timezone.utc).isoformat()
             }
@@ -153,10 +154,7 @@ class PDFClaudeScanner:
                 if analysis:
                     processing_time['end_time'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-                    item = {
-                        "file_path": str(pdf_file),
-                        "analysis": analysis
-                    }
+                    item["analysis"] = analysis
                     if include_metadata:
                         item['timing'] = processing_time
 

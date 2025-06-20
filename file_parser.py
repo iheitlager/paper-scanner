@@ -27,15 +27,11 @@ def scan_lines(f_in, f_out):
 
         if 'analysis' in item:
             result = parser.process_paper_analysis(item['analysis'])
-            result['file_path'] = item['file_path']
-            result['file_name'] = item['file_name']
-        else:
-            result = item
-        f_out.write(json.dumps(result) + '\n')
+            item.update(result)
+        f_out.write(json.dumps(item) + '\n')
         f_out.flush()
         results += [item]
 
-        
     return results        
 
 
