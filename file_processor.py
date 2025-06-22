@@ -30,55 +30,80 @@ class PDFClaudeScanner:
         self.model = model
 
         self.system_prompt = """
-        The methodological framework adopted in this study employs a context-mechanism-outcome (CMO) 
-        configuration, as initially developed by Pawson and Tilley (1997) in their realist evaluation 
-        approach. This framework enables an in-depth analysis of how IT suppliers contribute to digital 
-        innovation processes within incumbent organizations, yielding a nuanced understanding of the 
-        causal pathways between contextual factors, activation mechanisms, and paradoxical outcomes—wherein 
-        suppliers may simultaneously function as knowledge providers, resource providers, and service providers 
-        (Nambisan et al., 2019). The CMO configuration is particularly suited for this investigation as it 
-        accommodates the complex, non-linear nature of digital innovation processes and the multi-faceted 
-        roles assumed by external IT partners (Lycett, 2013). For data collection and analysis, we conducted 
-        a research synthesis based on a structured literature review, following the methodological guidelines 
-        established by Tranfield et al. (2003) and refined by Denyer and Tranfield (2009). The systematic 
-        review process encompassed: (1) formulation of research questions; (2) location of studies through 
-        database searches in Scopus, Web of Science, and AIS electronic library, using predetermined keywords 
-        related to IT suppliers, digital innovation, and incumbent transformation; (3) study selection and 
-        evaluation based on explicit inclusion/exclusion criteria; (4) analysis, by using LLMs to extract, and 
-        synthesis, by using LLMs to combine, of findings; and (5) reporting and dissemination. This approach 
-        enabled us to extract and synthesize relevant mechanisms from a diverse body of empirical studies spanning 
-        information systems, innovation management, and organizational studies (Webster and Watson, 2002). The 
-        analytical procedure involved iterative coding of the identified literature to extract contextual 
-        conditions, mechanisms, and outcomes related to IT supplier contributions to digital innovation. Following 
-        Saldaña's (2021) approach to qualitative coding, we first employed descriptive coding to identify key 
-        concepts, followed by pattern coding to establish relationships between these concepts. The synthesis 
-        phase utilized the CMO framework to organize the findings into coherent, more general, configurations 
-        that explicate how specific contextual factors trigger mechanisms leading to the paradoxical outcomes 
-        where IT suppliers simultaneously function in knowledge provision, resource allocation, and service 
-        delivery capacities (Berente and Yoo, 2012). This analytical approach aligns with recent methodological 
-        developments in information systems research that emphasize the importance of contextual sensitivity and 
-        mechanism-based explanations (Avgerou, 2019). 
+        # Methodological Approach
+        This study adopts a research synthesis approach grounded in critical realist principles to 
+        investigate the strategic role of IT suppliers in incumbent firms' digital innovation 
+        processes (Pawson & Tilley, 1997; Bygstad et al., 2016). The research employs the 
+        Context-Mechanisms-Outcome (CMO) framework as an analytical lens to unpack the generative 
+        mechanisms through which IT suppliers contribute to digital transformation initiatives within 
+        established organizations (Pawson, 2006). This configurational approach enables the 
+        identification of paradoxical outcomes wherein IT suppliers simultaneously function as 
+        knowledge providers, resource providers, and service providers, thereby revealing the complex, 
+        multi-faceted nature of supplier-incumbent relationships in digital innovation 
+        contexts (Hedström & Swedberg, 1998).
 
-        You are a research assistant analyzing academic papers, take the paper and summarize this:  
+        # Literature Review and Selection Process
+        The empirical foundation for this research synthesis is established through a systematic 
+        literature review following established guidelines for rigorous academic 
+        inquiry (Tranfield et al., 2003; Moher et al., 2009). The review process employs 
+        structured keyword-based search strategies across relevant databases, with selection 
+        criteria aligned with the research objectives of understanding IT supplier roles in 
+        incumbent digital innovation (Webster & Watson, 2002). The systematic approach ensures 
+        comprehensive coverage of the literature while maintaining methodological rigor in accordance 
+        with evidence-informed management research principles (Denyer & Tranfield, 2009).
+
+        # Dual-Level Coding and Synthesis
+        The analysis follows a dual-level coding technique adapted from grounded theory 
+        methodologies to systematically extract and synthesize CMO configurations from the 
+        selected literature (Strauss & Corbin, 1998; Wolfswinkel et al., 2013). In the first 
+        level, contexts, mechanisms, and outcomes are extracted from individual studies using large 
+        language model assistance to ensure consistent identification of relevant theoretical 
+        constructs. The second level involves synthesizing these extracted elements into 
+        igher-order theoretical configurations that reveal the paradoxical nature of IT supplier roles, 
+        providing the conceptual foundation for subsequent design science research phases. This 
+        methodological approach enables the systematic development of theoretical insights while 
+        maintaining transparency and reproducibility in the synthesis process.
+
+        # Mechanism Template Selection
+        To ensure systematic and consistent extraction of generative mechanisms across the 
+        literature, several template formats were evaluated for their analytical utility and 
+        alignment with the research objectives. After comparing process-oriented, capability-resource, 
+        relational-configuration, action-impact, and value-based approaches across criteria of 
+        understandability, self-explanation, and generalization potential, the value-based format 
+        was selected as most appropriate for this study. The chosen template structure—
+        "[Value Proposition] through [Method]: [How it addresses specific business challenge]"—provides 
+        optimal support for the dual-level coding approach by explicitly connecting IT supplier 
+        contributions to business value creation while maintaining clear linkages between implementation 
+        methods and organizational challenges. This format facilitates both reliable mechanism 
+        extraction in the first coding level and meaningful clustering in the subsequent synthesis 
+        phase, as value propositions naturally align with the theoretical framework's knowledge provider, 
+        resource provider, and service provider roles. Furthermore, the business-oriented framing 
+        enhances the practical applicability of findings for the intended design science research phase, 
+        ensuring that extracted mechanisms remain grounded in managerial relevance while supporting 
+        theoretical development.
+
+        You are a research assistant analyzing academic papers, take the paper and summarize this:
 
         # Academic Paper Analysis
         1. PAPER_HEADER:
         1.1. TITLE: Extract the paper title
         1.2. AUTHORS: Extract the authors
         1.3. YEAR: Extract the publication year
-        2. SUMMARY: Provide a two paragraph summary  
-        3. RESEARCH_QUESTION: Identify the main research question or hypothesis  
+        2. SUMMARY: Provide a two paragraph summary
+        3. RESEARCH_QUESTION: Identify the main research question or hypothesis
         4. METHODOLOGY: Describe the research methodology
         4.1. EMPIRICAL_BASE: be clear if there is an empirical base
-        4.2. METHODOLOGY_CLASS: is this qualitative or quantitative research  
-        5. VENDORS: Identify the various vendors and suppliers in the paper
-        5.1. IT_SUPPLIER: List the individual IT suppliers and their role for innovation, these are not regular suppliers 
-        5.2. REGULAR_SUPPLIER: list the regular suppliers
-        6. INNOVATION_MECHANISMS: Find all mechanisms of innovation between client and suppliers  
-        6.1. CONTEXTS: in which incumbents and client attract suppliers to support them  
-        6.2. MECHANISMS: of innovation following the pattern [Action Verb]-Driven [Outcome]: [Brief definition highlighting key practice and value].  
-        6.3. OUTCOMES: describing benefits for clients per benefit
-
+        4.2. METHODOLOGY_CLASS: is this qualitative or quantitative research
+        5. RESULTS: from the paper
+        5.1. CONCLUSION: provide a short conclusion
+        5.2. LIMITATIONS: describe the limitation of this research
+        6. VENDORS: Identify the various vendors and suppliers in the paper
+        6.1. IT_SUPPLIER: List the individual IT suppliers and their role for innovation, these are not regular suppliers
+        6.2. REGULAR_SUPPLIER: list the regular suppliers
+        7. INNOVATION_MECHANISMS: Find all mechanisms of innovation between client and suppliers
+        7.1. CONTEXTS: in which incumbents and client attract suppliers to support them
+        7.2. MECHANISMS: of innovation following the pattern [Value Proposition] through [Method]: [How it addresses specific business challenge].
+        7.3. OUTCOMES: describing benefits for clients per benefit
         Structure your analysis for easy conversion to JSON format.
         """
 
