@@ -32,58 +32,49 @@ class PDFClaudeScanner:
         self.system_prompt = """
         # Methodological Approach
         This study adopts a research synthesis approach grounded in critical realist principles to 
-        investigate the strategic role of IT suppliers in incumbent firms' digital innovation 
-        processes (Pawson & Tilley, 1997; Bygstad et al., 2016). The research employs the 
-        Context-Mechanisms-Outcome (CMO) framework as an analytical lens to unpack the generative 
-        mechanisms through which IT suppliers contribute to digital transformation initiatives within 
-        established organizations (Pawson, 2006). This configurational approach enables the 
-        identification of paradoxical outcomes wherein IT suppliers simultaneously function as 
-        knowledge providers, resource providers, and service providers, thereby revealing the complex, 
-        multi-faceted nature of supplier-incumbent relationships in digital innovation 
-        contexts (Hedström & Swedberg, 1998).
+        investigate the strategic role of IT suppliers in incumbent firms' digital innovation processes 
+        (Pawson & Tilley, 1997; Bygstad et al., 2016). We employ Romme's CAMO (Context-Agency-Mechanism-Outcome) 
+        framework, which represents a systematic approach to design science research that extends traditional 
+        realist evaluation methods for innovation and external resources contexts (Romme & Dimov, 2021; Dimov et al., 2023). 
+        Unlike the traditional CMO framework that focuses primarily on interventions, the CAMO framework 
+        incorporates "agency" to capture not only what actions are taken but also by whom, recognizing the 
+        distributed and socially constructed nature of innovation processes (Denyer et al., 2008; Romme & Dimov, 2021). 
+        The framework is grounded in design science methodology, which operates at the interface of creative 
+        design and explanatory science to create and test innovative solutions through iterative cycles of 
+        creating, evaluating, theorizing, and justifying (Dimov et al., 2023).
 
-        # Literature Review and Selection Process
-        The empirical foundation for this research synthesis is established through a systematic 
-        literature review following established guidelines for rigorous academic 
-        inquiry (Tranfield et al., 2003; Moher et al., 2009). The review process employs 
-        structured keyword-based search strategies across relevant databases, with selection 
-        criteria aligned with the research objectives of understanding IT supplier roles in 
-        incumbent digital innovation (Webster & Watson, 2002). The systematic approach ensures 
-        comprehensive coverage of the literature while maintaining methodological rigor in accordance 
-        with evidence-informed management research principles (Denyer & Tranfield, 2009).
+        In practice, the CAMO framework guides researchers through systematic development of design propositions 
+        that can be formatted as: "In Context C, Agency A triggers Mechanism M to produce Outcome O" (Romme, 2023). 
+        This structure enables researchers to develop highly contextualized mid-range theories that can subsequently 
+        be decontextualized into more generalized causal relationships through iterative design science cycles 
+        (Van Burg et al., 2008; Dimov et al., 2023). The framework is particularly valuable for innovation research 
+        because it accommodates the uncertain, complex, and socioeconomic nature of innovation phenomena while 
+        maintaining scientific rigor through evidence-based protocols (Romme & Reymen, 2018). Recent applications 
+        have demonstrated its effectiveness in designing deep-tech venture builders, sustainable business model tools, 
+        and innovation ecosystem interventions, where the CAMO structure helps bridge the gap between practical relevance 
+        and theoretical contribution by enabling systematic evaluation of design choices and their boundary conditions 
+        (Romme et al., 2023; Dimov et al., 2023).
 
-        # Dual-Level Coding and Synthesis
-        The analysis follows a dual-level coding technique adapted from grounded theory 
-        methodologies to systematically extract and synthesize CMO configurations from the 
-        selected literature (Strauss & Corbin, 1998; Wolfswinkel et al., 2013). In the first 
-        level, contexts, mechanisms, and outcomes are extracted from individual studies using large 
-        language model assistance to ensure consistent identification of relevant theoretical 
-        constructs. The second level involves synthesizing these extracted elements into 
-        igher-order theoretical configurations that reveal the paradoxical nature of IT supplier roles, 
-        providing the conceptual foundation for subsequent design science research phases. This 
-        methodological approach enables the systematic development of theoretical insights while 
-        maintaining transparency and reproducibility in the synthesis process.
-
-        # Mechanism Template Selection
-        To ensure systematic and consistent extraction of generative mechanisms across the 
-        literature, several template formats were evaluated for their analytical utility and 
-        alignment with the research objectives. After comparing process-oriented, capability-resource, 
-        relational-configuration, action-impact, and value-based approaches across criteria of 
-        understandability, self-explanation, and generalization potential, the value-based format 
-        was selected as most appropriate for this study. The chosen template structure—
-        "[Value Proposition] through [Method]: [How it addresses specific business challenge]"—provides 
-        optimal support for the dual-level coding approach by explicitly connecting IT supplier 
-        contributions to business value creation while maintaining clear linkages between implementation 
-        methods and organizational challenges. This format facilitates both reliable mechanism 
-        extraction in the first coding level and meaningful clustering in the subsequent synthesis 
-        phase, as value propositions naturally align with the theoretical framework's knowledge provider, 
-        resource provider, and service provider roles. Furthermore, the business-oriented framing 
-        enhances the practical applicability of findings for the intended design science research phase, 
-        ensuring that extracted mechanisms remain grounded in managerial relevance while supporting 
-        theoretical development.
+        The empirical foundation for this research synthesis is established through a systematic literature review 
+        following established guidelines for rigorous academic inquiry (Tranfield et al., 2003; Moher et al., 2009). 
+        The review process employs structured keyword-based search strategies across relevant databases, with selection 
+        criteria aligned with the research objectives of understanding IT supplier roles in incumbent digital 
+        innovation (Webster & Watson, 2002). This systematic approach ensures comprehensive coverage of the literature 
+        while maintaining methodological rigor in accordance with evidence-informed management research principles 
+        (Denyer & Tranfield, 2009). Building on this foundation, the analysis follows a dual-level coding technique 
+        adapted from grounded theory methodologies to systematically extract and synthesize CAMO configurations from 
+        the selected literature (Strauss & Corbin, 1998; Wolfswinkel et al., 2013). At the first level, we employ 
+        AI-assisted extraction techniques using Claude.ai to systematically identify and parse CAMO configurations from 
+        literature on IT supplier-incumbent innovation relationships. This involves extracting mechanisms in the 
+        standardized format "[CONTEXT], [AGENCY], [MECHANISM], [OUTCOME]" to enable automated processing and systematic 
+        comparison across studies, thereby enhancing the rigor and scalability of design science research synthesis 
+        in digital innovation contexts. The second level involves synthesizing these extracted elements into higher-order 
+        theoretical configurations that reveal the paradoxical nature of IT supplier roles, providing the conceptual 
+        foundation for subsequent design science research phases. This methodological approach enables the systematic 
+        development of theoretical insights while maintaining transparency and reproducibility in the synthesis process.
 
         You are a research assistant analyzing academic papers, take the paper and summarize this:
-
+        
         # Academic Paper Analysis
         1. PAPER_HEADER:
         1.1. TITLE: Extract the paper title
@@ -100,10 +91,8 @@ class PDFClaudeScanner:
         6. VENDORS: Identify the various vendors and suppliers in the paper
         6.1. IT_SUPPLIER: List the individual IT suppliers and their role for innovation, these are not regular suppliers
         6.2. REGULAR_SUPPLIER: list the regular suppliers
-        7. INNOVATION_MECHANISMS: Find all mechanisms of innovation between client and suppliers
-        7.1. CONTEXTS: in which incumbents and client attract suppliers to support them
-        7.2. MECHANISMS: of innovation following the pattern [Value Proposition] through [Method]: [How it addresses specific business challenge].
-        7.3. OUTCOMES: describing benefits for clients per benefit
+        7. INNOVATION_MECHANISMS: Find all mechanisms, one per line, of innovation between client and suppliers. Use Format [CONTEXT], [AGENCY], [MECHANISM], [OUTCOME] - [Description]
+        
         Structure your analysis for easy conversion to JSON format.
         """
 
@@ -234,6 +223,9 @@ def main():
         args.input.close()
     if args.output is not sys.stdout:
         args.output.close()
+
+    return 0 if results else 1
+
 
 if __name__ == "__main__":
     sys.exit(main())
