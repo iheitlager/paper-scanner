@@ -128,18 +128,24 @@ class AcademicPaperParser:
         """
         Extract innovation mechanisms separate items.
         """
-        fields = ["CONTEXTS", 'MECHANISMS', 'OUTCOMES']
-        items = {}
+        items = []
 
         for l in methodology_text.split('\n\n'):
-            matches = re.findall(r'[\*\#]*\d+\.\d+\.\s+[\*\#]*([A-Z]+)\:\*+\s+(.*)', l, re.DOTALL)
-            if matches:
-                for section_name, content in matches:
-                    section_name = section_name.strip()
-                    if section_name in fields:
-                        items[section_name] = content.strip().split('\n')
+            camo, description = l.split(' - ')
+            match = re.search(r'\[(.+)\], \[(.+)\], \[(.+)\], \[(.+)\]', camo)
+            if match:
+                camo = {
+                    "c": match.group(1).strip(),
+                    "a": match.group(2).strip(),
+                    "m": match.group(3).strip(),
+                    "o": match.group(4).strip(),
+                    'description': description
+                }
+            else:
+                camo = {'camo': camo, 'description': description}
+            items.append(camo)
 
-        return items
+        return {'CAMO': items}
     
 
     def parse_vendors(self, vendors_text):
