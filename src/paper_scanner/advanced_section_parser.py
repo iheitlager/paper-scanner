@@ -76,8 +76,8 @@ class AcademicPaperParser:
         fields = ["TITLE",'AUTHORS','YEAR']
         items = {}
 
-        for l in header_text.split('\n\n'):
-            match = re.search(r'\**\d+\.\d+\.\s+\**(.*)\:\*+\s+(.*)', l)
+        for l in header_text.split('\n'):
+            match = re.search(r'[#\*\s]*\d+\.\d+\.\s+\**([^\:\*]+)\**\:\**\s+(.*)', l)
             if match:
                 key = match.group(1).strip()
                 if key in fields:
@@ -116,7 +116,7 @@ class AcademicPaperParser:
         items = {}
 
         for l in methodology_text.split('\n\n'):
-            match = re.search(r'\**\d+\.\d+\.\s+\**([A-Z_]*)\:\*+\s+(.*)', l)
+            match = re.search(r'\**\d+\.\d+\.\s+\**([A-Z_]*)\:\**\s+(.*)', l)
             if match:
                 key = match.group(1).strip()
                 if key in fields:
@@ -131,19 +131,16 @@ class AcademicPaperParser:
         items = []
 
         for l in methodology_text.split('\n\n'):
-            camo, description = l.split(' - ')
-            match = re.search(r'\[(.+)\], \[(.+)\], \[(.+)\], \[(.+)\]', camo)
+            match = re.search(r'^\[(.+)\], \[(.+)\], \[(.+)\], \[(.+)\] - (.+)$', l)
             if match:
                 camo = {
                     "c": match.group(1).strip(),
                     "a": match.group(2).strip(),
                     "m": match.group(3).strip(),
                     "o": match.group(4).strip(),
-                    'description': description
+                    'description': match.group(5).strip()
                 }
-            else:
-                camo = {'camo': camo, 'description': description}
-            items.append(camo)
+                items.append(camo)
 
         return {'CAMO': items}
     
@@ -156,7 +153,7 @@ class AcademicPaperParser:
         items = {}
 
         for l in vendors_text.split('\n\n'):
-            matches = re.findall(r'\**\d+\.\d+\.\s+\**([A-Z_]+)\:\*+\s+(.*)', l, re.DOTALL)
+            matches = re.findall(r'\**\d+\.\d+\.\s+\**([A-Z_]+)\:\**\s+(.*)', l, re.DOTALL)
             if matches:
                 for section_name, content in matches:
                     section_name = section_name.strip()

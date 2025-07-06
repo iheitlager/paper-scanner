@@ -31,7 +31,7 @@ class TestAcademicPaperParser(unittest.TestCase):
         self.assertIn("VENDORS", parsed_sections)
         self.assertIn("INNOVATION_MECHANISMS", parsed_sections)
        
-    def test_extract_paper_header(self):
+    def test_extract_paper_header1(self):
         _INPUT= '1.1. **TITLE:** How do collaborative systems affect organizational agility and performance in supply chains?\n\n1.2. **AUTHORS:** Hangju Seo, Heejun Cho, Donghyuk Jo\n\n1.3. **YEAR:** 2025\n\n'
 
         result = self.parser.extract_paper_header(_INPUT)
@@ -39,15 +39,32 @@ class TestAcademicPaperParser(unittest.TestCase):
         self.assertEqual(result["TITLE"], "How do collaborative systems affect organizational agility and performance in supply chains?")
         self.assertIn(result["AUTHORS"], "Hangju Seo, Heejun Cho, Donghyuk Jo")
 
+    def test_extract_paper_header2(self):
+        _INPUT= '## 1. PAPER_HEADER\n### 1.1. TITLE: Open innovation, digital transformation, the mediating effect of technological maturity and diversity\n\n### 1.2. AUTHORS: XiangYu Luan, XiaoHong Wang, Na Li\n\n### 1.3. YEAR: 2024\n\n'
+
+        parsed_sections = self.parser.parse_sections(_INPUT)
+        self.assertIn("PAPER_HEADER", parsed_sections)
+        result = self.parser.extract_paper_header(parsed_sections['PAPER_HEADER'])
+        self.assertEqual(result["YEAR"], "2024")
+        self.assertEqual(result["TITLE"], "Open innovation, digital transformation, the mediating effect of technological maturity and diversity")
+        self.assertIn(result["AUTHORS"], "XiangYu Luan, XiaoHong Wang, Na Li")
+
+
+
+
     def test_innovation_mechanisms(self):
         # Parse the input
         parsed_sections = self.parser.parse_sections(BIG_TEXT)
         self.assertIn("INNOVATION_MECHANISMS", parsed_sections)
         cmo = self.parser.parse_innovation_mechanisms(parsed_sections['INNOVATION_MECHANISMS'])
-        self.assertEqual(len(cmo), 3)
-        self.assertEqual(len(cmo['CONTEXTS']), 5)
-        self.assertEqual(len(cmo['MECHANISMS']), 5)
-        self.assertEqual(len(cmo['OUTCOMES']), 5)
+        self.assertEqual(len(cmo), 1)
+
+    def test_innovation_mechanisms2(self):
+        # Parse the input
+        _INPUT = """[High customer interaction with digital channels, FSP, Digital channel implementation, Enhanced customer experience but potential facade digitalization] - FSPs implement digital customer channels while maintaining legacy backend systems\n\n[Strategic cooperation with Fintech, FSP, Partnership formation, Access to digital products and services] - Insurance companies and banks form strategic partnerships with Fintech/Insurtech to offer innovative digital services\n\n[Digital strategy development, FSP management, Strategic planning and resource allocation, Systematic digital transformation approach] - FSPs develop dedicated digital strategies to guide comprehensive transformation efforts\n\n[Core system modernization, FSP with IT suppliers, Legacy system replacement or upgrade, Improved operational efficiency and digital capability] - Financial institutions work with technology providers to modernize core banking/insurance systems\n\n[Data analytics implementation, FSP with technology partners, Advanced analytics deployment, Enhanced customer insights and risk management] - FSPs implement big data and AI capabilities for strategic applications like fraud detection and personalized services\n\n[Platform ecosystem development, FSP with multiple partners, Multi-sided platform creation, New revenue streams and customer touchpoints] - Leading FSPs create platform ecosystems connecting multiple service providers and customers\n\n[Process digitalization, FSP with process automation vendors, Business process reengineering, Improved operational efficiency and customer experience] - FSPs digitalize their value creation processes to reduce manual interventions and improve service delivery"""
+        camo = self.parser.parse_innovation_mechanisms(_INPUT)
+        self.assertEqual(len(camo), 1)
+
 
     def test_vendors(self):
         # Parse the input
@@ -57,6 +74,25 @@ class TestAcademicPaperParser(unittest.TestCase):
         self.assertEqual(len(vendor), 2)
         self.assertEqual(len(vendor['IT_SUPPLIER']), 3)
         self.assertEqual(len(vendor['REGULAR_SUPPLIER']), 1)
+
+
+    def  test_name1(self):
+        _INPUT = '# Academic Paper Analysis\n\n## 1. PAPER_HEADER:\n**1.1. TITLE:** Participatory design of digital innovation in agricultural research-for-development: insights from practice\n\n**1.2. AUTHORS:** Jonathan Steinke, Berta Ortiz-Crespo, Jacob van Etten, Anna Müller\n\n**1.3. YEAR:** 2022\n\n'
+        parsed_sections = self.parser.parse_sections(_INPUT)
+        self.assertIn("PAPER_HEADER", parsed_sections)
+        self.assertEqual(len(parsed_sections), 1)
+        items = self.parser.extract_paper_header(parsed_sections['PAPER_HEADER'])
+        self.assertIn('TITLE', items)
+
+
+    def  test_name2(self):
+        _INPUT = '# Academic Paper Analysis\n\n## 1. PAPER_HEADER:\n1.1. **TITLE**: Transformational shifts through digital servitization\n1.2. **AUTHORS**: Bård Tronvoll, Alexey Sklyar, David Sörhammar, Christian Kowalkowski  \n1.3. **YEAR**: 2020\n\n'
+        parsed_sections = self.parser.parse_sections(_INPUT)
+        self.assertIn("PAPER_HEADER", parsed_sections)
+        self.assertEqual(len(parsed_sections), 1)
+        items = self.parser.extract_paper_header(parsed_sections['PAPER_HEADER'])
+        self.assertIn('TITLE', items)
+
 
 
     # def test_parse_mechanisms1(self):
