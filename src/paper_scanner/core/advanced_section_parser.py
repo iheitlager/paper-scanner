@@ -43,45 +43,68 @@ class AcademicPaperParser:
     def parse_sections(self, text):
         """
         Parse text into sections based on different header formats.
+        Handles ## SECTION_NAME format while treating ### as subsections.
         """
-        # Try multiple header patterns
-        patterns = [
-            # ## SECTION_NAME
-            r'##[0-9\.\s]+([A-Z_\:]+)\s*\n+(.*?)(?=##[0-9\.\s]+[A-Z_]+|\Z)',
-            
-            # # SECTION_NAME:
-            # r'([A-Z_]+):\s*\n(.*?)(?=(?:[A-Z_]+):\s*\n|\Z)',
-            
-            # # SECTION_NAME
-            # r'(?:^|\n)([A-Z_]+)\s*\n(.*?)(?=(?:^|\n)[A-Z_]+\s*\n|\Z)'
-        ]
-        
         sections = {}
         
-        # Try each pattern until we find matches
-        for pattern in patterns:
-            matches = re.findall(pattern, text, re.DOTALL)
-            if matches:
-                for section_name, content in matches:
-                    normalized_name = self.normalize_section_name(section_name)
-                    sections[normalized_name] = content.strip()
-                break
+        # Split by ## but not ### (exactly 2 hashes)
+        # Pattern: ## (not followed by #) digits/dots space SECTIONNAME
+        pattern = r'^##\s+(?:\d+\.\s+)?([A-Z_:]+)\s*$'
+        
+        lines = text.split('\n')
+        current_section = None
+        current_content = []
+        
+        for line in lines:
+            # Check if this is a section header (## but not ###)
+            match = re.match(pattern, line)
+            if match:
+                # Save previous section
+                if current_section is not None:
+                    normalized_name = self.normalize_section_name(current_section)
+                    sections[normalized_name] = '\n'.join(current_content).strip()
+                
+                # Start new section
+                current_section = match.group(1)
+                current_content = []
+            else:
+                # Add to current section content
+                if current_section is not None:
+                    current_content.append(line)
+        
+        # Save last section
+        if current_section is not None:
+            normalized_name = self.normalize_section_name(current_section)
+            sections[normalized_name] = '\n'.join(current_content).strip()
+        
         return sections
     
     def extract_paper_header(self, header_text):
         """
         Separate title and authors from combined paper_header section.
+        Handles formats like:
+        - 1.1. **TITLE:** ... (colon inside **)
+        - 1.1. **TITLE**: ... (colon outside **)
+        - ### 1.1. TITLE: ... (plain text)
         """
-        # Try to find paper header patterns 
-        fields = ["TITLE",'AUTHORS','YEAR']
+        fields = ["TITLE", 'AUTHORS', 'YEAR']
         items = {}
 
         for l in header_text.split('\n'):
-            match = re.search(r'[#\*\s]*\d+\.\d+\.\s+\**([^\:\*]+)\**\:\**\s+(.*)', l)
+            # Try pattern with ** and colon inside: 1.1. **TITLE:** value
+            match = re.search(r'\d+\.\d+\.\s+\*\*([A-Za-z_]+):\*\*\s*(.*)', l)
+            if not match:
+                # Try pattern with ** and colon outside: 1.1. **TITLE**: value
+                match = re.search(r'\d+\.\d+\.\s+\*\*([A-Za-z_]+)\*\*:\s*(.*)', l)
+            if not match:
+                # Try pattern without ** (plain): 1.1. TITLE: value or ### 1.1. TITLE: value
+                match = re.search(r'[#\s]*\d+\.\d+\.\s+([A-Za-z_]+):\s*(.*)', l)
+            
             if match:
-                key = match.group(1).strip()
+                key = match.group(1).strip().upper()
                 if key in fields:
-                    items[key] = match.group(2).strip()
+                    value = match.group(2).strip()
+                    items[key] = value
 
         return items
     

@@ -11,7 +11,7 @@ Results are stored back in JSONLines
 import json
 import sys
 import argparse
-from paper_scanner.advanced_section_parser import AcademicPaperParser
+from paper_scanner.core.advanced_section_parser import AcademicPaperParser
 
 
 def scan_lines(f_in, f_out):
