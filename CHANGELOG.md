@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-12-01
+
+### Added
+
+- Comprehensive versioning strategy with semantic versioning guidelines
+- Branch naming conventions for features (`feat/`) and fixes (`fix/`)
+- Detailed release workflow documentation
+- CLAUDE.md development guidelines with versioning instructions
+- Version management guidelines for maintaining CHANGELOG and version number
+
+## [0.1.1] - 2025-12-01
+
+### Changed
+
+- Migrated project configuration to modern `pyproject.toml` format (replacing setup.py)
+- Adopted `uv` as the package manager for dependency management and development workflows
+- Reorganized project structure to align with Python packaging best practices
+- Improved Makefile with cleaner targets for common development tasks
+- Fixed academic paper parser to handle multiple markdown formatting variations
+
+### Fixed
+
+- `AcademicPaperParser.extract_paper_header()` now correctly handles multiple markdown formats:
+  - Colon inside bold: `**TITLE:** value`
+  - Colon outside bold: `**TITLE**: value`
+  - Plain text: `TITLE: value`
+- `AcademicPaperParser.parse_sections()` improved to properly distinguish between main sections (`##`) and subsections (`###`)
+- All unit tests for paper analysis now passing
+
+### Technical Details
+
+- `uv` now handles all dependency management
+- Development environment configured via `pyproject.toml` with dependency groups
+- Python 3.11+ requirement confirmed and documented
+
 ## [0.1.0] - 2025-06-19
 
 ### Added
