@@ -16,6 +16,7 @@ import time
 import datetime
 from pypdf import PdfReader
 from anthropic import Anthropic
+from dotenv import load_dotenv
 
 
 MAX_TOKENS = 20_000
@@ -182,6 +183,9 @@ class PDFClaudeScanner:
 
 
 def main():
+    # Load environment variables from .env file
+    load_dotenv()
+    
     parser = argparse.ArgumentParser(description="Scan PDFs with Claude.ai and store results in JSON")
     parser.add_argument("-i", "--input", nargs='?', type=argparse.FileType('r'), default=sys.stdin, help="Input JSONLines file with file pathnames (default: stdin)")
     parser.add_argument("-o", "--output", nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="Output JSONLines file (default: stdout)")

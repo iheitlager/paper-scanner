@@ -27,6 +27,7 @@ env: ## Create and populate the development virtual environment
 		echo "No uv.lock found, generating lock file..."; \
 		uv lock; \
 	fi
+	env.sh
 	@uv run python -c "import paper_scanner; print(f'paper-scanner version: {paper_scanner.__version__}')"
 	@echo "To activate: source $(VENV)/bin/activate"
 
@@ -39,7 +40,7 @@ sync: ## Sync dependencies into the virtual environment
 lock: ## Lock dependencies into uv.lock
 	@echo "Locking dependencies..."
 	uv lock
-	
+
 test: ## Run tests with coverage
 	@echo "Running tests..."
 	uv run pytest --cov=src/paper_scanner tests/
