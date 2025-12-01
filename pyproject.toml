@@ -1,0 +1,49 @@
+[project]
+name = "paper-scanner"
+dynamic = ["version"]
+description = "LLM Paper analysis"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Ilja Heitlager", email = "ilja@heitlager.com"}
+]
+maintainers = [
+    {name = "Ilja Heitlager", email = "ilja@heitlager.com"}
+]
+keywords = ["research-tools"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English"
+]
+dependencies = [
+    "anthropic==0.75.0",
+    "pypdf==6.4.0",
+    "requests==2.32.5",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "ruff>=0.14.0",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+file-scanner = "paper_scanner.tools.file_scanner:main"
+file-reader = "paper_scanner.tools.file_reader:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/paper_scanner/__init__.py"

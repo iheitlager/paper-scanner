@@ -1,5 +1,4 @@
-import json
-from advanced_section_parser import AcademicPaperParser
+from paper_scanner.core.advanced_section_parser import AcademicPaperParser
 
 def demo_paper_section_parser():
     """
