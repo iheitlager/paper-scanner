@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import time
+from typing import Optional
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
@@ -25,7 +26,7 @@ DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
 
 class PDFClaudeScanner:
-    def __init__(self, api_key, verbose=False, model=DEFAULT_MODEL):
+    def __init__(self, api_key: str, verbose: bool = False, model: str = DEFAULT_MODEL) -> None:
         """Initialize the PDF scanner with Claude API credentials."""
         self.client = Anthropic(api_key=api_key)
         self.verbose = verbose
@@ -76,7 +77,7 @@ class PDFClaudeScanner:
         development of theoretical insights while maintaining transparency and reproducibility in the synthesis process.
 
         You are a research assistant analyzing academic papers, take the paper and summarize this:
-        
+
         # Academic Paper Analysis
         1. PAPER_HEADER:
         1.1. TITLE: Extract the paper title
@@ -94,15 +95,15 @@ class PDFClaudeScanner:
         6.1. IT_SUPPLIER: List the individual IT suppliers and their role for innovation, these are not regular suppliers
         6.2. REGULAR_SUPPLIER: list the regular suppliers
         7. INNOVATION_MECHANISMS: Find all mechanisms, one per line, of innovation between client and suppliers. Use Format [CONTEXT], [AGENCY], [MECHANISM], [OUTCOME] - [Description]
-        
+
         Structure your analysis for easy conversion to JSON format.
         """
 
-    def log(self, message):
+    def log(self, message: str) -> None:
         if self.verbose:
             print(message, file=sys.stderr)
 
-    def extract_text_from_pdf(self, pdf_path):
+    def extract_text_from_pdf(self, pdf_path: str) -> Optional[str]:
         """Extract text content from a PDF file."""
         try:
             reader = PdfReader(pdf_path)

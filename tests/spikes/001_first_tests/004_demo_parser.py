@@ -1,5 +1,6 @@
 from paper_scanner.core.advanced_section_parser import AcademicPaperParser
 
+
 def demo_paper_section_parser():
     """
     Demonstrate the usage of the academic paper section parser.
@@ -20,33 +21,33 @@ The research employed a three-phase approach:
 
     # Initialize the parser
     parser = AcademicPaperParser()
-    
+
     # Process the text
     result = parser.process_paper_analysis(sample_text)
-    
+
     # Convert to JSON string with indentation for readability
     json_str = parser.to_json(result)
-    
+
     # Print the JSON in a nice format
     print("=== PARSED ACADEMIC PAPER SECTIONS ===")
     print(json_str)
     print("\n=== ACCESSING INDIVIDUAL SECTIONS ===")
-    
+
     # Demonstrate accessing individual sections
     if "TITLE" in result:
         print(f"Title: {result['TITLE']}")
-    
+
     if "AUTHORS" in result and result["AUTHORS"]:
         print(f"Authors: {', '.join(result['AUTHORS'])}")
-    
+
     if "ABSTRACT_SUMMARY" in result:
         print(f"Abstract: {result['ABSTRACT_SUMMARY'][:100]}...")
-    
+
     if "METHODOLOGY_STEPS" in result:
         print("Methodology Steps:")
         for i, step in enumerate(result["METHODOLOGY_STEPS"], 1):
             print(f"  {i}. {step[:50]}...")
-    
+
     # Save to file
     output_file = "parsed_paper.json"
     if parser.save_to_file(result, output_file):
