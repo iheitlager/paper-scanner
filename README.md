@@ -1,6 +1,6 @@
 # paper-scanner
 
-m![Version](https://img.shields.io/badge/version-0.6.0-blue)
+![Version](https://img.shields.io/badge/version-0.6.1-blue)
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
@@ -9,15 +9,22 @@ AI-powered literature review tool for analyzing academic research papers using L
 
 ## Overview
 
-`paper-scanner` is a pre-alpha tool designed to streamline the analysis of academic research papers through an LLM-assisted pipeline. It automates the extraction and structuring of key information from PDFs, including paper metadata, research questions, methodology, findings, and innovation mechanisms using the CAMO framework (Context-Agency-Mechanism-Outcome).
+`paper-scanner` is a pre-alpha tool designed to streamline the analysis of academic research papers through an LLM-assisted pipeline. It automates the extraction and structuring of key information from PDFs, including bibliographic metadata, research questions, methodology, findings, and key concepts. Features a PostgreSQL-backed web interface for browsing, analyzing, and organizing research papers.
 
 ## Features
 
 - 🔍 **PDF Scanning**: Recursively scan directories for PDF files with metadata extraction
-- 🤖 **LLM Integration**: Leverage Anthropic's Claude API for intelligent paper analysis
+- 🤖 **LLM Integration**: Leverage Anthropic's Claude API for intelligent paper analysis with structured extraction
 - 📊 **Structured Output**: JSONLines-based streaming pipeline for efficient batch processing
-- 🔗 **CAMO Framework**: Extract and analyze innovation mechanisms using Context-Agency-Mechanism-Outcome patterns
-- 🛠️ **Command-Line Tools**: Composable utilities for each step of the analysis pipeline
+- 🔬 **Paper Analysis**: Automated extraction of summaries, research questions, methodology, results, and key concepts
+- 📚 **Bibliographic Metadata**: Extract and store titles, authors, DOI, citations, and publication details
+- 🌐 **Web Interface**: PostgreSQL-backed web browser for viewing, searching, and managing papers
+  - Multi-tab interface: PDF viewer, Analysis, Details, and Tags
+  - Author/year header with DOI links
+  - Bibliographic information display
+  - Paper analysis with consistent styling (white titles, blue definitions, grey text)
+- 🏷️ **Tagging System**: Organize papers with colon-separated tags and centralized tag lookup
+- 🔗 **Deeplinking**: Generate shareable links to specific papers (e.g., `?paper=SmithA2025`)
 - ⚡ **Rate Limiting**: Built-in automatic retry logic and request throttling for API limits
 
 ## Quick Start
@@ -36,15 +43,21 @@ uv sync
 uv sync --all-groups
 ```
 
-### Basic Usage
+### Basic Usage - CLI Pipeline
 
 ```bash
 # Scan a folder for PDFs
 file-scanner /path/to/pdfs -o pdfs_found.jsonl
 
-# Process PDFs with Claude
-uv run python -m paper_scanner.tools.file_processor \
+# Extract bibliographic metadata with Claude
+uv run python -m paper_scanner.tools.paper_details \
   -i pdfs_found.jsonl \
+  -o with_details.jsonl \
+  --api_key YOUR_ANTHROPIC_API_KEY
+
+# Process PDFs with Claude for analysis
+uv run python -m paper_scanner.tools.file_processor \
+  -i with_details.jsonl \
   -o analyzed.jsonl \
   --api_key YOUR_ANTHROPIC_API_KEY
 
@@ -59,14 +72,44 @@ uv run python -m paper_scanner.tools.file_reader \
   -o results.csv
 ```
 
+### Web Interface
+
+```bash
+# Start the web server (requires PostgreSQL database)
+output-viewer -i parsed.jsonl -p 8080 -H localhost
+
+# Open browser and visit: http://localhost:8080
+```
+
+#### Web Interface Features
+
+- **📄 PDF Tab**: View full paper PDFs with embedded viewer
+- **🔬 Analysis Tab**: Read structured paper analysis (summary, research questions, methodology, results, concepts)
+- **📋 Details Tab**: Browse bibliographic information (title, authors, DOI, citation, file metadata)
+- **🏷️ Tags Tab**: Manage paper tags for organization and filtering
+- **🔗 Share**: Generate deeplinks to share specific papers via URL
+
 ## Core Tools
 
 - **file-scanner**: PDF discovery and metadata extraction
+- **paper-details**: Bibliographic metadata extraction from PDFs using Claude
 - **file-processor**: Claude API integration for paper analysis
 - **file-parser**: Structured data extraction from Claude responses
 - **file-merge**: JSONLines data merging and filtering with set operations
 - **file-reader**: JSON to CSV conversion for report generation
 - **file-timer**: Rate limiting utility for API throttling
+- **output-viewer**: Web server for browsing analyzed papers
+
+## Database
+
+The web interface requires a PostgreSQL database. Configure via environment variables:
+
+```bash
+export DATABASE_URL="postgresql://user:password@localhost:5432/pdfdb"
+export PDF_BASE_DIR="/path/to/pdf/files"
+```
+
+Database schema is automatically initialized on first run.
 
 ## Development
 
@@ -75,6 +118,7 @@ uv run python -m paper_scanner.tools.file_reader \
 - Python 3.11+
 - `uv` package manager
 - Anthropic API key (for paper processing)
+- PostgreSQL (for web interface)
 
 ### Setting Up Development Environment
 
@@ -98,14 +142,29 @@ make type-check
 ### Available Make Targets
 
 ```bash
+# Development & Code Quality
 make help          # Show all available targets
-make install       # Install dependencies
-make install-dev   # Install with dev dependencies
+make check         # Verify required tooling is installed
+make version       # Show project version
+make env           # Create and setup development virtual environment
+make sync          # Sync dependencies
+make lock          # Lock dependencies into uv.lock
 make test          # Run tests with coverage
-make lint          # Lint code
-make format        # Format and fix code
-make type-check    # Run type checking
-make clean         # Clean up artifacts
+make lint          # Lint code with ruff
+make format        # Format code with ruff
+make type-check    # Run type checks with mypy
+make clean         # Clean up artifacts and caches
+
+# Docker Commands
+make start         # Start Colima (Docker runtime)
+make stop          # Stop Colima and cleanup
+make docker-up     # Start services with Docker Compose
+make docker-down   # Stop Docker containers
+make docker-logs   # View Docker logs
+make docker-again  # Rebuild from cache and restart
+make docker-rebuild # Rebuild web container
+make docker-fresh  # Fresh database initialization
+make cleanup       # Clean up all Docker resources
 ```
 
 ## Project Structure
@@ -115,13 +174,23 @@ paper-scanner/
 ├── src/paper_scanner/
 │   ├── core/
 │   │   └── advanced_section_parser.py    # Academic paper parsing logic
-│   └── tools/
-│       ├── file_scanner.py               # PDF discovery
-│       ├── file_processor.py             # LLM processing
-│       ├── file_parser.py                # Result parsing
-│       ├── file_merge.py                 # Data merging
-│       ├── file_reader.py                # CSV export
-│       └── file_timer.py                 # Rate limiting
+│   ├── tools/
+│   │   ├── file_scanner.py               # PDF discovery
+│   │   ├── paper_details.py              # Bibliographic extraction
+│   │   ├── file_processor.py             # LLM processing
+│   │   ├── file_parser.py                # Result parsing
+│   │   ├── file_merge.py                 # Data merging
+│   │   ├── file_reader.py                # CSV export
+│   │   └── file_timer.py                 # Rate limiting
+│   └── web/
+│       ├── server.py                     # Flask web server
+│       ├── exceptions.py                 # Error handling
+│       ├── http_handlers.py              # HTTP route handlers
+│       ├── templates/
+│       │   └── index.html                # Web UI
+│       └── static/
+│           ├── style.css                 # Styling
+│           └── script.js                 # Client logic
 ├── tests/
 │   └── unit/
 │       └── test_advanced_section_parser.py
@@ -135,6 +204,10 @@ paper-scanner/
 ### Environment Variables
 
 - `ANTHROPIC_API_KEY`: Your Anthropic API key (required for processing)
+- `DATABASE_URL`: PostgreSQL connection string (required for web interface, default: `postgresql://pdfuser:pdfpass@localhost:5432/pdfdb`)
+- `PDF_BASE_DIR`: Base directory for PDF files (default: `/Users/iheitlager/wc/papers`)
+- `PORT`: Web server port (default: `8080`)
+- `ENV`: Environment (default: `local`, set to `docker` for container deployment)
 
 ### Custom Prompts
 
@@ -143,6 +216,18 @@ You can provide custom system prompts to the file-processor tool:
 ```bash
 file-processor -i input.jsonl -o output.jsonl --custom_prompt custom_prompt.txt
 ```
+
+## Deployment
+
+### Docker
+
+A `docker-compose.yml` and `Dockerfile` are provided for containerized deployment:
+
+```bash
+docker-compose up
+```
+
+This starts both the web server and PostgreSQL database.
 
 ## Changelog
 
@@ -165,5 +250,8 @@ Contributions are welcome! This project is in pre-alpha, so expect breaking chan
 - [ ] Enhanced paper section detection
 - [ ] Support for additional document formats
 - [ ] Caching layer for API responses
-- [ ] Web UI for interactive analysis
+- [x] Web UI for interactive analysis (completed in v0.3+)
 - [ ] Export to additional formats (JSON Schema, RDF)
+- [ ] Full-text search across papers
+- [ ] Paper recommendation based on analysis
+

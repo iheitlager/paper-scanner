@@ -3,9 +3,9 @@
 .ONESHELL:
 SHELL := /bin/bash
 VENV := .venv
-PYTHON_VERSION := 3.14
+PYTHON_VERSION := 3.11
 
-.PHONY: help install install-dev test lint format type-check clean
+.PHONY: help version check env sync lock test lint format type-check clean start stop docker-up docker-down docker-logs docker-again docker-rebuild docker-fresh cleanup
 
 version: ## Show project version
 	@uv run python -c "import paper_scanner; print(f'paper-scanner version: {paper_scanner.__version__}')"
@@ -27,7 +27,6 @@ env: ## Create and populate the development virtual environment
 		echo "No uv.lock found, generating lock file..."; \
 		uv lock; \
 	fi
-	env.sh
 	@uv run python -c "import paper_scanner; print(f'paper-scanner version: {paper_scanner.__version__}')"
 	@echo "To activate: source $(VENV)/bin/activate"
 
@@ -82,7 +81,7 @@ stop: cleanup ## Stop Colima and clean up
 	@echo "Stopping Colima..."
 	@colima stop
 	
-docker-up: ## Start Neo4j and web server with Docker Compose
+docker-up: ## Start postgresql and web server with Docker Compose
 	@echo "Starting Docker containers..."
 	@docker-compose down 2>/dev/null || true
 	docker-compose build

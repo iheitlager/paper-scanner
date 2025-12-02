@@ -190,6 +190,7 @@ body {
     justify-content: space-between;
     align-items: center;
     background-color: var(--bg-tertiary);
+    gap: 15px;
 }
 
 .toolbar-header {
@@ -198,6 +199,40 @@ body {
     flex-direction: column;
     overflow: hidden;
     gap: 4px;
+}
+
+.toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    white-space: nowrap;
+}
+
+.toolbar-btn {
+    padding: 6px 12px;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+    background-color: var(--accent-hover);
+}
+
+.toolbar-btn:active {
+    background-color: var(--accent-active);
+}
+
+.toolbar-btn:disabled {
+    background-color: var(--border-color);
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .toolbar-authors {

@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Analysis now displayed in independent 🔬 Analysis tab alongside PDF, Details, and Tags tabs
   - Cleaner Details tab focused on bibliographic information and file metadata
 
+- **Tab Persistence**: Selected tab state saved to browser localStorage
+  - Active tab automatically restored when returning to the application
+  - Persists across browser sessions for improved user experience
+
+- **Deeplinking Support**: Share direct links to specific papers
+  - 🔗 Share button in toolbar generates shareable URL with paper reference
+  - Uses citekey if available, falls back to file_name for URL parameter
+  - Deeplinking via `?paper=<citekey_or_filename>` auto-loads and selects specified paper
+  - Smooth scrolling to paper in sidebar when accessed via deeplink
+
 ### Changed
 
 - **Improved Paper Content Styling**: Enhanced visual hierarchy with white section titles, blue accent for definitions, and grey body text
@@ -32,11 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2025-12-02
 
 ### Added
-- **paper-details CLI Tool**: Extracts bibliographic metadata from PDFs using Claude API
-  - Reads JSONLines records and processes referenced PDF files
-  - Generates structured JSON with APA citation, citekey, DOI, authors, year, title, journal, volume, pages, and publisher
-  - Includes automatic rate-limit retry logic and optional performance timing
-  - Adds `title-details` field to each record with extracted metadata
+
+- **paper-details CLI Tool**: New command-line tool for extracting bibliographic metadata from academic papers
+  - Reads JSONLines records with `file_path` field pointing to PDF files
+  - Extracts text from PDFs and sends to Claude API for bibliographic detail extraction
+  - Generates structured JSON with: APA citation, citekey (FirstAuthorLastNameYear format), DOI, authors array, year, title, journal, volume, issue, pages, and publisher
+  - Automatic rate-limit retry logic with configurable API key and model selection
+  - Adds `title-details` field to each record with extracted bibliographic information
+  - Optional timing metadata for performance monitoring
 
 - **Web Interface Enhancements for Bibliographic Details**:
   - Sidebar displays citekey (or filename if citekey not available) for quick reference

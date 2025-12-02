@@ -33,6 +33,61 @@ let currentTab = 'pdf';
 let isLoading = false;
 let allTags = [];
 
+// Storage keys for localStorage
+const STORAGE_KEYS = {
+    LAST_TAB: 'paperScanner_lastTab',
+    LAST_PAPER: 'paperScanner_lastPaper'
+};
+
+/**
+ * Load last active tab from localStorage
+ * @returns {string} Tab name or 'pdf' as default
+ */
+function getLastTab() {
+    try {
+        const lastTab = localStorage.getItem(STORAGE_KEYS.LAST_TAB);
+        return lastTab && ['pdf', 'analysis', 'details', 'tags'].includes(lastTab) ? lastTab : 'pdf';
+    } catch {
+        return 'pdf';
+    }
+}
+
+/**
+ * Save current tab to localStorage
+ * @param {string} tabName - Tab name to save
+ */
+function saveLastTab(tabName) {
+    try {
+        localStorage.setItem(STORAGE_KEYS.LAST_TAB, tabName);
+    } catch (e) {
+        console.warn('Failed to save last tab preference:', e);
+    }
+}
+
+/**
+ * Load last viewed paper from localStorage
+ * @returns {string|null} Paper identifier (citekey or file_name) or null
+ */
+function getLastPaper() {
+    try {
+        return localStorage.getItem(STORAGE_KEYS.LAST_PAPER);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Save current paper to localStorage
+ * @param {string} paperId - Paper identifier (citekey or file_name)
+ */
+function saveLastPaper(paperId) {
+    try {
+        localStorage.setItem(STORAGE_KEYS.LAST_PAPER, paperId);
+    } catch (e) {
+        console.warn('Failed to save last paper preference:', e);
+    }
+}
+
 // Error handling utility
 class AppError extends Error {
     /**
@@ -226,6 +281,7 @@ function switchTab(tabName) {
     }
     
     currentTab = tabName;
+    saveLastTab(tabName);
     
     // Update tab buttons
     document.getElementById('pdfTabBtn').classList.remove('active');
@@ -267,6 +323,38 @@ function switchTab(tabName) {
     } else if (tabName === 'tags' && currentFile) {
         loadTagsEditor(currentFile.file_name);
     }
+}
+
+/**
+ * Copy deeplink to current paper to clipboard
+ */
+function copyDeeplink() {
+    if (!currentFile) {
+        alert('Please select a paper first');
+        return;
+    }
+    
+    // Use citekey if available, otherwise file_name
+    const paperId = currentFile.citekey || currentFile.file_name;
+    const baseUrl = window.location.origin + window.location.pathname;
+    const deeplinkUrl = `${baseUrl}?paper=${encodeURIComponent(paperId)}`;
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(deeplinkUrl).then(() => {
+        // Show success feedback
+        const btn = document.getElementById('deeplinkBtn');
+        const origText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.backgroundColor = 'var(--success-text)';
+        
+        setTimeout(() => {
+            btn.textContent = origText;
+            btn.style.backgroundColor = '';
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy deeplink:', err);
+        alert('Failed to copy link to clipboard');
+    });
 }
 
 /**
@@ -994,9 +1082,11 @@ function selectFile(file) {
     document.getElementById('fileInfo').textContent = 
         `${formatFileSize(file.size_bytes)} • Modified: ${formatDate(file.modified_time)}`;
 
-    // Reset to PDF tab when selecting a new file
-    currentTab = 'pdf';
-    switchTab('pdf');
+    // Save paper reference and switch to last opened tab
+    const paperId = file.citekey || file.file_name;
+    saveLastPaper(paperId);
+    const lastTab = getLastTab();
+    switchTab(lastTab);
     
     // Display PDF
     const pdfUrl = `/api/pdf/${safeEncodeURI(file.file_name)}`;
@@ -1005,4 +1095,51 @@ function selectFile(file) {
 }
 
 // Load files on page load
-window.addEventListener('load', loadFiles);
+window.addEventListener('load', async () => {
+    await loadFiles();
+    
+    // Check for deeplink parameter in URL
+    const params = new URLSearchParams(window.location.search);
+    const paperId = params.get('paper');
+    
+    if (paperId) {
+        // Find and select the paper with matching file_name or citekey
+        const targetFile = files.find(f => 
+            f.file_name === decodeURIComponent(paperId) || 
+            f.citekey === decodeURIComponent(paperId)
+        );
+        
+        if (targetFile) {
+            selectFile(targetFile);
+            // Scroll the file into view in the sidebar
+            setTimeout(() => {
+                const fileItems = document.querySelectorAll('.file-item.active');
+                if (fileItems.length > 0) {
+                    fileItems[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }, 100);
+        } else {
+            console.warn(`Paper not found: ${paperId}`);
+        }
+    } else {
+        // If no deeplink, try to restore the last viewed paper
+        const lastPaperId = getLastPaper();
+        if (lastPaperId) {
+            const lastFile = files.find(f => 
+                f.file_name === lastPaperId || 
+                f.citekey === lastPaperId
+            );
+            
+            if (lastFile) {
+                selectFile(lastFile);
+                // Scroll the file into view in the sidebar
+                setTimeout(() => {
+                    const fileItems = document.querySelectorAll('.file-item.active');
+                    if (fileItems.length > 0) {
+                        fileItems[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }, 100);
+            }
+        }
+    }
+});
