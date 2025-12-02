@@ -283,6 +283,13 @@ function switchTab(tabName) {
     currentTab = tabName;
     saveLastTab(tabName);
     
+    // Update URL to reflect current tab
+    if (currentFile) {
+        const paperId = currentFile.citekey || currentFile.file_name;
+        const newUrl = `${window.location.pathname}?paper=${encodeURIComponent(paperId)}&tab=${tabName}`;
+        window.history.replaceState({ tab: tabName }, '', newUrl);
+    }
+    
     // Update tab buttons
     document.getElementById('pdfTabBtn').classList.remove('active');
     document.getElementById('analysisTabBtn').classList.remove('active');
@@ -1101,6 +1108,7 @@ window.addEventListener('load', async () => {
     // Check for deeplink parameter in URL
     const params = new URLSearchParams(window.location.search);
     const paperId = params.get('paper');
+    const tabParam = params.get('tab');
     
     if (paperId) {
         // Find and select the paper with matching file_name or citekey
@@ -1111,6 +1119,10 @@ window.addEventListener('load', async () => {
         
         if (targetFile) {
             selectFile(targetFile);
+            // Switch to the requested tab if specified
+            if (tabParam && ['pdf', 'analysis', 'details', 'tags'].includes(tabParam)) {
+                switchTab(tabParam);
+            }
             // Scroll the file into view in the sidebar
             setTimeout(() => {
                 const fileItems = document.querySelectorAll('.file-item.active');

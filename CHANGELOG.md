@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2025-12-03
+
+### Added
+
+- **DatabaseManager Extraction**: Isolated database layer into `web/database.py` with connection pooling and retry logic
+- **Configuration System**: Multi-source config management with CLI args, environment variables, and .env file support
+  - Config class with LRU caching, `get_config()` factory function
+  - Precedence: CLI args > environment variables > .env > defaults
+- **Flask Application Factory**: `create_app(config)` factory for testability and WSGI compatibility
+- **Test Coverage**: 25 config tests, 30 exception tests, 18 HTTP handler tests (99% web coverage)
+
+### Changed
+
+- DatabaseManager separated from Flask server logic
+- Configuration centralized and environment-aware
+- Error handling standardized with custom exception hierarchy
+- Flask application more modular and testable
+
+### Fixed
+
+- Test timing metadata assertions in `test_paper_details.py`
+
 ## [0.6.1] - 2025-12-02
 
 ### Added
@@ -12,11 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dedicated Analysis Tab**: Separated analysis display into its own tab in the web interface for better organization
   - Analysis now displayed in independent 🔬 Analysis tab alongside PDF, Details, and Tags tabs
   - Cleaner Details tab focused on bibliographic information and file metadata
-
 - **Tab Persistence**: Selected tab state saved to browser localStorage
   - Active tab automatically restored when returning to the application
   - Persists across browser sessions for improved user experience
-
 - **Deeplinking Support**: Share direct links to specific papers
   - 🔗 Share button in toolbar generates shareable URL with paper reference
   - Uses citekey if available, falls back to file_name for URL parameter

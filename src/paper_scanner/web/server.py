@@ -4,508 +4,340 @@ PDF Browser Server - Web application for browsing and viewing PDFs with PostgreS
 Supports both local (port 8080) and Docker (port 8000) deployment.
 """
 
-import json
+import argparse
 import logging
 import os
-import time
-from typing import Any, Dict, List, Optional, Tuple
+import sys
+from typing import Any, Dict, Optional, Tuple
 
 from flask import Flask, jsonify, render_template, request, send_file
 from flask_cors import CORS
-from psycopg2 import OperationalError, connect
-from psycopg2.extensions import connection as PsycopgConnection
-from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
 
-from exceptions import (
+from .config import Config, get_config
+from .database import DatabaseManager
+from .exceptions import (
     DatabaseException,
     FileNotFoundException,
     InvalidDataException,
     PDFBrowserException,
     PDFNotFoundException,
 )
-from http_handlers import register_error_handlers
-
-# Configuration
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://pdfuser:pdfpass@localhost:5432/pdfdb"
-)
-PDF_BASE_DIR = os.getenv("PDF_BASE_DIR", "/Users/iheitlager/wc/papers")
-PORT = int(os.getenv("PORT", 8080))
-ENV = os.getenv("ENV", "local")
+from .http_handlers import register_error_handlers
 
 # Logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Flask app with static folder configuration
-app = Flask(__name__, static_folder='static', static_url_path='/static')
-CORS(app)
 
-
-class DatabaseManager:
-    """Manages PostgreSQL connections and operations."""
-
-    def __init__(self, db_url: str) -> None:
-        self.db_url = db_url
-
-    def get_connection(self, retries: int = 3, delay: int = 2) -> PsycopgConnection:
-        """Get a database connection with retry logic.
+def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager, Config]:
+    """Create and configure the Flask application.
+    
+    Args:
+        config: Config instance (default: loaded from environment)
+    
+    Returns:
+        Tuple of (Flask app, DatabaseManager instance, Config instance)
+    """
+    # Load config if not provided
+    if config is None:
+        config = get_config()
+    
+    # Configure logging
+    logging.basicConfig(
+        level=getattr(logging, config.log_level),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger.debug(f"Loaded configuration: {config}")
+    
+    # Initialize Flask app with static folder configuration
+    app = Flask(__name__, static_folder='static', static_url_path='/static')
+    CORS(app)
+    
+    # Store config in app context for route access
+    app.config['DATABASE_URL'] = config.database_url
+    app.config['PDF_BASE_DIR'] = config.pdf_base_dir
+    app.config['ENV_MODE'] = config.env
+    app.config['DEBUG'] = config.debug
+    
+    # Initialize database manager
+    db_manager = DatabaseManager(config.database_url)
+    
+    # Register HTTP error handlers
+    register_error_handlers(app)
+    
+    # Register routes
+    @app.route("/health", methods=["GET"])
+    def health() -> Tuple[Dict[str, Any], int]:
+        """Health check endpoint.
         
-        Args:
-            retries: Number of retry attempts
-            delay: Delay in seconds between retries
-            
         Returns:
-            PostgreSQL connection object
-            
-        Raises:
-            DatabaseException: If connection fails after all retries
+            JSON response with health status and environment
         """
-        for attempt in range(retries):
-            try:
-                return connect(self.db_url)
-            except (OperationalError, Exception) as e:
-                if attempt < retries - 1:
-                    logger.warning(f"Database connection attempt {attempt + 1} failed: {e}. Retrying in {delay}s...")
-                    time.sleep(delay)
-                else:
-                    error_msg = f"Database connection failed after {retries} attempts: {e}"
-                    logger.error(error_msg)
-                    raise DatabaseException(error_msg)
-
-    def init_database(self) -> None:
-        """Verify database schema is initialized (done by init-db.sql in Docker)."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT 1 FROM information_schema.tables WHERE table_name = 'pdf_files'"
-            )
-            result = cursor.fetchone()
-            cursor.close()
-            conn.close()
-            if result:
-                logger.info("Database schema verified successfully")
-            else:
-                logger.warning("PDF files table not found - will be created on first initialization")
-        except Exception as e:
-            logger.error(f"Failed to verify database schema: {e}")
-            raise DatabaseException(f"Database initialization failed: {e}")
+            db_manager.get_connection()
+            return jsonify({"status": "ok", "environment": app.config['ENV_MODE']}), 200
+        except DatabaseException as e:
+            logger.error(f"Health check failed: {e}")
+            return jsonify({"status": "error", "message": str(e)}), 500
 
-    def insert_pdf_record(self, record: Dict[str, Any]) -> bool:
-        """Insert a PDF record into the database.
+    @app.route("/api/files", methods=["GET"])
+    def get_files() -> Tuple[Dict[str, Any], int]:
+        """Get list of all PDF files from database.
         
-        Args:
-            record: Dictionary containing PDF metadata
-            
-        Returns:
-            True if successful, False otherwise
-            
-        Raises:
-            InvalidDataException: If required fields are missing
-        """
-        required_fields = ["file_path", "file_name", "directory", "relative_path"]
-        if not all(field in record for field in required_fields):
-            raise InvalidDataException(f"Missing required fields: {required_fields}")
-
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        try:
-            tags = record.get("tags")
-            # If tags provided, sync them to tags table
-            if tags:
-                tag_list = [t.strip() for t in tags.split(":") if t.strip()]
-                for tag in tag_list:
-                    cursor.execute(
-                        "INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING",
-                        (tag,)
-                    )
-
-            # Extract title and citekey from title-details if present
-            title = None
-            citekey = None
-            title_details = None
-
-            if "title-details" in record:
-                title_details = record["title-details"]
-                title = title_details.get("title")
-                citekey = title_details.get("citekey")
-
-            # Extract analysis if present
-            analysis = record.get("analysis")
-
-            cursor.execute(
-                """
-                INSERT INTO pdf_files 
-                (file_path, file_name, directory, relative_path, size_bytes, 
-                 created_time, modified_time, accessed_time, tags, title, citekey, title_details, analysis)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (file_path) DO UPDATE SET
-                    modified_time = EXCLUDED.modified_time,
-                    accessed_time = EXCLUDED.accessed_time,
-                    tags = EXCLUDED.tags,
-                    title = EXCLUDED.title,
-                    citekey = EXCLUDED.citekey,
-                    title_details = EXCLUDED.title_details,
-                    analysis = EXCLUDED.analysis
-                """,
-                (
-                    record["file_path"],
-                    record["file_name"],
-                    record["directory"],
-                    record["relative_path"],
-                    record.get("size_bytes"),
-                    record.get("created_time"),
-                    record.get("modified_time"),
-                    record.get("accessed_time"),
-                    tags,
-                    title,
-                    citekey,
-                    json.dumps(title_details) if title_details else None,
-                    json.dumps(analysis) if analysis else None,
-                ),
-            )
-            conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"Failed to insert record: {e}")
-            raise DatabaseException(f"Failed to insert PDF record: {e}")
-        finally:
-            cursor.close()
-            conn.close()
-
-    def get_all_pdfs(self, directory: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Get all PDF records from database.
-        
-        Args:
+        Query parameters:
             directory: Optional directory filter
             
         Returns:
-            List of PDF records
-            
-        Raises:
-            DatabaseException: If query fails
+            JSON response with list of PDF files
         """
-        conn = self.get_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-
         try:
-            if directory:
-                cursor.execute(
-                    "SELECT * FROM pdf_files WHERE directory = %s ORDER BY file_name",
-                    (directory,),
-                )
-            else:
-                cursor.execute("SELECT * FROM pdf_files ORDER BY file_name")
+            directory = request.args.get("directory")
+            files = db_manager.get_all_pdfs(directory)
+            return jsonify({"success": True, "files": files}), 200
+        except DatabaseException:
+            raise
 
-            results = cursor.fetchall()
-            return [dict(row) for row in results]
-        except Exception as e:
-            logger.error(f"Failed to fetch PDFs: {e}")
-            raise DatabaseException(f"Failed to fetch PDF records: {e}")
-        finally:
-            cursor.close()
-            conn.close()
+    @app.route("/api/load-jsonlines", methods=["POST"])
+    def load_jsonlines() -> Tuple[Dict[str, Any], int]:
+        """Load PDF records from the request body into the database.
+        
+        Expected JSON:
+            {
+                "records": [
+                    {
+                        "file_path": str,
+                        "file_name": str,
+                        "directory": str,
+                        "relative_path": str,
+                        "size_bytes": int,
+                        "created_time": str,
+                        "modified_time": str,
+                        "accessed_time": str,
+                        "title-details": dict (optional),
+                        "analysis": dict (optional)
+                    }
+                ]
+            }
+        
+        Returns:
+            JSON response with loaded/failed counts
+        """
+        try:
+            data = request.get_json()
+            if not data:
+                raise InvalidDataException("Request body must be JSON")
 
-    def get_pdf_by_file_name(self, file_name: str) -> Optional[Dict[str, Any]]:
-        """Get PDF record by file name.
+            records = data.get("records", [])
+            if not records:
+                raise InvalidDataException("No records provided in request")
+
+            loaded_count = 0
+            failed_count = 0
+
+            for idx, record in enumerate(records):
+                try:
+                    db_manager.insert_pdf_record(record)
+                    loaded_count += 1
+                except (InvalidDataException, DatabaseException) as e:
+                    logger.warning(f"Failed to insert record {idx}: {e}")
+                    failed_count += 1
+
+            return jsonify({
+                "success": True,
+                "loaded": loaded_count,
+                "failed": failed_count,
+                "total": loaded_count + failed_count,
+            }), 200
+        except InvalidDataException:
+            raise
+
+    @app.route("/api/file_details/<file_name>", methods=["GET"])
+    def get_file_details(file_name: str) -> Tuple[Dict[str, Any], int]:
+        """Get file details by name.
         
         Args:
             file_name: Name of the PDF file
             
         Returns:
-            PDF record dictionary or None if not found
-            
-        Raises:
-            DatabaseException: If query fails
+            JSON response with file details
         """
-        conn = self.get_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-
         try:
-            cursor.execute("SELECT * FROM pdf_files WHERE file_name = %s", (file_name,))
-            result = cursor.fetchone()
-            return dict(result) if result else None
-        except Exception as e:
-            logger.error(f"Failed to fetch PDF by file name: {e}")
-            raise DatabaseException(f"Failed to fetch PDF record: {e}")
-        finally:
-            cursor.close()
-            conn.close()
+            pdf_record = db_manager.get_pdf_by_file_name(file_name)
+            if not pdf_record:
+                raise PDFNotFoundException(file_name)
 
-    def get_all_tags(self) -> List[str]:
-        """Get all unique tags from the database.
+            return jsonify({"success": True, "details": pdf_record}), 200
+        except DatabaseException:
+            raise
+
+    @app.route("/api/tags", methods=["GET"])
+    def get_tags() -> Tuple[Dict[str, Any], int]:
+        """Get all unique tags from database.
         
         Returns:
-            List of tag names
-            
-        Raises:
-            DatabaseException: If query fails
+            JSON response with list of tags
         """
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
         try:
-            cursor.execute("SELECT tag_name FROM tags ORDER BY tag_name")
-            results = cursor.fetchall()
-            return [row[0] for row in results]
-        except Exception as e:
-            logger.error(f"Failed to fetch tags: {e}")
-            raise DatabaseException(f"Failed to fetch tags: {e}")
-        finally:
-            cursor.close()
-            conn.close()
+            tags = db_manager.get_all_tags()
+            return jsonify({"success": True, "tags": tags}), 200
+        except DatabaseException:
+            raise
 
-    def update_pdf_tags(self, file_name: str, tags: str) -> bool:
-        """Update tags for a PDF record.
+    @app.route("/api/file_tags/<file_name>", methods=["PUT"])
+    def update_file_tags(file_name: str) -> Tuple[Dict[str, Any], int]:
+        """Update tags for a PDF file.
         
         Args:
             file_name: Name of the PDF file
-            tags: Colon-separated string of tags
+            
+        Expected JSON:
+            {
+                "tags": "tag1:tag2:tag3"
+            }
+        
+        Returns:
+            JSON response with success status
+        """
+        try:
+            data = request.get_json()
+            if not data:
+                raise InvalidDataException("Request body must be JSON")
+
+            tags = data.get("tags", "")
+
+            # Verify file exists
+            pdf_record = db_manager.get_pdf_by_file_name(file_name)
+            if not pdf_record:
+                raise PDFNotFoundException(file_name)
+
+            db_manager.update_pdf_tags(file_name, tags)
+            return jsonify({"success": True, "message": "Tags updated successfully"}), 200
+        except (DatabaseException, InvalidDataException, PDFNotFoundException):
+            raise
+
+    @app.route("/api/pdf/<file_name>", methods=["GET"])
+    def get_pdf(file_name: str) -> Tuple[Any, int]:
+        """Serve a PDF file by name.
+        
+        Args:
+            file_name: Name of the PDF file
             
         Returns:
-            True if successful
-            
-        Raises:
-            DatabaseException: If update fails
+            PDF file or JSON error response
         """
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
         try:
-            # Sync tags to tags table
-            if tags:
-                tag_list = [t.strip() for t in tags.split(":") if t.strip()]
-                for tag in tag_list:
-                    cursor.execute(
-                        "INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING",
-                        (tag,)
-                    )
+            pdf_record = db_manager.get_pdf_by_file_name(file_name)
+            if not pdf_record:
+                raise PDFNotFoundException(file_name)
 
-            cursor.execute(
-                "UPDATE pdf_files SET tags = %s WHERE file_name = %s",
-                (tags, file_name)
-            )
-            conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"Failed to update tags: {e}")
-            raise DatabaseException(f"Failed to update tags: {e}")
-        finally:
-            cursor.close()
-            conn.close()
+            file_path: str = pdf_record["file_path"]
 
+            # In Docker, translate paths from host machine to container paths
+            if app.config['ENV_MODE'] == "docker":
+                if file_path.startswith("/Users/iheitlager/wc/papers"):
+                    file_path = file_path.replace("/Users/iheitlager/wc/papers", "/papers", 1)
+                elif file_path.startswith(app.config['PDF_BASE_DIR']):
+                    file_path = file_path.replace(app.config['PDF_BASE_DIR'], "/papers", 1)
 
-# Initialize database manager
-db_manager = DatabaseManager(DATABASE_URL)
+            logger.info(f"Looking for PDF at path: {file_path} (ENV: {app.config['ENV_MODE']})")
 
+            if not os.path.exists(file_path):
+                logger.error(f"PDF file not found on disk at: {file_path}")
+                raise FileNotFoundException(file_path)
 
-# Register HTTP error handlers
-register_error_handlers(app)
+            return send_file(file_path, mimetype="application/pdf"), 200
+        except (DatabaseException, PDFNotFoundException, FileNotFoundException):
+            raise
 
-
-@app.route("/health", methods=["GET"])
-def health() -> Tuple[Dict[str, Any], int]:
-    """Health check endpoint.
-    
-    Returns:
-        JSON response with health status and environment
-    """
-    try:
-        db_manager.get_connection()
-        return jsonify({"status": "ok", "environment": ENV}), 200
-    except DatabaseException as e:
-        logger.error(f"Health check failed: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/api/files", methods=["GET"])
-def get_files() -> Tuple[Dict[str, Any], int]:
-    """Get list of all PDF files from database.
-    
-    Query parameters:
-        directory: Optional directory filter
+    @app.route("/", methods=["GET"])
+    def index() -> str:
+        """Render the main HTML interface.
         
-    Returns:
-        JSON response with list of PDF files
-    """
-    try:
-        directory = request.args.get("directory")
-        files = db_manager.get_all_pdfs(directory)
-        return jsonify({"success": True, "files": files}), 200
-    except DatabaseException:
-        raise
-
-
-@app.route("/api/load-jsonlines", methods=["POST"])
-def load_jsonlines() -> Tuple[Dict[str, Any], int]:
-    """Load PDF records from the request body into the database.
+        Returns:
+            Rendered HTML template
+        """
+        return render_template("index.html", pdf_base_dir=app.config['PDF_BASE_DIR'])
     
-    Expected JSON:
-        {
-            "records": [
-                {
-                    "file_path": str,
-                    "file_name": str,
-                    "directory": str,
-                    "relative_path": str,
-                    "size_bytes": int,
-                    "created_time": str,
-                    "modified_time": str,
-                    "accessed_time": str,
-                    "title-details": dict (optional),
-                    "analysis": dict (optional)
-                }
-            ]
-        }
+    return app, db_manager, config
+
+
+# Application instance for WSGI servers (gunicorn, etc.)
+app, db_manager, config = create_app()
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments.
     
     Returns:
-        JSON response with loaded/failed counts
+        Parsed arguments
     """
-    try:
-        data = request.get_json()
-        if not data:
-            raise InvalidDataException("Request body must be JSON")
+    parser = argparse.ArgumentParser(
+        description="PDF Browser Server - Browse and view PDFs with metadata"
+    )
+    parser.add_argument(
+        "--database-url",
+        help="PostgreSQL connection URL (default: env var DATABASE_URL)",
+    )
+    parser.add_argument(
+        "--pdf-dir",
+        help="Base directory for PDF files (default: env var PDF_BASE_DIR)",
+    )
+    parser.add_argument(
+        "--env",
+        choices=["local", "docker", "production"],
+        help="Environment mode (default: env var ENV)",
+    )
+    parser.add_argument(
+        "--host",
+        help="Host to bind to (default: 0.0.0.0)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        help="Port to bind to (default: 8080)",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode",
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Logging level (default: INFO)",
+    )
+    parser.add_argument(
+        "--env-file",
+        default=".env",
+        help="Path to .env file (default: .env)",
+    )
 
-        records = data.get("records", [])
-        if not records:
-            raise InvalidDataException("No records provided in request")
-
-        loaded_count = 0
-        failed_count = 0
-
-        for idx, record in enumerate(records):
-            try:
-                db_manager.insert_pdf_record(record)
-                loaded_count += 1
-            except (InvalidDataException, DatabaseException) as e:
-                logger.warning(f"Failed to insert record {idx}: {e}")
-                failed_count += 1
-
-        return jsonify({
-            "success": True,
-            "loaded": loaded_count,
-            "failed": failed_count,
-            "total": loaded_count + failed_count,
-        }), 200
-    except InvalidDataException:
-        raise
-
-
-@app.route("/api/file_details/<file_name>", methods=["GET"])
-def get_file_details(file_name: str) -> Tuple[Dict[str, Any], int]:
-    """Get file details by name.
-    
-    Args:
-        file_name: Name of the PDF file
-        
-    Returns:
-        JSON response with file details
-    """
-    try:
-        pdf_record = db_manager.get_pdf_by_file_name(file_name)
-        if not pdf_record:
-            raise PDFNotFoundException(file_name)
-
-        return jsonify({"success": True, "details": pdf_record}), 200
-    except DatabaseException:
-        raise
-
-
-@app.route("/api/tags", methods=["GET"])
-def get_tags() -> Tuple[Dict[str, Any], int]:
-    """Get all unique tags from database.
-    
-    Returns:
-        JSON response with list of tags
-    """
-    try:
-        tags = db_manager.get_all_tags()
-        return jsonify({"success": True, "tags": tags}), 200
-    except DatabaseException:
-        raise
-
-
-@app.route("/api/file_tags/<file_name>", methods=["PUT"])
-def update_file_tags(file_name: str) -> Tuple[Dict[str, Any], int]:
-    """Update tags for a PDF file.
-    
-    Args:
-        file_name: Name of the PDF file
-        
-    Expected JSON:
-        {
-            "tags": "tag1:tag2:tag3"
-        }
-    
-    Returns:
-        JSON response with success status
-    """
-    try:
-        data = request.get_json()
-        if not data:
-            raise InvalidDataException("Request body must be JSON")
-
-        tags = data.get("tags", "")
-
-        # Verify file exists
-        pdf_record = db_manager.get_pdf_by_file_name(file_name)
-        if not pdf_record:
-            raise PDFNotFoundException(file_name)
-
-        db_manager.update_pdf_tags(file_name, tags)
-        return jsonify({"success": True, "message": "Tags updated successfully"}), 200
-    except (DatabaseException, InvalidDataException, PDFNotFoundException):
-        raise
-
-
-@app.route("/api/pdf/<file_name>", methods=["GET"])
-def get_pdf(file_name: str) -> Tuple[Any, int]:
-    """Serve a PDF file by name.
-    
-    Args:
-        file_name: Name of the PDF file
-        
-    Returns:
-        PDF file or JSON error response
-    """
-    try:
-        pdf_record = db_manager.get_pdf_by_file_name(file_name)
-        if not pdf_record:
-            raise PDFNotFoundException(file_name)
-
-        file_path: str = pdf_record["file_path"]
-
-        # In Docker, translate paths from host machine to container paths
-        if ENV == "docker":
-            if file_path.startswith("/Users/iheitlager/wc/papers"):
-                file_path = file_path.replace("/Users/iheitlager/wc/papers", "/papers", 1)
-            elif file_path.startswith(PDF_BASE_DIR):
-                file_path = file_path.replace(PDF_BASE_DIR, "/papers", 1)
-
-        logger.info(f"Looking for PDF at path: {file_path} (ENV: {ENV})")
-
-        if not os.path.exists(file_path):
-            logger.error(f"PDF file not found on disk at: {file_path}")
-            raise FileNotFoundException(file_path)
-
-        return send_file(file_path, mimetype="application/pdf"), 200
-    except (DatabaseException, PDFNotFoundException, FileNotFoundException):
-        raise
-
-
-@app.route("/", methods=["GET"])
-def index() -> str:
-    """Render the main HTML interface.
-    
-    Returns:
-        Rendered HTML template
-    """
-    return render_template("index.html", pdf_base_dir=PDF_BASE_DIR)
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
+    # Parse command-line arguments
+    args = parse_args()
+    
+    # Load .env file if specified
+    if args.env_file and os.path.exists(args.env_file):
+        load_dotenv(args.env_file)
+        logger.info(f"Loaded environment from {args.env_file}")
+    
+    # Build config from args, env vars, and defaults
+    app_config = get_config(
+        database_url=args.database_url,
+        pdf_base_dir=args.pdf_dir,
+        env=args.env,
+        host=args.host,
+        port=args.port,
+        debug=args.debug,
+        log_level=args.log_level,
+    )
+    
+    # Recreate app with CLI config
+    app, db_manager, config = create_app(app_config)
+    
     # Initialize database on startup
     try:
         db_manager.init_database()
@@ -513,5 +345,5 @@ if __name__ == "__main__":
         logger.error(f"Failed to initialize database: {e}")
 
     # Run Flask app
-    debug = ENV == "local"
-    app.run(host="0.0.0.0", port=PORT, debug=debug)
+    logger.info(f"Starting PDF Browser on {config.host}:{config.port} (ENV: {config.env})")
+    app.run(host=config.host, port=config.port, debug=config.debug)

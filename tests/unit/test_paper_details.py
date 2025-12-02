@@ -230,13 +230,14 @@ class TestPaperDetailsExtractor:
         assert len(results) == 1
         assert "title-details" in results[0]
         assert results[0]["title-details"]["citekey"] == "SmithDoe2023"
+        assert "details-timing" in results[0]["title-details"]
 
         # Verify output
         output_stream.seek(0)
         output_line = output_stream.readline()
         output_record = json.loads(output_line)
         assert "title-details" in output_record
-        assert "details-timing" in output_record
+        assert "details-timing" in output_record["title-details"]
 
     @patch("paper_scanner.tools.paper_details.Anthropic")
     def test_process_records_multiple_records(self, mock_anthropic_class, mock_api_key, sample_details_response, tmp_path):
@@ -346,10 +347,10 @@ class TestPaperDetailsExtractor:
         results = extractor.process_records(input_stream, output_stream, include_metadata=False)
 
         # Verify metadata not included
-        assert "details-timing" not in results[0]
+        assert "details-timing" not in results[0]["title-details"]
 
         # Verify output
         output_stream.seek(0)
         output_line = output_stream.readline()
         output_record = json.loads(output_line)
-        assert "details-timing" not in output_record
+        assert "details-timing" not in output_record["title-details"]
