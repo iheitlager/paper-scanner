@@ -1,13 +1,12 @@
 .DS_Store
 
-# virtualenv
-.paper-scanner
-
 # project
 *.json
 *.jsonl
 *.csv
-
+*.json
+!package.json
+!package-lock.json
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -60,6 +59,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+coverage/
 
 # Translations
 *.mo
@@ -182,3 +182,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# javascript
+node_modules/

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PDF Browser</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -22,10 +23,22 @@
 
         <!-- Main Content -->
         <div class="main-content">
+            <!-- Unified Header with Breadcrumb and Toolbar -->
             <div class="toolbar">
                 <div class="toolbar-header">
-                    <span class="toolbar-authors" id="currentAuthors"></span>
-                    <h3 id="currentFileName">Select a PDF to view</h3>
+                    <div class="toolbar-breadcrumb" id="toolbarBreadcrumb" style="display: none;">
+                        <button class="breadcrumb-btn" onclick="goBackToOverview()">📊 Year Overview</button>
+                        <span class="breadcrumb-sep">›</span>
+                    </div>
+                    <div class="toolbar-breadcrumb" id="paperListBreadcrumb" style="display: none;">
+                        <button class="breadcrumb-btn" onclick="goBackToOverview()">📊 Year Overview</button>
+                        <span class="breadcrumb-sep">›</span>
+                        <span id="breadcrumbCurrent"></span>
+                    </div>
+                    <div class="toolbar-title-section">
+                        <span class="toolbar-authors" id="currentAuthors"></span>
+                        <h3 id="currentFileName">Select a PDF to view</h3>
+                    </div>
                 </div>
                 <div class="toolbar-actions">
                     <button class="toolbar-btn" id="deeplinkBtn" onclick="copyDeeplink()" title="Copy link to this paper">🔗 Share</button>
@@ -33,7 +46,7 @@
                 </div>
             </div>
             <!-- Tab Navigation -->
-            <div class="tab-navigation">
+            <div class="tab-navigation" id="tabNavigation" style="display: none;">
                 <button class="tab-button active" onclick="switchTab('pdf')" id="pdfTabBtn">📄 PDF</button>
                 <button class="tab-button" onclick="switchTab('analysis')" id="analysisTabBtn">🔬 Analysis</button>
                 <button class="tab-button" onclick="switchTab('details')" id="detailsTabBtn">📋 Details</button>
@@ -41,8 +54,22 @@
             </div>
             <!-- Tab Content -->
             <div class="tab-content">
+                <!-- Year Overview Tab -->
+                <div class="tab-pane active" id="overviewTab">
+                    <div class="overview-viewer" id="overviewViewer">
+                        <div class="status-message">Loading year overview...</div>
+                    </div>
+                </div>
+                
+                <!-- Papers List Tab -->
+                <div class="tab-pane" id="papersListTab">
+                    <div class="papers-list-viewer" id="papersListViewer">
+                        <div class="status-message">Select a year from the histogram</div>
+                    </div>
+                </div>
+                
                 <!-- PDF Tab -->
-                <div class="tab-pane active" id="pdfTab">
+                <div class="tab-pane" id="pdfTab">
                     <div class="pdf-viewer" id="pdfViewer">
                         <div class="status-message">👈 Select a PDF from the list to view</div>
                     </div>
