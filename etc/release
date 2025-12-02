@@ -215,8 +215,8 @@ create_and_push_tag() {
     echo ""
     print_success "Release tag created successfully!"
     print_info "GitHub Actions will now build and create a release"
-    print_info "View progress at: https://github.com/$(REPO)/actions"
-    print_info "Release will be available at: https://github.com/$(REPO)/releases/tag/$tag_name"
+    print_info "View progress at: https://github.com/$REPO/actions"
+    print_info "Release will be available at: https://github.com/$REPO/releases/tag/$tag_name"
 }
 
 show_next_steps() {
