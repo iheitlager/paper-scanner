@@ -947,11 +947,11 @@ function selectFile(file) {
     currentFile = file;
     renderFileList();
 
-    // Update toolbar with title or file_name
-    const displayTitle = file.title || file.file_name;
-    let titleHtml = escapeHtml(displayTitle);
+    // Update toolbar with author/year and title
+    let authorYearHtml = '';
+    let titleHtml = escapeHtml(file.title || file.file_name);
     
-    // If we have title_details with DOI, make it a link
+    // If we have title_details with authors and year, display them
     let titleDetailsObj = null;
     if (file.title_details) {
         try {
@@ -963,11 +963,33 @@ function selectFile(file) {
         }
     }
     
-    if (titleDetailsObj && titleDetailsObj.doi) {
-        const doiUrl = `https://doi.org/${escapeHtml(titleDetailsObj.doi)}`;
-        titleHtml = `<a href="${doiUrl}" target="_blank" title="Open DOI in new tab">${escapeHtml(displayTitle)}</a>`;
+    if (titleDetailsObj) {
+        // Build author (year) line
+        let authorLine = '';
+        if (titleDetailsObj.authors && Array.isArray(titleDetailsObj.authors) && titleDetailsObj.authors.length > 0) {
+            const firstAuthor = titleDetailsObj.authors[0];
+            const authorsDisplay = titleDetailsObj.authors.length > 1 
+                ? `${firstAuthor} et al.` 
+                : firstAuthor;
+            authorLine = authorsDisplay;
+        }
+        
+        if (titleDetailsObj.year) {
+            authorLine += (authorLine ? ' ' : '') + `(${titleDetailsObj.year})`;
+        }
+        
+        if (authorLine) {
+            authorYearHtml = escapeHtml(authorLine);
+        }
+        
+        // Make title a link if we have DOI
+        if (titleDetailsObj.doi) {
+            const doiUrl = `https://doi.org/${escapeHtml(titleDetailsObj.doi)}`;
+            titleHtml = `<a href="${doiUrl}" target="_blank" title="Open DOI in new tab">${titleHtml}</a>`;
+        }
     }
     
+    document.getElementById('currentAuthors').innerHTML = authorYearHtml;
     document.getElementById('currentFileName').innerHTML = titleHtml;
     document.getElementById('fileInfo').textContent = 
         `${formatFileSize(file.size_bytes)} • Modified: ${formatDate(file.modified_time)}`;

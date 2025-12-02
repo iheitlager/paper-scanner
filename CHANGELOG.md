@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2025-12-02
+
+### Added
+
+- **Dedicated Analysis Tab**: Separated analysis display into its own tab in the web interface for better organization
+  - Analysis now displayed in independent 🔬 Analysis tab alongside PDF, Details, and Tags tabs
+  - Cleaner Details tab focused on bibliographic information and file metadata
+
+### Changed
+
+- **Improved Paper Content Styling**: Enhanced visual hierarchy with white section titles, blue accent for definitions, and grey body text
+- **Enhanced Toolbar Header**: Redesigned metadata display showing author/year above title, with title in blue accent color and DOI link when available
+
 ## [0.6.0] - 2025-12-02
 
 ### Added
@@ -19,14 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2025-12-02
 
 ### Added
-
-- **paper-details CLI Tool**: New command-line tool for extracting bibliographic metadata from academic papers
-  - Reads JSONLines records with `file_path` field pointing to PDF files
-  - Extracts text from PDFs and sends to Claude API for bibliographic detail extraction
-  - Generates structured JSON with: APA citation, citekey (FirstAuthorLastNameYear format), DOI, authors array, year, title, journal, volume, issue, pages, and publisher
-  - Automatic rate-limit retry logic with configurable API key and model selection
-  - Adds `title-details` field to each record with extracted bibliographic information
-  - Optional timing metadata for performance monitoring
+- **paper-details CLI Tool**: Extracts bibliographic metadata from PDFs using Claude API
+  - Reads JSONLines records and processes referenced PDF files
+  - Generates structured JSON with APA citation, citekey, DOI, authors, year, title, journal, volume, pages, and publisher
+  - Includes automatic rate-limit retry logic and optional performance timing
+  - Adds `title-details` field to each record with extracted metadata
 
 - **Web Interface Enhancements for Bibliographic Details**:
   - Sidebar displays citekey (or filename if citekey not available) for quick reference
