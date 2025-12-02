@@ -7,7 +7,7 @@ This directory contains exploratory tests for future features and experimental w
 | Spike | Description | Addition Date | Status |
 |-------|-------------|--------------|--------|
 | [001_first_tests](001_first_tests/README.md) | Initial batch processing, flush, JSON, and parser experiments | 2025-07-19 | Complete |
-| [002_browser](002_browser/README.md) | Flask + React frontend with PostgreSQL and Docker for file browser | In Progress | Active |
+| [002_browser](002_browser/README.md) | Flask + React frontend with PostgreSQL and Docker for file browser | 2025-12-02 | Integrated |
 
 ## Purpose
 

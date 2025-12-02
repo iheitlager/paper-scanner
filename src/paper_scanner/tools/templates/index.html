@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Output Viewer - Paper Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            color-scheme: dark;
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #252526;
+            --bg-tertiary: #2d2d30;
+            --bg-hover: #494949;
+            --text-primary: #e0e0e0;
+            --text-secondary: #858585;
+            --border-color: #3e3e42;
+            --accent-color: #0e639c;
+            --accent-hover: #1177bb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 350px;
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--bg-tertiary);
+        }
+
+        .sidebar-header h1 {
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 8px 12px;
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .search-box button {
+            padding: 8px 16px;
+            background-color: var(--accent-color);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .search-box button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .record-item {
+            padding: 12px;
+            margin-bottom: 4px;
+            background-color: var(--bg-primary);
+            border-left: 3px solid var(--border-color);
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .record-item:hover {
+            background-color: var(--bg-hover);
+            border-left-color: var(--accent-color);
+        }
+
+        .record-item.active {
+            background-color: var(--bg-tertiary);
+            border-left-color: var(--accent-color);
+            font-weight: 500;
+        }
+
+        .record-title {
+            font-size: 13px;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .record-index {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--bg-tertiary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toolbar h2 {
+            font-size: 16px;
+            margin: 0;
+        }
+
+        .toolbar-info {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .record-detail {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .detail-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--accent-color);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .field-value {
+            font-size: 13px;
+            color: var(--text-primary);
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .field-value.code {
+            background-color: var(--bg-primary);
+            padding: 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+
+        .status-message {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 40px 20px;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+
+        .spinner {
+            border: 4px solid var(--border-color);
+            border-top: 4px solid var(--accent-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 40vh;
+            }
+
+            .main-content {
+                min-height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>📊 Records</h1>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search...">
+                    <button onclick="performSearch()">Search</button>
+                </div>
+            </div>
+            <div class="sidebar-content" id="recordList"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="toolbar">
+                <h2 id="recordTitle">Select a record to view</h2>
+                <span class="toolbar-info" id="recordInfo"></span>
+            </div>
+            <div class="content-area" id="contentArea">
+                <div class="status-message">👈 Select a record from the list to view details</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allRecords = [];
+        let currentRecordIndex = null;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRecords();
+        });
+
+        // Handle Enter key in search box
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        async function loadRecords() {
+            try {
+                const response = await fetch('/api/records');
+                const data = await response.json();
+
+                if (data.success) {
+                    allRecords = data.records || [];
+                    renderRecordList();
+                }
+            } catch (error) {
+                console.error('Error loading records:', error);
+                showError('Failed to load records');
+            }
+        }
+
+        async function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+
+            if (!query) {
+                loadRecords();
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/records?search=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    allRecords = data.records || [];
+                    renderRecordList();
+                }
+            } catch (error) {
+                console.error('Error searching records:', error);
+                showError('Search failed');
+            }
+        }
+
+        function renderRecordList() {
+            const recordList = document.getElementById('recordList');
+            recordList.innerHTML = '';
+
+            if (allRecords.length === 0) {
+                recordList.innerHTML = '<div class="status-message">No records found</div>';
+                return;
+            }
+
+            allRecords.forEach((record, index) => {
+                const div = document.createElement('div');
+                div.className = 'record-item';
+                if (currentRecordIndex === index) {
+                    div.classList.add('active');
+                }
+
+                const title = record.paper_title || record.title || record.file_name || `Record ${index + 1}`;
+                div.innerHTML = `
+                    <div class="record-title">${escapeHtml(title)}</div>
+                    <div class="record-index">#${index + 1}</div>
+                `;
+
+                div.onclick = () => selectRecord(index);
+                recordList.appendChild(div);
+            });
+        }
+
+        function selectRecord(index) {
+            currentRecordIndex = index;
+            const record = allRecords[index];
+
+            if (!record) return;
+
+            renderRecordList();
+            displayRecord(record);
+        }
+
+        function displayRecord(record) {
+            const contentArea = document.getElementById('contentArea');
+            const title = record.paper_title || record.title || record.file_name || 'Record';
+
+            document.getElementById('recordTitle').textContent = escapeHtml(title);
+            document.getElementById('recordInfo').textContent = `Record #${currentRecordIndex + 1} of ${allRecords.length}`;
+
+            let html = '<div class="record-detail">';
+
+            for (const [key, value] of Object.entries(record)) {
+                if (value === null || value === undefined) continue;
+
+                const section = createFieldSection(key, value);
+                html += section;
+            }
+
+            html += '</div>';
+            contentArea.innerHTML = html;
+        }
+
+        function createFieldSection(key, value) {
+            const label = formatLabel(key);
+
+            if (typeof value === 'string') {
+                const isJson = value.startsWith('{') || value.startsWith('[');
+                const displayValue = isJson ? formatJson(value) : value;
+                const className = isJson ? 'field-value code' : 'field-value';
+
+                return `
+                    <div class="detail-section">
+                        <div class="section-title">${label}</div>
+                        <div class="${className}">${escapeHtml(displayValue)}</div>
+                    </div>
+                `;
+            } else if (Array.isArray(value)) {
+                return `
+                    <div class="detail-section">
+                        <div class="section-title">${label}</div>
+                        <div class="field-value code">${escapeHtml(JSON.stringify(value, null, 2))}</div>
+                    </div>
+                `;
+            } else if (typeof value === 'object') {
+                return `
+                    <div class="detail-section">
+                        <div class="section-title">${label}</div>
+                        <div class="field-value code">${escapeHtml(JSON.stringify(value, null, 2))}</div>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="detail-section">
+                        <div class="section-title">${label}</div>
+                        <div class="field-value">${escapeHtml(String(value))}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function formatLabel(key) {
+            return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+        }
+
+        function formatJson(jsonString) {
+            try {
+                const parsed = JSON.parse(jsonString);
+                return JSON.stringify(parsed, null, 2);
+            } catch {
+                return jsonString;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(message) {
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = `<div class="status-message">Error: ${escapeHtml(message)}</div>`;
+        }
+    </script>
+</body>
+</html>

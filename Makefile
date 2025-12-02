@@ -70,6 +70,57 @@ clean: ## Clean up artifacts and caches
 	@find . -type f -name ".coverage" -delete
 	@echo "✓ Cleaned"
 
+## ===================================
+## Docker Commands
+## ===================================
+start: ## Start Colima if not already running
+	@echo "Starting Colima..."
+	@colima start 2>/dev/null || true
+	@colima status
+
+stop: cleanup ## Stop Colima and clean up
+	@echo "Stopping Colima..."
+	@colima stop
+	
+docker-up: ## Start Neo4j and web server with Docker Compose
+	@echo "Starting Docker containers..."
+	@docker-compose down 2>/dev/null || true
+	docker-compose build
+	docker-compose up -d
+	@echo "✓ Services started"
+	@echo "  Web Interface: http://localhost:8000"
+
+docker-down: ## Stop Docker containers
+	@echo "Stopping Docker containers..."
+	docker-compose down
+	@echo "✓ Services stopped"
+
+docker-logs: ## View Docker logs
+	docker-compose logs -f
+
+docker-again: ## Rebuild from cache and restart Docker containers
+	@echo "Rebuilding Docker containers..."
+	docker-compose build 
+	docker-compose up -d
+	@echo "✓ Containers rebuilt and started"
+
+docker-rebuild: ## Rebuild and restart Docker web container
+	@echo "Rebuilding Docker containers..."
+	docker-compose build pdf-browser-app --no-cache
+	docker-compose up -d
+	@echo "✓ Containers rebuilt and started"
+
+cleanup: ## Clean up Docker resources
+	@echo "Cleaning up Docker resources..."
+	@docker images | grep "localhost:" | awk '{print $$3}' | xargs docker rmi -f 2>/dev/null || true
+	@docker rm -f $$(docker ps -aq) 2>/dev/null || true
+	@docker rmi -f $$(docker images -aq) 2>/dev/null || true
+	@docker volume prune -f 2>/dev/null || true
+	@docker network prune -f 2>/dev/null || true
+	@docker system prune -a -f --volumes 2>/dev/null || true
+	@echo "✓ Docker cleanup completed"
+
+
 .DEFAULT_GOAL := help
 
 help: ## Show this help message

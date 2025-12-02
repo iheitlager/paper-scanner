@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-12-02
+
+### Added
+
+- **Web-based Output Viewer**: New Flask-based web server for browsing and viewing parsed analysis results
+  - Integrated from [spike/002_browser](tests/spikes/002_browser/README.md) with production-ready improvements
+  - Two-tab interface: PDF viewer and file metadata/details
+  - Search functionality for filtering records across JSONLines output
+  - Responsive dark-themed UI with sidebar navigation
+  - RESTful API endpoints for data retrieval and querying
+
+- **output-viewer CLI Tool**: New command-line entry point for starting the output viewer server
+  - Arguments: `-i/--input` (JSONLines file path), `-p/--port` (server port), `-H/--host` (bind host), `-d/--debug` (debug mode)
+  - Automatic data loading from JSONLines files with error recovery
+  - Supports searching and filtering parsed paper analysis records
+
+- **Server Dependencies**: Added Flask, Flask-CORS, and psycopg2 for web server and database operations
+
+### Technical Details
+
+- Integration from spike/002_browser branch with typed Python backend and improved error handling
+- Flask 3.0.0+ with CORS support for cross-origin requests
+- PostgreSQL support via psycopg2 for future database integration
+- Custom exception hierarchy for better error handling in server operations
+
 ## [0.2.1] - 2025-12-01
 
 ### Changed

@@ -15,6 +15,7 @@ keywords = ["research-tools"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Environment :: Console",
+    "Environment :: Web Environment",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.11",
@@ -25,6 +26,9 @@ classifiers = [
 dependencies = [
     "anthropic==0.75.0",
     "dotenv>=0.9.9",
+    "flask>=3.0.0",
+    "flask-cors>=4.0.0",
+    "psycopg2-binary>=2.9.0",
     "pypdf==6.4.0",
     "requests==2.32.5",
 ]
@@ -45,6 +49,7 @@ file-merge = "paper_scanner.tools.file_merge:main"
 file-processor = "paper_scanner.tools.file_processor:main"
 file-parser = "paper_scanner.tools.file_parser:main"
 file-timer = "paper_scanner.tools.file_timer:main"
+output-viewer = "paper_scanner.tools.output_viewer:main"
 
 [build-system]
 requires = ["hatchling"]
