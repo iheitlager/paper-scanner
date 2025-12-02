@@ -273,7 +273,41 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
 
 
 # Application instance for WSGI servers (gunicorn, etc.)
-app, db_manager, config = create_app()
+# Lazy initialization to avoid database connection at import time
+_app = None
+_db_manager = None
+_config = None
+
+
+def get_app():
+    """Get or create the Flask app instance (lazy initialization)."""
+    global _app, _db_manager, _config
+    if _app is None:
+        _app, _db_manager, _config = create_app()
+    return _app
+
+
+# For gunicorn WSGI compatibility, create a callable app object
+class AppProxy:
+    """Lazy proxy for Flask app to defer initialization until first request."""
+    
+    def __init__(self):
+        self._app = None
+    
+    def __call__(self, environ, start_response):
+        """WSGI interface - initialize app on first call."""
+        if self._app is None:
+            self._app, _, _ = create_app()
+        return self._app(environ, start_response)
+    
+    def __getattr__(self, name):
+        """Delegate attribute access to the actual app."""
+        if self._app is None:
+            self._app, _, _ = create_app()
+        return getattr(self._app, name)
+
+
+app = AppProxy()
 
 
 def parse_args() -> argparse.Namespace:
