@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Adds `title-details` field to each record with extracted bibliographic information
   - Optional timing metadata for performance monitoring
 
+- **Web Interface Enhancements for Bibliographic Details**:
+  - Sidebar displays citekey (or filename if citekey not available) for quick reference
+  - Header shows paper title with DOI link when available (opens DOI URL in new tab)
+  - Details tab displays full bibliographic information including authors, journal, volume, pages, and APA citation
+  - Seamless integration with extracted paper metadata from paper-details tool
+
 ## [0.4.0] - 2025-12-02
 
 ### Added

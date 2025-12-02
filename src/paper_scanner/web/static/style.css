@@ -202,6 +202,17 @@ body {
     white-space: nowrap;
 }
 
+.toolbar h3 a {
+    color: var(--accent-color);
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.toolbar h3 a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
 .toolbar-info {
     font-size: 12px;
     color: var(--text-secondary);
@@ -332,6 +343,35 @@ body {
     color: var(--text-primary);
     word-break: break-all;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.detail-value.code-value {
+    background-color: var(--bg-input);
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.detail-value.code-value a {
+    color: var(--accent-color);
+    text-decoration: none;
+}
+
+.detail-value.code-value a:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+.detail-value.citation-value {
+    background-color: var(--bg-input);
+    padding: 8px 12px;
+    border-left: 3px solid var(--accent-color);
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+    font-style: italic;
+    font-family: 'Georgia', 'Times New Roman', serif;
 }
 
 .tags-display {

@@ -217,8 +217,67 @@ async function loadFileDetails(fileName) {
                 </div>`
             : '';
         
+        // Parse title-details JSON if present
+        let bibliographicHtml = '';
+        if (details.title_details) {
+            try {
+                const bib = typeof details.title_details === 'string'
+                    ? JSON.parse(details.title_details)
+                    : details.title_details;
+
+                bibliographicHtml = `
+                    <div class="detail-section">
+                        <div class="detail-section-title">📚 Bibliographic Details</div>
+                        <div class="detail-row">
+                            <div class="detail-label">Title</div>
+                            <div class="detail-value">${escapeHtml(bib.title || 'N/A')}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Citation Key</div>
+                            <div class="detail-value code-value">${escapeHtml(bib.citekey || 'N/A')}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Authors</div>
+                            <div class="detail-value">${bib.authors && Array.isArray(bib.authors) ? escapeHtml(bib.authors.join('; ')) : 'N/A'}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Year</div>
+                            <div class="detail-value">${escapeHtml(bib.year || 'N/A')}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Journal</div>
+                            <div class="detail-value">${escapeHtml(bib.journal || 'N/A')}</div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-label">Volume</div>
+                            <div class="detail-value">${escapeHtml(bib.volume || 'N/A')}</div>
+                        </div>
+                        ${bib.issue ? `<div class="detail-row">
+                            <div class="detail-label">Issue</div>
+                            <div class="detail-value">${escapeHtml(bib.issue)}</div>
+                        </div>` : ''}
+                        <div class="detail-row">
+                            <div class="detail-label">Pages</div>
+                            <div class="detail-value">${escapeHtml(bib.pages || 'N/A')}</div>
+                        </div>
+                        ${bib.doi ? `<div class="detail-row">
+                            <div class="detail-label">DOI</div>
+                            <div class="detail-value code-value"><a href="https://doi.org/${escapeHtml(bib.doi)}" target="_blank">${escapeHtml(bib.doi)}</a></div>
+                        </div>` : ''}
+                        <div class="detail-row">
+                            <div class="detail-label">APA Citation</div>
+                            <div class="detail-value citation-value">${escapeHtml(bib.citation_apa || 'N/A')}</div>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Error parsing bibliographic details:', e);
+            }
+        }
+
         const detailsHtml = `
             <div class="details-container">
+                ${bibliographicHtml}
                 <div class="detail-section">
                     <div class="detail-section-title">File Information</div>
                     <div class="detail-row">
@@ -229,8 +288,7 @@ async function loadFileDetails(fileName) {
                         <div class="detail-label">File Size</div>
                         <div class="detail-value">${formatFileSize(details.size_bytes || 0)}</div>
                     </div>
-                    ${tagsHtml}
-                </div>
+                    ${tagsHtml}\n                </div>
                 
                 <div class="detail-section">
                     <div class="detail-section-title">Paths</div>
@@ -699,6 +757,9 @@ function renderFileList() {
             div.classList.add('active');
         }
         
+        // Use citekey if available, otherwise file_name
+        const displayName = file.citekey ? escapeHtml(file.citekey) : escapeHtml(file.file_name);
+        
         // Show tags if available
         const tags = file.tags ? file.tags.split(':').filter(t => t.trim()) : [];
         const tagsHtml = tags.length > 0 
@@ -706,7 +767,7 @@ function renderFileList() {
             : '';
         
         div.innerHTML = `
-            <div class="file-item-name">${escapeHtml(file.file_name)}</div>
+            <div class="file-item-name">${displayName}</div>
             <div class="file-item-size">${formatFileSize(file.size_bytes)}</div>
             ${tagsHtml}
         `;
@@ -728,8 +789,28 @@ function selectFile(file) {
     currentFile = file;
     renderFileList();
 
-    // Update toolbar
-    document.getElementById('currentFileName').textContent = escapeHtml(file.file_name);
+    // Update toolbar with title or file_name
+    const displayTitle = file.title || file.file_name;
+    let titleHtml = escapeHtml(displayTitle);
+    
+    // If we have title_details with DOI, make it a link
+    let titleDetailsObj = null;
+    if (file.title_details) {
+        try {
+            titleDetailsObj = typeof file.title_details === 'string'
+                ? JSON.parse(file.title_details)
+                : file.title_details;
+        } catch (e) {
+            console.error('Error parsing title_details:', e);
+        }
+    }
+    
+    if (titleDetailsObj && titleDetailsObj.doi) {
+        const doiUrl = `https://doi.org/${escapeHtml(titleDetailsObj.doi)}`;
+        titleHtml = `<a href="${doiUrl}" target="_blank" title="Open DOI in new tab">${escapeHtml(displayTitle)}</a>`;
+    }
+    
+    document.getElementById('currentFileName').innerHTML = titleHtml;
     document.getElementById('fileInfo').textContent = 
         `${formatFileSize(file.size_bytes)} • Modified: ${formatDate(file.modified_time)}`;
 

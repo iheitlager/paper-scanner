@@ -20,7 +20,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from pypdf import PdfReader
 
-MAX_TOKENS = 2_000
+MAX_TOKENS = 1_500
 WAIT_TIME = 61
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
 
@@ -172,7 +172,7 @@ class PaperDetailsExtractor:
                     self.log(f"Failed to extract text from {pdf_file}")
                     continue
 
-                self.log(f"PDF extracted, length: {len(pdf_text.split())} words")
+                self.log(f"PDF extracted, length: {len(pdf_text.split()):,} words")
 
                 # Extract details
                 details = self.extract_details_with_claude(pdf_text)

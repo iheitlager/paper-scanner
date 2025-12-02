@@ -16,6 +16,9 @@ CREATE TABLE IF NOT EXISTS pdf_files (
     modified_time TIMESTAMP,
     accessed_time TIMESTAMP,
     tags TEXT,
+    title VARCHAR(500),
+    citekey VARCHAR(100),
+    title_details JSONB,
     indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -30,6 +33,8 @@ CREATE TABLE IF NOT EXISTS tags (
 CREATE INDEX IF NOT EXISTS idx_file_name ON pdf_files(file_name);
 CREATE INDEX IF NOT EXISTS idx_directory ON pdf_files(directory);
 CREATE INDEX IF NOT EXISTS idx_tags ON pdf_files(tags);
+CREATE INDEX IF NOT EXISTS idx_title ON pdf_files(title);
+CREATE INDEX IF NOT EXISTS idx_citekey ON pdf_files(citekey);
 
 -- Grant permissions to the pdfuser
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO pdfuser;

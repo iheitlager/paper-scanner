@@ -4,6 +4,7 @@ PDF Browser Server - Web application for browsing and viewing PDFs with PostgreS
 Supports both local (port 8080) and Docker (port 8000) deployment.
 """
 
+import json
 import logging
 import os
 import time
@@ -14,6 +15,15 @@ from flask_cors import CORS
 from psycopg2 import OperationalError, connect
 from psycopg2.extensions import connection as PsycopgConnection
 from psycopg2.extras import RealDictCursor
+
+from exceptions import (
+    DatabaseException,
+    FileNotFoundException,
+    InvalidDataException,
+    PDFBrowserException,
+    PDFNotFoundException,
+)
+from http_handlers import register_error_handlers
 
 # Configuration
 DATABASE_URL = os.getenv(
@@ -30,42 +40,6 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app with static folder configuration
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 CORS(app)
-
-
-# Custom Exceptions
-class PDFBrowserException(Exception):
-    """Base exception for PDF Browser application."""
-
-    def __init__(self, message: str, status_code: int = 500) -> None:
-        self.message = message
-        self.status_code = status_code
-        super().__init__(self.message)
-
-
-class DatabaseException(PDFBrowserException):
-    """Exception raised for database operations."""
-    pass
-
-
-class PDFNotFoundException(PDFBrowserException):
-    """Exception raised when a PDF is not found."""
-
-    def __init__(self, identifier: str) -> None:
-        super().__init__(f"PDF not found: {identifier}", status_code=404)
-
-
-class FileNotFoundException(PDFBrowserException):
-    """Exception raised when a file is not found on disk."""
-
-    def __init__(self, path: str) -> None:
-        super().__init__(f"File not found on disk: {path}", status_code=404)
-
-
-class InvalidDataException(PDFBrowserException):
-    """Exception raised for invalid data."""
-
-    def __init__(self, message: str) -> None:
-        super().__init__(message, status_code=400)
 
 
 class DatabaseManager:
@@ -148,16 +122,29 @@ class DatabaseManager:
                         (tag,)
                     )
 
+            # Extract title and citekey from title-details if present
+            title = None
+            citekey = None
+            title_details = None
+
+            if "title-details" in record:
+                title_details = record["title-details"]
+                title = title_details.get("title")
+                citekey = title_details.get("citekey")
+
             cursor.execute(
                 """
                 INSERT INTO pdf_files 
                 (file_path, file_name, directory, relative_path, size_bytes, 
-                 created_time, modified_time, accessed_time, tags)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 created_time, modified_time, accessed_time, tags, title, citekey, title_details)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (file_path) DO UPDATE SET
                     modified_time = EXCLUDED.modified_time,
                     accessed_time = EXCLUDED.accessed_time,
-                    tags = EXCLUDED.tags
+                    tags = EXCLUDED.tags,
+                    title = EXCLUDED.title,
+                    citekey = EXCLUDED.citekey,
+                    title_details = EXCLUDED.title_details
                 """,
                 (
                     record["file_path"],
@@ -169,6 +156,9 @@ class DatabaseManager:
                     record.get("modified_time"),
                     record.get("accessed_time"),
                     tags,
+                    title,
+                    citekey,
+                    json.dumps(title_details) if title_details else None,
                 ),
             )
             conn.commit()
@@ -306,38 +296,8 @@ class DatabaseManager:
 db_manager = DatabaseManager(DATABASE_URL)
 
 
-# Centralized Error Handler
-@app.errorhandler(PDFBrowserException)
-def handle_pdf_browser_exception(error: PDFBrowserException) -> Tuple[Dict[str, Any], int]:
-    """Handle custom PDF Browser exceptions.
-    
-    Args:
-        error: PDFBrowserException instance
-        
-    Returns:
-        JSON response with error details and status code
-    """
-    logger.error(f"{error.__class__.__name__}: {error.message}")
-    return jsonify({"success": False, "error": error.message}), error.status_code
-
-
-@app.errorhandler(400)
-def handle_bad_request(error: Any) -> Tuple[Dict[str, Any], int]:
-    """Handle 400 Bad Request errors."""
-    return jsonify({"success": False, "error": "Invalid request"}), 400
-
-
-@app.errorhandler(404)
-def handle_not_found(error: Any) -> Tuple[Dict[str, Any], int]:
-    """Handle 404 Not Found errors."""
-    return jsonify({"success": False, "error": "Resource not found"}), 404
-
-
-@app.errorhandler(500)
-def handle_internal_error(error: Any) -> Tuple[Dict[str, Any], int]:
-    """Handle 500 Internal Server errors."""
-    logger.error(f"Internal server error: {error}")
-    return jsonify({"success": False, "error": "Internal server error"}), 500
+# Register HTTP error handlers
+register_error_handlers(app)
 
 
 @app.route("/health", methods=["GET"])

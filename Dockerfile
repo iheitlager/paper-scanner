@@ -44,7 +44,7 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1
 
 # Copy application files
-COPY --chown=appuser:appuser src/paper_scanner/web/server.py .
+COPY --chown=appuser:appuser src/paper_scanner/web/*.py ./
 COPY --chown=appuser:appuser src/paper_scanner/web/templates/ ./templates/
 COPY --chown=appuser:appuser src/paper_scanner/web/static/ ./static/
 
