@@ -237,6 +237,7 @@ class TestInsertPdfRecord:
             "title-details": {
                 "title": "Sample Paper",
                 "citekey": "Smith2025",
+                "year": 2025,
                 "authors": "Smith et al.",
             },
             "analysis": {
@@ -389,6 +390,61 @@ class TestInsertPdfRecord:
             pdf_insert_call = [c for c in calls if "INSERT INTO pdf_files" in c[0][0]][0]
             # The title_details should be serialized to JSON
             assert json.dumps(title_details) in str(pdf_insert_call)
+
+    def test_insert_pdf_record_extracts_year_from_title_details(self):
+        """Test that year is extracted from title_details."""
+        manager = DatabaseManager("postgresql://localhost/test")
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        record = {
+            "file_path": "/path/to/file.pdf",
+            "file_name": "file.pdf",
+            "directory": "/path/to",
+            "relative_path": "relative/path.pdf",
+            "title-details": {
+                "title": "Test Paper",
+                "citekey": "Test2025",
+                "year": 2025,
+            },
+        }
+
+        with patch.object(manager, "get_connection", return_value=mock_conn):
+            manager.insert_pdf_record(record)
+
+            # Get the INSERT call and verify year is included
+            calls = mock_cursor.execute.call_args_list
+            pdf_insert_call = [c for c in calls if "INSERT INTO pdf_files" in c[0][0]][0]
+            # Year (2025) should be in the parameters
+            assert 2025 in pdf_insert_call[0][1]
+
+    def test_insert_pdf_record_converts_year_string_to_int(self):
+        """Test that year string is converted to integer."""
+        manager = DatabaseManager("postgresql://localhost/test")
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        record = {
+            "file_path": "/path/to/file.pdf",
+            "file_name": "file.pdf",
+            "directory": "/path/to",
+            "relative_path": "relative/path.pdf",
+            "title-details": {
+                "title": "Test Paper",
+                "year": "2025",  # String instead of int
+            },
+        }
+
+        with patch.object(manager, "get_connection", return_value=mock_conn):
+            manager.insert_pdf_record(record)
+
+            # Get the INSERT call and verify year is int
+            calls = mock_cursor.execute.call_args_list
+            pdf_insert_call = [c for c in calls if "INSERT INTO pdf_files" in c[0][0]][0]
+            # Year should be converted to int
+            assert 2025 in pdf_insert_call[0][1]
 
 
 class TestGetAllPdfs:

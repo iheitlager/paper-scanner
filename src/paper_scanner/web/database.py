@@ -115,12 +115,20 @@ class DatabaseManager:
             # Extract title and citekey from title-details if present
             title = None
             citekey = None
+            year = None
             title_details = None
 
             if "title-details" in record:
                 title_details = record["title-details"]
                 title = title_details.get("title")
                 citekey = title_details.get("citekey")
+                year = title_details.get("year")
+                # Convert year to int if it's a string
+                if year is not None:
+                    try:
+                        year = int(year)
+                    except (ValueError, TypeError):
+                        year = None
 
             # Extract analysis if present
             analysis = record.get("analysis")
@@ -129,14 +137,15 @@ class DatabaseManager:
                 """
                 INSERT INTO pdf_files 
                 (file_path, file_name, directory, relative_path, size_bytes, 
-                 created_time, modified_time, accessed_time, tags, title, citekey, title_details, analysis)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 created_time, modified_time, accessed_time, tags, title, citekey, year, title_details, analysis)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (file_path) DO UPDATE SET
                     modified_time = EXCLUDED.modified_time,
                     accessed_time = EXCLUDED.accessed_time,
                     tags = EXCLUDED.tags,
                     title = EXCLUDED.title,
                     citekey = EXCLUDED.citekey,
+                    year = EXCLUDED.year,
                     title_details = EXCLUDED.title_details,
                     analysis = EXCLUDED.analysis
                 """,
@@ -152,6 +161,7 @@ class DatabaseManager:
                     tags,
                     title,
                     citekey,
+                    year,
                     json.dumps(title_details) if title_details else None,
                     json.dumps(analysis) if analysis else None,
                 ),
