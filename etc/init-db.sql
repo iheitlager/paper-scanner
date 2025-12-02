@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS pdf_files (
     title VARCHAR(500),
     citekey VARCHAR(100),
     title_details JSONB,
+    analysis JSONB,
     indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

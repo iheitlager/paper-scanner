@@ -317,6 +317,44 @@ body {
     letter-spacing: 0.5px;
 }
 
+.detail-subsection {
+    margin-bottom: 16px;
+    padding-left: 10px;
+    border-left: 2px solid var(--border-color);
+}
+
+.detail-subsection-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.analysis-paragraph {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.6;
+    margin-bottom: 8px;
+}
+
+.concepts-list {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.concepts-list dt {
+    font-weight: 600;
+    color: var(--accent-color);
+    margin-top: 8px;
+}
+
+.concepts-list dd {
+    margin-left: 16px;
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
 .detail-row {
     display: flex;
     flex-direction: column;

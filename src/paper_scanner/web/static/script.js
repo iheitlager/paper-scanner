@@ -139,6 +139,83 @@ function safeEncodeURI(str) {
 // Tab management
 
 /**
+ * Render analysis section from parsed analysis data
+ * @param {Object} analysis - Analysis object containing paper analysis
+ * @returns {string} HTML string for analysis section
+ */
+function renderAnalysisSection(analysis) {
+    if (!analysis) return '';
+
+    let html = '<div class="detail-section"><div class="detail-section-title">🔬 Analysis</div>';
+
+    // Summary
+    if (analysis.summary) {
+        const summary = analysis.summary;
+        html += '<div class="detail-subsection"><div class="detail-subsection-title">Summary</div>';
+        if (summary.paragraph_1) {
+            html += `<p class="analysis-paragraph">${escapeHtml(summary.paragraph_1)}</p>`;
+        }
+        if (summary.paragraph_2) {
+            html += `<p class="analysis-paragraph">${escapeHtml(summary.paragraph_2)}</p>`;
+        }
+        html += '</div>';
+    }
+
+    // Research Question
+    if (analysis.research_question) {
+        html += `<div class="detail-subsection"><div class="detail-subsection-title">Research Question</div><p class="analysis-paragraph">${escapeHtml(analysis.research_question)}</p></div>`;
+    }
+
+    // Methodology
+    if (analysis.methodology) {
+        const meth = analysis.methodology;
+        html += '<div class="detail-subsection"><div class="detail-subsection-title">Methodology</div>';
+        if (meth.description) {
+            html += `<p><strong>Description:</strong> ${escapeHtml(meth.description)}</p>`;
+        }
+        if (meth.methodology_class) {
+            html += `<p><strong>Class:</strong> ${escapeHtml(meth.methodology_class)}</p>`;
+        }
+        if (meth.data_collection) {
+            html += `<p><strong>Data Collection:</strong> ${escapeHtml(meth.data_collection)}</p>`;
+        }
+        html += '</div>';
+    }
+
+    // Results
+    if (analysis.results) {
+        const results = analysis.results;
+        html += '<div class="detail-subsection"><div class="detail-subsection-title">Results</div>';
+        if (results.key_findings && Array.isArray(results.key_findings)) {
+            html += '<p><strong>Key Findings:</strong></p><ul>';
+            results.key_findings.forEach(finding => {
+                html += `<li>${escapeHtml(finding)}</li>`;
+            });
+            html += '</ul>';
+        }
+        if (results.conclusion) {
+            html += `<p><strong>Conclusion:</strong> ${escapeHtml(results.conclusion)}</p>`;
+        }
+        html += '</div>';
+    }
+
+    // Key Concepts
+    if (analysis.key_concepts && Array.isArray(analysis.key_concepts)) {
+        html += '<div class="detail-subsection"><div class="detail-subsection-title">Key Concepts</div>';
+        html += '<dl class="concepts-list">';
+        analysis.key_concepts.forEach(concept => {
+            html += `<dt>${escapeHtml(concept.term)}</dt><dd>${escapeHtml(concept.definition)}</dd>`;
+        });
+        html += '</dl></div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+// Tab management
+
+/**
  * Switch between PDF and Details tabs
  * @param {string} tabName - Tab name ('pdf' or 'details')
  */
@@ -275,9 +352,24 @@ async function loadFileDetails(fileName) {
             }
         }
 
+        // Parse analysis JSON if present
+        let analysisHtml = '';
+        if (details.analysis) {
+            try {
+                const analysis = typeof details.analysis === 'string'
+                    ? JSON.parse(details.analysis)
+                    : details.analysis;
+
+                analysisHtml = renderAnalysisSection(analysis);
+            } catch (e) {
+                console.error('Error parsing analysis:', e);
+            }
+        }
+
         const detailsHtml = `
             <div class="details-container">
                 ${bibliographicHtml}
+                ${analysisHtml}
                 <div class="detail-section">
                     <div class="detail-section-title">File Information</div>
                     <div class="detail-row">

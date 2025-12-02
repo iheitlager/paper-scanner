@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-12-02
+
+### Added
+
+- **Paper Analysis Storage and Display**:
+  - Database schema extended with `analysis` JSONB column to store complete paper analysis
+  - Server automatically extracts and stores analysis data from incoming records
+  - Web interface displays analysis including summary, research questions, methodology, results, and key concepts
+  - Styled analysis sections in details tab with expandable subsections
+  - Analysis data fully integrated with bibliographic details
+
 ## [0.5.0] - 2025-12-02
 
 ### Added

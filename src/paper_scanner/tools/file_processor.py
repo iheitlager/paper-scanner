@@ -136,7 +136,27 @@ class PDFClaudeScanner:
                         }
                     ],
                 )
-                return response.content[0].text
+
+                response_text = response.content[0].text.strip()
+
+                # Remove markdown code block wrapping if present
+                if response_text.startswith("```"):
+                    # Remove opening code fence (e.g., ```json)
+                    lines = response_text.split("\n", 1)
+                    if len(lines) > 1:
+                        response_text = lines[1]
+                    # Remove closing code fence
+                    if response_text.endswith("```"):
+                        response_text = response_text[:-3].rstrip()
+
+                # Parse the JSON response
+                try:
+                    details = json.loads(response_text)
+                    return details
+                except json.JSONDecodeError as e:
+                    self.log(f"Failed to parse JSON response: {e}")
+                    self.log(f"Response was: {response_text[:200]}...")
+                    return None
 
             except Exception as e:
                 # Check if it's a rate limit error (429)
@@ -176,7 +196,7 @@ class PDFClaudeScanner:
 
                     item["analysis"] = analysis
                     if include_metadata:
-                        item["timing"] = processing_time
+                        analysis["timing"] = processing_time
 
                     f_out.write(json.dumps(item) + "\n")
                     f_out.flush()

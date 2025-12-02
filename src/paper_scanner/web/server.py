@@ -132,19 +132,23 @@ class DatabaseManager:
                 title = title_details.get("title")
                 citekey = title_details.get("citekey")
 
+            # Extract analysis if present
+            analysis = record.get("analysis")
+
             cursor.execute(
                 """
                 INSERT INTO pdf_files 
                 (file_path, file_name, directory, relative_path, size_bytes, 
-                 created_time, modified_time, accessed_time, tags, title, citekey, title_details)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 created_time, modified_time, accessed_time, tags, title, citekey, title_details, analysis)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (file_path) DO UPDATE SET
                     modified_time = EXCLUDED.modified_time,
                     accessed_time = EXCLUDED.accessed_time,
                     tags = EXCLUDED.tags,
                     title = EXCLUDED.title,
                     citekey = EXCLUDED.citekey,
-                    title_details = EXCLUDED.title_details
+                    title_details = EXCLUDED.title_details,
+                    analysis = EXCLUDED.analysis
                 """,
                 (
                     record["file_path"],
@@ -159,6 +163,7 @@ class DatabaseManager:
                     title,
                     citekey,
                     json.dumps(title_details) if title_details else None,
+                    json.dumps(analysis) if analysis else None,
                 ),
             )
             conn.commit()
@@ -348,7 +353,9 @@ def load_jsonlines() -> Tuple[Dict[str, Any], int]:
                     "size_bytes": int,
                     "created_time": str,
                     "modified_time": str,
-                    "accessed_time": str
+                    "accessed_time": str,
+                    "title-details": dict (optional),
+                    "analysis": dict (optional)
                 }
             ]
         }

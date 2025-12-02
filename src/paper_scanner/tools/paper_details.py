@@ -183,7 +183,7 @@ class PaperDetailsExtractor:
                     # Add details to record
                     record["title-details"] = details
                     if include_metadata:
-                        record["details-timing"] = processing_time
+                        details["details-timing"] = processing_time
 
                     # Write output
                     f_out.write(json.dumps(record) + "\n")
