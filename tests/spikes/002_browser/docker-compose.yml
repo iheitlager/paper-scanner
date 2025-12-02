@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: pdf-browser-db
+    environment:
+      POSTGRES_USER: pdfuser
+      POSTGRES_PASSWORD: pdfpass
+      POSTGRES_DB: pdfdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pdfuser -d pdfdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  flask_app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pdf-browser-app
+    environment:
+      DATABASE_URL: postgresql://pdfuser:pdfpass@postgres:5432/pdfdb
+      PDF_BASE_DIR: /papers
+      PORT: 8000
+      ENV: docker
+    ports:
+      - "8000:8000"
+    volumes:
+      - /Users/iheitlager/wc/papers:/papers:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

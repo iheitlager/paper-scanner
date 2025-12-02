@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Browser</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>📄 Files</h2>
+                <div class="load-section">
+                    <button class="file-picker-button" onclick="openFileModal()">📁 Load JSONL File</button>
+                    <div id="statusMessage"></div>
+                </div>
+            </div>
+            <div class="file-list" id="fileList"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="toolbar">
+                <h3 id="currentFileName">Select a PDF to view</h3>
+                <span class="toolbar-info" id="fileInfo"></span>
+            </div>
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <button class="tab-button active" onclick="switchTab('pdf')" id="pdfTabBtn">📄 PDF</button>
+                <button class="tab-button" onclick="switchTab('details')" id="detailsTabBtn">📋 Details</button>
+            </div>
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- PDF Tab -->
+                <div class="tab-pane active" id="pdfTab">
+                    <div class="pdf-viewer" id="pdfViewer">
+                        <div class="status-message">👈 Select a PDF from the list to view</div>
+                    </div>
+                </div>
+                <!-- Details Tab -->
+                <div class="tab-pane" id="detailsTab">
+                    <div class="details-viewer" id="detailsViewer">
+                        <div class="status-message">👈 Select a PDF from the list to view details</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Upload Modal -->
+    <div id="fileModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Load JSONL File</h2>
+                <button class="modal-close" onclick="closeFileModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Select a JSONL file containing PDF metadata to load into the browser.</p>
+                <div class="file-input-wrapper">
+                    <label class="file-input-label" for="jsonlFileInput">
+                        <span id="fileInputLabel">📁 Click to select JSONL file or drag & drop</span>
+                    </label>
+                    <input type="file" id="jsonlFileInput" accept=".jsonl" onchange="handleFileSelect(event)">
+                </div>
+                <div id="modalStatusMessage"></div>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-secondary" onclick="closeFileModal()">Cancel</button>
+                <button class="modal-btn modal-btn-primary" id="loadBtn" onclick="loadJsonLinesFile()" disabled>Load File</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

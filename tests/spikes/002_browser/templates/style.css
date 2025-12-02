@@ -1,0 +1,441 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    color-scheme: dark;
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #2d2d30;
+    --bg-hover: #494949;
+    --bg-input: #3c3c3c;
+    --bg-selected: #094771;
+    --text-primary: #e0e0e0;
+    --text-secondary: #858585;
+    --border-color: #3e3e42;
+    --accent-color: #0e639c;
+    --accent-hover: #1177bb;
+    --accent-active: #0d47a1;
+    --error-bg: #5a1f1a;
+    --error-text: #f48771;
+    --success-bg: #1e3a1f;
+    --success-text: #89d185;
+}
+
+html {
+    color-scheme: dark;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+}
+
+.sidebar {
+    width: 280px;
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.3);
+}
+
+.sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-tertiary);
+}
+
+.sidebar-header h2 {
+    font-size: 16px;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.load-section {
+    padding: 10px 0;
+}
+
+.load-section input,
+.load-section button {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 12px;
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+}
+
+.load-section input::placeholder {
+    color: var(--text-secondary);
+}
+
+.load-section button {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.load-section button:hover {
+    background-color: var(--accent-hover);
+}
+
+.load-section button:active {
+    background-color: var(--accent-active);
+}
+
+.file-picker-button {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.file-picker-button:hover {
+    background-color: var(--accent-hover);
+}
+
+.file-picker-button:active {
+    background-color: var(--accent-active);
+}
+
+.file-list {
+    padding: 10px;
+}
+
+.file-item {
+    padding: 12px;
+    margin-bottom: 4px;
+    background-color: var(--bg-input);
+    border-left: 3px solid var(--border-color);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    max-height: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-item:hover {
+    background-color: var(--bg-hover);
+    border-left-color: var(--accent-color);
+}
+
+.file-item.active {
+    background-color: var(--bg-selected);
+    border-left-color: var(--accent-color);
+    font-weight: 500;
+}
+
+.file-item-name {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-item-size {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-primary);
+}
+
+.toolbar {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--bg-tertiary);
+}
+
+.toolbar h3 {
+    font-size: 16px;
+    color: var(--text-primary);
+    flex: 1;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.toolbar-info {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.pdf-viewer {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--bg-primary);
+}
+
+.pdf-viewer iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.status-message {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 40px 20px;
+}
+
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.spinner {
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--accent-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-message {
+    color: #f48771;
+    padding: 10px 15px;
+    background-color: #5a1f1a;
+    border-radius: 4px;
+    margin: 10px;
+    border-left: 3px solid #f48771;
+}
+
+.success-message {
+    color: var(--success-text);
+    padding: 10px 15px;
+    background-color: var(--success-bg);
+    border-radius: 4px;
+    margin: 10px;
+    border-left: 3px solid var(--success-text);
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    animation: fadeIn 0.3s ease;
+}
+
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-content {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 15px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 18px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+}
+
+.modal-close:hover {
+    color: var(--text-primary);
+}
+
+.modal-body {
+    margin-bottom: 20px;
+}
+
+.modal-body p {
+    color: var(--text-secondary);
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.file-input-wrapper {
+    margin-bottom: 20px;
+}
+
+.file-input-wrapper input[type="file"] {
+    display: none;
+}
+
+.file-input-label {
+    display: block;
+    padding: 15px 20px;
+    background-color: var(--bg-input);
+    border: 2px dashed var(--border-color);
+    border-radius: 4px;
+    text-align: center;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.file-input-label:hover {
+    border-color: var(--accent-color);
+    background-color: var(--bg-hover);
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.modal-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.modal-btn-primary {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.modal-btn-primary:hover {
+    background-color: var(--accent-hover);
+}
+
+.modal-btn-primary:disabled {
+    background-color: var(--border-color);
+    cursor: not-allowed;
+}
+
+.modal-btn-secondary {
+    background-color: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.modal-btn-secondary:hover {
+    background-color: var(--bg-input);
+}
+
+@media (max-width: 768px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        max-height: 40vh;
+        position: relative;
+        overflow-y: auto;
+        z-index: auto;
+    }
+
+    .main-content {
+        flex: 1;
+        min-height: 60vh;
+    }
+
+    .pdf-viewer {
+        height: 100%;
+    }
+
+    .toolbar {
+        flex-wrap: wrap;
+    }
+
+    .toolbar h3 {
+        width: 100%;
+        margin-bottom: 8px;
+    }
+
+    .file-item {
+        max-height: 100%;
+        overflow: visible;
+    }
+
+    .load-section input,
+    .load-section button {
+        font-size: 14px;
+        padding: 10px;
+    }
+}
