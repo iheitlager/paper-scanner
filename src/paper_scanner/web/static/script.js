@@ -146,30 +146,30 @@ function safeEncodeURI(str) {
 function renderAnalysisSection(analysis) {
     if (!analysis) return '';
 
-    let html = '<div class="detail-section"><div class="detail-section-title">🔬 Analysis</div>';
+    let html = '<div class="detail-section analysis-section"><div class="detail-section-title">🔬 Analysis</div>';
 
     // Summary
     if (analysis.summary) {
         const summary = analysis.summary;
-        html += '<div class="detail-subsection"><div class="detail-subsection-title">Summary</div>';
+        html += '<div class="detail-subsection paper-subsection"><div class="detail-subsection-title">Summary</div>';
         if (summary.paragraph_1) {
-            html += `<p class="analysis-paragraph">${escapeHtml(summary.paragraph_1)}</p>`;
+            html += `<p>${escapeHtml(summary.paragraph_1)}</p>`;
         }
         if (summary.paragraph_2) {
-            html += `<p class="analysis-paragraph">${escapeHtml(summary.paragraph_2)}</p>`;
+            html += `<p>${escapeHtml(summary.paragraph_2)}</p>`;
         }
         html += '</div>';
     }
 
     // Research Question
     if (analysis.research_question) {
-        html += `<div class="detail-subsection"><div class="detail-subsection-title">Research Question</div><p class="analysis-paragraph">${escapeHtml(analysis.research_question)}</p></div>`;
+        html += `<div class="detail-subsection paper-subsection"><div class="detail-subsection-title">Research Question</div><p>${escapeHtml(analysis.research_question)}</p></div>`;
     }
 
     // Methodology
     if (analysis.methodology) {
         const meth = analysis.methodology;
-        html += '<div class="detail-subsection"><div class="detail-subsection-title">Methodology</div>';
+        html += '<div class="detail-subsection paper-subsection"><div class="detail-subsection-title">Methodology</div>';
         if (meth.description) {
             html += `<p><strong>Description:</strong> ${escapeHtml(meth.description)}</p>`;
         }
@@ -185,7 +185,7 @@ function renderAnalysisSection(analysis) {
     // Results
     if (analysis.results) {
         const results = analysis.results;
-        html += '<div class="detail-subsection"><div class="detail-subsection-title">Results</div>';
+        html += '<div class="detail-subsection paper-subsection"><div class="detail-subsection-title">Results</div>';
         if (results.key_findings && Array.isArray(results.key_findings)) {
             html += '<p><strong>Key Findings:</strong></p><ul>';
             results.key_findings.forEach(finding => {
@@ -201,7 +201,7 @@ function renderAnalysisSection(analysis) {
 
     // Key Concepts
     if (analysis.key_concepts && Array.isArray(analysis.key_concepts)) {
-        html += '<div class="detail-subsection"><div class="detail-subsection-title">Key Concepts</div>';
+        html += '<div class="detail-subsection paper-subsection"><div class="detail-subsection-title">Key Concepts</div>';
         html += '<dl class="concepts-list">';
         analysis.key_concepts.forEach(concept => {
             html += `<dt>${escapeHtml(concept.term)}</dt><dd>${escapeHtml(concept.definition)}</dd>`;
@@ -217,10 +217,10 @@ function renderAnalysisSection(analysis) {
 
 /**
  * Switch between PDF and Details tabs
- * @param {string} tabName - Tab name ('pdf' or 'details')
+ * @param {string} tabName - Tab name ('pdf', 'analysis', 'details' or 'tags')
  */
 function switchTab(tabName) {
-    if (!['pdf', 'details', 'tags'].includes(tabName)) {
+    if (!['pdf', 'analysis', 'details', 'tags'].includes(tabName)) {
         console.error(`Invalid tab name: ${tabName}`);
         return;
     }
@@ -229,11 +229,14 @@ function switchTab(tabName) {
     
     // Update tab buttons
     document.getElementById('pdfTabBtn').classList.remove('active');
+    document.getElementById('analysisTabBtn').classList.remove('active');
     document.getElementById('detailsTabBtn').classList.remove('active');
     document.getElementById('tagsTabBtn').classList.remove('active');
     
     if (tabName === 'pdf') {
         document.getElementById('pdfTabBtn').classList.add('active');
+    } else if (tabName === 'analysis') {
+        document.getElementById('analysisTabBtn').classList.add('active');
     } else if (tabName === 'details') {
         document.getElementById('detailsTabBtn').classList.add('active');
     } else {
@@ -242,22 +245,86 @@ function switchTab(tabName) {
     
     // Update tab panes
     document.getElementById('pdfTab').classList.remove('active');
+    document.getElementById('analysisTab').classList.remove('active');
     document.getElementById('detailsTab').classList.remove('active');
     document.getElementById('tagsTab').classList.remove('active');
     
     if (tabName === 'pdf') {
         document.getElementById('pdfTab').classList.add('active');
+    } else if (tabName === 'analysis') {
+        document.getElementById('analysisTab').classList.add('active');
     } else if (tabName === 'details') {
         document.getElementById('detailsTab').classList.add('active');
     } else {
         document.getElementById('tagsTab').classList.add('active');
     }
     
-    // Load details if switching to details tab and we have a file
-    if (tabName === 'details' && currentFile) {
+    // Load content if switching to analysis, details, or tags tab and we have a file
+    if (tabName === 'analysis' && currentFile) {
+        loadFileAnalysis(currentFile.file_name);
+    } else if (tabName === 'details' && currentFile) {
         loadFileDetails(currentFile.file_name);
     } else if (tabName === 'tags' && currentFile) {
         loadTagsEditor(currentFile.file_name);
+    }
+}
+
+/**
+ * Load and display file analysis
+ * @param {string} fileName - Name of the PDF file
+ * @returns {Promise<void>}
+ */
+async function loadFileAnalysis(fileName) {
+    try {
+        const response = await fetch(`/api/file_details/${safeEncodeURI(fileName)}`);
+        
+        if (!response.ok) {
+            await handleApiError(response, 'Load file analysis');
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new AppError(data.error || 'Unknown error', 'File analysis');
+        }
+        
+        const details = data.details;
+        const viewer = document.getElementById('analysisViewer');
+        
+        // Parse analysis JSON if present
+        let analysisHtml = '';
+        if (details.analysis) {
+            try {
+                const analysis = typeof details.analysis === 'string'
+                    ? JSON.parse(details.analysis)
+                    : details.analysis;
+
+                analysisHtml = renderAnalysisSection(analysis);
+            } catch (e) {
+                console.error('Error parsing analysis:', e);
+                analysisHtml = '<div class="status-message">Error: Could not parse analysis data</div>';
+            }
+        } else {
+            analysisHtml = '<div class="status-message">No analysis data available for this PDF</div>';
+        }
+
+        const viewerHtml = `
+            <div class="analysis-container">
+                ${analysisHtml}
+            </div>
+        `;
+        
+        viewer.innerHTML = viewerHtml;
+    } catch (error) {
+        if (error instanceof AppError) {
+            error.log();
+        } else {
+            console.error('Unexpected error loading analysis:', error);
+        }
+        
+        const viewer = document.getElementById('analysisViewer');
+        const errorMsg = error instanceof AppError ? error.message : error.message;
+        viewer.innerHTML = `<div class="status-message">Error: ${escapeHtml(errorMsg)}</div>`;
     }
 }
 
@@ -369,7 +436,6 @@ async function loadFileDetails(fileName) {
         const detailsHtml = `
             <div class="details-container">
                 ${bibliographicHtml}
-                ${analysisHtml}
                 <div class="detail-section">
                     <div class="detail-section-title">File Information</div>
                     <div class="detail-row">

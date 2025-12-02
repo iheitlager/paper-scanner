@@ -187,7 +187,7 @@ class PDFClaudeScanner:
             processing_time = {"start_time": datetime.datetime.now(datetime.timezone.utc).isoformat()}
             self.log(f"Processing {pdf_file} ...")
             pdf_text = self.extract_text_from_pdf(pdf_file)
-            self.log(f"length {len(pdf_text.split())} ...")
+            self.log(f"length {len(pdf_text.split()):,} ...")
 
             if pdf_text:
                 analysis = self.analyze_with_claude(pdf_text, custom_prompt)
@@ -196,7 +196,7 @@ class PDFClaudeScanner:
 
                     item["analysis"] = analysis
                     if include_metadata:
-                        analysis["timing"] = processing_time
+                        analysis["details-timing"] = processing_time
 
                     f_out.write(json.dumps(item) + "\n")
                     f_out.flush()

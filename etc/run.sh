@@ -12,4 +12,4 @@ fi
 
 echo "Processing output file: $output_file"
 
-file-scanner ../papers -f "$output_file" | paper-details -v  | file-processor -o "$output_file" -v --custom_prompt src/prompts/paper-summary.md
+file-scanner /Users/iheitlager/wc/papers -f "$output_file" | paper-details -v  | file-processor -o "$output_file" --custom_prompt src/prompts/paper-summary.md
