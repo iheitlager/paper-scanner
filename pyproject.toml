@@ -50,6 +50,7 @@ file-processor = "paper_scanner.tools.file_processor:main"
 file-parser = "paper_scanner.tools.file_parser:main"
 file-timer = "paper_scanner.tools.file_timer:main"
 output-viewer = "paper_scanner.tools.output_viewer:main"
+paper-details = "paper_scanner.tools.paper_details:main"
 
 [build-system]
 requires = ["hatchling"]

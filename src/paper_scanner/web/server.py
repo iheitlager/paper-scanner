@@ -147,7 +147,7 @@ class DatabaseManager:
                         "INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING",
                         (tag,)
                     )
-            
+
             cursor.execute(
                 """
                 INSERT INTO pdf_files 
@@ -287,7 +287,7 @@ class DatabaseManager:
                         "INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING",
                         (tag,)
                     )
-            
+
             cursor.execute(
                 "UPDATE pdf_files SET tags = %s WHERE file_name = %s",
                 (tags, file_name)
@@ -481,12 +481,12 @@ def update_file_tags(file_name: str) -> Tuple[Dict[str, Any], int]:
             raise InvalidDataException("Request body must be JSON")
 
         tags = data.get("tags", "")
-        
+
         # Verify file exists
         pdf_record = db_manager.get_pdf_by_file_name(file_name)
         if not pdf_record:
             raise PDFNotFoundException(file_name)
-        
+
         db_manager.update_pdf_tags(file_name, tags)
         return jsonify({"success": True, "message": "Tags updated successfully"}), 200
     except (DatabaseException, InvalidDataException, PDFNotFoundException):

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-12-02
+
+### Added
+
+- **paper-details CLI Tool**: New command-line tool for extracting bibliographic metadata from academic papers
+  - Reads JSONLines records with `file_path` field pointing to PDF files
+  - Extracts text from PDFs and sends to Claude API for bibliographic detail extraction
+  - Generates structured JSON with: APA citation, citekey (FirstAuthorLastNameYear format), DOI, authors array, year, title, journal, volume, issue, pages, and publisher
+  - Automatic rate-limit retry logic with configurable API key and model selection
+  - Adds `title-details` field to each record with extracted bibliographic information
+  - Optional timing metadata for performance monitoring
+
 ## [0.4.0] - 2025-12-02
 
 ### Added
