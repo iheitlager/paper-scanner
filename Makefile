@@ -36,6 +36,8 @@ env: ## Create and populate the development virtual environment
 	fi
 	@uv run python -c "import paper_scanner; print(f'paper-scanner version: {paper_scanner.__version__}')"
 	@echo "To activate: source $(VENV)/bin/activate"
+	@npm install
+	@echo "✓ Development environment is ready"
 
 sync: ## Sync dependencies into the virtual environment
 	@echo "Syncing dependencies into virtual environment..."
@@ -47,8 +49,15 @@ lock: ## Lock dependencies into uv.lock
 	@echo "Locking dependencies..."
 	uv lock
 
-test: ## Run tests with coverage
-	@echo "Running tests..."
+test: py-test npm-test ## Run all tests
+	@echo "✓ All tests passed"
+
+npm-test: ## Run frontend JavaScript tests
+	@echo "Running frontend JavaScript tests..."
+	@npm test
+
+py-test: ## Run Python tests with coverage
+	@echo "Running python tests..."
 	uv run pytest --cov=src/paper_scanner tests/
 
 lint: ## Lint code with ruff

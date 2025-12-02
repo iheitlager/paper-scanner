@@ -1,0 +1,37 @@
+{
+  "name": "paper-scanner-web",
+  "version": "1.0.0",
+  "description": "Web frontend for Paper Scanner application",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/paper_scanner/web/static/ --max-warnings 0",
+    "lint:fix": "eslint src/paper_scanner/web/static/ --fix",
+    "format": "prettier --write src/paper_scanner/web/static/",
+    "format:check": "prettier --check src/paper_scanner/web/static/"
+  },
+  "keywords": [
+    "paper",
+    "scanner",
+    "research",
+    "pdf"
+  ],
+  "author": "Ilja Heitlager <ilja@heitlager.com>",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "babel-jest": "^29.7.0",
+    "eslint": "^8.54.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.29.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "jsdom": "^27.2.0",
+    "prettier": "^3.1.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.0"
+  }
+}
