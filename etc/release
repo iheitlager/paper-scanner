@@ -1,11 +1,10 @@
-#!/bin/bash
-# Release helper script for paper-scanner
+#!/usr/bin/env bash
+
+# Release helper script for python packages
 # Creates a git tag and pushes it to trigger GitHub Actions build
 
 # Copyright (c) 2025 - Ilja Heitlager
 # SPDX-License-Identifier: Apache-2.0
-
-set -e
 
 #==============================================================================
 # CONSTANTS AND DEFAULT SETTINGS
@@ -15,6 +14,8 @@ APP_NAME=$(basename "$0")
 VERSION=""
 MESSAGE=""
 DRY_RUN=false
+REPO=""
+SCRIPT_VERSION="0.2.0" # Version of this script
 
 # Color codes
 RED='\033[0;31m'
@@ -28,31 +29,46 @@ NC='\033[0m' # No Color
 #==============================================================================
 
 show_usage() {
-    cat << EOF
+    local HELP_CMD="cat"
+    if command -v bat >/dev/null 2>&1; then
+        HELP_CMD="bat --plain --language=help"
+    fi
+
+    $HELP_CMD << EOF
 Usage: $APP_NAME [OPTIONS] <version>
 
 Create and push a git tag to trigger package build and GitHub release.
 
 OPTIONS:
-    -m, --message MSG   Custom tag message (default: "Release version X.Y.Z")
-    -n, --dry-run       Show what would be done without actually doing it
-    -h, --help          Show this help message
+    -m, --message MSG      Custom tag message (default: "Release version X.Y.Z")
+    -r, --repository REPO  GitHub repository (default: ${REPO})
+    -n, --dry-run          Show what would be done without actually doing it
+    -h, --help             Show this help message
+    -v, --version          Show script version
 
 ARGUMENTS:
-    version             Version number (e.g., 0.2.0, 1.0.0)
+    version            Version number (e.g., 0.2.0, 1.0.0)
                        The 'v' prefix is added automatically
 
 Examples:
-    $APP_NAME 0.2.0                     # Create tag v0.2.0
+    $APP_NAME 0.2.0                    # Create tag v0.2.0
     $APP_NAME 0.3.0 -m "Bug fixes"     # Create tag with custom message
     $APP_NAME 1.0.0 --dry-run          # Preview without creating tag
 
 After running this script:
 1. GitHub Actions will automatically build the package
 2. A GitHub Release will be created with the built packages
-3. Users can install via: pip install git+https://github.com/iheitlager/paper-scanner.git@vX.Y.Z
+3. Users can install via: pip install git+https://github.com/${REPO}.git@vX.Y.Z
 
 EOF
+}
+
+show_version() {
+    local HELP_CMD="cat"
+    if command -v bat >/dev/null 2>&1; then
+        HELP_CMD="bat --plain --language=help"
+    fi
+    $HELP_CMD <<< "$APP_NAME version $SCRIPT_VERSION"
 }
 
 print_info() {
@@ -69,6 +85,34 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}✗${NC}  $1"
+}
+
+#==============================================================================
+# REPOSITORY FUNCTIONS
+#==============================================================================
+
+get_repo_from_origin() {
+    # Check if git repo
+    if ! git rev-parse --git-dir > /dev/null 2>&1; then
+        print_error "Not a git repository"
+        exit 1
+    fi
+    
+    # Get the origin remote URL
+    local origin_url
+    origin_url=$(git remote get-url origin 2>/dev/null)
+    
+    if [ -z "$origin_url" ]; then
+        print_error "Could not retrieve origin remote URL"
+        exit 1
+    fi
+    
+    # Translate git@github.com:owner/repo.git to owner/repo
+    # Also handles https://github.com/owner/repo.git format
+    local repo
+    repo=$(echo "$origin_url" | sed -E 's|.*github\.com[:/](.+)\.git$|\1|')
+    
+    echo "$repo"
 }
 
 #==============================================================================
@@ -120,20 +164,23 @@ check_git_status() {
 }
 
 check_version_in_code() {
+    local version_file
+    version_file=$(ls src/*/__init__.py 2> /dev/null | head -n 1)
+
     local code_version
-    code_version=$(grep -E '^__version__' src/paper_scanner/__init__.py | cut -d'"' -f2)
+    code_version=$(grep -E '^__version__' "$version_file" | cut -d'"' -f2)
     
     if [ "$code_version" != "$VERSION" ]; then
         print_warning "Version mismatch!"
         print_info "  In code:    $code_version"
         print_info "  Creating:   $VERSION"
         echo ""
-        read -p "Update __version__ in src/paper_scanner/__init__.py to $VERSION? [y/N] " -n 1 -r
+        read -p "Update __version__ in $version_file to $VERSION? [y/N] " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            sed -i '' "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" src/paper_scanner/__init__.py
+            sed -i '' "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" "$version_file"
             print_success "Updated __version__ to $VERSION"
-            git add src/paper_scanner/__init__.py
+            git add "$version_file"
             git commit -m "Bump version to $VERSION"
             print_success "Committed version change"
         fi
@@ -168,8 +215,8 @@ create_and_push_tag() {
     echo ""
     print_success "Release tag created successfully!"
     print_info "GitHub Actions will now build and create a release"
-    print_info "View progress at: https://github.com/iheitlager/paper-scanner/actions"
-    print_info "Release will be available at: https://github.com/iheitlager/paper-scanner/releases/tag/$tag_name"
+    print_info "View progress at: https://github.com/$(REPO)/actions"
+    print_info "Release will be available at: https://github.com/$(REPO)/releases/tag/$tag_name"
 }
 
 show_next_steps() {
@@ -178,13 +225,13 @@ show_next_steps() {
     print_info "Next steps:"
     echo ""
     echo "  1. Wait for GitHub Actions to complete the build"
-    echo "  2. Check the release: https://github.com/iheitlager/paper-scanner/releases"
+    echo "  2. Check the release: https://github.com/$(REPO)/releases"
     echo "  3. Users can now install with:"
     echo ""
-    echo "     pip install git+https://github.com/iheitlager/paper-scanner.git@v$VERSION"
+    echo "     pip install git+https://github.com/$(REPO).git@v$VERSION"
     echo ""
     echo "     # Or from the wheel:"
-    echo "     pip install https://github.com/iheitlager/paper-scanner/releases/download/v$VERSION/paper_scanner-$VERSION-py3-none-any.whl"
+    echo "     pip install https://github.com/$(REPO)/releases/download/v$VERSION/paper_scanner-$VERSION-py3-none-any.whl"
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
@@ -204,11 +251,21 @@ main() {
 #==============================================================================
 # COMMAND LINE ARGUMENT PARSING
 #==============================================================================
+# Initialize REPO from git origin
+REPO=$(get_repo_from_origin)
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -v|--version)
+            show_version
+            exit 0
+            ;;  
         -m|--message)
             MESSAGE="$2"
+            shift 2
+            ;;
+        -r|--repository)
+            REPO="$2"
             shift 2
             ;;
         -n|--dry-run)

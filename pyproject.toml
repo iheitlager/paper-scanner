@@ -52,3 +52,13 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "src/paper_scanner/__init__.py"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]  # I enables isort rules, W for line length
+ignore = ["E501", "E741"]  # Line too long, ambiguous variable name
+
+[tool.ruff.format]
+quote-style = "double"

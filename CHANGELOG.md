@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-12-01
+
+### Changed
+
+- Refactored `file-parser` tool with improved error handling and robustness:
+  - Changed from generic exception handling to specific `json.JSONDecodeError`
+  - Error handling now continues processing remaining lines instead of stopping on first error
+  - Enhanced logging with per-line error details and progress metrics
+  - Guaranteed file handle closure with try-finally block
+
+### Added
+
+- Added `verbose` flag (`-v`) to `file-parser` for detailed debugging output
+- Verbose mode displays: line numbers, raw line content (first 100 chars), item keys on errors
+- Progress summary showing count of successfully parsed lines vs total lines processed
+- Better help text with example usage in `file-parser` command
+- Added `python-dotenv` support to `file-parser` for loading environment variables
+
+### Fixed
+
+- `file-parser` now handles KeyboardInterrupt (Ctrl+C) gracefully with exit code 130
+- Improved error messages with specific context about what failed and where
+- Better resource management preventing file handle leaks
+
 ## [0.2.0] - 2025-12-01
 
 ### Added
