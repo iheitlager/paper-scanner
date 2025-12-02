@@ -13,7 +13,7 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Config:
     """Configuration for PDF Browser application.
-    
+
     Attributes:
         database_url: PostgreSQL connection URL
         pdf_base_dir: Base directory for PDF files
@@ -66,9 +66,9 @@ class Config:
         if self.debug and self.env != "local":
             logger.warning("Debug mode only recommended for local environment")
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert configuration to dictionary.
-        
+
         Returns:
             Dictionary representation of configuration
         """
@@ -98,7 +98,7 @@ class Config:
 
 class ConfigManager:
     """Manages application configuration from multiple sources.
-    
+
     Configuration sources (in priority order):
     1. Command-line arguments
     2. Environment variables
@@ -108,7 +108,7 @@ class ConfigManager:
 
     def __init__(self, env_file: Optional[str] = None) -> None:
         """Initialize configuration manager.
-        
+
         Args:
             env_file: Path to .env file (default: .env in current directory)
         """
@@ -131,11 +131,11 @@ class ConfigManager:
 
     def _get_int_env(self, key: str, default: Optional[int] = None) -> Optional[int]:
         """Get integer environment variable.
-        
+
         Args:
             key: Environment variable name
             default: Default value if not found
-            
+
         Returns:
             Integer value or default
         """
@@ -150,11 +150,11 @@ class ConfigManager:
 
     def _get_bool_env(self, key: str, default: bool = False) -> bool:
         """Get boolean environment variable.
-        
+
         Args:
             key: Environment variable name
             default: Default value if not found
-            
+
         Returns:
             Boolean value
         """
@@ -177,13 +177,13 @@ class ConfigManager:
         log_level: Optional[str] = None,
     ) -> Config:
         """Load and cache configuration from multiple sources.
-        
+
         Configuration priority (highest to lowest):
         1. Function arguments
         2. Environment variables
         3. .env file
         4. Default values
-        
+
         Args:
             database_url: PostgreSQL connection URL
             pdf_base_dir: Base directory for PDF files
@@ -192,7 +192,7 @@ class ConfigManager:
             port: Port to bind to
             debug: Enable debug mode
             log_level: Logging level
-            
+
         Returns:
             Config instance with loaded configuration
         """
@@ -216,10 +216,10 @@ class ConfigManager:
 
     def get(self) -> Config:
         """Get loaded configuration.
-        
+
         Returns:
             Config instance
-            
+
         Raises:
             RuntimeError: If configuration not yet loaded
         """

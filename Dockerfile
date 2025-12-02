@@ -15,12 +15,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install Python packages
 RUN pip install --upgrade pip setuptools wheel && \
     pip install \
-    Flask==3.0.0 \
-    Flask-CORS==4.0.0 \
-    psycopg2-binary==2.9.9 \
-    python-dotenv==1.0.0 \
-    requests==2.31.0 \
-    gunicorn==21.2.0
+    Flask==3.1.2 \
+    Flask-CORS==6.0.1 \
+    psycopg2-binary==2.9.11 \
+    python-dotenv==1.2.1 \
+    requests==2.32.5 \
+    gunicorn==23.0.0
 
 # Production stage
 FROM python:3.11-slim AS production
@@ -41,12 +41,13 @@ COPY --from=builder --chown=appuser:appuser /opt/venv /opt/venv
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app
 
-# Copy application files
-COPY --chown=appuser:appuser src/paper_scanner/web/*.py ./
-COPY --chown=appuser:appuser src/paper_scanner/web/templates/ ./templates/
-COPY --chown=appuser:appuser src/paper_scanner/web/static/ ./static/
+# Copy entire paper_scanner package
+COPY --chown=appuser:appuser src/paper_scanner/ ./paper_scanner/
+COPY --chown=appuser:appuser src/paper_scanner/web/templates/ ./paper_scanner/web/templates/
+COPY --chown=appuser:appuser src/paper_scanner/web/static/ ./paper_scanner/web/static/
 
 # Switch to non-root user
 USER appuser
@@ -56,7 +57,7 @@ EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
 
 # Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "server:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "paper_scanner.web.server:app"]

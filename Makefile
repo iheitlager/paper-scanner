@@ -12,10 +12,17 @@ version: ## Show project version
 
 check: ## Verify required tooling is available
 	@echo "Checking for required tools..."
+	@printf "Checking for 'uv'... "
 	@command -v uv >/dev/null 2>&1 || { echo >&2 "✗ 'uv' is required but not installed. Please install it from https://github.com/astral-sh/uv"; exit 1; }
+	@printf "\rChecking for 'gunicorn'... "
+	@uv run gunicorn --version > /dev/null 2>&1 || { echo >&2 "✗ gunicorn is not installed"; exit 1; }
+	@printf "\rChecking for 'pytest'... "
+	@uv run pytest --version > /dev/null 2>&1 || { echo >&2 "✗ pytest is not installed"; exit 1; }
+	@printf "\rChecking for 'ruff'... "
 	@uv run ruff --version > /dev/null 2>&1 || { echo >&2 "✗ ruff is not installed"; exit 1; }
+	@printf "\rChecking for 'mypy'... "
 	@uv run mypy --version > /dev/null 2>&1 || { echo >&2 "✗ mypy is not installed"; exit 1; }
-	@echo "✓ All required tools are installed"
+	@printf "\r\033[K✓ All required tools are installed\n"
 
 env: ## Create and populate the development virtual environment
 	@echo "✓ Setting up development environment with Python $(PYTHON_VERSION)..."
@@ -59,7 +66,7 @@ type-check: ## Run type checks with mypy
 
 run: ## Run the application
 	@echo "Starting the application..."
-	uv run python -m paper_scanner.web.server --env local --debug
+	gunicorn  --bind 0.0.0.0:8080 --workers 4 paper_scanner.web.server:app
 
 
 clean: ## Clean up artifacts and caches
