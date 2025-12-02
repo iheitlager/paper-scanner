@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-12-02
+
+### Added
+
+- **Document Tagging System**: New tagging feature for organizing and categorizing PDF documents
+  - Colon-separated tag storage in database with lookup table for unique tags
+  - New "🏷️ Tags" tab in web interface for dedicated tag management
+  - Tag display in file list sidebar and details view with visual chip styling
+  - RESTful API endpoints for tag management (`GET /api/tags`, `PUT /api/file_tags/<file_name>`)
+  - Backend synchronization of tags to centralized lookup table
+  - Responsive UI with save/clear functionality and inline tag editing
+
 ## [0.3.0] - 2025-12-02
 
 ### Added

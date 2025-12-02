@@ -15,6 +15,7 @@
  * @property {string} created_time - Creation timestamp
  * @property {string} modified_time - Modification timestamp
  * @property {string} accessed_time - Access timestamp
+ * @property {string} [tags] - Colon-separated tags
  */
 
 /**
@@ -30,6 +31,7 @@ let currentFile = null;
 let selectedFile = null;
 let currentTab = 'pdf';
 let isLoading = false;
+let allTags = [];
 
 // Error handling utility
 class AppError extends Error {
@@ -141,7 +143,7 @@ function safeEncodeURI(str) {
  * @param {string} tabName - Tab name ('pdf' or 'details')
  */
 function switchTab(tabName) {
-    if (!['pdf', 'details'].includes(tabName)) {
+    if (!['pdf', 'details', 'tags'].includes(tabName)) {
         console.error(`Invalid tab name: ${tabName}`);
         return;
     }
@@ -151,26 +153,34 @@ function switchTab(tabName) {
     // Update tab buttons
     document.getElementById('pdfTabBtn').classList.remove('active');
     document.getElementById('detailsTabBtn').classList.remove('active');
+    document.getElementById('tagsTabBtn').classList.remove('active');
     
     if (tabName === 'pdf') {
         document.getElementById('pdfTabBtn').classList.add('active');
-    } else {
+    } else if (tabName === 'details') {
         document.getElementById('detailsTabBtn').classList.add('active');
+    } else {
+        document.getElementById('tagsTabBtn').classList.add('active');
     }
     
     // Update tab panes
     document.getElementById('pdfTab').classList.remove('active');
     document.getElementById('detailsTab').classList.remove('active');
+    document.getElementById('tagsTab').classList.remove('active');
     
     if (tabName === 'pdf') {
         document.getElementById('pdfTab').classList.add('active');
-    } else {
+    } else if (tabName === 'details') {
         document.getElementById('detailsTab').classList.add('active');
+    } else {
+        document.getElementById('tagsTab').classList.add('active');
     }
     
     // Load details if switching to details tab and we have a file
     if (tabName === 'details' && currentFile) {
         loadFileDetails(currentFile.file_name);
+    } else if (tabName === 'tags' && currentFile) {
+        loadTagsEditor(currentFile.file_name);
     }
 }
 
@@ -196,6 +206,17 @@ async function loadFileDetails(fileName) {
         const details = data.details;
         const viewer = document.getElementById('detailsViewer');
         
+        // Parse tags if present
+        const tags = details.tags ? details.tags.split(':').filter(t => t.trim()) : [];
+        const tagsHtml = tags.length > 0 
+            ? `<div class="detail-row">
+                    <div class="detail-label">Tags</div>
+                    <div class="detail-value tags-display">
+                        ${tags.map(tag => `<span class="tag-chip">${escapeHtml(tag)}</span>`).join('')}
+                    </div>
+                </div>`
+            : '';
+        
         const detailsHtml = `
             <div class="details-container">
                 <div class="detail-section">
@@ -208,6 +229,7 @@ async function loadFileDetails(fileName) {
                         <div class="detail-label">File Size</div>
                         <div class="detail-value">${formatFileSize(details.size_bytes || 0)}</div>
                     </div>
+                    ${tagsHtml}
                 </div>
                 
                 <div class="detail-section">
@@ -241,6 +263,20 @@ async function loadFileDetails(fileName) {
                         <div class="detail-value">${formatDateTime(details.accessed_time)}</div>
                     </div>
                 </div>
+                
+                <div class="detail-section">
+                    <div class="detail-section-title">Manage Tags</div>
+                    <div class="tags-editor">
+                        <input 
+                            type="text" 
+                            id="tagsInput" 
+                            placeholder="Add tags separated by colons (e.g., tag1:tag2:tag3)"
+                            value="${escapeHtml(details.tags || '')}"
+                            class="tags-input"
+                        />
+                        <button onclick="saveTags('${escapeHtml(details.file_name)}')" class="tags-save-btn">💾 Save Tags</button>
+                    </div>
+                </div>
             </div>
         `;
         
@@ -255,6 +291,176 @@ async function loadFileDetails(fileName) {
         const viewer = document.getElementById('detailsViewer');
         const errorMsg = error instanceof AppError ? error.message : error.message;
         viewer.innerHTML = `<div class="status-message">Error: ${escapeHtml(errorMsg)}</div>`;
+    }
+}
+
+/**
+ * Save tags for current file
+ * @param {string} fileName - Name of the PDF file
+ * @returns {Promise<void>}
+ */
+async function saveTags(fileName) {
+    try {
+        const tagsInput = document.getElementById('tagsInputField') || document.getElementById('tagsInput');
+        const tags = tagsInput.value.trim();
+        
+        const response = await fetch(`/api/file_tags/${safeEncodeURI(fileName)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tags: tags })
+        });
+        
+        if (!response.ok) {
+            await handleApiError(response, 'Save tags');
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new AppError(data.error || 'Unknown error', 'Save tags');
+        }
+        
+        // Update current file
+        if (currentFile && currentFile.file_name === fileName) {
+            currentFile.tags = tags;
+        }
+        
+        // Show success message
+        const button = document.querySelector('.tags-save-btn');
+        if (button) {
+            const origText = button.textContent;
+            button.textContent = '✓ Saved!';
+            setTimeout(() => {
+                button.textContent = origText;
+            }, 2000);
+        }
+        
+        // Reload files to update list and reload editor
+        await loadFiles();
+        if (currentTab === 'tags') {
+            await loadTagsEditor(fileName);
+        }
+    } catch (error) {
+        if (error instanceof AppError) {
+            error.log();
+            alert('Error saving tags: ' + error.message);
+        } else {
+            console.error('Unexpected error:', error);
+        }
+    }
+}
+
+/**
+ * Load and display tags editor
+ * @param {string} fileName - Name of the PDF file
+ * @returns {Promise<void>}
+ */
+async function loadTagsEditor(fileName) {
+    try {
+        const response = await fetch(`/api/file_details/${safeEncodeURI(fileName)}`);
+        
+        if (!response.ok) {
+            await handleApiError(response, 'Load file details');
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new AppError(data.error || 'Unknown error', 'File details');
+        }
+        
+        const details = data.details;
+        const viewer = document.getElementById('tagsViewer');
+        
+        // Parse current tags
+        const tags = details.tags ? details.tags.split(':').filter(t => t.trim()) : [];
+        
+        const tagsHtml = `
+            <div class="tags-editor-container">
+                <div class="tags-editor-section">
+                    <h3>📝 Manage Tags for ${escapeHtml(details.file_name)}</h3>
+                    
+                    <div class="tags-input-area">
+                        <label for="tagsInputField">Enter tags separated by colons (tag1:tag2:tag3)</label>
+                        <textarea 
+                            id="tagsInputField" 
+                            placeholder="Add tags separated by colons&#10;Example: research:important:to-read"
+                            class="tags-textarea"
+                        >${escapeHtml(details.tags || '')}</textarea>
+                    </div>
+                    
+                    <div class="tags-display-section">
+                        <h4>Current Tags</h4>
+                        <div class="tags-display">
+                            ${tags.length > 0 
+                                ? tags.map(tag => `<span class="tag-chip">${escapeHtml(tag)}</span>`).join('')
+                                : '<div class="status-message">No tags assigned yet</div>'
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="tags-button-area">
+                        <button onclick="saveTags('${escapeHtml(details.file_name)}')" class="tags-save-btn">💾 Save Tags</button>
+                        <button onclick="clearTags('${escapeHtml(details.file_name)}')" class="tags-clear-btn">🗑️ Clear Tags</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        viewer.innerHTML = tagsHtml;
+    } catch (error) {
+        if (error instanceof AppError) {
+            error.log();
+        } else {
+            console.error('Unexpected error loading tags editor:', error);
+        }
+        
+        const viewer = document.getElementById('tagsViewer');
+        const errorMsg = error instanceof AppError ? error.message : error.message;
+        viewer.innerHTML = `<div class="status-message">Error: ${escapeHtml(errorMsg)}</div>`;
+    }
+}
+
+/**
+ * Clear tags for current file
+ * @param {string} fileName - Name of the PDF file
+ * @returns {Promise<void>}
+ */
+async function clearTags(fileName) {
+    if (confirm('Are you sure you want to clear all tags for this file?')) {
+        try {
+            const response = await fetch(`/api/file_tags/${safeEncodeURI(fileName)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tags: '' })
+            });
+            
+            if (!response.ok) {
+                await handleApiError(response, 'Clear tags');
+            }
+            
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new AppError(data.error || 'Unknown error', 'Clear tags');
+            }
+            
+            // Update current file
+            if (currentFile && currentFile.file_name === fileName) {
+                currentFile.tags = '';
+            }
+            
+            // Reload tags editor
+            await loadTagsEditor(fileName);
+            await loadFiles();
+        } catch (error) {
+            if (error instanceof AppError) {
+                error.log();
+                alert('Error clearing tags: ' + error.message);
+            } else {
+                console.error('Unexpected error:', error);
+            }
+        }
     }
 }
 
@@ -492,9 +698,17 @@ function renderFileList() {
         if (currentFile && currentFile.file_name === file.file_name) {
             div.classList.add('active');
         }
+        
+        // Show tags if available
+        const tags = file.tags ? file.tags.split(':').filter(t => t.trim()) : [];
+        const tagsHtml = tags.length > 0 
+            ? `<div class="file-item-tags">${tags.map(tag => `<span class="file-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
+            : '';
+        
         div.innerHTML = `
             <div class="file-item-name">${escapeHtml(file.file_name)}</div>
             <div class="file-item-size">${formatFileSize(file.size_bytes)}</div>
+            ${tagsHtml}
         `;
         div.onclick = () => selectFile(file);
         fileList.appendChild(div);

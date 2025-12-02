@@ -159,6 +159,23 @@ body {
     margin-top: 4px;
 }
 
+.file-item-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.file-tag {
+    display: inline-block;
+    background-color: var(--accent-color);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 500;
+}
+
 .main-content {
     flex: 1;
     display: flex;
@@ -315,6 +332,189 @@ body {
     color: var(--text-primary);
     word-break: break-all;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.tags-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-family: inherit;
+}
+
+.tag-chip {
+    display: inline-block;
+    background-color: var(--accent-color);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.tags-editor {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.tags-input {
+    flex: 1;
+    padding: 8px 12px;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+}
+
+.tags-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.1);
+}
+
+.tags-input::placeholder {
+    color: var(--text-secondary);
+}
+
+.tags-save-btn {
+    padding: 8px 16px;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.tags-save-btn:hover {
+    background-color: var(--accent-hover);
+}
+
+.tags-save-btn:active {
+    background-color: var(--accent-active);
+}
+
+/* Tags Viewer */
+.tags-viewer {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-primary);
+}
+
+.tags-editor-container {
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.tags-editor-section {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 20px;
+}
+
+.tags-editor-section h3 {
+    font-size: 16px;
+    color: var(--accent-color);
+    margin-bottom: 20px;
+}
+
+.tags-editor-section h4 {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
+.tags-input-area {
+    margin-bottom: 20px;
+}
+
+.tags-input-area label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.tags-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background-color: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    min-height: 80px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+.tags-textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.1);
+}
+
+.tags-textarea::placeholder {
+    color: var(--text-secondary);
+}
+
+.tags-display-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: var(--bg-tertiary);
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+}
+
+.tags-display-section .tags-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 30px;
+    align-content: flex-start;
+}
+
+.tags-button-area {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+}
+
+.tags-clear-btn {
+    padding: 8px 16px;
+    background-color: #8b4513;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.tags-clear-btn:hover {
+    background-color: #a0522d;
+}
+
+.tags-clear-btn:active {
+    background-color: #704020;
 }
 
 .status-message {

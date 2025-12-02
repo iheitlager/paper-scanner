@@ -138,15 +138,26 @@ class DatabaseManager:
         cursor = conn.cursor()
 
         try:
+            tags = record.get("tags")
+            # If tags provided, sync them to tags table
+            if tags:
+                tag_list = [t.strip() for t in tags.split(":") if t.strip()]
+                for tag in tag_list:
+                    cursor.execute(
+                        "INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING",
+                        (tag,)
+                    )
+            
             cursor.execute(
                 """
                 INSERT INTO pdf_files 
                 (file_path, file_name, directory, relative_path, size_bytes, 
-                 created_time, modified_time, accessed_time)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                 created_time, modified_time, accessed_time, tags)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (file_path) DO UPDATE SET
                     modified_time = EXCLUDED.modified_time,
-                    accessed_time = EXCLUDED.accessed_time
+                    accessed_time = EXCLUDED.accessed_time,
+                    tags = EXCLUDED.tags
                 """,
                 (
                     record["file_path"],
@@ -157,6 +168,7 @@ class DatabaseManager:
                     record.get("created_time"),
                     record.get("modified_time"),
                     record.get("accessed_time"),
+                    tags,
                 ),
             )
             conn.commit()
@@ -223,6 +235,68 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to fetch PDF by file name: {e}")
             raise DatabaseException(f"Failed to fetch PDF record: {e}")
+        finally:
+            cursor.close()
+            conn.close()
+
+    def get_all_tags(self) -> List[str]:
+        """Get all unique tags from the database.
+        
+        Returns:
+            List of tag names
+            
+        Raises:
+            DatabaseException: If query fails
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("SELECT tag_name FROM tags ORDER BY tag_name")
+            results = cursor.fetchall()
+            return [row[0] for row in results]
+        except Exception as e:
+            logger.error(f"Failed to fetch tags: {e}")
+            raise DatabaseException(f"Failed to fetch tags: {e}")
+        finally:
+            cursor.close()
+            conn.close()
+
+    def update_pdf_tags(self, file_name: str, tags: str) -> bool:
+        """Update tags for a PDF record.
+        
+        Args:
+            file_name: Name of the PDF file
+            tags: Colon-separated string of tags
+            
+        Returns:
+            True if successful
+            
+        Raises:
+            DatabaseException: If update fails
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        try:
+            # Sync tags to tags table
+            if tags:
+                tag_list = [t.strip() for t in tags.split(":") if t.strip()]
+                for tag in tag_list:
+                    cursor.execute(
+                        "INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING",
+                        (tag,)
+                    )
+            
+            cursor.execute(
+                "UPDATE pdf_files SET tags = %s WHERE file_name = %s",
+                (tags, file_name)
+            )
+            conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update tags: {e}")
+            raise DatabaseException(f"Failed to update tags: {e}")
         finally:
             cursor.close()
             conn.close()
@@ -369,6 +443,53 @@ def get_file_details(file_name: str) -> Tuple[Dict[str, Any], int]:
 
         return jsonify({"success": True, "details": pdf_record}), 200
     except DatabaseException:
+        raise
+
+
+@app.route("/api/tags", methods=["GET"])
+def get_tags() -> Tuple[Dict[str, Any], int]:
+    """Get all unique tags from database.
+    
+    Returns:
+        JSON response with list of tags
+    """
+    try:
+        tags = db_manager.get_all_tags()
+        return jsonify({"success": True, "tags": tags}), 200
+    except DatabaseException:
+        raise
+
+
+@app.route("/api/file_tags/<file_name>", methods=["PUT"])
+def update_file_tags(file_name: str) -> Tuple[Dict[str, Any], int]:
+    """Update tags for a PDF file.
+    
+    Args:
+        file_name: Name of the PDF file
+        
+    Expected JSON:
+        {
+            "tags": "tag1:tag2:tag3"
+        }
+    
+    Returns:
+        JSON response with success status
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            raise InvalidDataException("Request body must be JSON")
+
+        tags = data.get("tags", "")
+        
+        # Verify file exists
+        pdf_record = db_manager.get_pdf_by_file_name(file_name)
+        if not pdf_record:
+            raise PDFNotFoundException(file_name)
+        
+        db_manager.update_pdf_tags(file_name, tags)
+        return jsonify({"success": True, "message": "Tags updated successfully"}), 200
+    except (DatabaseException, InvalidDataException, PDFNotFoundException):
         raise
 
 

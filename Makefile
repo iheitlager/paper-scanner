@@ -110,6 +110,16 @@ docker-rebuild: ## Rebuild and restart Docker web container
 	docker-compose up -d
 	@echo "✓ Containers rebuilt and started"
 
+docker-fresh: ## Stop containers, remove postgres volume, and reinit database with new schema
+	@echo "Performing fresh database initialization..."
+	@docker-compose down
+	@docker volume rm paper-scanner_postgres_data 2>/dev/null || true
+	@echo "Rebuilding and starting fresh containers..."
+	docker-compose build
+	docker-compose up -d
+	@echo "✓ Database reinitialized with new schema"
+	@echo "✓ Services started"
+
 cleanup: ## Clean up Docker resources
 	@echo "Cleaning up Docker resources..."
 	@docker images | grep "localhost:" | awk '{print $$3}' | xargs docker rmi -f 2>/dev/null || true

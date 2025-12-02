@@ -30,6 +30,7 @@
             <div class="tab-navigation">
                 <button class="tab-button active" onclick="switchTab('pdf')" id="pdfTabBtn">📄 PDF</button>
                 <button class="tab-button" onclick="switchTab('details')" id="detailsTabBtn">📋 Details</button>
+                <button class="tab-button" onclick="switchTab('tags')" id="tagsTabBtn">🏷️ Tags</button>
             </div>
             <!-- Tab Content -->
             <div class="tab-content">
@@ -43,6 +44,12 @@
                 <div class="tab-pane" id="detailsTab">
                     <div class="details-viewer" id="detailsViewer">
                         <div class="status-message">👈 Select a PDF from the list to view details</div>
+                    </div>
+                </div>
+                <!-- Tags Tab -->
+                <div class="tab-pane" id="tagsTab">
+                    <div class="tags-viewer" id="tagsViewer">
+                        <div class="status-message">👈 Select a PDF from the list to manage tags</div>
                     </div>
                 </div>
             </div>

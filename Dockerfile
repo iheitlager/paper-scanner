@@ -13,8 +13,8 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Python packages
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir \
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install \
     Flask==3.0.0 \
     Flask-CORS==4.0.0 \
     psycopg2-binary==2.9.9 \

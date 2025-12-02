@@ -1,7 +1,5 @@
-version: "3.9"
-
 services:
-  postgres:
+  pdf-browser-db:
     image: postgres:15-alpine
     container_name: pdf-browser-db
     environment:
@@ -19,13 +17,13 @@ services:
       timeout: 5s
       retries: 5
 
-  flask_app:
+  pdf-browser-app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: pdf-browser-app
     environment:
-      DATABASE_URL: postgresql://pdfuser:pdfpass@postgres:5432/pdfdb
+      DATABASE_URL: postgresql://pdfuser:pdfpass@pdf-browser-db:5432/pdfdb
       PDF_BASE_DIR: /papers
       PORT: 8000
       ENV: docker
@@ -34,7 +32,7 @@ services:
     volumes:
       - /Users/iheitlager/wc/papers:/papers:ro
     depends_on:
-      postgres:
+      pdf-browser-db:
         condition: service_healthy
     restart: unless-stopped
 
