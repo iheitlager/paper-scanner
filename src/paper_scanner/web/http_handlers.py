@@ -5,7 +5,7 @@ from typing import Any, Dict, Tuple
 
 from flask import jsonify
 
-from exceptions import PDFBrowserException
+from .exceptions import PDFBrowserException
 
 logger = logging.getLogger(__name__)
 

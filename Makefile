@@ -57,6 +57,11 @@ type-check: ## Run type checks with mypy
 	@echo "Type checking with mypy..."
 	uv run mypy src/
 
+run: ## Run the application
+	@echo "Starting the application..."
+	uv run python -m paper_scanner.web.server --env local --debug
+
+
 clean: ## Clean up artifacts and caches
 	@echo "Cleaning up..."
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
