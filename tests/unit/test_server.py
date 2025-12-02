@@ -10,20 +10,17 @@ Tests cover:
 - Database integration
 """
 
-from unittest.mock import Mock, MagicMock, patch, call
-from pathlib import Path
+from unittest.mock import Mock, patch
 
 import pytest
 from flask import Flask
 
-from paper_scanner.web.server import create_app, parse_args
 from paper_scanner.web.config import Config
 from paper_scanner.web.exceptions import (
     DatabaseException,
-    PDFNotFoundException,
-    FileNotFoundException,
     InvalidDataException,
 )
+from paper_scanner.web.server import create_app, parse_args
 
 
 class TestCreateApp:
@@ -464,6 +461,70 @@ class TestTagsRoute:
             assert response.status_code == 200
             data = response.get_json()
             assert data["tags"] == []
+
+
+class TestYearOverviewRoute:
+    """Test /api/year-overview route."""
+
+    def test_get_year_overview_success(self):
+        """Test retrieving year overview successfully."""
+        mock_config = Mock(spec=Config)
+        mock_config.log_level = "INFO"
+        mock_config.debug = False
+        mock_config.database_url = "postgresql://localhost/test"
+        mock_config.pdf_base_dir = "/path/to/pdfs"
+        mock_config.env = "local"
+
+        app, db_manager, _ = create_app(mock_config)
+
+        mock_year_data = [
+            {
+                "year": 2025,
+                "count": 3,
+                "papers": [
+                    {"file_name": "paper1.pdf", "title": "Paper 1", "citekey": "P1"},
+                    {"file_name": "paper2.pdf", "title": "Paper 2", "citekey": "P2"},
+                    {"file_name": "paper3.pdf", "title": "Paper 3", "citekey": "P3"},
+                ]
+            },
+            {
+                "year": 2024,
+                "count": 2,
+                "papers": [
+                    {"file_name": "paper4.pdf", "title": "Paper 4", "citekey": "P4"},
+                    {"file_name": "paper5.pdf", "title": "Paper 5", "citekey": "P5"},
+                ]
+            },
+        ]
+        with patch.object(db_manager, "get_year_overview", return_value=mock_year_data):
+            client = app.test_client()
+            response = client.get("/api/year-overview")
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data["success"] is True
+            assert len(data["years"]) == 2
+            assert data["years"][0]["year"] == 2025
+            assert data["years"][0]["count"] == 3
+
+    def test_get_year_overview_empty(self):
+        """Test retrieving year overview when no years present."""
+        mock_config = Mock(spec=Config)
+        mock_config.log_level = "INFO"
+        mock_config.debug = False
+        mock_config.database_url = "postgresql://localhost/test"
+        mock_config.pdf_base_dir = "/path/to/pdfs"
+        mock_config.env = "local"
+
+        app, db_manager, _ = create_app(mock_config)
+
+        with patch.object(db_manager, "get_year_overview", return_value=[]):
+            client = app.test_client()
+            response = client.get("/api/year-overview")
+
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data["years"] == []
 
 
 class TestUpdateFileTagsRoute:

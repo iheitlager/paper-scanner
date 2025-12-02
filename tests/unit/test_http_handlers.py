@@ -3,7 +3,6 @@
 """Unit tests for http_handlers module."""
 
 import json
-from unittest.mock import MagicMock
 
 import pytest
 from flask import Flask

@@ -264,7 +264,7 @@ class TestGetConfigFunction:
             # Need to reload to pick up new env vars
             from paper_scanner.web import config as config_module
             config_module._config_manager.reload()
-            
+
             cfg = get_config()
             assert cfg.env == "docker"
             assert cfg.debug is True
@@ -284,10 +284,10 @@ class TestConfigIntegration:
                 "DEBUG": "true",
             }):
                 manager = ConfigManager(env_file=str(env_file))
-                
+
                 # Function args should take precedence
                 config = manager.load(port=9000)
-                
+
                 assert config.port == 9000  # From function arg
                 assert config.debug is True  # From env var
                 assert config.log_level == "DEBUG"  # From .env file
@@ -303,7 +303,7 @@ class TestConfigIntegration:
     def test_config_validation_on_load(self):
         """Test that config validation happens during load."""
         manager = ConfigManager(env_file="/nonexistent/.env")
-        
+
         with pytest.raises(ValueError):
             manager.load(env="invalid_env")
 

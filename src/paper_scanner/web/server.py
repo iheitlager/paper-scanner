@@ -7,12 +7,11 @@ Supports both local (port 8080) and Docker (port 8000) deployment.
 import argparse
 import logging
 import os
-import sys
 from typing import Any, Dict, Optional, Tuple
 
+from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template, request, send_file
 from flask_cors import CORS
-from dotenv import load_dotenv
 
 from .config import Config, get_config
 from .database import DatabaseManager
@@ -20,7 +19,6 @@ from .exceptions import (
     DatabaseException,
     FileNotFoundException,
     InvalidDataException,
-    PDFBrowserException,
     PDFNotFoundException,
 )
 from .http_handlers import register_error_handlers
@@ -41,30 +39,30 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
     # Load config if not provided
     if config is None:
         config = get_config()
-    
+
     # Configure logging
     logging.basicConfig(
         level=getattr(logging, config.log_level),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     logger.debug(f"Loaded configuration: {config}")
-    
+
     # Initialize Flask app with static folder configuration
     app = Flask(__name__, static_folder='static', static_url_path='/static')
     CORS(app)
-    
+
     # Store config in app context for route access
     app.config['DATABASE_URL'] = config.database_url
     app.config['PDF_BASE_DIR'] = config.pdf_base_dir
     app.config['ENV_MODE'] = config.env
     app.config['DEBUG'] = config.debug
-    
+
     # Initialize database manager
     db_manager = DatabaseManager(config.database_url)
-    
+
     # Register HTTP error handlers
     register_error_handlers(app)
-    
+
     # Register routes
     @app.route("/health", methods=["GET"])
     def health() -> Tuple[Dict[str, Any], int]:
@@ -183,6 +181,19 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
         except DatabaseException:
             raise
 
+    @app.route("/api/year-overview", methods=["GET"])
+    def get_year_overview() -> Tuple[Dict[str, Any], int]:
+        """Get overview of papers grouped by publication year.
+        
+        Returns:
+            JSON response with year statistics
+        """
+        try:
+            year_data = db_manager.get_year_overview()
+            return jsonify({"success": True, "years": year_data}), 200
+        except DatabaseException:
+            raise
+
     @app.route("/api/file_tags/<file_name>", methods=["PUT"])
     def update_file_tags(file_name: str) -> Tuple[Dict[str, Any], int]:
         """Update tags for a PDF file.
@@ -257,7 +268,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
             Rendered HTML template
         """
         return render_template("index.html", pdf_base_dir=app.config['PDF_BASE_DIR'])
-    
+
     return app, db_manager, config
 
 
@@ -318,12 +329,12 @@ def parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     # Parse command-line arguments
     args = parse_args()
-    
+
     # Load .env file if specified
     if args.env_file and os.path.exists(args.env_file):
         load_dotenv(args.env_file)
         logger.info(f"Loaded environment from {args.env_file}")
-    
+
     # Build config from args, env vars, and defaults
     app_config = get_config(
         database_url=args.database_url,
@@ -334,10 +345,10 @@ if __name__ == "__main__":
         debug=args.debug,
         log_level=args.log_level,
     )
-    
+
     # Recreate app with CLI config
     app, db_manager, config = create_app(app_config)
-    
+
     # Initialize database on startup
     try:
         db_manager.init_database()

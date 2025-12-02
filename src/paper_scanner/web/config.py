@@ -10,7 +10,7 @@ Supports configuration from multiple sources with the following precedence:
 
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional

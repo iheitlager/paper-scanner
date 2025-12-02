@@ -10,7 +10,7 @@ Tests cover:
 """
 
 import json
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, patch
 
 import pytest
 from psycopg2 import OperationalError
@@ -80,7 +80,7 @@ class TestGetConnection:
         with patch("paper_scanner.web.database.connect") as mock_connect:
             with patch("paper_scanner.web.database.time.sleep"):
                 mock_connect.side_effect = OperationalError("Connection refused")
-                
+
                 with pytest.raises(DatabaseException) as exc_info:
                     manager.get_connection(retries=3, delay=1)
 
@@ -127,7 +127,7 @@ class TestGetConnection:
                     Exception("Generic error"),
                     Exception("Generic error"),
                 ]
-                
+
                 with pytest.raises(DatabaseException):
                     manager.get_connection(retries=3, delay=1)
 
@@ -774,6 +774,92 @@ class TestUpdatePdfTags:
             assert calls[0][0][1] == ("tag1",)
             assert calls[1][0][1] == ("tag2",)
             assert calls[2][0][1] == ("tag3",)
+
+
+class TestGetYearOverview:
+    """Test get_year_overview method."""
+
+    def test_get_year_overview_returns_list(self):
+        """Test retrieving year overview data."""
+        manager = DatabaseManager("postgresql://localhost/test")
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        mock_year_data = [
+            {
+                "year": 2025,
+                "count": 3,
+                "papers": [
+                    {"file_name": "paper1.pdf", "title": "Paper 1", "citekey": "P1"},
+                    {"file_name": "paper2.pdf", "title": "Paper 2", "citekey": "P2"},
+                    {"file_name": "paper3.pdf", "title": "Paper 3", "citekey": "P3"},
+                ]
+            },
+            {
+                "year": 2024,
+                "count": 2,
+                "papers": [
+                    {"file_name": "paper4.pdf", "title": "Paper 4", "citekey": "P4"},
+                    {"file_name": "paper5.pdf", "title": "Paper 5", "citekey": "P5"},
+                ]
+            },
+        ]
+        mock_cursor.fetchall.return_value = mock_year_data
+
+        with patch.object(manager, "get_connection", return_value=mock_conn):
+            result = manager.get_year_overview()
+
+            assert len(result) == 2
+            assert result[0]["year"] == 2025
+            assert result[0]["count"] == 3
+            assert len(result[0]["papers"]) == 3
+            mock_cursor.close.assert_called()
+            mock_conn.close.assert_called()
+
+    def test_get_year_overview_empty(self):
+        """Test retrieving year overview when no years present."""
+        manager = DatabaseManager("postgresql://localhost/test")
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_cursor.fetchall.return_value = []
+
+        with patch.object(manager, "get_connection", return_value=mock_conn):
+            result = manager.get_year_overview()
+
+            assert result == []
+
+    def test_get_year_overview_database_error(self):
+        """Test DatabaseException on query failure."""
+        manager = DatabaseManager("postgresql://localhost/test")
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_cursor.execute.side_effect = Exception("Query failed")
+
+        with patch.object(manager, "get_connection", return_value=mock_conn):
+            with pytest.raises(DatabaseException) as exc_info:
+                manager.get_year_overview()
+
+            assert "Failed to fetch year overview" in str(exc_info.value)
+            mock_cursor.close.assert_called()
+            mock_conn.close.assert_called()
+
+    def test_get_year_overview_cleanup_on_error(self):
+        """Test that resources are cleaned up on error."""
+        manager = DatabaseManager("postgresql://localhost/test")
+        mock_conn = Mock()
+        mock_cursor = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_cursor.execute.side_effect = Exception("Error")
+
+        with patch.object(manager, "get_connection", return_value=mock_conn):
+            with pytest.raises(DatabaseException):
+                manager.get_year_overview()
+
+            mock_cursor.close.assert_called()
+            mock_conn.close.assert_called()
 
 
 class TestDatabaseManagerIntegration:

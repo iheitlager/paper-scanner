@@ -295,3 +295,35 @@ class DatabaseManager:
         finally:
             cursor.close()
             conn.close()
+
+    def get_year_overview(self) -> List[Dict[str, Any]]:
+        """Get overview of papers by publication year.
+        
+        Returns:
+            List of dicts with year, count, and paper names
+            
+        Raises:
+            DatabaseException: If query fails
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        try:
+            cursor.execute("""
+                SELECT 
+                    year,
+                    COUNT(*) as count,
+                    json_agg(json_build_object('file_name', file_name, 'title', title, 'citekey', citekey)) as papers
+                FROM pdf_files
+                WHERE year IS NOT NULL
+                GROUP BY year
+                ORDER BY year DESC
+            """)
+            results = cursor.fetchall()
+            return [dict(row) for row in results]
+        except Exception as e:
+            logger.error(f"Failed to fetch year overview: {e}")
+            raise DatabaseException(f"Failed to fetch year overview: {e}")
+        finally:
+            cursor.close()
+            conn.close()
