@@ -1,6 +1,6 @@
 # paper-scanner
 
-![Version](https://img.shields.io/badge/version-0.6.3-blue)
+![Version](https://img.shields.io/badge/version-0.7.0-blue)
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
@@ -25,6 +25,11 @@ AI-powered literature review tool for analyzing academic research papers using L
   - Paper analysis with consistent styling (white titles, blue definitions, grey text)
 - 🏷️ **Tagging System**: Organize papers with colon-separated tags and centralized tag lookup
 - 🔗 **Deeplinking**: Generate shareable links to specific papers (e.g., `?paper=SmithA2025`)
+- 📖 **Reference Extraction**: Extract and organize paper citations with optional Claude-powered bibliography parsing
+  - Opt-in `--extract-references` flag for reference extraction during processing
+  - Structured reference metadata: authors, year, title, DOI, URL, publication source
+  - PostgreSQL-backed reference storage and citation relationships
+  - References tab in web interface for browsing extracted citations
 - ⚡ **Rate Limiting**: Built-in automatic retry logic and request throttling for API limits
 
 ## Quick Start
@@ -61,6 +66,13 @@ uv run python -m paper_scanner.tools.file_processor \
   -o analyzed.jsonl \
   --api_key YOUR_ANTHROPIC_API_KEY
 
+# Optional: Extract references from the papers
+uv run python -m paper_scanner.tools.file_processor \
+  -i with_details.jsonl \
+  -o analyzed_with_refs.jsonl \
+  --extract-references \
+  --api_key YOUR_ANTHROPIC_API_KEY
+
 # Parse the analysis results
 uv run python -m paper_scanner.tools.file_parser \
   -i analyzed.jsonl \
@@ -76,13 +88,14 @@ uv run python -m paper_scanner.tools.file_reader \
 
 ```bash
 # Start the web server (requires PostgreSQL database)
-output-viewer -i parsed.jsonl -p 8080 -H localhost
-
-# Open browser and visit: http://localhost:8080
-```
-
 #### Web Interface Features
 
+- **📄 PDF Tab**: View full paper PDFs with embedded viewer
+- **🔬 Analysis Tab**: Read structured paper analysis (summary, research questions, methodology, results, concepts)
+- **📋 Details Tab**: Browse bibliographic information (title, authors, DOI, citation, file metadata)
+- **📖 References Tab**: View extracted references from the paper's bibliography with structured metadata
+- **🏷️ Tags Tab**: Manage paper tags for organization and filtering
+- **🔗 Share**: Generate deeplinks to share specific papers via URL
 - **📄 PDF Tab**: View full paper PDFs with embedded viewer
 - **🔬 Analysis Tab**: Read structured paper analysis (summary, research questions, methodology, results, concepts)
 - **📋 Details Tab**: Browse bibliographic information (title, authors, DOI, citation, file metadata)

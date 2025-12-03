@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-12-02
+
+### Added
+
+- **References Feature**: Extract and manage paper citations with PostgreSQL backend
+  - New `--extract-references` opt-in flag for `file-processor` CLI tool
+  - Second Claude API call using reference extraction prompt to parse bibliography
+  - Three new database tables: `references`, `citation_edges`, `citation_metadata`
+  - Reference data persisted alongside paper analysis in JSONLines pipeline
+  - Graceful error handling: reference extraction failures log warning and continue
+  - New References tab in web interface displaying extracted citations
+  - Reference metadata: type, authors, year, title, DOI, URL, and publication source
+  - Foundation for future citation network analysis and paper deduplication
+
 ## [0.6.3] - 2025-12-02
 
 ### Added
