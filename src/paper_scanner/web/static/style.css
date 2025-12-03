@@ -389,6 +389,125 @@ body {
   width: 100%;
 }
 
+.references-viewer {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-primary);
+}
+
+.references-container {
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.references-container h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.references-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reference-item {
+  padding: 12px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.reference-item:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.reference-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.reference-number {
+  font-weight: 600;
+  color: var(--accent-color);
+  min-width: 30px;
+}
+
+.reference-type {
+  background-color: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
+.reference-authors {
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.reference-title {
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  line-height: 1.3;
+}
+
+.reference-source {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.reference-pages {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.reference-links {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ref-link {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-size: 12px;
+  padding: 2px 6px;
+  background-color: var(--bg-tertiary);
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.ref-link:hover {
+  background-color: var(--bg-hover);
+  text-decoration: underline;
+}
+
+.reference-warning {
+  color: var(--error-text);
+  font-size: 12px;
+  margin-top: 6px;
+  padding: 4px 6px;
+  background-color: var(--error-bg);
+  border-radius: 3px;
+}
+
 .detail-section {
   margin-bottom: 20px;
   padding: 15px;

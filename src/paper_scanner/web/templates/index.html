@@ -50,6 +50,7 @@
                 <button class="tab-button active" onclick="switchTab('pdf')" id="pdfTabBtn">📄 PDF</button>
                 <button class="tab-button" onclick="switchTab('analysis')" id="analysisTabBtn">🔬 Analysis</button>
                 <button class="tab-button" onclick="switchTab('details')" id="detailsTabBtn">📋 Details</button>
+                <button class="tab-button" onclick="switchTab('references')" id="referencesTabBtn">📖 References</button>
                 <button class="tab-button" onclick="switchTab('tags')" id="tagsTabBtn">🏷️ Tags</button>
             </div>
             <!-- Tab Content -->
@@ -84,6 +85,12 @@
                 <div class="tab-pane" id="detailsTab">
                     <div class="details-viewer" id="detailsViewer">
                         <div class="status-message">👈 Select a PDF from the list to view details</div>
+                    </div>
+                </div>
+                <!-- References Tab -->
+                <div class="tab-pane" id="referencesTab">
+                    <div class="references-viewer" id="referencesViewer">
+                        <div class="status-message">👈 Select a PDF from the list to view references</div>
                     </div>
                 </div>
                 <!-- Tags Tab -->

@@ -50,7 +50,7 @@ const STORAGE_KEYS = {
 function getLastTab() {
   try {
     const lastTab = localStorage.getItem(STORAGE_KEYS.LAST_TAB);
-    return lastTab && ['pdf', 'analysis', 'details', 'tags'].includes(lastTab) ? lastTab : 'pdf';
+    return lastTab && ['pdf', 'analysis', 'details', 'references', 'tags'].includes(lastTab) ? lastTab : 'pdf';
   } catch {
     return 'pdf';
   }
@@ -284,7 +284,7 @@ function renderAnalysisSection(analysis) {
  * @param {string} tabName - Tab name ('pdf', 'analysis', 'details' or 'tags')
  */
 function switchTab(tabName) {
-  if (!['pdf', 'analysis', 'details', 'tags'].includes(tabName)) {
+  if (!['pdf', 'analysis', 'details', 'references', 'tags'].includes(tabName)) {
     console.error(`Invalid tab name: ${tabName}`);
     return;
   }
@@ -303,6 +303,7 @@ function switchTab(tabName) {
   document.getElementById('pdfTabBtn').classList.remove('active');
   document.getElementById('analysisTabBtn').classList.remove('active');
   document.getElementById('detailsTabBtn').classList.remove('active');
+  document.getElementById('referencesTabBtn').classList.remove('active');
   document.getElementById('tagsTabBtn').classList.remove('active');
 
   if (tabName === 'pdf') {
@@ -311,6 +312,8 @@ function switchTab(tabName) {
     document.getElementById('analysisTabBtn').classList.add('active');
   } else if (tabName === 'details') {
     document.getElementById('detailsTabBtn').classList.add('active');
+  } else if (tabName === 'references') {
+    document.getElementById('referencesTabBtn').classList.add('active');
   } else {
     document.getElementById('tagsTabBtn').classList.add('active');
   }
@@ -319,6 +322,7 @@ function switchTab(tabName) {
   document.getElementById('pdfTab').classList.remove('active');
   document.getElementById('analysisTab').classList.remove('active');
   document.getElementById('detailsTab').classList.remove('active');
+  document.getElementById('referencesTab').classList.remove('active');
   document.getElementById('tagsTab').classList.remove('active');
 
   if (tabName === 'pdf') {
@@ -327,15 +331,19 @@ function switchTab(tabName) {
     document.getElementById('analysisTab').classList.add('active');
   } else if (tabName === 'details') {
     document.getElementById('detailsTab').classList.add('active');
+  } else if (tabName === 'references') {
+    document.getElementById('referencesTab').classList.add('active');
   } else {
     document.getElementById('tagsTab').classList.add('active');
   }
 
-  // Load content if switching to analysis, details, or tags tab and we have a file
+  // Load content if switching to analysis, details, references, or tags tab and we have a file
   if (tabName === 'analysis' && currentFile) {
     loadFileAnalysis(currentFile.file_name);
   } else if (tabName === 'details' && currentFile) {
     loadFileDetails(currentFile.file_name);
+  } else if (tabName === 'references' && currentFile) {
+    loadFileReferences(currentFile.file_name);
   } else if (tabName === 'tags' && currentFile) {
     loadTagsEditor(currentFile.file_name);
   }
@@ -1123,6 +1131,109 @@ async function clearTags(fileName) {
         console.error('Unexpected error:', error);
       }
     }
+  }
+}
+
+/**
+ * Load and display references for a paper
+ * @param {string} fileName - Name of the PDF file
+ * @returns {Promise<void>}
+ */
+async function loadFileReferences(fileName) {
+  try {
+    const response = await fetch(`/api/references/${safeEncodeURI(fileName)}`);
+
+    if (!response.ok) {
+      await handleApiError(response, 'Load file references');
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new AppError(data.error || 'Unknown error', 'File references');
+    }
+
+    const references = data.references || [];
+    const viewer = document.getElementById('referencesViewer');
+
+    if (!references || references.length === 0) {
+      viewer.innerHTML = '<div class="status-message">No references found for this paper</div>';
+      return;
+    }
+
+    // Build references list HTML
+    let referencesHtml = '<div class="references-container">';
+    referencesHtml += `<h3>📖 References (${references.length})</h3>`;
+    referencesHtml += '<div class="references-list">';
+
+    references.forEach((ref, index) => {
+      // Parse authors if stored as JSON string
+      let authors = ref.authors;
+      if (typeof authors === 'string') {
+        try {
+          authors = JSON.parse(authors);
+        } catch (e) {
+          authors = [];
+        }
+      }
+
+      // Build author string
+      let authorString = '';
+      if (Array.isArray(authors) && authors.length > 0) {
+        authorString = authors
+          .map((author) => {
+            if (typeof author === 'object' && author.last_name) {
+              return author.last_name + (author.first_name ? `, ${author.first_name}` : '');
+            }
+            return String(author);
+          })
+          .join('; ');
+      }
+
+      // Build identifiers HTML
+      let identifiersHtml = '';
+      if (ref.doi) {
+        identifiersHtml += `<a href="https://doi.org/${escapeHtml(ref.doi)}" target="_blank" class="ref-link">🔗 DOI</a> `;
+      }
+      if (ref.url) {
+        identifiersHtml += `<a href="${escapeHtml(ref.url)}" target="_blank" class="ref-link">🔗 URL</a> `;
+      }
+      if (ref.arxiv_id) {
+        identifiersHtml += `<a href="https://arxiv.org/abs/${escapeHtml(ref.arxiv_id)}" target="_blank" class="ref-link">📄 arXiv</a> `;
+      }
+
+      // Build reference entry
+      referencesHtml += `
+        <div class="reference-item">
+          <div class="reference-header">
+            <span class="reference-number">[${index + 1}]</span>
+            <span class="reference-type">${ref.reference_type ? escapeHtml(ref.reference_type) : 'article'}</span>
+          </div>
+          <div class="reference-authors">${escapeHtml(authorString || 'Unknown authors')}</div>
+          <div class="reference-title"><strong>${escapeHtml(ref.title || 'Untitled')}</strong></div>
+          <div class="reference-source">
+            ${ref.source_name ? `<em>${escapeHtml(ref.source_name)}</em>` : ''}
+            ${ref.year ? `(${escapeHtml(ref.year)})` : ''}
+          </div>
+          ${ref.pages_range ? `<div class="reference-pages">pp. ${escapeHtml(ref.pages_range)}</div>` : ''}
+          ${identifiersHtml ? `<div class="reference-links">${identifiersHtml}</div>` : ''}
+          ${ref.parsing_status === 'warning' ? `<div class="reference-warning">⚠️ Parsing issues detected</div>` : ''}
+        </div>
+      `;
+    });
+
+    referencesHtml += '</div></div>';
+    viewer.innerHTML = referencesHtml;
+  } catch (error) {
+    if (error instanceof AppError) {
+      error.log();
+    } else {
+      console.error('Unexpected error loading references:', error);
+    }
+
+    const viewer = document.getElementById('referencesViewer');
+    const errorMsg = error instanceof AppError ? error.message : error.message;
+    viewer.innerHTML = `<div class="status-message">Error: ${escapeHtml(errorMsg)}</div>`;
   }
 }
 
