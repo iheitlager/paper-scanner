@@ -33,6 +33,11 @@ from anthropic import Anthropic, RateLimitError
 from colorama import Fore, Back, Style, init
 from dotenv import load_dotenv
 
+try:
+    from pypdf import PdfReader
+except ImportError:
+    PdfReader = None
+
 # Initialize colorama for cross-platform color support
 init(autoreset=True)
 
@@ -66,6 +71,7 @@ class ProcessorConfig:
     model: str = DEFAULT_MODEL
     max_tokens: int = DEFAULT_MAX_TOKENS
     text_source: str = "pdf"  # 'pdf', 'content', or field name
+    max_chars: Optional[int] = None  # Max characters to extract from PDF
     prompt_file: Optional[str] = None
     output_key: str = "processed"
     mode: str = "add"  # 'add' or 'replace'
@@ -162,13 +168,43 @@ class PaperProcessor:
         except Exception as e:
             self.log(f"Warning: Could not load existing records: {e}")
 
+    def _extract_pdf_text(self, file_path: str) -> Optional[str]:
+        """Extract text from PDF using pypdf, limited to max_chars if specified."""
+        if not PdfReader:
+            self.log("Warning: pypdf not installed, cannot extract PDF text. Install with: pip install pypdf")
+            return None
+        
+        try:
+            reader = PdfReader(file_path)
+            text = ""
+            
+            # Extract text from all pages
+            for page_num, page in enumerate(reader.pages):
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text
+                    # If we've already reached max_chars, stop reading
+                    if self.config.max_chars and len(text) >= self.config.max_chars:
+                        break
+            
+            # Truncate to max_chars if specified
+            if self.config.max_chars:
+                text = text[:self.config.max_chars]
+            
+            if not text.strip():
+                self.log(f"Warning: No text extracted from {file_path}")
+                return None
+            
+            return text
+        except Exception as e:
+            self.log(f"Warning: Could not extract PDF text from {file_path}: {e}")
+            return None
+
     def _get_input_text(self, record: Dict[str, Any]) -> Optional[str]:
         """Get input text or file path based on text_source configuration."""
         text_source = self.config.text_source
 
         if text_source == "pdf":
-            # Return the file path itself, not extracted text
-            # _call_claude() will handle base64 encoding
             file_path = record.get("file_path")
             if not file_path:
                 self.log("Warning: No file_path in record for PDF extraction")
@@ -176,6 +212,12 @@ class PaperProcessor:
             if not os.path.exists(file_path):
                 self.log(f"Warning: PDF not found at {file_path}")
                 return None
+            
+            # If max_chars is specified, extract text instead of using native PDF
+            if self.config.max_chars:
+                return self._extract_pdf_text(file_path)
+            
+            # Otherwise return the file path itself, _call_claude() will handle base64 encoding
             return file_path
 
         elif text_source == "content":
@@ -223,14 +265,14 @@ class PaperProcessor:
             try:
                 # Prepare message content - use document format if text looks like a file path (PDF)
                 content = []
-                
+
                 # If text is a file path to a PDF, encode and send as document
                 if text.lower().endswith('.pdf') and os.path.exists(text):
                     try:
                         with open(text, 'rb') as f:
                             pdf_bytes = f.read()
                             pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-                        
+
                         content.append({
                             "type": "document",
                             "source": {
@@ -245,7 +287,7 @@ class PaperProcessor:
                 else:
                     # Regular text content
                     content.append({"type": "text", "text": text})
-                
+
                 response = self.client.messages.create(
                     model=self.config.model,
                     max_tokens=self.config.max_tokens,
@@ -314,7 +356,7 @@ class PaperProcessor:
 
         # Prepare timing
         start_time = datetime.datetime.now(datetime.timezone.utc)
-        
+
         self.log(f"    {Fore.LIGHTBLUE_EX}⋯ Calling Claude API (model: {self.config.model})...{Style.RESET_ALL}")
 
         # Prepare system prompt
@@ -326,7 +368,7 @@ class PaperProcessor:
             self.stats["error"] += 1
             self.log(f"    {Fore.RED}✗ Error: API call failed{Style.RESET_ALL}")
             return None
-        
+
         # Track token usage
         self.stats["total_input_tokens"] += token_usage.get("input_tokens", 0)
         self.stats["total_output_tokens"] += token_usage.get("output_tokens", 0)
@@ -335,7 +377,7 @@ class PaperProcessor:
         # Prepare output
         end_time = datetime.datetime.now(datetime.timezone.utc)
         elapsed = (end_time - start_time).total_seconds()
-        
+
         self.log(f"    {Fore.GREEN}✓ Success{Style.RESET_ALL}")
         self.log(f"      {Fore.LIGHTBLUE_EX}Input tokens:  {token_usage.get('input_tokens', 0):,}{Style.RESET_ALL}")
         self.log(f"      {Fore.LIGHTGREEN_EX}Output tokens: {token_usage.get('output_tokens', 0):,}{Style.RESET_ALL}")
@@ -400,41 +442,41 @@ class PaperProcessor:
         """Print processing statistics with colors (unless quiet mode is on)."""
         if self.config.quiet:
             return
-        
+
         print("\n" + "=" * 50, file=sys.stderr)
         print(f"{Fore.CYAN}{Style.BRIGHT}Processing Statistics{Style.RESET_ALL}", file=sys.stderr)
         print("=" * 50, file=sys.stderr)
-        
+
         # Processing counts with color coding
         print(f"Total processed: {self.stats['processed']}", file=sys.stderr)
         print(f"{Fore.GREEN}✓ Successful:   {self.stats['success']}{Style.RESET_ALL}", file=sys.stderr)
-        
+
         if self.stats['error'] > 0:
             print(f"{Fore.RED}✗ Errors:       {self.stats['error']}{Style.RESET_ALL}", file=sys.stderr)
         else:
             print(f"{Fore.GREEN}✗ Errors:       {self.stats['error']}{Style.RESET_ALL}", file=sys.stderr)
-        
+
         if self.stats['skipped'] > 0:
             print(f"{Fore.YELLOW}⊘ Skipped:      {self.stats['skipped']}{Style.RESET_ALL}", file=sys.stderr)
-        
+
         if self.stats['not_updated'] > 0:
             print(f"{Fore.LIGHTBLACK_EX}↻ Not updated:  {self.stats['not_updated']}{Style.RESET_ALL}", file=sys.stderr)
-        
+
         # Token usage section
         print("\n" + "=" * 50, file=sys.stderr)
         print(f"{Fore.CYAN}{Style.BRIGHT}Token Usage{Style.RESET_ALL}", file=sys.stderr)
         print("=" * 50, file=sys.stderr)
-        
+
         print(f"{Fore.BLUE}Input tokens:  {Fore.LIGHTBLUE_EX}{self.stats['total_input_tokens']:,}{Style.RESET_ALL}", file=sys.stderr)
         print(f"{Fore.GREEN}Output tokens: {Fore.LIGHTGREEN_EX}{self.stats['total_output_tokens']:,}{Style.RESET_ALL}", file=sys.stderr)
         print(f"{Fore.MAGENTA}Total tokens:  {Fore.LIGHTMAGENTA_EX}{self.stats['total_tokens']:,}{Style.RESET_ALL}", file=sys.stderr)
-        
+
         if self.stats['success'] > 0:
             avg_input = self.stats['total_input_tokens'] / self.stats['success']
             avg_output = self.stats['total_output_tokens'] / self.stats['success']
             print(f"\n{Fore.BLUE}Average input/record:  {Fore.LIGHTBLUE_EX}{avg_input:.0f}{Style.RESET_ALL}", file=sys.stderr)
             print(f"{Fore.GREEN}Average output/record: {Fore.LIGHTGREEN_EX}{avg_output:.0f}{Style.RESET_ALL}", file=sys.stderr)
-        
+
         print("=" * 50, file=sys.stderr)
 
 
@@ -455,7 +497,7 @@ def generate_yaml_definition(config: ProcessorConfig, output_path: str) -> None:
         "workers": config.workers,
         "skip_existing": config.skip_existing,
     }
-    
+
     try:
         with open(output_path, "w", encoding="utf-8") as f:
             f.write("# Paper Processor Configuration\n")
@@ -575,6 +617,12 @@ Prompt file should instruct Claude how to document and analyze the PDF content.
         "--text-source",
         default=None,
         help="Text source: 'pdf', 'content', or record field name (default: pdf)",
+    )
+    parser.add_argument(
+        "-c", "--max-chars",
+        type=int,
+        default=None,
+        help="Extract PDF text and limit to N characters (requires pypdf). Overrides native PDF encoding.",
     )
     parser.add_argument(
         "--prompt-file",

@@ -1,0 +1,12 @@
+# Paper Processor Configuration
+# Generated from current configuration
+
+model: claude-sonnet-4-5-20250929
+max_tokens: 4096
+text_source: pdf
+prompt_file: src/prompts/paper-summary.md
+output_key: file-details
+mode: add
+add_metadata: true
+workers: 2
+skip_existing: false

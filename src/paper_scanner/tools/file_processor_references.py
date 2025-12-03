@@ -8,6 +8,12 @@ Outputs enriched JSONLines with references field added.
 Uses cheaper Haiku model for cost-efficient reference extraction.
 """
 
+
+##################
+# Some queries:
+# grouped by file with totals
+# $ jq '.file_name as $file | (.references.references | length) as $count | "\($file): \($count) references"' full.jsonl
+
 import argparse
 import json
 import os

@@ -1,0 +1,13 @@
+# Paper Processor Configuration
+# Generated from current configuration
+
+model: claude-3-5-haiku-20241022
+max_tokens: 2048
+text_source: pdf
+prompt_file: src/prompts/paper-metadata.md
+output_key: file-details
+mode: add
+max_chars: 4_000
+add_metadata: true
+workers: 1
+skip_existing: false

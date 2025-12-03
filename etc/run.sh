@@ -16,9 +16,8 @@ echo "Checkpoint file: $checkpoint_file"
 
 # Pipeline: file-scanner -> paper-details -> file-processor -> tee checkpoint -> file-processor-references
 file-scanner /Users/iheitlager/wc/papers -f "$output_file" \
-  | paper-details -v \
-  | file-processor --custom_prompt src/prompts/paper-summary.md \
+  | paper-processor --config src/definitions/file-details.yml -v \
   | tee "$checkpoint_file" \
-  | file-processor-references >> "$output_file"
+  | paper-processor --config src/definitions/file-summary.yml -v >> "$output_file"
 
 echo "Pipeline complete. Analysis checkpoint saved to: $checkpoint_file"
