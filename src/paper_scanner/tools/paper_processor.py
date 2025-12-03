@@ -43,11 +43,13 @@ DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
 DEFAULT_MAX_TOKENS = 8192
 MAX_RETRIES = 5
 RATE_LIMIT_WAIT = 61
-AVAILABLE_MODELS = [
-    "claude-3-5-sonnet-20241022",
-    "claude-3-5-haiku-20241022",
-    "claude-3-opus-20250219",
-]
+
+# Model configuration: name -> max output tokens
+MODELS = {
+    "claude-3-5-sonnet-20241022": 8192,
+    "claude-3-5-haiku-20241022": 8192,
+    "claude-3-opus-20250219": 4096,
+}
 
 
 @dataclass
@@ -361,12 +363,18 @@ def merge_configs(yaml_config: Dict[str, Any], cli_args: argparse.Namespace) -> 
 
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser."""
+    # Format model info with limits
+    model_info = "\n  ".join(
+        f"{m}: {tokens} tokens"
+        for m, tokens in MODELS.items()
+    )
+
     parser = argparse.ArgumentParser(
         description="Flexible paper processor for JSONLines enrichment with LLM analysis.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
-Available models:
-  {', '.join(AVAILABLE_MODELS)}
+Available models (with max output tokens):
+  {model_info}
 
 Example YAML config:
   model: claude-3-5-haiku-20241022
@@ -391,7 +399,7 @@ Example YAML config:
     )
     parser.add_argument(
         "--model",
-        choices=AVAILABLE_MODELS,
+        choices=MODELS.keys(),
         default=None,
         help=f"Claude model to use (default: {DEFAULT_MODEL})",
     )
@@ -470,7 +478,7 @@ def main():
     # Handle --list-models
     if args.list_models:
         print("Available models:")
-        for model in AVAILABLE_MODELS:
+        for model in MODELS.keys():
             print(f"  {model}")
         return 0
 
@@ -481,6 +489,15 @@ def main():
 
     # Merge configurations
     config = merge_configs(yaml_config, args)
+
+    # Validate max_tokens against model limits
+    model_limit = MODELS.get(config.model)
+    if model_limit and config.max_tokens > model_limit:
+        print(
+            f"Error: max_tokens ({config.max_tokens}) exceeds limit for {config.model} ({model_limit})",
+            file=sys.stderr,
+        )
+        return 1
 
     # Get API key
     api_key = config.api_key or os.environ.get("ANTHROPIC_API_KEY")
