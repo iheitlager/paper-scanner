@@ -52,20 +52,20 @@ uv sync --all-groups
 
 ```bash
 # Scan a folder for PDFs
-file-scanner /path/to/pdfs -o pdfs_found.jsonl
+$ file-scanner /path/to/pdfs -o pdfs_found.jsonl
 
 # Process PDFs with Claude using the generic paper-processor
-paper-processor \
+$ paper-processor \
   -i pdfs_found.jsonl \
   -o analyzed.jsonl \
   --config config.yml \
   -v
 
 # Or use it in a pipeline with file-scanner
-file-scanner /path/to/pdfs | paper-processor --config config.yml -q >| analyzed.jsonl
+$ file-scanner /path/to/pdfs | paper-processor --config config.yml -q >| analyzed.jsonl
 
 # Extract limited text from large PDFs (first 25000 chars)
-paper-processor \
+$ paper-processor \
   -i pdfs_found.jsonl \
   -o analyzed.jsonl \
   --config config.yml \
@@ -73,12 +73,12 @@ paper-processor \
   --add-metadata
 
 # Parse the analysis results
-uv run python -m paper_scanner.tools.file_parser \
+$ uv run python -m paper_scanner.tools.file_parser \
   -i analyzed.jsonl \
   -o parsed.jsonl
 
 # Convert to CSV for review
-uv run python -m paper_scanner.tools.file_reader \
+$ uv run python -m paper_scanner.tools.file_reader \
   -i parsed.jsonl \
   -o results.csv
 ```
