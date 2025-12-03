@@ -23,6 +23,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Natural Language :: English"
 ]
+
 dependencies = [
     "anthropic==0.75.0",
     "colorama>=0.4.6",
@@ -59,9 +60,7 @@ local = [
 file-scanner = "paper_scanner.tools.file_scanner:main"
 file-reader = "paper_scanner.tools.file_reader:main"
 file-merge = "paper_scanner.tools.file_merge:main"
-file-processor = "paper_scanner.tools.file_processor:main"
 file-processor-references = "paper_scanner.tools.file_processor_references:main"
-file-parser = "paper_scanner.tools.file_parser:main"
 file-timer = "paper_scanner.tools.file_timer:main"
 output-viewer = "paper_scanner.tools.output_viewer:main"
 paper-processor = "paper_scanner.tools.paper_processor:main"
