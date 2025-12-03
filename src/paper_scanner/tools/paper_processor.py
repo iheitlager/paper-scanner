@@ -24,6 +24,7 @@ import time
 import yaml
 import datetime
 import base64
+import subprocess
 from typing import Optional, Dict, Any, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass
@@ -64,6 +65,13 @@ MODELS = {
     "claude-3-opus-20240229": 4096,
 }
 
+# Small Language Models (SLM) via Ollama
+SLM_MODELS = {
+    "phi": 2048,              # Phi model
+    "tinyllama": 2048,        # TinyLlama model
+    "llama3.2:1b": 4096,      # Llama3.2:1b model
+}
+
 
 @dataclass
 class ProcessorConfig:
@@ -96,7 +104,8 @@ class PaperProcessor:
     def __init__(self, config: ProcessorConfig):
         """Initialize the processor with configuration."""
         self.config = config
-        self.client = Anthropic(api_key=config.api_key)
+        # Only initialize Anthropic client for Claude models
+        self.client = Anthropic(api_key=config.api_key) if config.api_key else None
         self.verbose = config.verbose and not config.quiet
 
         # Load prompt if provided
@@ -327,6 +336,49 @@ class PaperProcessor:
         """Rough token estimation (4 chars ≈ 1 token)."""
         return len(text) // 4
 
+    def _call_ollama(self, text: str, system_prompt: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, int]]:
+        """Call local SLM via Ollama subprocess. Returns (parsed_response, token_usage)."""
+        token_usage = {"input_tokens": 0, "output_tokens": 0}
+        
+        # Require max_chars for Ollama models to limit context
+        if not self.config.max_chars:
+            self.log(f"Warning: Using SLM model without --max-chars. Set --max-chars to limit processing.")
+        
+        try:
+            # Combine system prompt and text for the model
+            full_prompt = f"{system_prompt}\n\n{text}"
+            
+            # Call Ollama via subprocess
+            result = subprocess.run(
+                ['ollama', 'run', self.config.model, full_prompt],
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minute timeout for local processing
+            )
+            
+            if result.returncode != 0:
+                self.log(f"Ollama error: {result.stderr}")
+                return (None, token_usage)
+            
+            response_text = result.stdout.strip()
+            parsed_response = self._parse_json_response(response_text)
+            
+            # Estimate tokens for SLM (rough approximation)
+            token_usage["input_tokens"] = self._calculate_tokens_estimate(full_prompt)
+            token_usage["output_tokens"] = self._calculate_tokens_estimate(response_text)
+            
+            return (parsed_response, token_usage)
+            
+        except FileNotFoundError:
+            self.log(f"Error: Ollama command not found. Install Ollama to use {self.config.model}")
+            return (None, token_usage)
+        except subprocess.TimeoutExpired:
+            self.log(f"Error: Ollama request timed out after 300s")
+            return (None, token_usage)
+        except Exception as e:
+            self.log(f"Error calling Ollama ({self.config.model}): {e}")
+            return (None, token_usage)
+
     def process_record(self, record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Process a single record."""
         record_num = self.stats["processed"] + 1
@@ -357,16 +409,26 @@ class PaperProcessor:
         # Prepare timing
         start_time = datetime.datetime.now(datetime.timezone.utc)
 
-        self.log(f"    {Fore.LIGHTBLUE_EX}⋯ Calling Claude API (model: {self.config.model})...{Style.RESET_ALL}")
+        # Determine which handler to use
+        if self.config.model in SLM_MODELS:
+            handler_name = f"Ollama SLM ({self.config.model})"
+            self.log(f"    {Fore.LIGHTBLUE_EX}⋯ Calling local SLM via Ollama (model: {self.config.model})...{Style.RESET_ALL}")
+        else:
+            handler_name = f"Claude API ({self.config.model})"
+            self.log(f"    {Fore.LIGHTBLUE_EX}⋯ Calling Claude API (model: {self.config.model})...{Style.RESET_ALL}")
 
         # Prepare system prompt
         system_prompt = self.custom_prompt or "You are a helpful assistant. Respond only with valid JSON."
 
-        # Call Claude
-        result, token_usage = self._call_claude(input_text, system_prompt)
+        # Route to appropriate handler
+        if self.config.model in SLM_MODELS:
+            result, token_usage = self._call_ollama(input_text, system_prompt)
+        else:
+            result, token_usage = self._call_claude(input_text, system_prompt)
+        
         if not result:
             self.stats["error"] += 1
-            self.log(f"    {Fore.RED}✗ Error: API call failed{Style.RESET_ALL}")
+            self.log(f"    {Fore.RED}✗ Error: {handler_name} call failed{Style.RESET_ALL}")
             return None
 
         # Track token usage
@@ -569,25 +631,43 @@ def create_parser() -> argparse.ArgumentParser:
         f"{m}: {tokens} tokens"
         for m, tokens in MODELS.items()
     )
+    
+    slm_info = "\n  ".join(
+        f"{m}: {tokens} tokens (local via Ollama)"
+        for m, tokens in SLM_MODELS.items()
+    )
 
     parser = argparse.ArgumentParser(
         description="Flexible paper processor for JSONLines enrichment with LLM analysis.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
-Available models (with max output tokens):
+Available Claude models (with max output tokens):
   {model_info}
 
-Example YAML config:
+Available Small Language Models (via Ollama):
+  {slm_info}
+
+Example YAML config (Claude API):
   model: claude-sonnet-4-5-20250929
   max_tokens: 16384
+  text_source: pdf
+  max_chars: null
+  prompt_file: /path/to/prompt.md
+  output_key: references
+  add_metadata: true
+
+Example YAML config (Ollama SLM):
+  model: phi
+  max_chars: 10000
   text_source: pdf
   prompt_file: /path/to/prompt.md
   output_key: references
   add_metadata: true
-  workers: 4
 
-Note: PDFs are automatically encoded as base64 documents when text_source=pdf.
-Prompt file should instruct Claude how to document and analyze the PDF content.
+Note: 
+- PDFs are automatically encoded as base64 documents when text_source=pdf (Claude only)
+- SLM models via Ollama require max_chars to limit PDF text extraction
+- Prompt file should instruct model how to extract and analyze content as JSON
   """,
     )
 
@@ -697,8 +777,11 @@ def main():
 
     # Handle --list-models
     if args.list_models:
-        print("Available models:")
+        print("Available Claude models:")
         for model in MODELS.keys():
+            print(f"  {model}")
+        print("\nAvailable SLM models (via Ollama):")
+        for model in SLM_MODELS.keys():
             print(f"  {model}")
         return 0
 
@@ -715,22 +798,36 @@ def main():
         generate_yaml_definition(config, args.definition_output)
         return 0
 
-    # Validate max_tokens against model limits
-    model_limit = MODELS.get(config.model)
-    if model_limit and config.max_tokens > model_limit:
-        print(
-            f"Error: max_tokens ({config.max_tokens}) exceeds limit for {config.model} ({model_limit})",
-            file=sys.stderr,
-        )
+    # Validate max_tokens against model limits (Claude models only)
+    if config.model in MODELS:
+        model_limit = MODELS.get(config.model)
+        if model_limit and config.max_tokens > model_limit:
+            print(
+                f"Error: max_tokens ({config.max_tokens}) exceeds limit for {config.model} ({model_limit})",
+                file=sys.stderr,
+            )
+            return 1
+    elif config.model in SLM_MODELS:
+        # SLM models require max_chars for text extraction
+        if not config.max_chars:
+            print(
+                f"Warning: SLM model '{config.model}' works best with --max-chars limit. Consider adding -c <chars>",
+                file=sys.stderr,
+            )
+    else:
+        print(f"Error: Unknown model '{config.model}'", file=sys.stderr)
         return 1
 
-    # Get API key
-    api_key = config.api_key or os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("Error: API key must be provided via --api-key or ANTHROPIC_API_KEY environment variable", file=sys.stderr)
-        return 1
-
-    config.api_key = api_key
+    # Get API key (only required for Claude models)
+    if config.model in MODELS:
+        api_key = config.api_key or os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            print("Error: API key must be provided via --api-key or ANTHROPIC_API_KEY environment variable", file=sys.stderr)
+            return 1
+        config.api_key = api_key
+    else:
+        # SLM models don't need API key
+        config.api_key = None
 
     # Check for stdin
     if not config.input_file and sys.stdin.isatty():

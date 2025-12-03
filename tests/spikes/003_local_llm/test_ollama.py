@@ -9,12 +9,12 @@ import time
 
 MODELS = [
     'phi',
-    'phi3',
-    'llama3.2:1b',
-    'llama3.2',
-    'gemma:2b',
+    # 'phi3',
+    # 'llama3.2:1b',
+    # 'llama3.2',
+    # 'gemma:2b',
     'tinyllama',
-    'qwen2.5:1.5b'
+    # 'qwen2.5:1.5b'
 ]
 
 TEST_PROMPT = """Extract the following in JSON format:

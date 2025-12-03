@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2025-12-03
+
+### Added
+
+- **Small Language Model (SLM) Support via Ollama**: Local LLM processing with Phi, TinyLlama, Llama2
+  - Dual handler architecture for both Claude API and local models
+  - No API key required for local inference; works offline
+  - Intelligent model routing with automatic handler selection
+  - Character limit enforcement (`--max-chars`) for SLM text extraction
+  - Token usage tracking for both Claude and SLM models
+  - Same CLI/YAML config interface for both model types
+  - Enhanced `--list-models` with both Claude and SLM categories
+
+### Technical Details
+
+- Added `SLM_MODELS` constant (Phi/TinyLlama: 2048 tokens, Llama2: 4096 tokens)
+- New `_call_ollama()` method: subprocess-based execution with 300s timeout
+- Optional Anthropic client (only required for Claude models)
+- Token estimation for SLM models (chars ÷ 4 approximation)
+- Comprehensive feature documentation in `docs/SLM_FEATURE.md` and `docs/SLM_QUICK_REFERENCE.md`
+
 ## [0.8.0] - 2025-12-03
 
 ### Added
