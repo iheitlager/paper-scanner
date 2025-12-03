@@ -810,6 +810,7 @@ name = "paper-scanner"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "colorama" },
     { name = "dotenv" },
     { name = "flask" },
     { name = "flask-cors" },
@@ -833,6 +834,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = "==0.75.0" },
+    { name = "colorama", specifier = ">=0.4.6" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "flask", specifier = ">=3.0.0" },
     { name = "flask-cors", specifier = ">=4.0.0" },

@@ -30,7 +30,11 @@ from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from anthropic import Anthropic, RateLimitError
+from colorama import Fore, Back, Style, init
 from dotenv import load_dotenv
+
+# Initialize colorama for cross-platform color support
+init(autoreset=True)
 
 
 # ============================================================================
@@ -93,8 +97,7 @@ class PaperProcessor:
         self.custom_prompt = None
         if config.prompt_file:
             self.custom_prompt = self._load_prompt(config.prompt_file)
-            if self.verbose:
-                self.log(f"✓ Loaded prompt from {config.prompt_file}")
+            self.log(f"✓ Loaded prompt from {config.prompt_file}")
 
         # Statistics
         self.stats = {
@@ -102,6 +105,7 @@ class PaperProcessor:
             "success": 0,
             "error": 0,
             "skipped": 0,
+            "not_updated": 0,
             "total_input_tokens": 0,
             "total_output_tokens": 0,
             "total_tokens": 0,
@@ -109,8 +113,11 @@ class PaperProcessor:
 
         # Track processed records for filtering
         self.processed_records = set()
-        if config.skip_existing and config.output_file:
-            self._load_existing_records()
+        if config.skip_existing:
+            if config.output_file:
+                self._load_existing_records()
+            else:
+                self.log("Warning: --skip-existing requires --output file to be specified")
 
     def log(self, message: str) -> None:
         """Log message to stderr."""
@@ -128,11 +135,19 @@ class PaperProcessor:
 
     def _load_existing_records(self) -> None:
         """Load file_path values from existing output file for filtering."""
-        if not os.path.exists(self.config.output_file):
+        output_file = self.config.output_file
+        
+        # When output file is not specified, try to load from stdin redirect
+        # This handles: cat file.jsonl | processor --skip-existing >| file.jsonl
+        if not output_file:
+            return
+        
+        if not os.path.exists(output_file):
+            self.log(f"Note: Output file does not exist yet: {output_file}")
             return
 
         try:
-            with open(self.config.output_file, "r", encoding="utf-8") as f:
+            with open(output_file, "r", encoding="utf-8") as f:
                 for line in f:
                     try:
                         record = json.loads(line.strip())
@@ -141,7 +156,9 @@ class PaperProcessor:
                             self.processed_records.add(file_path)
                     except json.JSONDecodeError:
                         continue
-            self.log(f"Loaded {len(self.processed_records)} existing records from {self.config.output_file}")
+            count = len(self.processed_records)
+            if count > 0:
+                self.log(f"Loaded {count} existing records from {self.config.output_file}")
         except Exception as e:
             self.log(f"Warning: Could not load existing records: {e}")
 
@@ -240,7 +257,7 @@ class PaperProcessor:
                 if hasattr(response, 'usage'):
                     token_usage["input_tokens"] = response.usage.input_tokens
                     token_usage["output_tokens"] = response.usage.output_tokens
-                    self.log(f"Token usage - Input: {response.usage.input_tokens}, Output: {response.usage.output_tokens}")
+                    # self.log(f"Token usage - Input: {response.usage.input_tokens}, Output: {response.usage.output_tokens}")
 
                 response_text = response.content[0].text.strip()
                 parsed_response = self._parse_json_response(response_text)
@@ -273,19 +290,18 @@ class PaperProcessor:
         record_num = self.stats["processed"] + 1
         file_path = record.get("file_path", "unknown")
         file_name = record.get("file_name", "unknown")
-        
+
         self.stats["processed"] += 1
-        
-        if self.verbose:
-            self.log(f"\n[{record_num}] Processing record: {file_name}")
-            self.log(f"    File path: {file_path}")
+
+        self.log(f"\n[{record_num}] {Fore.CYAN}Processing record:{Style.RESET_ALL} {file_name}")
+        self.log(f"    {Fore.BLUE}File path:{Style.RESET_ALL} {file_path}")
 
         # Check if should skip
         if self.config.skip_existing:
             if file_path in self.processed_records:
                 self.stats["skipped"] += 1
-                if self.verbose:
-                    self.log(f"    ⊘ Skipped (already processed)")
+                self.stats["not_updated"] += 1
+                self.log(f"    {Fore.YELLOW}⊘ Skipped (already processed){Style.RESET_ALL}")
                 return None
 
         # Get input text
@@ -293,15 +309,13 @@ class PaperProcessor:
         if not input_text:
             self.log(f"Warning: Could not extract text for record {file_name}")
             self.stats["error"] += 1
-            if self.verbose:
-                self.log(f"    ✗ Error: Could not extract text")
+            self.log(f"    {Fore.RED}✗ Error: Could not extract text{Style.RESET_ALL}")
             return None
 
         # Prepare timing
         start_time = datetime.datetime.now(datetime.timezone.utc)
         
-        if self.verbose:
-            self.log(f"    ⋯ Calling Claude API (model: {self.config.model})...")
+        self.log(f"    {Fore.LIGHTBLUE_EX}⋯ Calling Claude API (model: {self.config.model})...{Style.RESET_ALL}")
 
         # Prepare system prompt
         system_prompt = self.custom_prompt or "You are a helpful assistant. Respond only with valid JSON."
@@ -310,8 +324,7 @@ class PaperProcessor:
         result, token_usage = self._call_claude(input_text, system_prompt)
         if not result:
             self.stats["error"] += 1
-            if self.verbose:
-                self.log(f"    ✗ Error: API call failed")
+            self.log(f"    {Fore.RED}✗ Error: API call failed{Style.RESET_ALL}")
             return None
         
         # Track token usage
@@ -323,11 +336,10 @@ class PaperProcessor:
         end_time = datetime.datetime.now(datetime.timezone.utc)
         elapsed = (end_time - start_time).total_seconds()
         
-        if self.verbose:
-            self.log(f"    ✓ Success")
-            self.log(f"      Input tokens:  {token_usage.get('input_tokens', 0):,}")
-            self.log(f"      Output tokens: {token_usage.get('output_tokens', 0):,}")
-            self.log(f"      Time: {elapsed:.2f}s")
+        self.log(f"    {Fore.GREEN}✓ Success{Style.RESET_ALL}")
+        self.log(f"      {Fore.LIGHTBLUE_EX}Input tokens:  {token_usage.get('input_tokens', 0):,}{Style.RESET_ALL}")
+        self.log(f"      {Fore.LIGHTGREEN_EX}Output tokens: {token_usage.get('output_tokens', 0):,}{Style.RESET_ALL}")
+        self.log(f"      {Fore.LIGHTMAGENTA_EX}Time: {elapsed:.2f}s{Style.RESET_ALL}")
 
         output_key = self.config.output_key
         if self.config.mode == "replace":
@@ -342,16 +354,18 @@ class PaperProcessor:
                 "end_time": end_time.isoformat(),
                 "elapsed_seconds": elapsed,
                 "model": self.config.model,
+                "prompt_file": self.config.prompt_file,
                 "input_tokens_estimate": self._calculate_tokens_estimate(input_text),
                 "input_tokens_actual": token_usage.get("input_tokens", 0),
                 "output_tokens_actual": token_usage.get("output_tokens", 0),
                 "total_tokens_actual": token_usage.get("input_tokens", 0) + token_usage.get("output_tokens", 0),
                 "text_source": self.config.text_source,
             }
-            if not hasattr(record.get(output_key), "__getitem__"):
-                record[f"{output_key}_metadata"] = metadata
-            elif isinstance(record[output_key], dict):
+            # Add metadata to the result dict if it's a dict, otherwise as separate key
+            if isinstance(record.get(output_key), dict):
                 record[output_key]["_metadata"] = metadata
+            else:
+                record[f"{output_key}_metadata"] = metadata
 
         self.stats["success"] += 1
         return record
@@ -383,21 +397,45 @@ class PaperProcessor:
                 output_stream.close()
 
     def print_stats(self) -> None:
-        """Print processing statistics."""
-        print("\n=== Processing Statistics ===", file=sys.stderr)
+        """Print processing statistics with colors (unless quiet mode is on)."""
+        if self.config.quiet:
+            return
+        
+        print("\n" + "=" * 50, file=sys.stderr)
+        print(f"{Fore.CYAN}{Style.BRIGHT}Processing Statistics{Style.RESET_ALL}", file=sys.stderr)
+        print("=" * 50, file=sys.stderr)
+        
+        # Processing counts with color coding
         print(f"Total processed: {self.stats['processed']}", file=sys.stderr)
-        print(f"Successful: {self.stats['success']}", file=sys.stderr)
-        print(f"Errors: {self.stats['error']}", file=sys.stderr)
-        print(f"Skipped: {self.stats['skipped']}", file=sys.stderr)
-        print("\n=== Token Usage ===", file=sys.stderr)
-        print(f"Total input tokens: {self.stats['total_input_tokens']:,}", file=sys.stderr)
-        print(f"Total output tokens: {self.stats['total_output_tokens']:,}", file=sys.stderr)
-        print(f"Total tokens: {self.stats['total_tokens']:,}", file=sys.stderr)
+        print(f"{Fore.GREEN}✓ Successful:   {self.stats['success']}{Style.RESET_ALL}", file=sys.stderr)
+        
+        if self.stats['error'] > 0:
+            print(f"{Fore.RED}✗ Errors:       {self.stats['error']}{Style.RESET_ALL}", file=sys.stderr)
+        else:
+            print(f"{Fore.GREEN}✗ Errors:       {self.stats['error']}{Style.RESET_ALL}", file=sys.stderr)
+        
+        if self.stats['skipped'] > 0:
+            print(f"{Fore.YELLOW}⊘ Skipped:      {self.stats['skipped']}{Style.RESET_ALL}", file=sys.stderr)
+        
+        if self.stats['not_updated'] > 0:
+            print(f"{Fore.LIGHTBLACK_EX}↻ Not updated:  {self.stats['not_updated']}{Style.RESET_ALL}", file=sys.stderr)
+        
+        # Token usage section
+        print("\n" + "=" * 50, file=sys.stderr)
+        print(f"{Fore.CYAN}{Style.BRIGHT}Token Usage{Style.RESET_ALL}", file=sys.stderr)
+        print("=" * 50, file=sys.stderr)
+        
+        print(f"{Fore.BLUE}Input tokens:  {Fore.LIGHTBLUE_EX}{self.stats['total_input_tokens']:,}{Style.RESET_ALL}", file=sys.stderr)
+        print(f"{Fore.GREEN}Output tokens: {Fore.LIGHTGREEN_EX}{self.stats['total_output_tokens']:,}{Style.RESET_ALL}", file=sys.stderr)
+        print(f"{Fore.MAGENTA}Total tokens:  {Fore.LIGHTMAGENTA_EX}{self.stats['total_tokens']:,}{Style.RESET_ALL}", file=sys.stderr)
+        
         if self.stats['success'] > 0:
             avg_input = self.stats['total_input_tokens'] / self.stats['success']
             avg_output = self.stats['total_output_tokens'] / self.stats['success']
-            print(f"Average input tokens per record: {avg_input:.0f}", file=sys.stderr)
-            print(f"Average output tokens per record: {avg_output:.0f}", file=sys.stderr)
+            print(f"\n{Fore.BLUE}Average input/record:  {Fore.LIGHTBLUE_EX}{avg_input:.0f}{Style.RESET_ALL}", file=sys.stderr)
+            print(f"{Fore.GREEN}Average output/record: {Fore.LIGHTGREEN_EX}{avg_output:.0f}{Style.RESET_ALL}", file=sys.stderr)
+        
+        print("=" * 50, file=sys.stderr)
 
 
 # ============================================================================
@@ -441,13 +479,32 @@ def load_yaml_config(yaml_file: str) -> Dict[str, Any]:
 
 
 def merge_configs(yaml_config: Dict[str, Any], cli_args: argparse.Namespace) -> ProcessorConfig:
-    """Merge YAML and CLI configurations (CLI takes precedence)."""
+    """Merge YAML and CLI configurations (CLI takes precedence for non-flag args).
+    For boolean flags, YAML takes precedence unless explicitly set on CLI."""
     config_dict = yaml_config.copy()
+
+    # Map of flag names to check if they were provided on CLI
+    boolean_flags = {
+        "add_metadata": "--add-metadata",
+        "skip_existing": "--skip-existing",
+        "verbose": ["-v", "--verbose"],
+        "quiet": ["-q", "--quiet"],
+    }
 
     # Override with CLI args if provided
     for key, value in vars(cli_args).items():
-        if value is not None:
-            config_dict[key] = value
+        # For non-boolean flags, override if value is not None
+        if key not in boolean_flags:
+            if value is not None:
+                config_dict[key] = value
+        else:
+            # For boolean flags, check if they were explicitly provided on CLI
+            flag_names = boolean_flags[key]
+            if not isinstance(flag_names, list):
+                flag_names = [flag_names]
+            
+            if any(flag in sys.argv for flag in flag_names):
+                config_dict[key] = value
 
     # Set defaults for missing values
     config_dict.setdefault("model", DEFAULT_MODEL)
@@ -455,6 +512,10 @@ def merge_configs(yaml_config: Dict[str, Any], cli_args: argparse.Namespace) -> 
     config_dict.setdefault("text_source", "pdf")
     config_dict.setdefault("output_key", "processed")
     config_dict.setdefault("mode", "add")
+    config_dict.setdefault("add_metadata", False)
+    config_dict.setdefault("skip_existing", False)
+    config_dict.setdefault("verbose", False)
+    config_dict.setdefault("quiet", False)
 
     return ProcessorConfig(**{k: v for k, v in config_dict.items() if k in ProcessorConfig.__dataclass_fields__})
 

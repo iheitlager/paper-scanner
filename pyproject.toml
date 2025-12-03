@@ -25,6 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "anthropic==0.75.0",
+    "colorama>=0.4.6",
     "dotenv>=0.9.9",
     "flask>=3.0.0",
     "flask-cors>=4.0.0",
