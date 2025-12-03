@@ -3,7 +3,7 @@
 """
 Reference Extractor
 
-Takes JSONLines with pre-analyzed papers and extracts references from the raw_text field.
+Takes JSONLines with pre-analyzed papers and extracts references from the PDF files.
 Outputs enriched JSONLines with references field added.
 Uses cheaper Haiku model for cost-efficient reference extraction.
 """
@@ -17,8 +17,9 @@ from typing import Optional
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from pypdf import PdfReader
 
-MAX_TOKENS = 10_000
+MAX_TOKENS = 20_000
 WAIT_TIME = 61
 DEFAULT_MODEL = "claude-3-5-haiku-20241022"
 
@@ -53,7 +54,19 @@ class ReferenceExtractor:
             self.log(f"Error loading reference prompt: {e}")
             return ""
 
-    def extract_references(self, paper_text: str, max_retries: int = 5) -> Optional[dict]:
+    def extract_text_from_pdf(self, pdf_path: str) -> Optional[str]:
+        """Extract text content from a PDF file."""
+        try:
+            reader = PdfReader(pdf_path)
+            text = ""
+            for page in reader.pages:
+                text += page.extract_text() + "\n"
+            return text
+        except Exception as e:
+            print(f"Error extracting text from {pdf_path}: {e}", file=sys.stderr)
+            return None
+
+    def extract_references(self, pdf_text: str, max_retries: int = 5) -> Optional[dict]:
         """Extract references from paper text using Claude with automatic retry on rate limits."""
         if not self.reference_prompt:
             self.log("Warning: Reference prompt not loaded, skipping reference extraction")
@@ -71,7 +84,7 @@ class ReferenceExtractor:
                     messages=[
                         {
                             "role": "user",
-                            "content": f"Extract references from this academic paper:\n\n{paper_text}",
+                            "content": f"Extract references from this academic paper:\n\n{pdf_text}",
                         }
                     ],
                 )
@@ -127,12 +140,23 @@ class ReferenceExtractor:
         for line in f_in:
             try:
                 item = json.loads(line.strip())
+                file_path = item.get("file_path")
                 file_name = item.get("file_name", "unknown")
 
-                # Extract references from raw_text if available
-                if "raw_text" in item:
-                    self.log(f"Extracting references from {file_name} ...")
-                    references = self.extract_references(item["raw_text"])
+                if not file_path:
+                    self.log(f"Warning: No file_path in record for {file_name}, skipping reference extraction")
+                    # Write record unchanged
+                    f_out.write(json.dumps(item) + "\n")
+                    f_out.flush()
+                    processed_count += 1
+                    continue
+
+                # Extract text from PDF
+                self.log(f"Extracting references from {file_name} ...")
+                pdf_text = self.extract_text_from_pdf(file_path)
+
+                if pdf_text:
+                    references = self.extract_references(pdf_text)
 
                     if references:
                         item["references"] = references
@@ -140,7 +164,7 @@ class ReferenceExtractor:
                     else:
                         self.log(f"Warning: Failed to extract references for {file_name}, continuing without references")
                 else:
-                    self.log(f"Warning: No raw_text field found in record for {file_name}, skipping reference extraction")
+                    self.log(f"Warning: Could not extract text from {file_path}")
 
                 # Write enriched record to output with immediate flush
                 f_out.write(json.dumps(item) + "\n")
