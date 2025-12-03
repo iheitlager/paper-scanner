@@ -49,6 +49,10 @@ MODELS = {
     "claude-3-5-sonnet-20241022": 8192,
     "claude-3-5-haiku-20241022": 8192,
     "claude-3-opus-20250219": 4096,
+    "claude-4-20250514": 16384,
+    "claude-4-turbo-20250514": 16384,
+    "claude-4-haiku-20250514": 8192,
+    "claude-4-haiku-turbo-20250514": 8192,
 }
 
 
