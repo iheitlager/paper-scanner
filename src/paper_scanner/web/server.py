@@ -112,7 +112,8 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
                         "modified_time": str,
                         "accessed_time": str,
                         "title-details": dict (optional),
-                        "analysis": dict (optional)
+                        "analysis": dict (optional),
+                        "references": dict (optional, with extraction results)
                     }
                 ]
             }
@@ -131,11 +132,25 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
 
             loaded_count = 0
             failed_count = 0
+            references_count = 0
 
             for idx, record in enumerate(records):
                 try:
                     db_manager.insert_pdf_record(record)
                     loaded_count += 1
+                    
+                    # If references are present, insert them into the database
+                    if "references" in record and record["references"]:
+                        try:
+                            # Get the inserted paper's ID by file_name
+                            pdf_record = db_manager.get_pdf_by_file_name(record["file_name"])
+                            if pdf_record:
+                                db_manager.insert_references(pdf_record["id"], record["references"])
+                                references_count += len(record.get("references", {}).get("references", []))
+                        except DatabaseException as e:
+                            logger.warning(f"Failed to insert references for record {idx}: {e}")
+                            # Continue without references; don't fail the paper insertion
+
                 except (InvalidDataException, DatabaseException) as e:
                     logger.warning(f"Failed to insert record {idx}: {e}")
                     failed_count += 1
@@ -145,6 +160,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
                 "loaded": loaded_count,
                 "failed": failed_count,
                 "total": loaded_count + failed_count,
+                "references_loaded": references_count,
             }), 200
         except InvalidDataException:
             raise
@@ -224,6 +240,35 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
             db_manager.update_pdf_tags(file_name, tags)
             return jsonify({"success": True, "message": "Tags updated successfully"}), 200
         except (DatabaseException, InvalidDataException, PDFNotFoundException):
+            raise
+
+    @app.route("/api/references/<file_name>", methods=["GET"])
+    def get_references(file_name: str) -> Tuple[Dict[str, Any], int]:
+        """Get all references for a specific paper.
+        
+        Args:
+            file_name: Name of the PDF file
+            
+        Returns:
+            JSON response with list of references
+        """
+        try:
+            pdf_record = db_manager.get_pdf_by_file_name(file_name)
+            if not pdf_record:
+                raise PDFNotFoundException(file_name)
+
+            references = db_manager.get_references_for_paper(pdf_record["id"])
+            
+            # Parse JSONB fields back to objects for JSON response
+            for ref in references:
+                if ref.get("authors") and isinstance(ref["authors"], str):
+                    try:
+                        ref["authors"] = json.loads(ref["authors"])
+                    except json.JSONDecodeError:
+                        pass
+            
+            return jsonify({"success": True, "references": references}), 200
+        except (DatabaseException, PDFNotFoundException):
             raise
 
     @app.route("/api/pdf/<file_name>", methods=["GET"])
