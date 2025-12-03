@@ -19,6 +19,6 @@ file-scanner /Users/iheitlager/wc/papers -f "$output_file" \
   | paper-details -v \
   | file-processor --custom_prompt src/prompts/paper-summary.md \
   | tee "$checkpoint_file" \
-  | file-processor-references
+  | file-processor-references >> "$output_file"
 
 echo "Pipeline complete. Analysis checkpoint saved to: $checkpoint_file"

@@ -40,7 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_citekey ON pdf_files(citekey);
 CREATE INDEX IF NOT EXISTS idx_year ON pdf_files(year);
 
 -- Create references table for storing extracted citations
-CREATE TABLE IF NOT EXISTS references (
+CREATE TABLE IF NOT EXISTS "references" (
     id SERIAL PRIMARY KEY,
     source_paper_id INTEGER NOT NULL REFERENCES pdf_files(id) ON DELETE CASCADE,
     citekey VARCHAR(255) NOT NULL,
@@ -70,14 +70,14 @@ CREATE TABLE IF NOT EXISTS references (
 CREATE TABLE IF NOT EXISTS citation_edges (
     id SERIAL PRIMARY KEY,
     citing_paper_id INTEGER NOT NULL REFERENCES pdf_files(id) ON DELETE CASCADE,
-    cited_reference_id INTEGER NOT NULL REFERENCES references(id) ON DELETE CASCADE,
+    cited_reference_id INTEGER NOT NULL REFERENCES "references"(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create citation metadata table for extraction status and notes
 CREATE TABLE IF NOT EXISTS citation_metadata (
     id SERIAL PRIMARY KEY,
-    reference_id INTEGER NOT NULL REFERENCES references(id) ON DELETE CASCADE,
+    reference_id INTEGER NOT NULL REFERENCES "references"(id) ON DELETE CASCADE,
     parsing_status VARCHAR(50) DEFAULT 'success',
     extraction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     parsing_issues TEXT,
@@ -86,8 +86,8 @@ CREATE TABLE IF NOT EXISTS citation_metadata (
 );
 
 -- Create indexes for references tables
-CREATE INDEX IF NOT EXISTS idx_references_source_paper ON references(source_paper_id);
-CREATE INDEX IF NOT EXISTS idx_references_citekey ON references(citekey);
+CREATE INDEX IF NOT EXISTS idx_references_source_paper ON "references"(source_paper_id);
+CREATE INDEX IF NOT EXISTS idx_references_citekey ON "references"(citekey);
 CREATE INDEX IF NOT EXISTS idx_citation_edges_citing ON citation_edges(citing_paper_id);
 CREATE INDEX IF NOT EXISTS idx_citation_edges_cited ON citation_edges(cited_reference_id);
 CREATE INDEX IF NOT EXISTS idx_citation_edges_pair ON citation_edges(citing_paper_id, cited_reference_id);

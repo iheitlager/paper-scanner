@@ -85,8 +85,6 @@ uv run python -m paper_scanner.tools.file_reader \
 ```
 
 ### Web Interface
-
-```bash
 # Start the web server (requires PostgreSQL database)
 #### Web Interface Features
 

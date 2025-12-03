@@ -19,7 +19,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 from pypdf import PdfReader
 
-MAX_TOKENS = 20_000
+MAX_TOKENS = 8_192  # Haiku max output tokens
 WAIT_TIME = 61
 DEFAULT_MODEL = "claude-3-5-haiku-20241022"
 
@@ -55,12 +55,48 @@ class ReferenceExtractor:
             return ""
 
     def extract_text_from_pdf(self, pdf_path: str) -> Optional[str]:
-        """Extract text content from a PDF file."""
+        """Extract text content from a PDF file starting from the references section.
+
+        Looks for common reference section markers and extracts only from that point forward
+        to avoid exceeding Haiku's 8192 token limit while capturing the references.
+        """
         try:
             reader = PdfReader(pdf_path)
             text = ""
+            found_references = False
+
+            # Common reference section markers (case-insensitive)
+            reference_markers = [
+                "references",
+                "bibliography",
+                "works cited",
+                "citations",
+                "cited works",
+            ]
+
             for page in reader.pages:
-                text += page.extract_text() + "\n"
+                page_text = page.extract_text()
+
+                # If we haven't found references yet, check this page
+                if not found_references:
+                    page_lower = page_text.lower()
+                    for marker in reference_markers:
+                        if marker in page_lower:
+                            # Find the position and extract from the marker onwards
+                            marker_pos = page_lower.find(marker)
+                            text += page_text[marker_pos:]
+                            self.log(f"Found '{marker}' section, extracting references from here")
+                            found_references = True
+                            break
+                else:
+                    # After finding references, include all subsequent pages
+                    text += page_text + "\n"
+
+            # If no reference section found, return empty (better than sending whole PDF)
+            if not found_references:
+                self.log("No reference section found in PDF")
+                return ""
+
             return text
         except Exception as e:
             print(f"Error extracting text from {pdf_path}: {e}", file=sys.stderr)
@@ -91,21 +127,37 @@ class ReferenceExtractor:
 
                 response_text = response.content[0].text.strip()
 
+                # Remove any preamble text before the JSON object
+                # Look for the first '{' which starts the JSON
+                json_start = response_text.find('{')
+                if json_start != -1:
+                    response_text = response_text[json_start:]
+
                 # Remove markdown code block wrapping if present
                 if response_text.startswith("```"):
-                    lines = response_text.split("\n", 1)
-                    if len(lines) > 1:
-                        response_text = lines[1]
-                    if response_text.endswith("```"):
-                        response_text = response_text[:-3].rstrip()
+                    # Remove opening ```json or ``` and everything before first newline
+                    response_text = response_text.split("\n", 1)[1] if "\n" in response_text else response_text[3:]
+
+                if response_text.endswith("```"):
+                    # Remove closing ```
+                    response_text = response_text[:-3].rstrip()
+
+                # Find the last '}' which ends the JSON object and remove anything after it
+                json_end = response_text.rfind('}')
+                if json_end != -1:
+                    response_text = response_text[:json_end + 1]
+
+                self.log(f"Attempting to parse JSON response (length: {len(response_text)} chars)")
 
                 # Parse the JSON response
                 try:
                     references = json.loads(response_text)
+                    self.log(f"Successfully parsed references JSON")
                     return references
                 except json.JSONDecodeError as e:
                     self.log(f"Failed to parse references JSON response: {e}")
-                    self.log(f"Response was: {response_text[:200]}...")
+                    self.log(f"Response text (first 500 chars): {response_text[:500]}")
+                    self.log(f"Response text (last 200 chars): {response_text[-200:]}")
                     return None
 
             except Exception as e:
@@ -136,6 +188,7 @@ class ReferenceExtractor:
         """
         processed_count = 0
         error_count = 0
+        success_count = 0
 
         for line in f_in:
             try:
@@ -161,6 +214,7 @@ class ReferenceExtractor:
                     if references:
                         item["references"] = references
                         self.log(f"Successfully extracted references for {file_name}")
+                        success_count += 1
                     else:
                         self.log(f"Warning: Failed to extract references for {file_name}, continuing without references")
                 else:
@@ -180,7 +234,7 @@ class ReferenceExtractor:
                 error_count += 1
                 continue
 
-        self.log(f"Reference extraction complete! {processed_count} records processed, {error_count} errors")
+        self.log(f"Reference extraction complete! {processed_count} records processed, {success_count} successful, {error_count} errors")
         return processed_count, error_count
 
 

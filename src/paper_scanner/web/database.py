@@ -351,14 +351,17 @@ class DatabaseManager:
 
         try:
             for ref in references_data.get("references", []):
-                # Extract identifiers
+                # Extract identifiers and source info
                 identifiers = ref.get("identifiers", {})
-                pages = ref.get("source", {}).get("pages", {})
+                source = ref.get("source", {})
+                
+                # Handle pages - could be string "100-120" or object with start/end
+                pages_str = source.get("pages", "") if isinstance(source.get("pages"), str) else ""
 
                 # Insert reference record
                 cursor.execute(
                     """
-                    INSERT INTO references 
+                    INSERT INTO "references" 
                     (source_paper_id, citekey, reference_type, authors, year, title, 
                      source_type, source_name, volume, issue, pages_start, pages_end, 
                      pages_range, publisher, location, doi, url, arxiv_id, ssrn_id, 
@@ -369,25 +372,25 @@ class DatabaseManager:
                     (
                         source_paper_id,
                         ref.get("citekey"),
-                        ref.get("reference_type"),
+                        ref.get("type"),  # Changed from "reference_type" to "type"
                         json.dumps(ref.get("authors")) if ref.get("authors") else None,
                         ref.get("year"),
                         ref.get("title"),
-                        ref.get("source", {}).get("type"),
-                        ref.get("source", {}).get("name"),
-                        ref.get("source", {}).get("volume"),
-                        ref.get("source", {}).get("issue"),
-                        pages.get("start"),
-                        pages.get("end"),
-                        pages.get("range"),
-                        ref.get("source", {}).get("publisher"),
-                        ref.get("source", {}).get("location"),
+                        source.get("type"),
+                        source.get("name"),
+                        source.get("volume"),
+                        source.get("issue"),
+                        None,  # pages_start
+                        None,  # pages_end
+                        pages_str,  # pages_range
+                        source.get("publisher"),
+                        source.get("location"),
                         identifiers.get("doi"),
                         identifiers.get("url"),
                         identifiers.get("arxiv"),
                         identifiers.get("ssrn"),
-                        ref.get("source", {}).get("isbn"),
-                        ref.get("raw_citation"),
+                        source.get("isbn"),
+                        None,  # raw_citation
                     ),
                 )
                 ref_id = cursor.fetchone()[0]
@@ -453,7 +456,7 @@ class DatabaseManager:
             cursor.execute(
                 """
                 SELECT r.*, m.parsing_status, m.parsing_issues, m.notes
-                FROM references r
+                FROM "references" r
                 LEFT JOIN citation_metadata m ON r.id = m.reference_id
                 WHERE r.source_paper_id = %s
                 ORDER BY r.created_at

@@ -1,3 +1,5 @@
+You MUST output ONLY valid JSON with no preamble, explanation, or follow-up questions. Output nothing else.
+
 Extract ALL bibliographic references as JSON array.
 
 For each reference extract:
@@ -32,4 +34,4 @@ JSON structure:
   }]
 }
 
-Rules: Process in order. Extract ALL authors. Clean DOIs (remove https://doi.org/). Use null for missing data. Include all references.
+Rules: Process in order. Extract ALL authors. Clean DOIs (remove https://doi.org/). Use null for missing data. Include all references. Do not add explanations or ask questions. Output only the JSON object.
