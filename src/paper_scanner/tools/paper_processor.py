@@ -23,15 +23,13 @@ import sys
 import time
 import yaml
 import datetime
+import base64
 from typing import Optional, Dict, Any, List, Tuple
 from pathlib import Path
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from anthropic import Anthropic, RateLimitError
-from pdfplumber import open as open_pdf
-from pdfplumber.pdf import PDF as PDFDocument
-
 from dotenv import load_dotenv
 
 
@@ -40,7 +38,7 @@ from dotenv import load_dotenv
 # ============================================================================
 
 DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
-DEFAULT_MAX_TOKENS = 16384
+DEFAULT_MAX_TOKENS = 2048
 MAX_RETRIES = 5
 RATE_LIMIT_WAIT = 61
 
@@ -72,6 +70,7 @@ class ProcessorConfig:
     input_file: Optional[str] = None
     output_file: Optional[str] = None
     skip_existing: bool = False
+    verbose: bool = False
     quiet: bool = False
     api_key: Optional[str] = None
     yaml_config: Optional[str] = None
@@ -88,12 +87,14 @@ class PaperProcessor:
         """Initialize the processor with configuration."""
         self.config = config
         self.client = Anthropic(api_key=config.api_key)
-        self.verbose = not config.quiet
+        self.verbose = config.verbose and not config.quiet
 
         # Load prompt if provided
         self.custom_prompt = None
         if config.prompt_file:
             self.custom_prompt = self._load_prompt(config.prompt_file)
+            if self.verbose:
+                self.log(f"✓ Loaded prompt from {config.prompt_file}")
 
         # Statistics
         self.stats = {
@@ -101,6 +102,9 @@ class PaperProcessor:
             "success": 0,
             "error": 0,
             "skipped": 0,
+            "total_input_tokens": 0,
+            "total_output_tokens": 0,
+            "total_tokens": 0,
         }
 
         # Track processed records for filtering
@@ -141,33 +145,21 @@ class PaperProcessor:
         except Exception as e:
             self.log(f"Warning: Could not load existing records: {e}")
 
-    def _extract_text_from_pdf(self, pdf_path: str) -> Optional[str]:
-        """Extract text from PDF file."""
-        try:
-            if not os.path.exists(pdf_path):
-                self.log(f"Warning: PDF not found at {pdf_path}")
-                return None
-
-            with open_pdf(pdf_path) as pdf:
-                text = ""
-                for page in pdf.pages:
-                    text += page.extract_text() or ""
-                    text += "\n"
-                return text
-        except Exception as e:
-            self.log(f"Error extracting text from {pdf_path}: {e}")
-            return None
-
     def _get_input_text(self, record: Dict[str, Any]) -> Optional[str]:
-        """Get input text based on text_source configuration."""
+        """Get input text or file path based on text_source configuration."""
         text_source = self.config.text_source
 
         if text_source == "pdf":
+            # Return the file path itself, not extracted text
+            # _call_claude() will handle base64 encoding
             file_path = record.get("file_path")
             if not file_path:
                 self.log("Warning: No file_path in record for PDF extraction")
                 return None
-            return self._extract_text_from_pdf(file_path)
+            if not os.path.exists(file_path):
+                self.log(f"Warning: PDF not found at {file_path}")
+                return None
+            return file_path
 
         elif text_source == "content":
             return record.get("content")
@@ -204,22 +196,55 @@ class PaperProcessor:
             self.log(f"Response start: {response_text[:200]}")
             return None
 
-    def _call_claude(self, text: str, system_prompt: str) -> Optional[Dict[str, Any]]:
-        """Call Claude API with retry logic."""
+    def _call_claude(self, text: str, system_prompt: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, int]]:
+        """Call Claude API with retry logic. Returns (parsed_response, token_usage)."""
         retries = 0
         max_retries = MAX_RETRIES
+        token_usage = {"input_tokens": 0, "output_tokens": 0}
 
         while retries <= max_retries:
             try:
+                # Prepare message content - use document format if text looks like a file path (PDF)
+                content = []
+                
+                # If text is a file path to a PDF, encode and send as document
+                if text.lower().endswith('.pdf') and os.path.exists(text):
+                    try:
+                        with open(text, 'rb') as f:
+                            pdf_bytes = f.read()
+                            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                        
+                        content.append({
+                            "type": "document",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "application/pdf",
+                                "data": pdf_base64
+                            }
+                        })
+                    except Exception as e:
+                        self.log(f"Warning: Could not encode PDF {text}: {e}. Using as text instead.")
+                        content.append({"type": "text", "text": text})
+                else:
+                    # Regular text content
+                    content.append({"type": "text", "text": text})
+                
                 response = self.client.messages.create(
                     model=self.config.model,
                     max_tokens=self.config.max_tokens,
                     system=system_prompt,
-                    messages=[{"role": "user", "content": text}],
+                    messages=[{"role": "user", "content": content}],
                 )
 
+                # Capture token usage from API response
+                if hasattr(response, 'usage'):
+                    token_usage["input_tokens"] = response.usage.input_tokens
+                    token_usage["output_tokens"] = response.usage.output_tokens
+                    self.log(f"Token usage - Input: {response.usage.input_tokens}, Output: {response.usage.output_tokens}")
+
                 response_text = response.content[0].text.strip()
-                return self._parse_json_response(response_text)
+                parsed_response = self._parse_json_response(response_text)
+                return (parsed_response, token_usage)
 
             except RateLimitError:
                 retries += 1
@@ -231,13 +256,13 @@ class PaperProcessor:
                     continue
                 else:
                     self.log(f"Max retries ({max_retries}) exceeded.")
-                    return None
+                    return (None, token_usage)
 
             except Exception as e:
                 self.log(f"Error calling Claude API: {e}")
-                return None
+                return (None, token_usage)
 
-        return None
+        return (None, token_usage)
 
     def _calculate_tokens_estimate(self, text: str) -> int:
         """Rough token estimation (4 chars ≈ 1 token)."""
@@ -245,36 +270,64 @@ class PaperProcessor:
 
     def process_record(self, record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Process a single record."""
+        record_num = self.stats["processed"] + 1
+        file_path = record.get("file_path", "unknown")
+        file_name = record.get("file_name", "unknown")
+        
         self.stats["processed"] += 1
+        
+        if self.verbose:
+            self.log(f"\n[{record_num}] Processing record: {file_name}")
+            self.log(f"    File path: {file_path}")
 
         # Check if should skip
         if self.config.skip_existing:
-            file_path = record.get("file_path")
             if file_path in self.processed_records:
                 self.stats["skipped"] += 1
+                if self.verbose:
+                    self.log(f"    ⊘ Skipped (already processed)")
                 return None
 
         # Get input text
         input_text = self._get_input_text(record)
         if not input_text:
-            self.log(f"Warning: Could not extract text for record {record.get('file_name')}")
+            self.log(f"Warning: Could not extract text for record {file_name}")
             self.stats["error"] += 1
+            if self.verbose:
+                self.log(f"    ✗ Error: Could not extract text")
             return None
 
         # Prepare timing
         start_time = datetime.datetime.now(datetime.timezone.utc)
+        
+        if self.verbose:
+            self.log(f"    ⋯ Calling Claude API (model: {self.config.model})...")
 
         # Prepare system prompt
         system_prompt = self.custom_prompt or "You are a helpful assistant. Respond only with valid JSON."
 
         # Call Claude
-        result = self._call_claude(input_text, system_prompt)
+        result, token_usage = self._call_claude(input_text, system_prompt)
         if not result:
             self.stats["error"] += 1
+            if self.verbose:
+                self.log(f"    ✗ Error: API call failed")
             return None
+        
+        # Track token usage
+        self.stats["total_input_tokens"] += token_usage.get("input_tokens", 0)
+        self.stats["total_output_tokens"] += token_usage.get("output_tokens", 0)
+        self.stats["total_tokens"] += token_usage.get("input_tokens", 0) + token_usage.get("output_tokens", 0)
 
         # Prepare output
         end_time = datetime.datetime.now(datetime.timezone.utc)
+        elapsed = (end_time - start_time).total_seconds()
+        
+        if self.verbose:
+            self.log(f"    ✓ Success")
+            self.log(f"      Input tokens:  {token_usage.get('input_tokens', 0):,}")
+            self.log(f"      Output tokens: {token_usage.get('output_tokens', 0):,}")
+            self.log(f"      Time: {elapsed:.2f}s")
 
         output_key = self.config.output_key
         if self.config.mode == "replace":
@@ -287,8 +340,12 @@ class PaperProcessor:
             metadata = {
                 "start_time": start_time.isoformat(),
                 "end_time": end_time.isoformat(),
+                "elapsed_seconds": elapsed,
                 "model": self.config.model,
                 "input_tokens_estimate": self._calculate_tokens_estimate(input_text),
+                "input_tokens_actual": token_usage.get("input_tokens", 0),
+                "output_tokens_actual": token_usage.get("output_tokens", 0),
+                "total_tokens_actual": token_usage.get("input_tokens", 0) + token_usage.get("output_tokens", 0),
                 "text_source": self.config.text_source,
             }
             if not hasattr(record.get(output_key), "__getitem__"):
@@ -332,11 +389,46 @@ class PaperProcessor:
         print(f"Successful: {self.stats['success']}", file=sys.stderr)
         print(f"Errors: {self.stats['error']}", file=sys.stderr)
         print(f"Skipped: {self.stats['skipped']}", file=sys.stderr)
+        print("\n=== Token Usage ===", file=sys.stderr)
+        print(f"Total input tokens: {self.stats['total_input_tokens']:,}", file=sys.stderr)
+        print(f"Total output tokens: {self.stats['total_output_tokens']:,}", file=sys.stderr)
+        print(f"Total tokens: {self.stats['total_tokens']:,}", file=sys.stderr)
+        if self.stats['success'] > 0:
+            avg_input = self.stats['total_input_tokens'] / self.stats['success']
+            avg_output = self.stats['total_output_tokens'] / self.stats['success']
+            print(f"Average input tokens per record: {avg_input:.0f}", file=sys.stderr)
+            print(f"Average output tokens per record: {avg_output:.0f}", file=sys.stderr)
 
 
 # ============================================================================
 # CLI & Configuration
 # ============================================================================
+
+def generate_yaml_definition(config: ProcessorConfig, output_path: str) -> None:
+    """Generate a YAML definition file from the current configuration."""
+    definition = {
+        "model": config.model,
+        "max_tokens": config.max_tokens,
+        "text_source": config.text_source,
+        "prompt_file": config.prompt_file or "/path/to/prompt.md",
+        "output_key": config.output_key,
+        "mode": config.mode,
+        "add_metadata": config.add_metadata,
+        "workers": config.workers,
+        "skip_existing": config.skip_existing,
+    }
+    
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write("# Paper Processor Configuration\n")
+            f.write("# Generated from current configuration\n")
+            f.write("\n")
+            yaml.dump(definition, f, default_flow_style=False, sort_keys=False)
+        print(f"✓ YAML definition written to {output_path}", file=sys.stderr)
+    except Exception as e:
+        print(f"Error writing YAML definition: {e}", file=sys.stderr)
+        sys.exit(1)
+
 
 def load_yaml_config(yaml_file: str) -> Dict[str, Any]:
     """Load configuration from YAML file."""
@@ -383,13 +475,16 @@ Available models (with max output tokens):
   {model_info}
 
 Example YAML config:
-  model: claude-3-5-haiku-20241022
-  max_tokens: 8192
+  model: claude-sonnet-4-5-20250929
+  max_tokens: 16384
   text_source: pdf
   prompt_file: /path/to/prompt.md
   output_key: references
   add_metadata: true
   workers: 4
+
+Note: PDFs are automatically encoded as base64 documents when text_source=pdf.
+Prompt file should instruct Claude how to document and analyze the PDF content.
   """,
     )
 
@@ -422,7 +517,7 @@ Example YAML config:
     )
     parser.add_argument(
         "--prompt-file",
-        help="Path to custom prompt file",
+        help="Path to custom prompt file (will be used as system prompt to direct Claude on document analysis)",
     )
     parser.add_argument(
         "--output-key",
@@ -466,9 +561,19 @@ Example YAML config:
         help="Suppress verbose logging",
     )
     parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose logging with record details, file paths, and timings",
+    )
+    parser.add_argument(
         "--list-models",
         action="store_true",
         help="List available models and exit",
+    )
+    parser.add_argument(
+        "-x", "--definition",
+        dest="definition_output",
+        help="Generate a YAML definition file from current config and exit",
     )
 
     return parser
@@ -495,6 +600,11 @@ def main():
 
     # Merge configurations
     config = merge_configs(yaml_config, args)
+
+    # Handle --definition option
+    if args.definition_output:
+        generate_yaml_definition(config, args.definition_output)
+        return 0
 
     # Validate max_tokens against model limits
     model_limit = MODELS.get(config.model)
