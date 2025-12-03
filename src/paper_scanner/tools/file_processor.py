@@ -99,30 +99,9 @@ class PDFClaudeScanner:
         Structure your analysis for easy conversion to JSON format.
         """
 
-        # Load reference extraction prompt
-        self.reference_prompt = self._load_reference_prompt()
-
     def log(self, message: str) -> None:
         if self.verbose:
             print(message, file=sys.stderr)
-
-    def _load_reference_prompt(self) -> str:
-        """Load the reference extraction prompt from file."""
-        try:
-            # Build path relative to this module
-            module_dir = os.path.dirname(os.path.abspath(__file__))
-            project_root = os.path.dirname(os.path.dirname(module_dir))
-            prompt_path = os.path.join(project_root, "prompts", "extract-references.md")
-            
-            if os.path.exists(prompt_path):
-                with open(prompt_path, "r", encoding="utf-8") as f:
-                    return f.read()
-            else:
-                self.log(f"Warning: Reference prompt not found at {prompt_path}")
-                return ""
-        except Exception as e:
-            self.log(f"Error loading reference prompt: {e}")
-            return ""
 
     def extract_text_from_pdf(self, pdf_path: str) -> Optional[str]:
         """Extract text content from a PDF file."""
@@ -198,68 +177,7 @@ class PDFClaudeScanner:
         self.log(f"Maximum retries ({max_retries}) reached. Giving up.")
         return None
 
-    def extract_references_with_claude(self, pdf_text: str, max_retries: int = 5) -> Optional[dict]:
-        """Extract references from PDF text using Claude with automatic retry on rate limits."""
-        if not self.reference_prompt:
-            self.log("Warning: Reference prompt not loaded, skipping reference extraction")
-            return None
-
-        retries = 0
-
-        while retries <= max_retries:
-            try:
-                # Call Claude API with reference prompt
-                response = self.client.messages.create(
-                    model=self.model,
-                    system=self.reference_prompt,
-                    max_tokens=MAX_TOKENS,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": f"Extract references from this academic paper:\n\n{pdf_text}",
-                        }
-                    ],
-                )
-
-                response_text = response.content[0].text.strip()
-
-                # Remove markdown code block wrapping if present
-                if response_text.startswith("```"):
-                    lines = response_text.split("\n", 1)
-                    if len(lines) > 1:
-                        response_text = lines[1]
-                    if response_text.endswith("```"):
-                        response_text = response_text[:-3].rstrip()
-
-                # Parse the JSON response
-                try:
-                    references = json.loads(response_text)
-                    return references
-                except json.JSONDecodeError as e:
-                    self.log(f"Failed to parse references JSON response: {e}")
-                    self.log(f"Response was: {response_text[:200]}...")
-                    return None
-
-            except Exception as e:
-                # Check if it's a rate limit error (429)
-                if hasattr(e, "status_code") and e.status_code == 429:
-                    retries += 1
-                    wait_time = WAIT_TIME
-
-                    self.log(
-                        f"Rate limit exceeded during reference extraction. Waiting for {wait_time} seconds before retry {retries}/{max_retries}..."
-                    )
-                    time.sleep(wait_time)
-                    continue
-
-                # Log the other/unexpected error
-                print(f"Error calling Claude API for reference extraction: {e}", file=sys.stderr)
-                return None
-
-        self.log(f"Maximum retries ({max_retries}) reached for reference extraction. Giving up.")
-        return None
-
-    def process_pdfs(self, f_in, f_out, custom_prompt=None, include_metadata=True, extract_references=False, verbose=False):
+    def process_pdfs(self, f_in, f_out, custom_prompt=None, include_metadata=True, verbose=False):
         """Process all PDFs in a directory and save results to a JSON file.
         
         Args:
@@ -267,7 +185,6 @@ class PDFClaudeScanner:
             f_out: Output file handle for JSONLines results
             custom_prompt: Optional custom system prompt for analysis
             include_metadata: Whether to include processing timing metadata
-            extract_references: Whether to extract references (opt-in flag)
             verbose: Verbosity flag
         """
         results = []
@@ -288,20 +205,6 @@ class PDFClaudeScanner:
                     item["analysis"] = analysis
                     if include_metadata:
                         analysis["details-timing"] = processing_time
-
-                    # Optionally extract references
-                    if extract_references:
-                        ref_processing_time = {"start_time": datetime.datetime.now(datetime.timezone.utc).isoformat()}
-                        self.log(f"Extracting references from {pdf_file} ...")
-                        references = self.extract_references_with_claude(pdf_text)
-                        ref_processing_time["end_time"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                        
-                        if references:
-                            item["references"] = references
-                            if include_metadata:
-                                references["extraction-timing"] = ref_processing_time
-                        else:
-                            self.log(f"Warning: Failed to extract references for {pdf_file}, continuing without references")
 
                     f_out.write(json.dumps(item) + "\n")
                     f_out.flush()
@@ -337,11 +240,6 @@ def main():
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Claude model to use")
     parser.add_argument("--custom_prompt", help="Path to file containing custom system prompt")
     parser.add_argument(
-        "--extract-references",
-        action="store_true",
-        help="Extract references from papers (opt-in, second Claude API call)",
-    )
-    parser.add_argument(
         "-q",
         "--quiet",
         dest="verbose",
@@ -375,7 +273,6 @@ def main():
         args.output,
         custom_prompt,
         include_metadata=not args.no_metadata,
-        extract_references=args.extract_references,
     )
 
     # close all filehandles

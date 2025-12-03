@@ -10,14 +10,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **References Feature**: Extract and manage paper citations with PostgreSQL backend
-  - New `--extract-references` opt-in flag for `file-processor` CLI tool
-  - Second Claude API call using reference extraction prompt to parse bibliography
+  - New `file-processor-references` CLI tool for dedicated reference extraction as separate pipeline stage
+  - Accepts JSONLines with pre-analyzed papers via stdin or `-i/--input` argument
+  - Claude Haiku model for cost-efficient reference extraction (4x cheaper than Sonnet)
+  - Immediate stdout flush after each record for streaming reliability
   - Three new database tables: `references`, `citation_edges`, `citation_metadata`
   - Reference data persisted alongside paper analysis in JSONLines pipeline
   - Graceful error handling: reference extraction failures log warning and continue
   - New References tab in web interface displaying extracted citations
   - Reference metadata: type, authors, year, title, DOI, URL, and publication source
+  - Tee-based checkpointing in `run.sh` for safe intermediate analysis output
   - Foundation for future citation network analysis and paper deduplication
+
+### Changed
+
+- Reference extraction removed from `file-processor` tool (now separate `file-processor-references` stage)
+- Pipeline architecture refactored: analysis → tee checkpoint → references extraction as optional stage
+- Extract-references prompt simplified and optimized for Haiku model
+
+### Removed
+
+- `--extract-references` flag from `file-processor` CLI (use separate tool instead)
 
 ## [0.6.3] - 2025-12-02
 
