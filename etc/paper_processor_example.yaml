@@ -1,0 +1,41 @@
+# Example YAML configuration for paper_processor.py
+# This file demonstrates all available configuration options
+
+# Model selection - choose from available models
+model: claude-3-5-haiku-20241022
+
+# Maximum output tokens from the model
+max_tokens: 8192
+
+# Text source for processing:
+#   - 'pdf': Extract from PDF file specified in file_path
+#   - 'content': Use 'content' field from record
+#   - any other value: Use as field name to extract from record
+text_source: pdf
+
+# Path to custom system prompt file
+# Prompt should instruct the model to output valid JSON
+prompt_file: /path/to/prompt.md
+
+# JSON key where output will be stored in the enriched record
+output_key: processed
+
+# Mode for adding output:
+#   - 'add': Add output_key to record
+#   - 'replace': Replace output_key if it exists
+mode: add
+
+# Include processing metadata (timing, tokens, model used)
+add_metadata: true
+
+# Number of worker processes for parallel processing
+workers: 1
+
+# Skip records already in the output file (by file_path match)
+skip_existing: false
+
+# Suppress verbose logging to stderr
+quiet: false
+
+# Anthropic API key (or use ANTHROPIC_API_KEY environment variable)
+# api_key: sk-ant-...

@@ -1,0 +1,12 @@
+# Example: Extract references from PDFs using Haiku
+# Use: paper-processor --config etc/extract_references_config.yaml -i papers.jsonl -o enriched.jsonl
+
+model: claude-3-5-haiku-20241022
+max_tokens: 8192
+text_source: pdf
+prompt_file: src/prompts/extract-references.md
+output_key: references
+mode: add
+add_metadata: true
+workers: 1
+quiet: false

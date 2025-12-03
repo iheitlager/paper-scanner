@@ -1,0 +1,10 @@
+# Test configuration for paper_processor
+model: claude-3-5-haiku-20241022
+max_tokens: 4096
+text_source: content
+prompt_file: src/prompts/test-extract-keywords.md
+output_key: keywords
+add_metadata: true
+mode: add
+workers: 1
+quiet: false
