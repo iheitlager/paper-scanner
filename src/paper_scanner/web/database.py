@@ -327,3 +327,145 @@ class DatabaseManager:
         finally:
             cursor.close()
             conn.close()
+
+    def insert_references(self, source_paper_id: int, references_data: Dict[str, Any]) -> List[int]:
+        """Insert extracted references into the database.
+        
+        Args:
+            source_paper_id: ID of the source paper
+            references_data: Dictionary with extracted references (from Claude)
+            
+        Returns:
+            List of inserted reference IDs
+            
+        Raises:
+            DatabaseException: If insert fails
+        """
+        if not isinstance(references_data, dict) or "references" not in references_data:
+            logger.warning("Invalid references data structure, skipping insertion")
+            return []
+
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        reference_ids = []
+
+        try:
+            for ref in references_data.get("references", []):
+                # Extract identifiers
+                identifiers = ref.get("identifiers", {})
+                pages = ref.get("source", {}).get("pages", {})
+
+                # Insert reference record
+                cursor.execute(
+                    """
+                    INSERT INTO references 
+                    (source_paper_id, citekey, reference_type, authors, year, title, 
+                     source_type, source_name, volume, issue, pages_start, pages_end, 
+                     pages_range, publisher, location, doi, url, arxiv_id, ssrn_id, 
+                     isbn, raw_citation)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (
+                        source_paper_id,
+                        ref.get("citekey"),
+                        ref.get("reference_type"),
+                        json.dumps(ref.get("authors")) if ref.get("authors") else None,
+                        ref.get("year"),
+                        ref.get("title"),
+                        ref.get("source", {}).get("type"),
+                        ref.get("source", {}).get("name"),
+                        ref.get("source", {}).get("volume"),
+                        ref.get("source", {}).get("issue"),
+                        pages.get("start"),
+                        pages.get("end"),
+                        pages.get("range"),
+                        ref.get("source", {}).get("publisher"),
+                        ref.get("source", {}).get("location"),
+                        identifiers.get("doi"),
+                        identifiers.get("url"),
+                        identifiers.get("arxiv"),
+                        identifiers.get("ssrn"),
+                        ref.get("source", {}).get("isbn"),
+                        ref.get("raw_citation"),
+                    ),
+                )
+                ref_id = cursor.fetchone()[0]
+                reference_ids.append(ref_id)
+
+                # Insert citation edge linking source paper to this reference
+                cursor.execute(
+                    """
+                    INSERT INTO citation_edges (citing_paper_id, cited_reference_id)
+                    VALUES (%s, %s)
+                    """,
+                    (source_paper_id, ref_id),
+                )
+
+                # Insert parsing metadata if present
+                parsing_status = "success"
+                parsing_issues_text = None
+
+                if "parsing_metadata" in references_data:
+                    parsing_meta = references_data["parsing_metadata"]
+                    for issue in parsing_meta.get("parsing_issues", []):
+                        if issue.get("reference_id") == ref.get("id"):
+                            parsing_status = "warning"
+                            parsing_issues_text = issue.get("issue_description")
+                            break
+
+                cursor.execute(
+                    """
+                    INSERT INTO citation_metadata (reference_id, parsing_status, parsing_issues, notes)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (ref_id, parsing_status, parsing_issues_text, ref.get("notes")),
+                )
+
+            conn.commit()
+            logger.info(f"Inserted {len(reference_ids)} references for paper ID {source_paper_id}")
+            return reference_ids
+
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Failed to insert references: {e}")
+            raise DatabaseException(f"Failed to insert references: {e}")
+        finally:
+            cursor.close()
+            conn.close()
+
+    def get_references_for_paper(self, paper_id: int) -> List[Dict[str, Any]]:
+        """Get all references for a specific paper.
+        
+        Args:
+            paper_id: ID of the paper
+            
+        Returns:
+            List of reference records
+            
+        Raises:
+            DatabaseException: If query fails
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        try:
+            cursor.execute(
+                """
+                SELECT r.*, m.parsing_status, m.parsing_issues, m.notes
+                FROM references r
+                LEFT JOIN citation_metadata m ON r.id = m.reference_id
+                WHERE r.source_paper_id = %s
+                ORDER BY r.created_at
+                """,
+                (paper_id,),
+            )
+            results = cursor.fetchall()
+            return [dict(row) for row in results]
+        except Exception as e:
+            logger.error(f"Failed to fetch references for paper {paper_id}: {e}")
+            raise DatabaseException(f"Failed to fetch references: {e}")
+        finally:
+            cursor.close()
+            conn.close()
+
