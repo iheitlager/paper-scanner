@@ -17,27 +17,24 @@ Features:
 """
 
 import argparse
+import datetime
 import json
 import os
 import sys
-import time
 import yaml
-import datetime
-import base64
-import subprocess
-from typing import Optional, Dict, Any, List, Tuple
-from pathlib import Path
 from dataclasses import dataclass
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from typing import Any, Dict, Optional
 
-from anthropic import Anthropic, RateLimitError
-from colorama import Fore, Back, Style, init
+from colorama import Fore, Style, init
 from dotenv import load_dotenv
 
-try:
-    from pypdf import PdfReader
-except ImportError:
-    PdfReader = None
+# Import handler registry
+from paper_scanner.handlers.base import (
+    get_handler,
+    get_all_models,
+    get_models_by_group,
+    initialize_handlers,
+)
 
 # Initialize colorama for cross-platform color support
 init(autoreset=True)
@@ -49,28 +46,6 @@ init(autoreset=True)
 
 DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
 DEFAULT_MAX_TOKENS = 2048
-MAX_RETRIES = 5
-RATE_LIMIT_WAIT = 61
-
-# Model configuration: name -> max output tokens
-MODELS = {
-    # Claude 4 models (current generation)
-    "claude-opus-4-20250514": 16384,          # Most capable
-    "claude-sonnet-4-5-20250929": 16384,      # Best balance of speed & capability
-    "claude-haiku-4-5-20251001": 16384,       # Fastest, most economical
-    # Claude 3.5 models (previous generation)
-    "claude-3-5-sonnet-20241022": 8192,
-    "claude-3-5-haiku-20241022": 8192,
-    # Claude 3 models (legacy)
-    "claude-3-opus-20240229": 4096,
-}
-
-# Small Language Models (SLM) via Ollama
-SLM_MODELS = {
-    "phi": 2048,              # Phi model
-    "tinyllama": 2048,        # TinyLlama model
-    "llama3.2:1b": 4096,      # Llama3.2:1b model
-}
 
 
 @dataclass
@@ -104,9 +79,21 @@ class PaperProcessor:
     def __init__(self, config: ProcessorConfig):
         """Initialize the processor with configuration."""
         self.config = config
-        # Only initialize Anthropic client for Claude models
-        self.client = Anthropic(api_key=config.api_key) if config.api_key else None
         self.verbose = config.verbose and not config.quiet
+
+        # Initialize handlers (Claude and Ollama)
+        initialize_handlers(api_key=config.api_key, logger=self.log if self.verbose else None)
+
+        # Get handler for the configured model
+        self.handler = get_handler(config.model)
+        if not self.handler:
+            raise ValueError(f"No handler registered for model: {config.model}")
+        
+        # Set the specific model on Claude handler
+        if hasattr(self.handler, 'model'):
+            self.handler.model = config.model
+        
+        self.log(f"✓ Initialized handler for model: {config.model}")
 
         # Load prompt if provided
         self.custom_prompt = None
@@ -177,38 +164,6 @@ class PaperProcessor:
         except Exception as e:
             self.log(f"Warning: Could not load existing records: {e}")
 
-    def _extract_pdf_text(self, file_path: str) -> Optional[str]:
-        """Extract text from PDF using pypdf, limited to max_chars if specified."""
-        if not PdfReader:
-            self.log("Warning: pypdf not installed, cannot extract PDF text. Install with: pip install pypdf")
-            return None
-        
-        try:
-            reader = PdfReader(file_path)
-            text = ""
-            
-            # Extract text from all pages
-            for page_num, page in enumerate(reader.pages):
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text
-                    # If we've already reached max_chars, stop reading
-                    if self.config.max_chars and len(text) >= self.config.max_chars:
-                        break
-            
-            # Truncate to max_chars if specified
-            if self.config.max_chars:
-                text = text[:self.config.max_chars]
-            
-            if not text.strip():
-                self.log(f"Warning: No text extracted from {file_path}")
-                return None
-            
-            return text
-        except Exception as e:
-            self.log(f"Warning: Could not extract PDF text from {file_path}: {e}")
-            return None
-
     def _get_input_text(self, record: Dict[str, Any]) -> Optional[str]:
         """Get input text or file path based on text_source configuration."""
         text_source = self.config.text_source
@@ -224,9 +179,14 @@ class PaperProcessor:
             
             # If max_chars is specified, extract text instead of using native PDF
             if self.config.max_chars:
-                return self._extract_pdf_text(file_path)
+                # Use handler's PDF extraction if available
+                if hasattr(self.handler, 'extract_pdf_text'):
+                    return self.handler.extract_pdf_text(file_path, self.config.max_chars)
+                else:
+                    self.log("Warning: Handler does not support PDF text extraction")
+                    return None
             
-            # Otherwise return the file path itself, _call_claude() will handle base64 encoding
+            # Otherwise return the file path itself, handler will use native PDF encoding
             return file_path
 
         elif text_source == "content":
@@ -236,148 +196,10 @@ class PaperProcessor:
             # Try to use as field name
             return record.get(text_source)
 
-    def _parse_json_response(self, response_text: str) -> Optional[Dict[str, Any]]:
-        """Parse JSON from Claude response with robust cleanup."""
-        try:
-            # Remove preamble before JSON
-            json_start = response_text.find("{")
-            if json_start != -1:
-                response_text = response_text[json_start:]
-
-            # Remove markdown code blocks
-            if response_text.startswith("```"):
-                lines = response_text.split("\n", 1)
-                if len(lines) > 1:
-                    response_text = lines[1]
-                if response_text.endswith("```"):
-                    response_text = response_text[:-3].rstrip()
-
-            # Remove anything after closing brace
-            json_end = response_text.rfind("}")
-            if json_end != -1:
-                response_text = response_text[: json_end + 1]
-
-            # Parse JSON
-            return json.loads(response_text)
-        except json.JSONDecodeError as e:
-            self.log(f"Failed to parse JSON: {e}")
-            self.log(f"Response start: {response_text[:200]}")
-            return None
-
-    def _call_claude(self, text: str, system_prompt: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, int]]:
-        """Call Claude API with retry logic. Returns (parsed_response, token_usage)."""
-        retries = 0
-        max_retries = MAX_RETRIES
-        token_usage = {"input_tokens": 0, "output_tokens": 0}
-
-        while retries <= max_retries:
-            try:
-                # Prepare message content - use document format if text looks like a file path (PDF)
-                content = []
-
-                # If text is a file path to a PDF, encode and send as document
-                if text.lower().endswith('.pdf') and os.path.exists(text):
-                    try:
-                        with open(text, 'rb') as f:
-                            pdf_bytes = f.read()
-                            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
-
-                        content.append({
-                            "type": "document",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "application/pdf",
-                                "data": pdf_base64
-                            }
-                        })
-                    except Exception as e:
-                        self.log(f"Warning: Could not encode PDF {text}: {e}. Using as text instead.")
-                        content.append({"type": "text", "text": text})
-                else:
-                    # Regular text content
-                    content.append({"type": "text", "text": text})
-
-                response = self.client.messages.create(
-                    model=self.config.model,
-                    max_tokens=self.config.max_tokens,
-                    system=system_prompt,
-                    messages=[{"role": "user", "content": content}],
-                )
-
-                # Capture token usage from API response
-                if hasattr(response, 'usage'):
-                    token_usage["input_tokens"] = response.usage.input_tokens
-                    token_usage["output_tokens"] = response.usage.output_tokens
-                    # self.log(f"Token usage - Input: {response.usage.input_tokens}, Output: {response.usage.output_tokens}")
-
-                response_text = response.content[0].text.strip()
-                parsed_response = self._parse_json_response(response_text)
-                return (parsed_response, token_usage)
-
-            except RateLimitError:
-                retries += 1
-                if retries <= max_retries:
-                    self.log(
-                        f"Rate limit (429). Waiting {RATE_LIMIT_WAIT}s before retry {retries}/{max_retries}..."
-                    )
-                    time.sleep(RATE_LIMIT_WAIT)
-                    continue
-                else:
-                    self.log(f"Max retries ({max_retries}) exceeded.")
-                    return (None, token_usage)
-
-            except Exception as e:
-                self.log(f"Error calling Claude API: {e}")
-                return (None, token_usage)
-
-        return (None, token_usage)
-
-    def _calculate_tokens_estimate(self, text: str) -> int:
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
         """Rough token estimation (4 chars ≈ 1 token)."""
         return len(text) // 4
-
-    def _call_ollama(self, text: str, system_prompt: str) -> Tuple[Optional[Dict[str, Any]], Dict[str, int]]:
-        """Call local SLM via Ollama subprocess. Returns (parsed_response, token_usage)."""
-        token_usage = {"input_tokens": 0, "output_tokens": 0}
-        
-        # Require max_chars for Ollama models to limit context
-        if not self.config.max_chars:
-            self.log(f"Warning: Using SLM model without --max-chars. Set --max-chars to limit processing.")
-        
-        try:
-            # Combine system prompt and text for the model
-            full_prompt = f"{system_prompt}\n\n{text}"
-            
-            # Call Ollama via subprocess
-            result = subprocess.run(
-                ['ollama', 'run', self.config.model, full_prompt],
-                capture_output=True,
-                text=True,
-                timeout=300  # 5 minute timeout for local processing
-            )
-            
-            if result.returncode != 0:
-                self.log(f"Ollama error: {result.stderr}")
-                return (None, token_usage)
-            
-            response_text = result.stdout.strip()
-            parsed_response = self._parse_json_response(response_text)
-            
-            # Estimate tokens for SLM (rough approximation)
-            token_usage["input_tokens"] = self._calculate_tokens_estimate(full_prompt)
-            token_usage["output_tokens"] = self._calculate_tokens_estimate(response_text)
-            
-            return (parsed_response, token_usage)
-            
-        except FileNotFoundError:
-            self.log(f"Error: Ollama command not found. Install Ollama to use {self.config.model}")
-            return (None, token_usage)
-        except subprocess.TimeoutExpired:
-            self.log(f"Error: Ollama request timed out after 300s")
-            return (None, token_usage)
-        except Exception as e:
-            self.log(f"Error calling Ollama ({self.config.model}): {e}")
-            return (None, token_usage)
 
     def process_record(self, record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Process a single record."""
@@ -409,26 +231,19 @@ class PaperProcessor:
         # Prepare timing
         start_time = datetime.datetime.now(datetime.timezone.utc)
 
-        # Determine which handler to use
-        if self.config.model in SLM_MODELS:
-            handler_name = f"Ollama SLM ({self.config.model})"
-            self.log(f"    {Fore.LIGHTBLUE_EX}⋯ Calling local SLM via Ollama (model: {self.config.model})...{Style.RESET_ALL}")
-        else:
-            handler_name = f"Claude API ({self.config.model})"
-            self.log(f"    {Fore.LIGHTBLUE_EX}⋯ Calling Claude API (model: {self.config.model})...{Style.RESET_ALL}")
+        # Determine handler name for logging
+        handler_class_name = self.handler.__class__.__name__
+        self.log(f"    {Fore.LIGHTBLUE_EX}⋯ Calling {handler_class_name} (model: {self.config.model})...{Style.RESET_ALL}")
 
         # Prepare system prompt
         system_prompt = self.custom_prompt or "You are a helpful assistant. Respond only with valid JSON."
 
-        # Route to appropriate handler
-        if self.config.model in SLM_MODELS:
-            result, token_usage = self._call_ollama(input_text, system_prompt)
-        else:
-            result, token_usage = self._call_claude(input_text, system_prompt)
+        # Call handler
+        result, token_usage = self.handler.call(input_text, system_prompt, self.config.max_tokens)
         
         if not result:
             self.stats["error"] += 1
-            self.log(f"    {Fore.RED}✗ Error: {handler_name} call failed{Style.RESET_ALL}")
+            self.log(f"    {Fore.RED}✗ Error: Handler call failed{Style.RESET_ALL}")
             return None
 
         # Track token usage
@@ -459,7 +274,7 @@ class PaperProcessor:
                 "elapsed_seconds": elapsed,
                 "model": self.config.model,
                 "prompt_file": self.config.prompt_file,
-                "input_tokens_estimate": self._calculate_tokens_estimate(input_text),
+                "input_tokens_estimate": self._estimate_tokens(input_text),
                 "input_tokens_actual": token_usage.get("input_tokens", 0),
                 "output_tokens_actual": token_usage.get("output_tokens", 0),
                 "total_tokens_actual": token_usage.get("input_tokens", 0) + token_usage.get("output_tokens", 0),
@@ -626,26 +441,26 @@ def merge_configs(yaml_config: Dict[str, Any], cli_args: argparse.Namespace) -> 
 
 def create_parser() -> argparse.ArgumentParser:
     """Create argument parser."""
-    # Format model info with limits
-    model_info = "\n  ".join(
-        f"{m}: {tokens} tokens"
-        for m, tokens in MODELS.items()
-    )
+    # Initialize handlers to get all available models
+    # API key is optional here - Claude models will still be registered without it
+    initialize_handlers(api_key=None)
     
-    slm_info = "\n  ".join(
-        f"{m}: {tokens} tokens (local via Ollama)"
-        for m, tokens in SLM_MODELS.items()
-    )
+    # Get all registered models from handlers
+    all_models = get_all_models()
+    models_by_group = get_models_by_group()
+    
+    # Format models info grouped by handler
+    model_groups_info = ""
+    for group in sorted(models_by_group.keys()):
+        model_groups_info += f"\n  {group}:\n"
+        for model, tokens in sorted(models_by_group[group].items()):
+            model_groups_info += f"    {model}: {tokens} tokens\n"
 
     parser = argparse.ArgumentParser(
         description="Flexible paper processor for JSONLines enrichment with LLM analysis.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
-Available Claude models (with max output tokens):
-  {model_info}
-
-Available Small Language Models (via Ollama):
-  {slm_info}
+Available models (with max output tokens):{model_groups_info}
 
 Example YAML config (Claude API):
   model: claude-sonnet-4-5-20250929
@@ -683,9 +498,9 @@ Note:
     )
     parser.add_argument(
         "--model",
-        choices=MODELS.keys(),
+        choices=sorted(all_models.keys()),
         default=None,
-        help=f"Claude model to use (default: {DEFAULT_MODEL})",
+        help=f"LLM model to use (default: {DEFAULT_MODEL})",
     )
     parser.add_argument(
         "--max-tokens",
@@ -775,14 +590,18 @@ def main():
     parser = create_parser()
     args = parser.parse_args()
 
-    # Handle --list-models
+    # Handle --list-models (needs to initialize handlers first)
     if args.list_models:
-        print("Available Claude models:")
-        for model in MODELS.keys():
-            print(f"  {model}")
-        print("\nAvailable SLM models (via Ollama):")
-        for model in SLM_MODELS.keys():
-            print(f"  {model}")
+        # Get API key for Claude handler registration
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        initialize_handlers(api_key=api_key)
+        
+        models_by_group = get_models_by_group()
+        print("Available models:")
+        for group in sorted(models_by_group.keys()):
+            print(f"\n{group}:")
+            for model, tokens in sorted(models_by_group[group].items()):
+                print(f"  {model}: {tokens} tokens")
         return 0
 
     # Load YAML config if provided
@@ -798,36 +617,28 @@ def main():
         generate_yaml_definition(config, args.definition_output)
         return 0
 
-    # Validate max_tokens against model limits (Claude models only)
-    if config.model in MODELS:
-        model_limit = MODELS.get(config.model)
-        if model_limit and config.max_tokens > model_limit:
-            print(
-                f"Error: max_tokens ({config.max_tokens}) exceeds limit for {config.model} ({model_limit})",
-                file=sys.stderr,
-            )
-            return 1
-    elif config.model in SLM_MODELS:
-        # SLM models require max_chars for text extraction
-        if not config.max_chars:
-            print(
-                f"Warning: SLM model '{config.model}' works best with --max-chars limit. Consider adding -c <chars>",
-                file=sys.stderr,
-            )
-    else:
+    # Validate model is recognized
+    all_models = get_all_models()
+    if config.model not in all_models:
         print(f"Error: Unknown model '{config.model}'", file=sys.stderr)
+        print(f"Available models: {', '.join(sorted(all_models.keys()))}", file=sys.stderr)
         return 1
 
-    # Get API key (only required for Claude models)
-    if config.model in MODELS:
-        api_key = config.api_key or os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            print("Error: API key must be provided via --api-key or ANTHROPIC_API_KEY environment variable", file=sys.stderr)
-            return 1
+    # Validate max_tokens against model limits
+    model_limit = all_models.get(config.model)
+    if model_limit and config.max_tokens > model_limit:
+        print(
+            f"Error: max_tokens ({config.max_tokens}) exceeds limit for {config.model} ({model_limit})",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Get API key - try to get it early to validate before processing
+    # This is needed for Claude models
+    api_key = config.api_key or os.environ.get("ANTHROPIC_API_KEY")
+    if api_key:
         config.api_key = api_key
-    else:
-        # SLM models don't need API key
-        config.api_key = None
+    # Note: API key validation will happen when handlers are initialized in PaperProcessor.__init__()
 
     # Check for stdin
     if not config.input_file and sys.stdin.isatty():

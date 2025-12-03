@@ -26,6 +26,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Token estimation for SLM models (chars ÷ 4 approximation)
 - Comprehensive feature documentation in `docs/SLM_FEATURE.md` and `docs/SLM_QUICK_REFERENCE.md`
 
+### Changed
+
+- **Refactored Handler System to Pluggable Registry Pattern**
+  - Created abstract `LLMHandler` base class in `handlers/base.py` with registry mechanism
+  - Extracted Claude handler implementation to `handlers/anthropic.py` (`ClaudeHandler` class)
+  - Extracted Ollama handler implementation to `handlers/ollama.py` (`OllamaHandler` class)
+  - Each handler class maintains its own `MODELS` dictionary
+  - Model-to-handler routing via dynamic registry lookup instead of hardcoded conditionals
+  - Moved JSON response parsing to shared utility in base handler module
+  - Decoupled handler logic from paper_processor, improving maintainability and testability
+  - Paper processor now uses `initialize_handlers()` and `get_handler()` for handler setup
+  - CLI parser dynamically generates model choices from registered handlers
+
+
+
 ## [0.8.0] - 2025-12-03
 
 ### Added
