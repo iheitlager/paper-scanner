@@ -39,20 +39,22 @@ from dotenv import load_dotenv
 # Configuration & Constants
 # ============================================================================
 
-DEFAULT_MODEL = "claude-3-5-sonnet-20241022"
-DEFAULT_MAX_TOKENS = 8192
+DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+DEFAULT_MAX_TOKENS = 16384
 MAX_RETRIES = 5
 RATE_LIMIT_WAIT = 61
 
 # Model configuration: name -> max output tokens
 MODELS = {
+    # Claude 4 models (current generation)
+    "claude-opus-4-20250514": 16384,          # Most capable
+    "claude-sonnet-4-5-20250929": 16384,      # Best balance of speed & capability
+    "claude-haiku-4-5-20251001": 16384,       # Fastest, most economical
+    # Claude 3.5 models (previous generation)
     "claude-3-5-sonnet-20241022": 8192,
     "claude-3-5-haiku-20241022": 8192,
-    "claude-3-opus-20250219": 4096,
-    "claude-4-20250514": 16384,
-    "claude-4-turbo-20250514": 16384,
-    "claude-4-haiku-20250514": 8192,
-    "claude-4-haiku-turbo-20250514": 8192,
+    # Claude 3 models (legacy)
+    "claude-3-opus-20240229": 4096,
 }
 
 
