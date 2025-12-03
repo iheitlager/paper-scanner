@@ -67,6 +67,11 @@ class OllamaHandler(LLMHandler):
 
             response_text = result.stdout.strip()
             parsed_response = parse_json_response(response_text)
+            
+            # If JSON parsing failed, log the raw response for debugging
+            if parsed_response is None:
+                self.log(f"Warning: Failed to parse JSON response from Ollama.\nMessage: {response_text[:500]}")
+                return (None, token_usage)
 
             # Estimate tokens (rough approximation: 4 chars ≈ 1 token)
             token_usage["input_tokens"] = self._estimate_tokens(full_prompt)

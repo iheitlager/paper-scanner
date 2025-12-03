@@ -1,8 +1,8 @@
 # Paper Processor Configuration
 # Generated from current configuration
 
-# model: claude-3-5-haiku-20241022
-model: tinyllama
+model: claude-3-5-haiku-20241022
+# model: llama3.2:1b
 max_tokens: 2048
 text_source: pdf
 prompt_file: src/prompts/paper-metadata.md
