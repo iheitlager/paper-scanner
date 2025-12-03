@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-12-03
+
+### Added
+
+- **Generic paper-processor CLI Tool**: Flexible, configurable LLM processor for enriching JSONLines records
+  - Support for multiple Claude models (Opus 4, Sonnet 4.5, Haiku 4.5, and legacy models) with configurable output token limits
+  - Two PDF processing modes: native PDF documents (base64-encoded to Claude) or text extraction with character limits (`-c/--max-chars`)
+  - YAML configuration support with intelligent CLI override precedence
+  - Flexible input sources: PDF files, record content field, or any custom record field
+  - Add or replace enrichment modes for modifying JSONLines records
+  - Optional processing metadata: timing, actual token usage from API, model name, prompt file path
+  - Skip already-processed records with `--skip-existing` flag
+  - Advanced logging modes: verbose (`-v`) with per-record details or quiet (`-q`) for silent operation
+  - Comprehensive statistics output: success/error/skipped counts, actual token usage tracking, per-record averages
+  - YAML definition generation (`-x/--definition`) to export configs as reproducible templates
+  - External prompt file support for custom system instructions
+  - Rate limit handling with automatic retry logic (5 retries + 61s exponential backoff)
+  - Graceful error handling and recovery during batch processing
+
+- **file-scanner SIGPIPE Handling**: Fixed broken pipe error when piping to commands like `first`
+  - Signal handler gracefully handles pipe closure without throwing errors
+
+### Changed
+
+- Boolean CLI flags (`--add-metadata`, `--skip-existing`, `-v/--verbose`, `-q/--quiet`) now properly respect YAML config values
+  - YAML configuration takes precedence unless explicitly overridden on command line
+  - Enables cleaner config-driven operation without CLI flag repetition
+
+### Technical Details
+
+- ProcessorConfig dataclass: 19 configuration fields for flexible processor operation
+- PDF text extraction via pypdf with character limit support and page-by-page efficiency
+- Token tracking from Anthropic API `response.usage` object for accurate cost calculation
+- Sys.argv inspection for intelligent YAML/CLI config merging
+- Cross-platform color support via colorama in verbose output and statistics
+
 ## [0.7.0] - 2025-12-02
 
 ### Added
