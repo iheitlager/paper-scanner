@@ -1,6 +1,6 @@
 services:
   pdf-browser-db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15  # Changed to pgvector image
     container_name: pdf-browser-db
     environment:
       POSTGRES_USER: pdfuser

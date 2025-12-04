@@ -205,7 +205,6 @@ class TestInsertPdfRecord:
             "file_path": "/path/to/file.pdf",
             "file_name": "file.pdf",
             "directory": "/path/to",
-            "relative_path": "relative/path.pdf",
         }
 
         with patch.object(manager, "get_connection", return_value=mock_conn):
@@ -228,7 +227,6 @@ class TestInsertPdfRecord:
             "file_path": "/path/to/file.pdf",
             "file_name": "file.pdf",
             "directory": "/path/to",
-            "relative_path": "relative/path.pdf",
             "size_bytes": 1024000,
             "created_time": "2025-12-01 10:00:00",
             "modified_time": "2025-12-02 11:00:00",
@@ -262,7 +260,7 @@ class TestInsertPdfRecord:
         record = {
             "file_path": "/path/to/file.pdf",
             "file_name": "file.pdf",
-            # Missing directory and relative_path
+            # Missing directory
         }
 
         with pytest.raises(InvalidDataException) as exc_info:
@@ -281,7 +279,6 @@ class TestInsertPdfRecord:
             "file_path": "/path/to/file.pdf",
             "file_name": "file.pdf",
             "directory": "/path/to",
-            "relative_path": "relative/path.pdf",
             "tags": "python:machine learning:ai",
         }
 
@@ -306,7 +303,6 @@ class TestInsertPdfRecord:
             "file_path": "/path/to/file.pdf",
             "file_name": "file.pdf",
             "directory": "/path/to",
-            "relative_path": "relative/path.pdf",
             "tags": "",
         }
 
@@ -329,7 +325,6 @@ class TestInsertPdfRecord:
             "file_path": "/path/to/file.pdf",
             "file_name": "file.pdf",
             "directory": "/path/to",
-            "relative_path": "relative/path.pdf",
         }
 
         with patch.object(manager, "get_connection", return_value=mock_conn):
@@ -352,7 +347,6 @@ class TestInsertPdfRecord:
             "file_path": "/path/to/file.pdf",
             "file_name": "file.pdf",
             "directory": "/path/to",
-            "relative_path": "relative/path.pdf",
         }
 
         with patch.object(manager, "get_connection", return_value=mock_conn):
@@ -378,7 +372,6 @@ class TestInsertPdfRecord:
             "file_path": "/path/to/file.pdf",
             "file_name": "file.pdf",
             "directory": "/path/to",
-            "relative_path": "relative/path.pdf",
             "title-details": title_details,
         }
 
@@ -402,7 +395,6 @@ class TestInsertPdfRecord:
             "file_path": "/path/to/file.pdf",
             "file_name": "file.pdf",
             "directory": "/path/to",
-            "relative_path": "relative/path.pdf",
             "title-details": {
                 "title": "Test Paper",
                 "citekey": "Test2025",
@@ -430,7 +422,6 @@ class TestInsertPdfRecord:
             "file_path": "/path/to/file.pdf",
             "file_name": "file.pdf",
             "directory": "/path/to",
-            "relative_path": "relative/path.pdf",
             "title-details": {
                 "title": "Test Paper",
                 "year": "2025",  # String instead of int
@@ -876,7 +867,6 @@ class TestDatabaseManagerIntegration:
             "file_path": "/path/file.pdf",
             "file_name": "file.pdf",
             "directory": "/path",
-            "relative_path": "file.pdf",
         }
 
         with patch.object(manager, "get_connection", return_value=mock_conn):

@@ -103,7 +103,6 @@ Tags are stored as colon-separated strings:
   "file_path": "/path/to/file.pdf",
   "file_name": "document.pdf",
   "directory": "/path/to",
-  "relative_path": "document.pdf",
   "size_bytes": 1024000,
   "created_time": "2025-01-01T10:00:00",
   "modified_time": "2025-01-02T15:30:00",

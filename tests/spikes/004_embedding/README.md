@@ -12,6 +12,30 @@ Explore and implement vector embedding capabilities for the paper-scanner projec
 - [ ] Implement semantic search functionality
 - [ ] Test performance and accuracy
 
+## Scripts
+
+### `load_papers.py`
+Loads papers from JSONL file into PostgreSQL database using only existing fields from the original `pdf_files` table schema.
+
+**Usage:**
+```bash
+python load_papers.py <path_to_jsonl> [--db-url postgresql://...]
+python load_papers.py out2.jsonl
+```
+
+**Features:**
+- Extracts relevant fields from nested JSONL structure
+- Handles file_path, file_name, directory, timestamps, and metadata
+- Maps file-details (title, citekey, year) to pdf_files table
+- Supports insert or update on conflict
+- Detailed logging and statistics
+
+**Example:**
+```bash
+cd tests/spikes/004_embedding
+python load_papers.py ../../data/out2.jsonl --verbose
+```
+
 ## Notes
 
 Work in progress...

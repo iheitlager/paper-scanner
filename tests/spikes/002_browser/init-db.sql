@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS pdf_files (
     file_path VARCHAR(500) UNIQUE NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     directory VARCHAR(500) NOT NULL,
-    relative_path VARCHAR(500) NOT NULL,
     size_bytes BIGINT,
     created_time TIMESTAMP,
     modified_time TIMESTAMP,

@@ -10,7 +10,6 @@
  * @property {string} file_path - Full file path
  * @property {string} file_name - File name
  * @property {string} directory - Directory path
- * @property {string} relative_path - Relative path
  * @property {number} size_bytes - File size in bytes
  * @property {string} created_time - Creation timestamp
  * @property {string} modified_time - Modification timestamp
@@ -905,10 +904,6 @@ async function loadFileDetails(fileName) {
                     <div class="detail-row">
                         <div class="detail-label">Directory</div>
                         <div class="detail-value">${escapeHtml(details.directory || 'N/A')}</div>
-                    </div>
-                    <div class="detail-row">
-                        <div class="detail-label">Relative Path</div>
-                        <div class="detail-value">${escapeHtml(details.relative_path || 'N/A')}</div>
                     </div>
                 </div>
                 

@@ -130,7 +130,7 @@ class DatabaseManager:
         Raises:
             InvalidDataException: If required fields are missing
         """
-        required_fields = ["file_path", "file_name", "directory", "relative_path"]
+        required_fields = ["file_path", "file_name", "directory"]
         if not all(field in record for field in required_fields):
             raise InvalidDataException(f"Missing required fields: {required_fields}")
 
@@ -141,9 +141,9 @@ class DatabaseManager:
             cursor.execute(
                 """
                 INSERT INTO pdf_files 
-                (file_path, file_name, directory, relative_path, size_bytes, 
+                (file_path, file_name, directory, size_bytes, 
                  created_time, modified_time, accessed_time)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (file_path) DO UPDATE SET
                     modified_time = EXCLUDED.modified_time,
                     accessed_time = EXCLUDED.accessed_time
@@ -152,7 +152,6 @@ class DatabaseManager:
                     record["file_path"],
                     record["file_name"],
                     record["directory"],
-                    record["relative_path"],
                     record.get("size_bytes"),
                     record.get("created_time"),
                     record.get("modified_time"),
@@ -310,7 +309,6 @@ def load_jsonlines() -> Tuple[Dict[str, Any], int]:
                     "file_path": str,
                     "file_name": str,
                     "directory": str,
-                    "relative_path": str,
                     "size_bytes": int,
                     "created_time": str,
                     "modified_time": str,

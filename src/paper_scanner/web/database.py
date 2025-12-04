@@ -94,7 +94,7 @@ class DatabaseManager:
             InvalidDataException: If required fields are missing
             DatabaseException: If insert fails
         """
-        required_fields = ["file_path", "file_name", "directory", "relative_path"]
+        required_fields = ["file_path", "file_name", "directory"]
         if not all(field in record for field in required_fields):
             raise InvalidDataException(f"Missing required fields: {required_fields}")
 
@@ -136,9 +136,9 @@ class DatabaseManager:
             cursor.execute(
                 """
                 INSERT INTO pdf_files 
-                (file_path, file_name, directory, relative_path, size_bytes, 
+                (file_path, file_name, directory, size_bytes, 
                  created_time, modified_time, accessed_time, tags, title, citekey, year, title_details, analysis)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (file_path) DO UPDATE SET
                     modified_time = EXCLUDED.modified_time,
                     accessed_time = EXCLUDED.accessed_time,

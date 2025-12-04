@@ -278,13 +278,11 @@ class TestLoadJsonLinesRoute:
                         "file_path": "/path/file1.pdf",
                         "file_name": "file1.pdf",
                         "directory": "/path",
-                        "relative_path": "file1.pdf",
                     },
                     {
                         "file_path": "/path/file2.pdf",
                         "file_name": "file2.pdf",
                         "directory": "/path",
-                        "relative_path": "file2.pdf",
                     },
                 ]
             }
@@ -320,13 +318,11 @@ class TestLoadJsonLinesRoute:
                         "file_path": "/path/file1.pdf",
                         "file_name": "file1.pdf",
                         "directory": "/path",
-                        "relative_path": "file1.pdf",
                     },
                     {
                         "file_path": "/path/bad.pdf",
                         "file_name": "bad.pdf",
                         "directory": "/path",
-                        "relative_path": "bad.pdf",
                     },
                 ]
             }

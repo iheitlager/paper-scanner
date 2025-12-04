@@ -8,27 +8,27 @@ Excellent design! You're building a sophisticated research intelligence system. 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    PAPER PROCESSING PIPELINE                 │
+│                    PAPER PROCESSING PIPELINE                │
 ├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  PDF Input                                                    │
-│     ↓                                                         │
+│                                                             │
+│  PDF Input                                                  │
+│     ↓                                                       │
 │  Stage 1: Metadata Extraction (Quick LLM)                   │
-│     → papers table                                           │
-│     ↓                                                         │
+│     → papers table                                          │
+│     ↓                                                       │
 │  Stage 2: Reference Extraction (Focused LLM)                │
-│     → references table (with hierarchy)                      │
-│     ↓                                                         │
+│     → references table (with hierarchy)                     │
+│     ↓                                                       │
 │  Stage 3: Deep Analysis (Powerful LLM)                      │
 │     → analysis_blobs (stored with paper)                    │
-│     ↓                                                         │
+│     ↓                                                       │
 │  Stage 4: Chunk & Embed                                     │
-│     → paper_chunks table                                     │
+│     → paper_chunks table                                    │
 │     → paper_embeddings (vector table)                       │
-│     ↓                                                         │
+│     ↓                                                       │
 │  Stage 5: Paper-level Embedding                             │
 │     → paper_vectors (single vector per paper)               │
-│                                                               │
+│                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -206,29 +206,29 @@ Search Interface Options:
 ```
 Result Card:
 
-┌────────────────────────────────────────────┐
+┌─────────────────────────────────────────────┐
 │ Digital Technologies, Innovation and...     │
-│ Ciarli et al. (2021) - Research Policy     │ ← From papers table
-│ ★★★★☆ Cited by 15 papers in your library  │ ← From references count
+│ Ciarli et al. (2021) - Research Policy      │ ← From papers table
+│ ★★★★☆ Cited by 15 papers in your library.   │ ← From references count
 │                                             │
 │ Summary:                                    │
-│ "The paper examines how digital..."        │ ← From analysis blob
+│ "The paper examines how digital..."         │ ← From analysis blob
 │                                             │
 │ Research Question:                          │
-│ "How do firms implement digital..."        │ ← From analysis blob
+│ "How do firms implement digital..."         │ ← From analysis blob
 │                                             │
-│ Methodology: Case Study (3 firms)          │ ← From analysis blob
+│ Methodology: Case Study (3 firms)           │ ← From analysis blob
 │                                             │
 │ Key Findings:                               │
 │ • Finding 1                                 │ ← From analysis blob
 │ • Finding 2                                 │
 │                                             │
 │ Most Relevant Section:                      │
-│ "...digital transformation requires..."    │ ← From matched chunk
-│ (Section 3.2, page 12)                     │
+│ "...digital transformation requires..."     │ ← From matched chunk
+│ (Section 3.2, page 12)                      │
 │                                             │
-│ [View Full Paper] [View References]        │
-└────────────────────────────────────────────┘
+│ [View Full Paper] [View References]         │
+└─────────────────────────────────────────────┘
 ```
 
 **Why this works:**
@@ -297,20 +297,20 @@ Your System's Approach:
 ┌─────────────────────────────────────────┐
 │ Related Papers to Ciarli 2021:          │
 ├─────────────────────────────────────────┤
-│                                          │
+│                                         │
 │ DIRECTLY CITES (from references table): │
 │ • Paper X (2022)                        │
 │ • Paper Y (2023)                        │
-│                                          │
+│                                         │
 │ SEMANTICALLY SIMILAR (from vectors):    │
 │ • Paper Z (0.89 similarity)             │
 │   "Digital business models..."          │
 │ • Paper W (0.85 similarity)             │
 │   "Technology adoption in firms..."     │
-│                                          │
+│                                         │
 │ SHARES MANY REFS (from references):     │
 │ • Paper Q (12 shared references)        │
-│                                          │
+│                                         │
 │ SIMILAR METHOD (from analysis blobs):   │
 │ • Paper R (also case study, 3 firms)    │
 └─────────────────────────────────────────┘
@@ -518,16 +518,16 @@ Papers Similar to "Digital Technologies..." (Ciarli 2021):
 
 ┌────────────────────────────────────────────────┐
 │ 1. "Implementing Digital Strategy" (2020)      │
-│    Similarity: 0.92                             │
-│    Why similar:                                 │
+│    Similarity: 0.92                            │
+│    Why similar:                                │
 │    • Vector similarity: 0.89 (high!)           │ ← From vectors
 │    • Shared references: 15 papers              │ ← From references
 │    • Both use case studies                     │ ← From analysis
 │    • Same time period (2020-2021)              │ ← From metadata
 ├────────────────────────────────────────────────┤
 │ 2. "Business Model Innovation" (2019)          │
-│    Similarity: 0.85                             │
-│    Why similar:                                 │
+│    Similarity: 0.85                            │
+│    Why similar:                                │
 │    • Vector similarity: 0.91 (very high!)      │
 │    • Shared references: 8 papers               │
 │    • Different method (survey vs case study)   │
