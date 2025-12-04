@@ -57,13 +57,12 @@ local = [
 ]
 
 [project.scripts]
-file-scanner = "paper_scanner.tools.file_scanner:main"
-file-reader = "paper_scanner.tools.file_reader:main"
-file-merge = "paper_scanner.tools.file_merge:main"
-file-processor-references = "paper_scanner.tools.file_processor_references:main"
-file-timer = "paper_scanner.tools.file_timer:main"
-output-viewer = "paper_scanner.tools.output_viewer:main"
-paper-processor = "paper_scanner.tools.paper_processor:main"
+file-scanner = "paper_scanner.cli.file_scanner:main"
+file-reader = "paper_scanner.cli.file_reader:main"
+file-merge = "paper_scanner.cli.file_merge:main"
+file-processor-references = "paper_scanner.cli.file_processor_references:main"
+file-timer = "paper_scanner.cli.file_timer:main"
+paper-processor = "paper_scanner.cli.paper_processor:main"
 
 [build-system]
 requires = ["hatchling"]

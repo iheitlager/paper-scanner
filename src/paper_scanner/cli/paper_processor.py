@@ -29,7 +29,7 @@ from colorama import Fore, Style, init
 from dotenv import load_dotenv
 
 # Import handler registry
-from paper_scanner.handlers.base import (
+from paper_scanner.models.base import (
     get_handler,
     get_all_models,
     get_models_by_group,
