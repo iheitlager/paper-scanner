@@ -2,8 +2,8 @@
 """
 Load papers from JSONL into PostgreSQL database.
 
-This script loads out2.jsonl (sample papers) into the pdf_files table.
-Only considers existing fields from the original pdf_files schema.
+This script loads out2.jsonl (sample papers) into the papers table.
+Only considers existing fields from the original papers schema.
 
 Usage:
     python load_papers.py <path_to_jsonl> [--db-url postgresql://...]
@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 class PaperLoader:
     """Load papers from JSONL into PostgreSQL database."""
 
-    # Original fields from pdf_files table schema
+    # Original fields from papers table schema
     ORIGINAL_FIELDS = {
         "file_path": str,
         "file_name": str,
@@ -98,7 +98,7 @@ class PaperLoader:
     def extract_fields_from_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
         """Extract only original fields from record.
         
-        Maps nested structure from out2.jsonl to flat fields for pdf_files table:
+        Maps nested structure from out2.jsonl to flat fields for papers table:
         - file_path, file_name, directory, _metadata.* from top level
         - title, citekey, year from file-details
         
@@ -183,7 +183,7 @@ class PaperLoader:
             cursor = self.conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO pdf_files 
+                INSERT INTO papers 
                 (file_path, file_name, directory, size_bytes, 
                  created_time, modified_time, accessed_time, tags, 
                  title, citekey, year, title_details, analysis)

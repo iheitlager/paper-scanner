@@ -310,7 +310,7 @@ class TestInsertPdfRecord:
             result = manager.insert_pdf_record(record)
 
             assert result is True
-            # Should only have one insert call (for pdf_files)
+            # Should only have one insert call (for papers)
             assert len(mock_cursor.execute.call_args_list) == 1
 
     def test_insert_pdf_record_database_error(self):
@@ -378,9 +378,9 @@ class TestInsertPdfRecord:
         with patch.object(manager, "get_connection", return_value=mock_conn):
             manager.insert_pdf_record(record)
 
-            # Find the INSERT INTO pdf_files call
+            # Find the INSERT INTO papers call
             calls = mock_cursor.execute.call_args_list
-            pdf_insert_call = [c for c in calls if "INSERT INTO pdf_files" in c[0][0]][0]
+            pdf_insert_call = [c for c in calls if "INSERT INTO papers" in c[0][0]][0]
             # The title_details should be serialized to JSON
             assert json.dumps(title_details) in str(pdf_insert_call)
 
@@ -407,7 +407,7 @@ class TestInsertPdfRecord:
 
             # Get the INSERT call and verify year is included
             calls = mock_cursor.execute.call_args_list
-            pdf_insert_call = [c for c in calls if "INSERT INTO pdf_files" in c[0][0]][0]
+            pdf_insert_call = [c for c in calls if "INSERT INTO papers" in c[0][0]][0]
             # Year (2025) should be in the parameters
             assert 2025 in pdf_insert_call[0][1]
 
@@ -433,7 +433,7 @@ class TestInsertPdfRecord:
 
             # Get the INSERT call and verify year is int
             calls = mock_cursor.execute.call_args_list
-            pdf_insert_call = [c for c in calls if "INSERT INTO pdf_files" in c[0][0]][0]
+            pdf_insert_call = [c for c in calls if "INSERT INTO papers" in c[0][0]][0]
             # Year should be converted to int
             assert 2025 in pdf_insert_call[0][1]
 
@@ -459,7 +459,7 @@ class TestGetAllPdfs:
 
             assert result == mock_records
             mock_cursor.execute.assert_called_once()
-            assert "SELECT * FROM pdf_files ORDER BY file_name" in mock_cursor.execute.call_args[0][0]
+            assert "SELECT * FROM papers ORDER BY file_name" in mock_cursor.execute.call_args[0][0]
             mock_cursor.close.assert_called()
             mock_conn.close.assert_called()
 
@@ -480,7 +480,7 @@ class TestGetAllPdfs:
 
             assert result == mock_records
             mock_cursor.execute.assert_called_once_with(
-                "SELECT * FROM pdf_files WHERE directory = %s ORDER BY file_name",
+                "SELECT * FROM papers WHERE directory = %s ORDER BY file_name",
                 ("/docs",),
             )
 
@@ -551,7 +551,7 @@ class TestGetPdfByFileName:
 
             assert result == mock_record
             mock_cursor.execute.assert_called_once_with(
-                "SELECT * FROM pdf_files WHERE file_name = %s",
+                "SELECT * FROM papers WHERE file_name = %s",
                 ("paper.pdf",),
             )
             mock_cursor.close.assert_called()
@@ -719,7 +719,7 @@ class TestUpdatePdfTags:
             # Should only have update call (no tag inserts)
             calls = mock_cursor.execute.call_args_list
             assert len(calls) == 1
-            assert "UPDATE pdf_files SET tags" in calls[0][0][0]
+            assert "UPDATE papers SET tags" in calls[0][0][0]
 
     def test_update_pdf_tags_database_error(self):
         """Test DatabaseException on update failure."""

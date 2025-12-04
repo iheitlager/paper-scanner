@@ -105,7 +105,7 @@ class DatabaseManager:
             conn = self.get_connection()
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT 1 FROM information_schema.tables WHERE table_name = 'pdf_files'"
+                "SELECT 1 FROM information_schema.tables WHERE table_name = 'papers'"
             )
             result = cursor.fetchone()
             cursor.close()
@@ -140,7 +140,7 @@ class DatabaseManager:
         try:
             cursor.execute(
                 """
-                INSERT INTO pdf_files 
+                INSERT INTO papers 
                 (file_path, file_name, directory, size_bytes, 
                  created_time, modified_time, accessed_time)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -185,11 +185,11 @@ class DatabaseManager:
         try:
             if directory:
                 cursor.execute(
-                    "SELECT * FROM pdf_files WHERE directory = %s ORDER BY file_name",
+                    "SELECT * FROM papers WHERE directory = %s ORDER BY file_name",
                     (directory,),
                 )
             else:
-                cursor.execute("SELECT * FROM pdf_files ORDER BY file_name")
+                cursor.execute("SELECT * FROM papers ORDER BY file_name")
 
             results = cursor.fetchall()
             return [dict(row) for row in results]
@@ -216,7 +216,7 @@ class DatabaseManager:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
         try:
-            cursor.execute("SELECT * FROM pdf_files WHERE file_name = %s", (file_name,))
+            cursor.execute("SELECT * FROM papers WHERE file_name = %s", (file_name,))
             result = cursor.fetchone()
             return dict(result) if result else None
         except Exception as e:

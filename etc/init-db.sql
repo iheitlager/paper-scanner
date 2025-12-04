@@ -8,10 +8,10 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ============================================================================
--- MAIN TABLE: pdf_files (EXTENDED - keeping all original fields)
+-- MAIN TABLE: papers (EXTENDED - keeping all original fields)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS pdf_files (
+CREATE TABLE IF NOT EXISTS papers (
     id SERIAL PRIMARY KEY,
     
     -- ========================================
@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS pdf_files (
     file_path VARCHAR(500) UNIQUE NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     directory VARCHAR(500) NOT NULL,
-    -- relative_path VARCHAR(500) NOT NULL,
     size_bytes BIGINT,
     created_time TIMESTAMP,
     modified_time TIMESTAMP,
@@ -69,24 +68,24 @@ CREATE TABLE IF NOT EXISTS pdf_files (
 );
 
 -- Original indexes
-CREATE INDEX IF NOT EXISTS idx_file_name ON pdf_files(file_name);
-CREATE INDEX IF NOT EXISTS idx_directory ON pdf_files(directory);
-CREATE INDEX IF NOT EXISTS idx_tags ON pdf_files(tags);
-CREATE INDEX IF NOT EXISTS idx_title ON pdf_files(title);
-CREATE INDEX IF NOT EXISTS idx_citekey ON pdf_files(citekey);
-CREATE INDEX IF NOT EXISTS idx_year ON pdf_files(year);
+CREATE INDEX IF NOT EXISTS idx_file_name ON papers(file_name);
+CREATE INDEX IF NOT EXISTS idx_directory ON papers(directory);
+CREATE INDEX IF NOT EXISTS idx_tags ON papers(tags);
+CREATE INDEX IF NOT EXISTS idx_title ON papers(title);
+CREATE INDEX IF NOT EXISTS idx_citekey ON papers(citekey);
+CREATE INDEX IF NOT EXISTS idx_year ON papers(year);
 
 -- NEW indexes
-CREATE INDEX IF NOT EXISTS idx_pdf_files_journal ON pdf_files(journal);
-CREATE INDEX IF NOT EXISTS idx_pdf_files_doi ON pdf_files(doi);
-CREATE INDEX IF NOT EXISTS idx_pdf_files_status ON pdf_files(processing_status);
-CREATE INDEX IF NOT EXISTS idx_pdf_files_paper_type ON pdf_files(paper_type);
-CREATE INDEX IF NOT EXISTS idx_pdf_files_authors_gin ON pdf_files USING gin(authors);
-CREATE INDEX IF NOT EXISTS idx_pdf_files_keywords ON pdf_files USING gin(keywords);
+CREATE INDEX IF NOT EXISTS idx_papers_journal ON papers(journal);
+CREATE INDEX IF NOT EXISTS idx_papers_doi ON papers(doi);
+CREATE INDEX IF NOT EXISTS idx_papers_status ON papers(processing_status);
+CREATE INDEX IF NOT EXISTS idx_papers_paper_type ON papers(paper_type);
+CREATE INDEX IF NOT EXISTS idx_papers_authors_gin ON papers USING gin(authors);
+CREATE INDEX IF NOT EXISTS idx_papers_keywords ON papers USING gin(keywords);
 
 -- NEW full-text search indexes
-CREATE INDEX IF NOT EXISTS idx_pdf_files_title_fts ON pdf_files USING gin(to_tsvector('english', COALESCE(title, '')));
-CREATE INDEX IF NOT EXISTS idx_pdf_files_abstract_fts ON pdf_files USING gin(to_tsvector('english', COALESCE(abstract, '')));
+CREATE INDEX IF NOT EXISTS idx_papers_title_fts ON papers USING gin(to_tsvector('english', COALESCE(title, '')));
+CREATE INDEX IF NOT EXISTS idx_papers_abstract_fts ON papers USING gin(to_tsvector('english', COALESCE(abstract, '')));
 
 -- ============================================================================
 -- STAGE 2: REFERENCES (Enhanced from original)
@@ -98,7 +97,7 @@ CREATE TABLE IF NOT EXISTS "references" (
     -- ========================================
     -- ORIGINAL FIELDS (unchanged)
     -- ========================================
-    source_paper_id INTEGER NOT NULL REFERENCES pdf_files(id) ON DELETE CASCADE,
+    source_paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
     citekey VARCHAR(255) NOT NULL,
     reference_type VARCHAR(100),
     authors JSONB,
@@ -127,7 +126,7 @@ CREATE TABLE IF NOT EXISTS "references" (
     reference_order INTEGER,  -- NEW: Order in original paper's reference list
     editors JSONB,  -- NEW: For book chapters
     edition VARCHAR(50),  -- NEW
-    links_to_paper_id INTEGER REFERENCES pdf_files(id),  -- NEW: Links to papers in our DB
+    links_to_paper_id INTEGER REFERENCES papers(id),  -- NEW: Links to papers in our DB
     parsing_quality VARCHAR(50) DEFAULT 'success',  -- NEW: 'success', 'partial', 'failed'
     parsing_issues TEXT,  -- NEW
     confidence_score DECIMAL(3,2),  -- NEW: 0.00 to 1.00
@@ -156,14 +155,14 @@ CREATE TABLE IF NOT EXISTS citation_edges (
     -- ========================================
     -- ORIGINAL FIELDS (unchanged)
     -- ========================================
-    citing_paper_id INTEGER NOT NULL REFERENCES pdf_files(id) ON DELETE CASCADE,
+    citing_paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
     cited_reference_id INTEGER NOT NULL REFERENCES "references"(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     -- ========================================
     -- NEW FIELDS
     -- ========================================
-    cited_paper_id INTEGER REFERENCES pdf_files(id) ON DELETE SET NULL,  -- NEW: If we have both papers in DB
+    cited_paper_id INTEGER REFERENCES papers(id) ON DELETE SET NULL,  -- NEW: If we have both papers in DB
     citation_context TEXT,  -- NEW: The sentence/paragraph where citation appears
     
     UNIQUE(citing_paper_id, cited_reference_id)
@@ -186,7 +185,7 @@ DROP TABLE IF EXISTS citation_metadata;
 
 CREATE TABLE IF NOT EXISTS paper_analysis (
     id SERIAL PRIMARY KEY,
-    paper_id INTEGER NOT NULL REFERENCES pdf_files(id) ON DELETE CASCADE,
+    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
     
     -- Analysis version (in case you reprocess with better LLM)
     analysis_version INTEGER DEFAULT 1,
@@ -245,7 +244,7 @@ CREATE INDEX IF NOT EXISTS idx_analysis_findings_fts ON paper_analysis USING gin
 
 CREATE TABLE IF NOT EXISTS paper_chunks (
     id SERIAL PRIMARY KEY,
-    paper_id INTEGER NOT NULL REFERENCES pdf_files(id) ON DELETE CASCADE,
+    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
     
     -- Chunk identification
     chunk_index INTEGER NOT NULL,
@@ -319,7 +318,7 @@ CREATE INDEX IF NOT EXISTS idx_chunk_embeddings_model ON chunk_embeddings(model_
 -- Paper-level embeddings (for paper similarity)
 CREATE TABLE IF NOT EXISTS paper_embeddings (
     id SERIAL PRIMARY KEY,
-    paper_id INTEGER NOT NULL REFERENCES pdf_files(id) ON DELETE CASCADE,
+    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
     
     -- Vector embedding
     embedding vector(768), -- Adjust dimension based on model
@@ -359,7 +358,7 @@ CREATE TABLE IF NOT EXISTS tags (
 
 -- Paper-Tag junction table (NEW)
 CREATE TABLE IF NOT EXISTS paper_tags (
-    paper_id INTEGER NOT NULL REFERENCES pdf_files(id) ON DELETE CASCADE,
+    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
     tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (paper_id, tag_id)
@@ -371,7 +370,7 @@ CREATE INDEX IF NOT EXISTS idx_paper_tags_tag ON paper_tags(tag_id);
 -- Processing logs (track what happened during processing) - NEW
 CREATE TABLE IF NOT EXISTS processing_logs (
     id SERIAL PRIMARY KEY,
-    paper_id INTEGER REFERENCES pdf_files(id) ON DELETE CASCADE,
+    paper_id INTEGER REFERENCES papers(id) ON DELETE CASCADE,
     
     stage VARCHAR(50) NOT NULL, -- 'metadata', 'references', 'analysis', 'chunking', 'embedding'
     status VARCHAR(50) NOT NULL, -- 'started', 'completed', 'failed', 'skipped'
@@ -420,7 +419,7 @@ CREATE TABLE IF NOT EXISTS paper_clusters (
 
 -- Paper-Cluster junction - NEW
 CREATE TABLE IF NOT EXISTS paper_cluster_assignments (
-    paper_id INTEGER NOT NULL REFERENCES pdf_files(id) ON DELETE CASCADE,
+    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
     cluster_id INTEGER NOT NULL REFERENCES paper_clusters(id) ON DELETE CASCADE,
     
     distance_to_centroid DECIMAL(10,6),
@@ -443,7 +442,7 @@ SELECT
     p.*,
     COUNT(DISTINCT ce.id) as citation_count,
     COUNT(DISTINCT ref.id) as reference_count
-FROM pdf_files p
+FROM papers p
 LEFT JOIN citation_edges ce ON p.id = ce.cited_paper_id
 LEFT JOIN "references" ref ON p.id = ref.source_paper_id
 GROUP BY p.id;
@@ -454,7 +453,7 @@ SELECT
     processing_status,
     COUNT(*) as paper_count,
     AVG(EXTRACT(EPOCH FROM (COALESCE(updated_at, indexed_at) - indexed_at))) as avg_processing_time_seconds
-FROM pdf_files
+FROM papers
 GROUP BY processing_status;
 
 -- Most cited papers in collection
@@ -466,7 +465,7 @@ SELECT
     p.year,
     p.authors,
     COUNT(ce.id) as times_cited
-FROM pdf_files p
+FROM papers p
 JOIN citation_edges ce ON p.id = ce.cited_paper_id
 GROUP BY p.id, p.citekey, p.title, p.year, p.authors
 ORDER BY times_cited DESC;
@@ -477,7 +476,7 @@ SELECT
     year,
     COUNT(*) as paper_count,
     COUNT(CASE WHEN processing_status = 'complete' THEN 1 END) as complete_count
-FROM pdf_files
+FROM papers
 WHERE year IS NOT NULL
 GROUP BY year
 ORDER BY year DESC;
@@ -495,10 +494,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to auto-update updated_at on pdf_files
-DROP TRIGGER IF EXISTS trigger_pdf_files_updated_at ON pdf_files;
-CREATE TRIGGER trigger_pdf_files_updated_at
-    BEFORE UPDATE ON pdf_files
+-- Trigger to auto-update updated_at on papers
+DROP TRIGGER IF EXISTS trigger_papers_updated_at ON papers;
+CREATE TRIGGER trigger_papers_updated_at
+    BEFORE UPDATE ON papers
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
@@ -530,7 +529,7 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO pdfuser;
 -- ============================================================================
 
 -- Analyze tables for query optimization
-ANALYZE pdf_files;
+ANALYZE papers;
 ANALYZE "references";
 ANALYZE paper_analysis;
 ANALYZE paper_chunks;
@@ -542,5 +541,5 @@ ANALYZE paper_embeddings;
 -- ============================================================================
 
 SELECT 'PDF database initialized successfully' as status;
-SELECT 'Extended pdf_files table with new fields for multi-stage processing' as summary;
+SELECT 'Extended papers table with new fields for multi-stage processing' as summary;
 SELECT 'New tables: paper_analysis, paper_chunks, chunk_embeddings, paper_embeddings, processing_logs, paper_clusters' as new_tables;

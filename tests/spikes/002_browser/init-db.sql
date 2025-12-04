@@ -5,7 +5,7 @@
 \connect pdfdb
 
 -- Create table if it doesn't exist
-CREATE TABLE IF NOT EXISTS pdf_files (
+CREATE TABLE IF NOT EXISTS papers (
     id SERIAL PRIMARY KEY,
     file_path VARCHAR(500) UNIQUE NOT NULL,
     file_name VARCHAR(255) NOT NULL,
@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS pdf_files (
 );
 
 -- Create indexes
-CREATE INDEX IF NOT EXISTS idx_file_name ON pdf_files(file_name);
-CREATE INDEX IF NOT EXISTS idx_directory ON pdf_files(directory);
+CREATE INDEX IF NOT EXISTS idx_file_name ON papers(file_name);
+CREATE INDEX IF NOT EXISTS idx_directory ON papers(directory);
 
 -- Grant permissions to the pdfuser
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO pdfuser;

@@ -68,7 +68,7 @@ class DatabaseManager:
             conn = self.get_connection()
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT 1 FROM information_schema.tables WHERE table_name = 'pdf_files'"
+                "SELECT 1 FROM information_schema.tables WHERE table_name = 'papers'"
             )
             result = cursor.fetchone()
             cursor.close()
@@ -135,7 +135,7 @@ class DatabaseManager:
 
             cursor.execute(
                 """
-                INSERT INTO pdf_files 
+                INSERT INTO papers 
                 (file_path, file_name, directory, size_bytes, 
                  created_time, modified_time, accessed_time, tags, title, citekey, year, title_details, analysis)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -153,7 +153,6 @@ class DatabaseManager:
                     record["file_path"],
                     record["file_name"],
                     record["directory"],
-                    record["relative_path"],
                     record.get("size_bytes"),
                     record.get("created_time"),
                     record.get("modified_time"),
@@ -193,11 +192,11 @@ class DatabaseManager:
         try:
             if directory:
                 cursor.execute(
-                    "SELECT * FROM pdf_files WHERE directory = %s ORDER BY file_name",
+                    "SELECT * FROM papers WHERE directory = %s ORDER BY file_name",
                     (directory,),
                 )
             else:
-                cursor.execute("SELECT * FROM pdf_files ORDER BY file_name")
+                cursor.execute("SELECT * FROM papers ORDER BY file_name")
 
             results = cursor.fetchall()
             return [dict(row) for row in results]
@@ -224,7 +223,7 @@ class DatabaseManager:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
         try:
-            cursor.execute("SELECT * FROM pdf_files WHERE file_name = %s", (file_name,))
+            cursor.execute("SELECT * FROM papers WHERE file_name = %s", (file_name,))
             result = cursor.fetchone()
             return dict(result) if result else None
         except Exception as e:
@@ -284,7 +283,7 @@ class DatabaseManager:
                     )
 
             cursor.execute(
-                "UPDATE pdf_files SET tags = %s WHERE file_name = %s",
+                "UPDATE papers SET tags = %s WHERE file_name = %s",
                 (tags, file_name)
             )
             conn.commit()
@@ -314,7 +313,7 @@ class DatabaseManager:
                     year,
                     COUNT(*) as count,
                     json_agg(json_build_object('file_name', file_name, 'title', title, 'citekey', citekey)) as papers
-                FROM pdf_files
+                FROM papers
                 WHERE year IS NOT NULL
                 GROUP BY year
                 ORDER BY year DESC
@@ -409,21 +408,8 @@ class DatabaseManager:
                 parsing_status = "success"
                 parsing_issues_text = None
 
-                if "parsing_metadata" in references_data:
-                    parsing_meta = references_data["parsing_metadata"]
-                    for issue in parsing_meta.get("parsing_issues", []):
-                        if issue.get("reference_id") == ref.get("id"):
-                            parsing_status = "warning"
-                            parsing_issues_text = issue.get("issue_description")
-                            break
-
-                cursor.execute(
-                    """
-                    INSERT INTO citation_metadata (reference_id, parsing_status, parsing_issues, notes)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (ref_id, parsing_status, parsing_issues_text, ref.get("notes")),
-                )
+                # Note: parsing_status, parsing_issues, and confidence_score are now
+                # stored directly in the references table (see init-db.sql)
 
             conn.commit()
             logger.info(f"Inserted {len(reference_ids)} references for paper ID {source_paper_id}")
@@ -455,11 +441,16 @@ class DatabaseManager:
         try:
             cursor.execute(
                 """
-                SELECT r.*, m.parsing_status, m.parsing_issues, m.notes
+                SELECT 
+                    r.id, r.source_paper_id, r.citekey, r.reference_type, r.authors, r.year,
+                    r.title, r.source_type, r.source_name, r.volume, r.issue, r.pages_start,
+                    r.pages_end, r.pages_range, r.publisher, r.location, r.doi, r.url,
+                    r.arxiv_id, r.ssrn_id, r.isbn, r.raw_citation, r.created_at,
+                    r.reference_order, r.editors, r.edition, r.links_to_paper_id,
+                    r.parsing_quality, r.parsing_issues, r.confidence_score
                 FROM "references" r
-                LEFT JOIN citation_metadata m ON r.id = m.reference_id
                 WHERE r.source_paper_id = %s
-                ORDER BY r.created_at
+                ORDER BY r.reference_order, r.created_at
                 """,
                 (paper_id,),
             )

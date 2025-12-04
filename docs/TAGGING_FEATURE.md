@@ -6,7 +6,7 @@ This feature adds comprehensive tagging capabilities to the paper-scanner PDF br
 ## Database Changes
 
 ### New Database Fields
-1. **pdf_files table**
+1. **papers table**
    - Added `tags` TEXT column to store colon-separated tags for each file
    
 2. **New tags table**
@@ -15,7 +15,7 @@ This feature adds comprehensive tagging capabilities to the paper-scanner PDF br
    - `created_at`: Timestamp of tag creation
 
 ### New Indexes
-- `idx_tags` on `pdf_files(tags)` for efficient tag-based queries
+- `idx_tags` on `papers(tags)` for efficient tag-based queries
 
 ## Backend API Changes
 

@@ -15,7 +15,7 @@ Explore and implement vector embedding capabilities for the paper-scanner projec
 ## Scripts
 
 ### `load_papers.py`
-Loads papers from JSONL file into PostgreSQL database using only existing fields from the original `pdf_files` table schema.
+Loads papers from JSONL file into PostgreSQL database using only existing fields from the original `papers` table schema.
 
 **Usage:**
 ```bash
@@ -26,7 +26,7 @@ python load_papers.py out2.jsonl
 **Features:**
 - Extracts relevant fields from nested JSONL structure
 - Handles file_path, file_name, directory, timestamps, and metadata
-- Maps file-details (title, citekey, year) to pdf_files table
+- Maps file-details (title, citekey, year) to papers table
 - Supports insert or update on conflict
 - Detailed logging and statistics
 
