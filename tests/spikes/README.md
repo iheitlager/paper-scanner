@@ -8,6 +8,8 @@ This directory contains exploratory tests for future features and experimental w
 |-------|-------------|--------------|--------|
 | [001_first_tests](001_first_tests/README.md) | Initial batch processing, flush, JSON, and parser experiments | 2025-07-19 | Complete |
 | [002_browser](002_browser/README.md) | Flask + React frontend with PostgreSQL and Docker for file browser | 2025-12-02 | Integrated |
+| [003_local_llm](003_local_llm/README.md) | Ollama integration and Small Language Model (SLM) support | 2025-12-03 | Integrated |
+| [004_embedding](004_embedding/README.md) | Vector embeddings exploration for semantic search | 2025-12-04 | In Progress |
 
 ## Purpose
 
