@@ -11,8 +11,8 @@ If no output file is specified, writes to stdout.
 import argparse
 import datetime
 import json
-import sys
 import signal
+import sys
 from pathlib import Path
 
 
@@ -58,14 +58,16 @@ def scan_for_pdfs(
             # Add metadata if requested
             if include_metadata:
                 stat = pdf_path.stat()
-                file_info.update({
-                    "_metadata": {
+                file_info.update(
+                    {
+                        "_metadata": {
                             "size_bytes": stat.st_size,
                             "created_time": datetime.datetime.fromtimestamp(stat.st_ctime).isoformat(),
                             "modified_time": datetime.datetime.fromtimestamp(stat.st_mtime).isoformat(),
                             "accessed_time": datetime.datetime.fromtimestamp(stat.st_atime).isoformat(),
+                        }
                     }
-                })
+                )
 
             f_out.write(json.dumps(file_info) + "\n")
             f_out.flush()
@@ -77,7 +79,7 @@ def scan_for_pdfs(
 def main():
     # Handle broken pipe gracefully when piping to commands like `first`
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-    
+
     parser = argparse.ArgumentParser(description="Scan PDFs in folder and write the list as JSONLines")
     parser.add_argument("folder", help="Folder to scan for PDF files")
     parser.add_argument(

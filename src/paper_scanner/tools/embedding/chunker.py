@@ -1,8 +1,9 @@
 import re
 import sys
-from typing import List, Dict
-from pypdf import PdfReader
+from typing import Dict, List
+
 import tiktoken
+from pypdf import PdfReader
 
 from paper_scanner.tools.embedding.sections import detect_sections
 

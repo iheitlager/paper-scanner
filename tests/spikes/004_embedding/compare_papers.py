@@ -7,9 +7,10 @@ Usage:
 """
 
 import sys
+
+import numpy as np
 import psycopg2
 from pgvector.psycopg2 import register_vector
-import numpy as np
 
 
 def compare_papers(citekey1, citekey2):

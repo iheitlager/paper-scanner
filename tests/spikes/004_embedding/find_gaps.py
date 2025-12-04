@@ -8,7 +8,6 @@ Usage:
 
 import psycopg2
 from pgvector.psycopg2 import register_vector
-import numpy as np
 
 
 def find_gaps(threshold=0.6):
@@ -80,7 +79,7 @@ def find_gaps(threshold=0.6):
             print(f"\n📌 {gap['citekey']} ({gap['year']})")
             print(f"   {gap['title']}")
             print(f"   Nearest paper: {gap['nearest']} (similarity: {gap['similarity']:.1%})")
-            print(f"   → This paper is relatively isolated - potential research gap!")
+            print("   → This paper is relatively isolated - potential research gap!")
     else:
         print("✓ No significant gaps found. All papers have similar neighbors.")
 

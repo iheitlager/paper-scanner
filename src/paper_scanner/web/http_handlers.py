@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def register_error_handlers(app: Any) -> None:
     """Register all HTTP error handlers with the Flask app.
-    
+
     Args:
         app: Flask application instance
     """
@@ -20,10 +20,10 @@ def register_error_handlers(app: Any) -> None:
     @app.errorhandler(PDFBrowserException)
     def handle_pdf_browser_exception(error: PDFBrowserException) -> Tuple[Dict[str, Any], int]:
         """Handle custom PDF Browser exceptions.
-        
+
         Args:
             error: PDFBrowserException instance
-            
+
         Returns:
             JSON response with error details and status code
         """

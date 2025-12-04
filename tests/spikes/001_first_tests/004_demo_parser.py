@@ -53,5 +53,6 @@ The research employed a three-phase approach:
     if parser.save_to_file(result, output_file):
         print(f"\nSaved to {output_file}")
 
+
 if __name__ == "__main__":
     demo_paper_section_parser()

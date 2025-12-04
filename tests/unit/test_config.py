@@ -138,11 +138,14 @@ class TestConfigManager:
 
     def test_load_with_environment_variables(self):
         """Test loading config respects environment variables."""
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "postgresql://test@localhost/testdb",
-            "ENV": "docker",
-            "PORT": "9000",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": "postgresql://test@localhost/testdb",
+                "ENV": "docker",
+                "PORT": "9000",
+            },
+        ):
             manager = ConfigManager(env_file="/nonexistent/.env")
             config = manager.load()
 
@@ -152,9 +155,12 @@ class TestConfigManager:
 
     def test_load_with_function_arguments(self):
         """Test that function arguments take precedence over environment variables."""
-        with patch.dict(os.environ, {
-            "PORT": "9000",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "PORT": "9000",
+            },
+        ):
             manager = ConfigManager(env_file="/nonexistent/.env")
             config = manager.load(port=5000, env="production")
 
@@ -257,12 +263,16 @@ class TestGetConfigFunction:
 
     def test_get_config_environment_variables(self):
         """Test get_config respects environment variables."""
-        with patch.dict(os.environ, {
-            "ENV": "docker",
-            "DEBUG": "true",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "ENV": "docker",
+                "DEBUG": "true",
+            },
+        ):
             # Need to reload to pick up new env vars
             from paper_scanner.web import config as config_module
+
             config_module._config_manager.reload()
 
             cfg = get_config()
@@ -279,10 +289,13 @@ class TestConfigIntegration:
             env_file = Path(tmpdir) / ".env"
             env_file.write_text("PORT=7000\nLOG_LEVEL=DEBUG\n")
 
-            with patch.dict(os.environ, {
-                "PORT": "8000",
-                "DEBUG": "true",
-            }):
+            with patch.dict(
+                os.environ,
+                {
+                    "PORT": "8000",
+                    "DEBUG": "true",
+                },
+            ):
                 manager = ConfigManager(env_file=str(env_file))
 
                 # Function args should take precedence

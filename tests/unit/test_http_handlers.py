@@ -226,4 +226,3 @@ class TestErrorHandlers:
         data = json.loads(response.data)
         assert data["error"]  # Error message should not be empty
         assert isinstance(data["error"], str)
-

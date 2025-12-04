@@ -31,7 +31,7 @@ class DatabaseManager:
 
     def __init__(self, db_url: str) -> None:
         """Initialize database manager with connection URL.
-        
+
         Args:
             db_url: PostgreSQL connection URL
         """
@@ -39,14 +39,14 @@ class DatabaseManager:
 
     def get_connection(self, retries: int = 3, delay: int = 2) -> PsycopgConnection:
         """Get a database connection with retry logic.
-        
+
         Args:
             retries: Number of retry attempts
             delay: Delay in seconds between retries
-            
+
         Returns:
             PostgreSQL connection object
-            
+
         Raises:
             DatabaseException: If connection fails after all retries
         """
@@ -67,9 +67,7 @@ class DatabaseManager:
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT 1 FROM information_schema.tables WHERE table_name = 'papers'"
-            )
+            cursor.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'papers'")
             result = cursor.fetchone()
             cursor.close()
             conn.close()
@@ -83,13 +81,13 @@ class DatabaseManager:
 
     def insert_pdf_record(self, record: Dict[str, Any]) -> bool:
         """Insert a PDF record into the database.
-        
+
         Args:
             record: Dictionary containing PDF metadata
-            
+
         Returns:
             True if successful, False otherwise
-            
+
         Raises:
             InvalidDataException: If required fields are missing
             DatabaseException: If insert fails
@@ -107,10 +105,7 @@ class DatabaseManager:
             if tags:
                 tag_list = [t.strip() for t in tags.split(":") if t.strip()]
                 for tag in tag_list:
-                    cursor.execute(
-                        "INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING",
-                        (tag,)
-                    )
+                    cursor.execute("INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING", (tag,))
 
             # Extract title and citekey from title-details if present
             title = None
@@ -176,13 +171,13 @@ class DatabaseManager:
 
     def get_all_pdfs(self, directory: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all PDF records from database.
-        
+
         Args:
             directory: Optional directory filter
-            
+
         Returns:
             List of PDF records
-            
+
         Raises:
             DatabaseException: If query fails
         """
@@ -209,13 +204,13 @@ class DatabaseManager:
 
     def get_pdf_by_file_name(self, file_name: str) -> Optional[Dict[str, Any]]:
         """Get PDF record by file name.
-        
+
         Args:
             file_name: Name of the PDF file
-            
+
         Returns:
             PDF record dictionary or None if not found
-            
+
         Raises:
             DatabaseException: If query fails
         """
@@ -235,10 +230,10 @@ class DatabaseManager:
 
     def get_all_tags(self) -> List[str]:
         """Get all unique tags from the database.
-        
+
         Returns:
             List of tag names
-            
+
         Raises:
             DatabaseException: If query fails
         """
@@ -258,14 +253,14 @@ class DatabaseManager:
 
     def update_pdf_tags(self, file_name: str, tags: str) -> bool:
         """Update tags for a PDF record.
-        
+
         Args:
             file_name: Name of the PDF file
             tags: Colon-separated string of tags
-            
+
         Returns:
             True if successful
-            
+
         Raises:
             DatabaseException: If update fails
         """
@@ -277,15 +272,9 @@ class DatabaseManager:
             if tags:
                 tag_list = [t.strip() for t in tags.split(":") if t.strip()]
                 for tag in tag_list:
-                    cursor.execute(
-                        "INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING",
-                        (tag,)
-                    )
+                    cursor.execute("INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING", (tag,))
 
-            cursor.execute(
-                "UPDATE papers SET tags = %s WHERE file_name = %s",
-                (tags, file_name)
-            )
+            cursor.execute("UPDATE papers SET tags = %s WHERE file_name = %s", (tags, file_name))
             conn.commit()
             return True
         except Exception as e:
@@ -297,10 +286,10 @@ class DatabaseManager:
 
     def get_year_overview(self) -> List[Dict[str, Any]]:
         """Get overview of papers by publication year.
-        
+
         Returns:
             List of dicts with year, count, and paper names
-            
+
         Raises:
             DatabaseException: If query fails
         """
@@ -329,14 +318,14 @@ class DatabaseManager:
 
     def insert_references(self, source_paper_id: int, references_data: Dict[str, Any]) -> List[int]:
         """Insert extracted references into the database.
-        
+
         Args:
             source_paper_id: ID of the source paper
             references_data: Dictionary with extracted references (from Claude)
-            
+
         Returns:
             List of inserted reference IDs
-            
+
         Raises:
             DatabaseException: If insert fails
         """
@@ -353,7 +342,7 @@ class DatabaseManager:
                 # Extract identifiers and source info
                 identifiers = ref.get("identifiers", {})
                 source = ref.get("source", {})
-                
+
                 # Handle pages - could be string "100-120" or object with start/end
                 pages_str = source.get("pages", "") if isinstance(source.get("pages"), str) else ""
 
@@ -425,13 +414,13 @@ class DatabaseManager:
 
     def get_references_for_paper(self, paper_id: int) -> List[Dict[str, Any]]:
         """Get all references for a specific paper.
-        
+
         Args:
             paper_id: ID of the paper
-            
+
         Returns:
             List of reference records
-            
+
         Raises:
             DatabaseException: If query fails
         """
@@ -462,4 +451,3 @@ class DatabaseManager:
         finally:
             cursor.close()
             conn.close()
-

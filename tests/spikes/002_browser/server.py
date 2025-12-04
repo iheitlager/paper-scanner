@@ -16,9 +16,7 @@ from psycopg2.extensions import connection as PsycopgConnection
 from psycopg2.extras import RealDictCursor
 
 # Configuration
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://pdfuser:pdfpass@localhost:5432/pdfdb"
-)
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://pdfuser:pdfpass@localhost:5432/pdfdb")
 PDF_BASE_DIR = os.getenv("PDF_BASE_DIR", "/Users/iheitlager/wc/papers")
 PORT = int(os.getenv("PORT", 8080))
 ENV = os.getenv("ENV", "local")
@@ -28,7 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app with static folder configuration
-app = Flask(__name__, static_folder='static', static_url_path='/static')
+app = Flask(__name__, static_folder="static", static_url_path="/static")
 CORS(app)
 
 
@@ -44,6 +42,7 @@ class PDFBrowserException(Exception):
 
 class DatabaseException(PDFBrowserException):
     """Exception raised for database operations."""
+
     pass
 
 
@@ -76,14 +75,14 @@ class DatabaseManager:
 
     def get_connection(self, retries: int = 3, delay: int = 2) -> PsycopgConnection:
         """Get a database connection with retry logic.
-        
+
         Args:
             retries: Number of retry attempts
             delay: Delay in seconds between retries
-            
+
         Returns:
             PostgreSQL connection object
-            
+
         Raises:
             DatabaseException: If connection fails after all retries
         """
@@ -104,9 +103,7 @@ class DatabaseManager:
         try:
             conn = self.get_connection()
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT 1 FROM information_schema.tables WHERE table_name = 'papers'"
-            )
+            cursor.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'papers'")
             result = cursor.fetchone()
             cursor.close()
             conn.close()
@@ -120,13 +117,13 @@ class DatabaseManager:
 
     def insert_pdf_record(self, record: Dict[str, Any]) -> bool:
         """Insert a PDF record into the database.
-        
+
         Args:
             record: Dictionary containing PDF metadata
-            
+
         Returns:
             True if successful, False otherwise
-            
+
         Raises:
             InvalidDataException: If required fields are missing
         """
@@ -169,13 +166,13 @@ class DatabaseManager:
 
     def get_all_pdfs(self, directory: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all PDF records from database.
-        
+
         Args:
             directory: Optional directory filter
-            
+
         Returns:
             List of PDF records
-            
+
         Raises:
             DatabaseException: If query fails
         """
@@ -202,13 +199,13 @@ class DatabaseManager:
 
     def get_pdf_by_file_name(self, file_name: str) -> Optional[Dict[str, Any]]:
         """Get PDF record by file name.
-        
+
         Args:
             file_name: Name of the PDF file
-            
+
         Returns:
             PDF record dictionary or None if not found
-            
+
         Raises:
             DatabaseException: If query fails
         """
@@ -235,10 +232,10 @@ db_manager = DatabaseManager(DATABASE_URL)
 @app.errorhandler(PDFBrowserException)
 def handle_pdf_browser_exception(error: PDFBrowserException) -> Tuple[Dict[str, Any], int]:
     """Handle custom PDF Browser exceptions.
-    
+
     Args:
         error: PDFBrowserException instance
-        
+
     Returns:
         JSON response with error details and status code
     """
@@ -268,7 +265,7 @@ def handle_internal_error(error: Any) -> Tuple[Dict[str, Any], int]:
 @app.route("/health", methods=["GET"])
 def health() -> Tuple[Dict[str, Any], int]:
     """Health check endpoint.
-    
+
     Returns:
         JSON response with health status and environment
     """
@@ -283,10 +280,10 @@ def health() -> Tuple[Dict[str, Any], int]:
 @app.route("/api/files", methods=["GET"])
 def get_files() -> Tuple[Dict[str, Any], int]:
     """Get list of all PDF files from database.
-    
+
     Query parameters:
         directory: Optional directory filter
-        
+
     Returns:
         JSON response with list of PDF files
     """
@@ -301,7 +298,7 @@ def get_files() -> Tuple[Dict[str, Any], int]:
 @app.route("/api/load-jsonlines", methods=["POST"])
 def load_jsonlines() -> Tuple[Dict[str, Any], int]:
     """Load PDF records from the request body into the database.
-    
+
     Expected JSON:
         {
             "records": [
@@ -316,7 +313,7 @@ def load_jsonlines() -> Tuple[Dict[str, Any], int]:
                 }
             ]
         }
-    
+
     Returns:
         JSON response with loaded/failed counts
     """
@@ -340,12 +337,14 @@ def load_jsonlines() -> Tuple[Dict[str, Any], int]:
                 logger.warning(f"Failed to insert record {idx}: {e}")
                 failed_count += 1
 
-        return jsonify({
-            "success": True,
-            "loaded": loaded_count,
-            "failed": failed_count,
-            "total": loaded_count + failed_count,
-        }), 200
+        return jsonify(
+            {
+                "success": True,
+                "loaded": loaded_count,
+                "failed": failed_count,
+                "total": loaded_count + failed_count,
+            }
+        ), 200
     except InvalidDataException:
         raise
 
@@ -353,10 +352,10 @@ def load_jsonlines() -> Tuple[Dict[str, Any], int]:
 @app.route("/api/file_details/<file_name>", methods=["GET"])
 def get_file_details(file_name: str) -> Tuple[Dict[str, Any], int]:
     """Get file details by name.
-    
+
     Args:
         file_name: Name of the PDF file
-        
+
     Returns:
         JSON response with file details
     """
@@ -373,10 +372,10 @@ def get_file_details(file_name: str) -> Tuple[Dict[str, Any], int]:
 @app.route("/api/pdf/<file_name>", methods=["GET"])
 def get_pdf(file_name: str) -> Tuple[Any, int]:
     """Serve a PDF file by name.
-    
+
     Args:
         file_name: Name of the PDF file
-        
+
     Returns:
         PDF file or JSON error response
     """
@@ -408,7 +407,7 @@ def get_pdf(file_name: str) -> Tuple[Any, int]:
 @app.route("/", methods=["GET"])
 def index() -> str:
     """Render the main HTML interface.
-    
+
     Returns:
         Rendered HTML template
     """

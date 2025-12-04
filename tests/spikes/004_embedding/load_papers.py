@@ -7,7 +7,7 @@ Only considers existing fields from the original papers schema.
 
 Usage:
     python load_papers.py <path_to_jsonl> [--db-url postgresql://...]
-    
+
 Example:
     python load_papers.py out2.jsonl
 """
@@ -20,15 +20,12 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from dotenv import load_dotenv
 from psycopg2 import OperationalError, connect
 from psycopg2.extensions import connection as PsycopgConnection
-from dotenv import load_dotenv
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -54,7 +51,7 @@ class PaperLoader:
 
     def __init__(self, db_url: str) -> None:
         """Initialize loader with database URL.
-        
+
         Args:
             db_url: PostgreSQL connection URL
         """
@@ -70,11 +67,11 @@ class PaperLoader:
 
     def connect(self, retries: int = 3, delay: int = 2) -> None:
         """Connect to database with retry logic.
-        
+
         Args:
             retries: Number of retry attempts
             delay: Delay between retries
-            
+
         Raises:
             RuntimeError: If connection fails
         """
@@ -97,14 +94,14 @@ class PaperLoader:
 
     def extract_fields_from_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
         """Extract only original fields from record.
-        
+
         Maps nested structure from out2.jsonl to flat fields for papers table:
         - file_path, file_name, directory, _metadata.* from top level
         - title, citekey, year from file-details
-        
+
         Args:
             record: Raw record from JSONL
-            
+
         Returns:
             Dictionary with only original fields
         """
@@ -130,21 +127,19 @@ class PaperLoader:
             extracted["citekey"] = details.get("citekey")
             extracted["year"] = details.get("year")
             extracted["title_details"] = details
-            
+
             # Extract metadata from file-details if present
             if "_metadata" in details:
-                extracted["analysis"] = {
-                    "processing_metadata": details["_metadata"]
-                }
+                extracted["analysis"] = {"processing_metadata": details["_metadata"]}
 
         return extracted
 
     def load_paper(self, record: Dict[str, Any]) -> bool:
         """Load a single paper into database.
-        
+
         Args:
             record: Paper record from JSONL
-            
+
         Returns:
             True if loaded successfully, False otherwise
         """
@@ -153,7 +148,7 @@ class PaperLoader:
 
             # Validate required fields
             if not fields.get("file_path") or not fields.get("file_name"):
-                logger.warning(f"Skipping record: missing required fields")
+                logger.warning("Skipping record: missing required fields")
                 self.stats["skipped"] += 1
                 return False
 
@@ -199,11 +194,21 @@ class PaperLoader:
                     analysis = EXCLUDED.analysis
                 RETURNING (xmax = 0) AS inserted
                 """,
-                (file_path, file_name, directory, size_bytes,
-                 created_time, modified_time, accessed_time, tags,
-                 title, citekey, year,
-                 json.dumps(title_details) if title_details else None,
-                 json.dumps(analysis) if analysis else None)
+                (
+                    file_path,
+                    file_name,
+                    directory,
+                    size_bytes,
+                    created_time,
+                    modified_time,
+                    accessed_time,
+                    tags,
+                    title,
+                    citekey,
+                    year,
+                    json.dumps(title_details) if title_details else None,
+                    json.dumps(analysis) if analysis else None,
+                ),
             )
 
             result = cursor.fetchone()
@@ -227,7 +232,7 @@ class PaperLoader:
 
     def load_from_jsonl(self, jsonl_path: str) -> None:
         """Load papers from JSONL file.
-        
+
         Args:
             jsonl_path: Path to JSONL file
         """
@@ -237,7 +242,7 @@ class PaperLoader:
 
         logger.info(f"Loading papers from: {jsonl_path}")
 
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             for line_num, line in enumerate(f, 1):
                 if not line.strip():
                     continue
@@ -265,23 +270,10 @@ class PaperLoader:
 
 def main() -> None:
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Load papers from JSONL into PostgreSQL database"
-    )
-    parser.add_argument(
-        "jsonl_file",
-        help="Path to JSONL file to load"
-    )
-    parser.add_argument(
-        "--db-url",
-        help="PostgreSQL connection URL",
-        default=None
-    )
-    parser.add_argument(
-        "-v", "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
-    )
+    parser = argparse.ArgumentParser(description="Load papers from JSONL into PostgreSQL database")
+    parser.add_argument("jsonl_file", help="Path to JSONL file to load")
+    parser.add_argument("--db-url", help="PostgreSQL connection URL", default=None)
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
 
     args = parser.parse_args()
 
@@ -290,10 +282,7 @@ def main() -> None:
 
     # Get database URL
     load_dotenv()
-    db_url = args.db_url or os.getenv(
-        "DATABASE_URL",
-        "postgresql://pdfuser:pdfpass@localhost:5432/pdfdb"
-    )
+    db_url = args.db_url or os.getenv("DATABASE_URL", "postgresql://pdfuser:pdfpass@localhost:5432/pdfdb")
 
     # Load papers
     loader = PaperLoader(db_url)

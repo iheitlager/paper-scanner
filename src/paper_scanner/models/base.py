@@ -11,14 +11,14 @@ class LLMHandler(ABC):
     # Each handler must define its supported models
     # Format: {"model_name": max_output_tokens}
     MODELS: Dict[str, int] = {}
-    
+
     # Each handler should define its group name (e.g., "Claude", "Ollama")
     GROUP: str = "Unknown"
 
     def __init__(self, logger: Optional[Callable[[str], None]] = None):
         """
         Initialize handler with optional logger function.
-        
+
         Args:
             logger: Optional function that takes a string message for logging.
                    If None, logging is disabled.
@@ -56,7 +56,7 @@ class LLMHandler(ABC):
     def get_models(cls) -> Dict[str, int]:
         """Get supported models for this handler."""
         return cls.MODELS.copy()
-    
+
     @classmethod
     def get_group(cls) -> str:
         """Get the group name for this handler."""
@@ -212,6 +212,7 @@ def parse_json_response(response_text: str) -> Optional[Dict[str, Any]]:
 # ============================================================================
 # Handler Registration (Deferred to avoid circular imports)
 # ============================================================================
+
 
 def initialize_handlers(api_key: Optional[str] = None, logger: Optional[Callable[[str], None]] = None) -> None:
     """

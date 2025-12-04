@@ -1,22 +1,20 @@
 import re
 
+
 def detect_sections(text: str) -> List[Dict]:
     """Detect sections in academic paper"""
 
     section_patterns = [
         # Markdown headers
         r"^#+\s+(.+)$",
-
         # Numbered sections (various formats)
         r"^(\d+\.?\s+[A-Z][^.!?]+)$",  # "1. Introduction" or "1 Introduction"
         r"^(\d+\.\d+\.?\s+[A-Z][^.!?]+)$",  # "1.1 Background" or "1.1. Background"
         r"^(\d+\.\d+\.\d+\.?\s+[A-Z][^.!?]+)$",  # "1.1.1 Subsection"
         r"^([IVX]+\.?\s+[A-Z][^.!?]+)$",  # Roman numerals: "I. Introduction"
         r"^([A-Z]\.?\s+[A-Z][^.!?]+)$",  # Letter sections: "A. Methods"
-
         # ALL CAPS headers (at least 3 chars)
         r"^([A-Z][A-Z\s]{2,}:?)$",
-
         # Common academic paper sections (case-insensitive)
         r"^(Abstract)s?$",
         r"^(Executive\s+Summary)$",
@@ -29,7 +27,6 @@ def detect_sections(text: str) -> List[Dict]:
         r"^(Conceptual\s+Framework)$",
         r"^(Research\s+Question)s?$",
         r"^(Hypothes[ei]s)$",
-
         # Methods sections
         r"^(Methods?)$",
         r"^(Methodology)$",
@@ -43,7 +40,6 @@ def detect_sections(text: str) -> List[Dict]:
         r"^(Case\s+Study)$",
         r"^(Sample)$",
         r"^(Participants?)$",
-
         # Results sections
         r"^(Results?)$",
         r"^(Findings?)$",
@@ -51,12 +47,10 @@ def detect_sections(text: str) -> List[Dict]:
         r"^(Empirical\s+Findings?)$",
         r"^(Analysis)$",
         r"^(Empirical\s+Analysis)$",
-
         # Discussion sections
         r"^(Discussion)$",
         r"^(Interpretation)$",
         r"^(Results?\s+and\s+Discussion)$",
-
         # Implications/contributions
         r"^(Implications?)$",
         r"^(Theoretical\s+Implications?)$",
@@ -65,19 +59,16 @@ def detect_sections(text: str) -> List[Dict]:
         r"^(Policy\s+Implications?)$",
         r"^(Contributions?)$",
         r"^(Theoretical\s+Contributions?)$",
-
         # Limitations and future work
         r"^(Limitations?)$",
         r"^(Future\s+Research)$",
         r"^(Future\s+Work)$",
         r"^(Research\s+Agenda)$",
-
         # Conclusions
         r"^(Conclusion)s?$",
         r"^(Concluding\s+Remarks?)$",
         r"^(Summary)$",
         r"^(Summary\s+and\s+Conclusion)s?$",
-
         # References and appendices
         r"^(References?)$",
         r"^(Bibliography)$",
@@ -90,7 +81,6 @@ def detect_sections(text: str) -> List[Dict]:
         r"^(Conflict\s+of\s+Interest)s?$",
         r"^(Author\s+Contributions?)$",
         r"^(Data\s+Availability)$",
-
         # Common subsection patterns
         r"^(Overview)$",
         r"^(Summary)$",
@@ -107,14 +97,12 @@ def detect_sections(text: str) -> List[Dict]:
         r"^(Instruments?)$",
         r"^(Statistics)$",
         r"^(Statistical\s+Analysis)$",
-
         # Domain-specific sections (business/management)
         r"^(Business\s+Model)$",
         r"^(Value\s+Proposition)$",
         r"^(Competitive\s+Advantage)$",
         r"^(Strategy)$",
         r"^(Implementation)$",
-
         # Domain-specific sections (digital transformation)
         r"^(Digital\s+Transformation)$",
         r"^(Digital\s+Strategy)$",
@@ -122,7 +110,6 @@ def detect_sections(text: str) -> List[Dict]:
         r"^(Innovation)$",
         r"^(Capabilities?)$",
         r"^(Resources?)$",
-
         # Case study specific
         r"^(Case\s+Description)$",
         r"^(Company\s+Background)$",

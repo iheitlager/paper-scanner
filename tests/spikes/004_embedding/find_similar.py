@@ -22,36 +22,42 @@ Most similar papers:
 """
 
 import sys
+
 import psycopg2
 from pgvector.psycopg2 import register_vector
 
+
 def find_similar_papers(citekey, limit=5):
     """Find papers similar to the given citekey"""
-    
+
     conn = psycopg2.connect("postgresql://pdfuser:pdfpass@localhost:5432/pdfdb")
     register_vector(conn)
     cursor = conn.cursor()
-    
+
     # Get the target paper's embedding
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT p.id, p.citekey, p.title
         FROM papers p
         WHERE p.citekey = %s
-    """, (citekey,))
-    
+    """,
+        (citekey,),
+    )
+
     result = cursor.fetchone()
     if not result:
         print(f"Paper not found: {citekey}")
         return
-    
+
     paper_id, paper_citekey, paper_title = result
-    
-    print(f"Finding papers similar to:")
+
+    print("Finding papers similar to:")
     print(f"  {paper_citekey}: {paper_title}")
     print()
-    
+
     # Find similar papers using vector similarity
-    cursor.execute("""
+    cursor.execute(
+        """
         SELECT 
             p2.citekey,
             p2.title,
@@ -68,11 +74,13 @@ def find_similar_papers(citekey, limit=5):
           AND pe2.embedding_method = 'aggregate_chunks'
         ORDER BY pe1.embedding <=> pe2.embedding
         LIMIT %s
-    """, (citekey, limit))
-    
+    """,
+        (citekey, limit),
+    )
+
     print("Most similar papers:")
     print("-" * 80)
-    
+
     for i, (ck, title, year, journal, distance, similarity) in enumerate(cursor.fetchall(), 1):
         print(f"{i}. {ck} ({year})")
         print(f"   {title}")
@@ -80,17 +88,18 @@ def find_similar_papers(citekey, limit=5):
             print(f"   Journal: {journal}")
         print(f"   Similarity: {similarity:.1%} (distance: {distance:.4f})")
         print()
-    
+
     cursor.close()
     conn.close()
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python find_similar.py <citekey> [limit]")
         print("Example: python find_similar.py CiarliEtAl2021 5")
         sys.exit(1)
-    
+
     citekey = sys.argv[1]
     limit = int(sys.argv[2]) if len(sys.argv) > 2 else 5
-    
+
     find_similar_papers(citekey, limit)

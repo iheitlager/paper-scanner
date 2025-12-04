@@ -3,17 +3,17 @@
 Test multiple models via Ollama
 """
 
-import subprocess
 import json
+import subprocess
 import time
 
 MODELS = [
-    'phi',
+    "phi",
     # 'phi3',
     # 'llama3.2:1b',
     # 'llama3.2',
     # 'gemma:2b',
-    'tinyllama',
+    "tinyllama",
     # 'qwen2.5:1.5b'
 ]
 
@@ -26,32 +26,25 @@ Text: "Digital technologies, innovation, and skills: Emerging trajectories and c
 
 JSON:"""
 
+
 def test_model(model_name, prompt):
     """Test a model via Ollama CLI"""
-    
-    print(f"\n{'='*60}")
+
+    print(f"\n{'=' * 60}")
     print(f"Testing: {model_name}")
-    print('='*60)
-    
+    print("=" * 60)
+
     start = time.time()
-    
-    result = subprocess.run(
-        ['ollama', 'run', model_name, prompt],
-        capture_output=True,
-        text=True,
-        timeout=60
-    )
-    
+
+    result = subprocess.run(["ollama", "run", model_name, prompt], capture_output=True, text=True, timeout=60)
+
     elapsed = time.time() - start
-    
+
     print(f"Response ({elapsed:.1f}s):")
     print(result.stdout)
-    
-    return {
-        'model': model_name,
-        'response': result.stdout,
-        'time': elapsed
-    }
+
+    return {"model": model_name, "response": result.stdout, "time": elapsed}
+
 
 # Test all models
 results = []
@@ -63,11 +56,11 @@ for model in MODELS:
         print(f"Error with {model}: {e}")
 
 # Save results
-with open('model_comparison.json', 'w') as f:
+with open("model_comparison.json", "w") as f:
     json.dump(results, f, indent=2)
 
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("SUMMARY")
-print("="*60)
+print("=" * 60)
 for r in results:
     print(f"{r['model']:20s} - {r['time']:5.1f}s")

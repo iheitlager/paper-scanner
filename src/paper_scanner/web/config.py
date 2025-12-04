@@ -13,7 +13,7 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -84,10 +84,14 @@ class Config:
 
     def __repr__(self) -> str:
         """String representation of configuration (sensitive data masked)."""
-        db_display = self.database_url.replace(
-            self.database_url.split("@")[0].split("://")[1] if "@" in self.database_url else "",
-            "***",
-        ) if "@" in self.database_url else "***"
+        db_display = (
+            self.database_url.replace(
+                self.database_url.split("@")[0].split("://")[1] if "@" in self.database_url else "",
+                "***",
+            )
+            if "@" in self.database_url
+            else "***"
+        )
 
         return (
             f"Config(database_url='{db_display}', pdf_base_dir='{self.pdf_base_dir}', "
@@ -124,6 +128,7 @@ class ConfigManager:
 
         try:
             from dotenv import load_dotenv
+
             load_dotenv(str(env_path))
             logger.info(f"Loaded environment from {env_path}")
         except ImportError:
@@ -248,9 +253,9 @@ def get_config(
     log_level: Optional[str] = None,
 ) -> Config:
     """Get application configuration (cached).
-    
+
     First call will load configuration, subsequent calls return cached config.
-    
+
     Args:
         database_url: PostgreSQL connection URL
         pdf_base_dir: Base directory for PDF files
@@ -259,7 +264,7 @@ def get_config(
         port: Port to bind to
         debug: Enable debug mode
         log_level: Logging level
-        
+
     Returns:
         Config instance
     """

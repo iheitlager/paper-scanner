@@ -16,15 +16,15 @@ Usage:
 
 import json
 import sys
-from pathlib import Path
-from typing import Dict, List, Any, Optional
-from datetime import datetime, UTC
 import time
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-import psycopg2
-from psycopg2.extras import execute_values, Json
-from psycopg2.extensions import register_adapter
 import numpy as np
+import psycopg2
+from psycopg2.extensions import register_adapter
+from psycopg2.extras import Json, execute_values
 
 
 # Register numpy array adapter for PostgreSQL
@@ -374,7 +374,7 @@ class DatabaseImporter:
             paper_embedding = record.get("paper_embedding")
             if paper_embedding:
                 self.insert_paper_embedding(paper_id, paper_embedding, cursor)
-                print(f"  → Paper embedding inserted", file=sys.stderr)
+                print("  → Paper embedding inserted", file=sys.stderr)
 
             # Step 5: Insert processing log
             self.insert_processing_log(paper_id, record, cursor)
@@ -383,7 +383,7 @@ class DatabaseImporter:
             self.conn.commit()
             cursor.close()
 
-            print(f"  ✓ Complete", file=sys.stderr)
+            print("  ✓ Complete", file=sys.stderr)
             return True
 
         except Exception as e:

@@ -1,7 +1,7 @@
 """Ollama handler for local Small Language Models (SLM)."""
 
 import subprocess
-from typing import Callable, Optional, Dict, Any, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from .base import LLMHandler, parse_json_response
 
@@ -14,9 +14,9 @@ class OllamaHandler(LLMHandler):
 
     # Supported Ollama/SLM models with max output tokens (estimates)
     MODELS = {
-        "phi": 2048,              # Phi model
-        "tinyllama": 2048,        # TinyLlama model
-        "llama3.2:1b": 4096,      # Llama3.2:1b model
+        "phi": 2048,  # Phi model
+        "tinyllama": 2048,  # TinyLlama model
+        "llama3.2:1b": 4096,  # Llama3.2:1b model
     }
 
     TIMEOUT = 300  # 5 minute timeout for local processing
@@ -55,10 +55,10 @@ class OllamaHandler(LLMHandler):
 
             # Call Ollama via subprocess
             result = subprocess.run(
-                ['ollama', 'run', self._get_model_name(), full_prompt],
+                ["ollama", "run", self._get_model_name(), full_prompt],
                 capture_output=True,
                 text=True,
-                timeout=self.TIMEOUT
+                timeout=self.TIMEOUT,
             )
 
             if result.returncode != 0:
@@ -67,7 +67,7 @@ class OllamaHandler(LLMHandler):
 
             response_text = result.stdout.strip()
             parsed_response = parse_json_response(response_text)
-            
+
             # If JSON parsing failed, log the raw response for debugging
             if parsed_response is None:
                 self.log(f"Warning: Failed to parse JSON response from Ollama.\nMessage: {response_text[:500]}")

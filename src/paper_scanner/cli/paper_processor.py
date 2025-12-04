@@ -21,17 +21,17 @@ import datetime
 import json
 import os
 import sys
-import yaml
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+import yaml
 from colorama import Fore, Style, init
 from dotenv import load_dotenv
 
 # Import handler registry
 from paper_scanner.models.base import (
-    get_handler,
     get_all_models,
+    get_handler,
     get_models_by_group,
     initialize_handlers,
 )
@@ -51,6 +51,7 @@ DEFAULT_MAX_TOKENS = 2048
 @dataclass
 class ProcessorConfig:
     """Configuration for the processor."""
+
     model: str = DEFAULT_MODEL
     max_tokens: int = DEFAULT_MAX_TOKENS
     text_source: str = "pdf"  # 'pdf', 'content', or field name
@@ -73,6 +74,7 @@ class ProcessorConfig:
 # Processor Class
 # ============================================================================
 
+
 class PaperProcessor:
     """Main processor for enriching JSONLines records with LLM analysis."""
 
@@ -88,11 +90,11 @@ class PaperProcessor:
         self.handler = get_handler(config.model)
         if not self.handler:
             raise ValueError(f"No handler registered for model: {config.model}")
-        
+
         # Set the specific model on Claude handler
-        if hasattr(self.handler, 'model'):
+        if hasattr(self.handler, "model"):
             self.handler.model = config.model
-        
+
         self.log(f"✓ Initialized handler for model: {config.model}")
 
         # Load prompt if provided
@@ -138,12 +140,12 @@ class PaperProcessor:
     def _load_existing_records(self) -> None:
         """Load file_path values from existing output file for filtering."""
         output_file = self.config.output_file
-        
+
         # When output file is not specified, try to load from stdin redirect
         # This handles: cat file.jsonl | processor --skip-existing >| file.jsonl
         if not output_file:
             return
-        
+
         if not os.path.exists(output_file):
             self.log(f"Note: Output file does not exist yet: {output_file}")
             return
@@ -176,16 +178,16 @@ class PaperProcessor:
             if not os.path.exists(file_path):
                 self.log(f"Warning: PDF not found at {file_path}")
                 return None
-            
+
             # If max_chars is specified, extract text instead of using native PDF
             if self.config.max_chars:
                 # Use handler's PDF extraction if available
-                if hasattr(self.handler, 'extract_pdf_text'):
+                if hasattr(self.handler, "extract_pdf_text"):
                     return self.handler.extract_pdf_text(file_path, self.config.max_chars)
                 else:
                     self.log("Warning: Handler does not support PDF text extraction")
                     return None
-            
+
             # Otherwise return the file path itself, handler will use native PDF encoding
             return file_path
 
@@ -233,14 +235,16 @@ class PaperProcessor:
 
         # Determine handler name for logging
         handler_class_name = self.handler.__class__.__name__
-        self.log(f"    {Fore.LIGHTBLUE_EX}⋯ Calling {handler_class_name} (model: {self.config.model})...{Style.RESET_ALL}")
+        self.log(
+            f"    {Fore.LIGHTBLUE_EX}⋯ Calling {handler_class_name} (model: {self.config.model})...{Style.RESET_ALL}"
+        )
 
         # Prepare system prompt
         system_prompt = self.custom_prompt or "You are a helpful assistant. Respond only with valid JSON."
 
         # Call handler
         result, token_usage = self.handler.call(input_text, system_prompt, self.config.max_tokens)
-        
+
         if not result:
             self.stats["error"] += 1
             self.log(f"    {Fore.RED}✗ Error: Handler call failed{Style.RESET_ALL}")
@@ -328,15 +332,15 @@ class PaperProcessor:
         print(f"Total processed: {self.stats['processed']}", file=sys.stderr)
         print(f"{Fore.GREEN}✓ Successful:   {self.stats['success']}{Style.RESET_ALL}", file=sys.stderr)
 
-        if self.stats['error'] > 0:
+        if self.stats["error"] > 0:
             print(f"{Fore.RED}✗ Errors:       {self.stats['error']}{Style.RESET_ALL}", file=sys.stderr)
         else:
             print(f"{Fore.GREEN}✗ Errors:       {self.stats['error']}{Style.RESET_ALL}", file=sys.stderr)
 
-        if self.stats['skipped'] > 0:
+        if self.stats["skipped"] > 0:
             print(f"{Fore.YELLOW}⊘ Skipped:      {self.stats['skipped']}{Style.RESET_ALL}", file=sys.stderr)
 
-        if self.stats['not_updated'] > 0:
+        if self.stats["not_updated"] > 0:
             print(f"{Fore.LIGHTBLACK_EX}↻ Not updated:  {self.stats['not_updated']}{Style.RESET_ALL}", file=sys.stderr)
 
         # Token usage section
@@ -344,15 +348,30 @@ class PaperProcessor:
         print(f"{Fore.CYAN}{Style.BRIGHT}Token Usage{Style.RESET_ALL}", file=sys.stderr)
         print("=" * 50, file=sys.stderr)
 
-        print(f"{Fore.BLUE}Input tokens:  {Fore.LIGHTBLUE_EX}{self.stats['total_input_tokens']:,}{Style.RESET_ALL}", file=sys.stderr)
-        print(f"{Fore.GREEN}Output tokens: {Fore.LIGHTGREEN_EX}{self.stats['total_output_tokens']:,}{Style.RESET_ALL}", file=sys.stderr)
-        print(f"{Fore.MAGENTA}Total tokens:  {Fore.LIGHTMAGENTA_EX}{self.stats['total_tokens']:,}{Style.RESET_ALL}", file=sys.stderr)
+        print(
+            f"{Fore.BLUE}Input tokens:  {Fore.LIGHTBLUE_EX}{self.stats['total_input_tokens']:,}{Style.RESET_ALL}",
+            file=sys.stderr,
+        )
+        print(
+            f"{Fore.GREEN}Output tokens: {Fore.LIGHTGREEN_EX}{self.stats['total_output_tokens']:,}{Style.RESET_ALL}",
+            file=sys.stderr,
+        )
+        print(
+            f"{Fore.MAGENTA}Total tokens:  {Fore.LIGHTMAGENTA_EX}{self.stats['total_tokens']:,}{Style.RESET_ALL}",
+            file=sys.stderr,
+        )
 
-        if self.stats['success'] > 0:
-            avg_input = self.stats['total_input_tokens'] / self.stats['success']
-            avg_output = self.stats['total_output_tokens'] / self.stats['success']
-            print(f"\n{Fore.BLUE}Average input/record:  {Fore.LIGHTBLUE_EX}{avg_input:.0f}{Style.RESET_ALL}", file=sys.stderr)
-            print(f"{Fore.GREEN}Average output/record: {Fore.LIGHTGREEN_EX}{avg_output:.0f}{Style.RESET_ALL}", file=sys.stderr)
+        if self.stats["success"] > 0:
+            avg_input = self.stats["total_input_tokens"] / self.stats["success"]
+            avg_output = self.stats["total_output_tokens"] / self.stats["success"]
+            print(
+                f"\n{Fore.BLUE}Average input/record:  {Fore.LIGHTBLUE_EX}{avg_input:.0f}{Style.RESET_ALL}",
+                file=sys.stderr,
+            )
+            print(
+                f"{Fore.GREEN}Average output/record: {Fore.LIGHTGREEN_EX}{avg_output:.0f}{Style.RESET_ALL}",
+                file=sys.stderr,
+            )
 
         print("=" * 50, file=sys.stderr)
 
@@ -360,6 +379,7 @@ class PaperProcessor:
 # ============================================================================
 # CLI & Configuration
 # ============================================================================
+
 
 def generate_yaml_definition(config: ProcessorConfig, output_path: str) -> None:
     """Generate a YAML definition file from the current configuration."""
@@ -421,7 +441,7 @@ def merge_configs(yaml_config: Dict[str, Any], cli_args: argparse.Namespace) -> 
             flag_names = boolean_flags[key]
             if not isinstance(flag_names, list):
                 flag_names = [flag_names]
-            
+
             if any(flag in sys.argv for flag in flag_names):
                 config_dict[key] = value
 
@@ -444,11 +464,11 @@ def create_parser() -> argparse.ArgumentParser:
     # Initialize handlers to get all available models
     # API key is optional here - Claude models will still be registered without it
     initialize_handlers(api_key=None)
-    
+
     # Get all registered models from handlers
     all_models = get_all_models()
     models_by_group = get_models_by_group()
-    
+
     # Format models info grouped by handler
     model_groups_info = ""
     for group in sorted(models_by_group.keys()):
@@ -487,12 +507,14 @@ Note:
     )
 
     parser.add_argument(
-        "-i", "--input",
+        "-i",
+        "--input",
         dest="input_file",
         help="Input JSONLines file (default: stdin)",
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         dest="output_file",
         help="Output JSONLines file (default: stdout)",
     )
@@ -514,7 +536,8 @@ Note:
         help="Text source: 'pdf', 'content', or record field name (default: pdf)",
     )
     parser.add_argument(
-        "-c", "--max-chars",
+        "-c",
+        "--max-chars",
         type=int,
         default=None,
         help="Extract PDF text and limit to N characters (requires pypdf). Overrides native PDF encoding.",
@@ -560,12 +583,14 @@ Note:
         help="YAML configuration file (CLI args override)",
     )
     parser.add_argument(
-        "-q", "--quiet",
+        "-q",
+        "--quiet",
         action="store_true",
         help="Suppress verbose logging",
     )
     parser.add_argument(
-        "-v", "--verbose",
+        "-v",
+        "--verbose",
         action="store_true",
         help="Enable verbose logging with record details, file paths, and timings",
     )
@@ -575,7 +600,8 @@ Note:
         help="List available models and exit",
     )
     parser.add_argument(
-        "-x", "--definition",
+        "-x",
+        "--definition",
         dest="definition_output",
         help="Generate a YAML definition file from current config and exit",
     )
@@ -595,7 +621,7 @@ def main():
         # Get API key for Claude handler registration
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         initialize_handlers(api_key=api_key)
-        
+
         models_by_group = get_models_by_group()
         print("Available models:")
         for group in sorted(models_by_group.keys()):

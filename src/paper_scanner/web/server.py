@@ -29,10 +29,10 @@ logger = logging.getLogger(__name__)
 
 def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager, Config]:
     """Create and configure the Flask application.
-    
+
     Args:
         config: Config instance (default: loaded from environment)
-    
+
     Returns:
         Tuple of (Flask app, DatabaseManager instance, Config instance)
     """
@@ -42,20 +42,19 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
 
     # Configure logging
     logging.basicConfig(
-        level=getattr(logging, config.log_level),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        level=getattr(logging, config.log_level), format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     logger.debug(f"Loaded configuration: {config}")
 
     # Initialize Flask app with static folder configuration
-    app = Flask(__name__, static_folder='static', static_url_path='/static')
+    app = Flask(__name__, static_folder="static", static_url_path="/static")
     CORS(app)
 
     # Store config in app context for route access
-    app.config['DATABASE_URL'] = config.database_url
-    app.config['PDF_BASE_DIR'] = config.pdf_base_dir
-    app.config['ENV_MODE'] = config.env
-    app.config['DEBUG'] = config.debug
+    app.config["DATABASE_URL"] = config.database_url
+    app.config["PDF_BASE_DIR"] = config.pdf_base_dir
+    app.config["ENV_MODE"] = config.env
+    app.config["DEBUG"] = config.debug
 
     # Initialize database manager
     db_manager = DatabaseManager(config.database_url)
@@ -67,13 +66,13 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
     @app.route("/health", methods=["GET"])
     def health() -> Tuple[Dict[str, Any], int]:
         """Health check endpoint.
-        
+
         Returns:
             JSON response with health status and environment
         """
         try:
             db_manager.get_connection()
-            return jsonify({"status": "ok", "environment": app.config['ENV_MODE']}), 200
+            return jsonify({"status": "ok", "environment": app.config["ENV_MODE"]}), 200
         except DatabaseException as e:
             logger.error(f"Health check failed: {e}")
             return jsonify({"status": "error", "message": str(e)}), 500
@@ -81,10 +80,10 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
     @app.route("/api/files", methods=["GET"])
     def get_files() -> Tuple[Dict[str, Any], int]:
         """Get list of all PDF files from database.
-        
+
         Query parameters:
             directory: Optional directory filter
-            
+
         Returns:
             JSON response with list of PDF files
         """
@@ -98,7 +97,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
     @app.route("/api/load-jsonlines", methods=["POST"])
     def load_jsonlines() -> Tuple[Dict[str, Any], int]:
         """Load PDF records from the request body into the database.
-        
+
         Expected JSON:
             {
                 "records": [
@@ -116,7 +115,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
                     }
                 ]
             }
-        
+
         Returns:
             JSON response with loaded/failed counts
         """
@@ -137,7 +136,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
                 try:
                     db_manager.insert_pdf_record(record)
                     loaded_count += 1
-                    
+
                     # If references are present, insert them into the database
                     if "references" in record and record["references"]:
                         try:
@@ -154,23 +153,25 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
                     logger.warning(f"Failed to insert record {idx}: {e}")
                     failed_count += 1
 
-            return jsonify({
-                "success": True,
-                "loaded": loaded_count,
-                "failed": failed_count,
-                "total": loaded_count + failed_count,
-                "references_loaded": references_count,
-            }), 200
+            return jsonify(
+                {
+                    "success": True,
+                    "loaded": loaded_count,
+                    "failed": failed_count,
+                    "total": loaded_count + failed_count,
+                    "references_loaded": references_count,
+                }
+            ), 200
         except InvalidDataException:
             raise
 
     @app.route("/api/file_details/<file_name>", methods=["GET"])
     def get_file_details(file_name: str) -> Tuple[Dict[str, Any], int]:
         """Get file details by name.
-        
+
         Args:
             file_name: Name of the PDF file
-            
+
         Returns:
             JSON response with file details
         """
@@ -186,7 +187,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
     @app.route("/api/tags", methods=["GET"])
     def get_tags() -> Tuple[Dict[str, Any], int]:
         """Get all unique tags from database.
-        
+
         Returns:
             JSON response with list of tags
         """
@@ -199,7 +200,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
     @app.route("/api/year-overview", methods=["GET"])
     def get_year_overview() -> Tuple[Dict[str, Any], int]:
         """Get overview of papers grouped by publication year.
-        
+
         Returns:
             JSON response with year statistics
         """
@@ -212,15 +213,15 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
     @app.route("/api/file_tags/<file_name>", methods=["PUT"])
     def update_file_tags(file_name: str) -> Tuple[Dict[str, Any], int]:
         """Update tags for a PDF file.
-        
+
         Args:
             file_name: Name of the PDF file
-            
+
         Expected JSON:
             {
                 "tags": "tag1:tag2:tag3"
             }
-        
+
         Returns:
             JSON response with success status
         """
@@ -244,10 +245,10 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
     @app.route("/api/references/<file_name>", methods=["GET"])
     def get_references(file_name: str) -> Tuple[Dict[str, Any], int]:
         """Get all references for a specific paper.
-        
+
         Args:
             file_name: Name of the PDF file
-            
+
         Returns:
             JSON response with list of references
         """
@@ -257,7 +258,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
                 raise PDFNotFoundException(file_name)
 
             references = db_manager.get_references_for_paper(pdf_record["id"])
-            
+
             # Parse JSONB fields back to objects for JSON response
             for ref in references:
                 if ref.get("authors") and isinstance(ref["authors"], str):
@@ -265,7 +266,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
                         ref["authors"] = json.loads(ref["authors"])
                     except json.JSONDecodeError:
                         pass
-            
+
             return jsonify({"success": True, "references": references}), 200
         except (DatabaseException, PDFNotFoundException):
             raise
@@ -273,10 +274,10 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
     @app.route("/api/pdf/<file_name>", methods=["GET"])
     def get_pdf(file_name: str) -> Tuple[Any, int]:
         """Serve a PDF file by name.
-        
+
         Args:
             file_name: Name of the PDF file
-            
+
         Returns:
             PDF file or JSON error response
         """
@@ -288,11 +289,11 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
             file_path: str = pdf_record["file_path"]
 
             # In Docker, translate paths from host machine to container paths
-            if app.config['ENV_MODE'] == "docker":
+            if app.config["ENV_MODE"] == "docker":
                 if file_path.startswith("/Users/iheitlager/wc/papers"):
                     file_path = file_path.replace("/Users/iheitlager/wc/papers", "/papers", 1)
-                elif file_path.startswith(app.config['PDF_BASE_DIR']):
-                    file_path = file_path.replace(app.config['PDF_BASE_DIR'], "/papers", 1)
+                elif file_path.startswith(app.config["PDF_BASE_DIR"]):
+                    file_path = file_path.replace(app.config["PDF_BASE_DIR"], "/papers", 1)
 
             logger.info(f"Looking for PDF at path: {file_path} (ENV: {app.config['ENV_MODE']})")
 
@@ -307,11 +308,11 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
     @app.route("/", methods=["GET"])
     def index() -> str:
         """Render the main HTML interface.
-        
+
         Returns:
             Rendered HTML template
         """
-        return render_template("index.html", pdf_base_dir=app.config['PDF_BASE_DIR'])
+        return render_template("index.html", pdf_base_dir=app.config["PDF_BASE_DIR"])
 
     return app, db_manager, config
 
@@ -334,16 +335,16 @@ def get_app():
 # For gunicorn WSGI compatibility, create a callable app object
 class AppProxy:
     """Lazy proxy for Flask app to defer initialization until first request."""
-    
+
     def __init__(self):
         self._app = None
-    
+
     def __call__(self, environ, start_response):
         """WSGI interface - initialize app on first call."""
         if self._app is None:
             self._app, _, _ = create_app()
         return self._app(environ, start_response)
-    
+
     def __getattr__(self, name):
         """Delegate attribute access to the actual app."""
         if self._app is None:
@@ -356,13 +357,11 @@ app = AppProxy()
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments.
-    
+
     Returns:
         Parsed arguments
     """
-    parser = argparse.ArgumentParser(
-        description="PDF Browser Server - Browse and view PDFs with metadata"
-    )
+    parser = argparse.ArgumentParser(description="PDF Browser Server - Browse and view PDFs with metadata")
     parser.add_argument(
         "--database-url",
         help="PostgreSQL connection URL (default: env var DATABASE_URL)",

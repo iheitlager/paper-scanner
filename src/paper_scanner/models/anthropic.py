@@ -2,7 +2,7 @@
 
 import base64
 import os
-from typing import Callable, Optional, Dict, Any, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from anthropic import Anthropic, RateLimitError
 
@@ -18,9 +18,9 @@ class ClaudeHandler(LLMHandler):
     # Supported Claude models with max output tokens
     MODELS = {
         # Claude 4 models (current generation)
-        "claude-opus-4-20250514": 16384,          # Most capable
-        "claude-sonnet-4-5-20250929": 16384,      # Best balance of speed & capability
-        "claude-haiku-4-5-20251001": 16384,       # Fastest, most economical
+        "claude-opus-4-20250514": 16384,  # Most capable
+        "claude-sonnet-4-5-20250929": 16384,  # Best balance of speed & capability
+        "claude-haiku-4-5-20251001": 16384,  # Fastest, most economical
         # Claude 3.5 models (previous generation)
         "claude-3-5-sonnet-20241022": 8192,
         "claude-3-5-haiku-20241022": 8192,
@@ -75,20 +75,18 @@ class ClaudeHandler(LLMHandler):
                 content = []
 
                 # If text is a file path to a PDF, encode and send as document
-                if text.lower().endswith('.pdf') and os.path.exists(text):
+                if text.lower().endswith(".pdf") and os.path.exists(text):
                     try:
-                        with open(text, 'rb') as f:
+                        with open(text, "rb") as f:
                             pdf_bytes = f.read()
-                            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                            pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
 
-                        content.append({
-                            "type": "document",
-                            "source": {
-                                "type": "base64",
-                                "media_type": "application/pdf",
-                                "data": pdf_base64
+                        content.append(
+                            {
+                                "type": "document",
+                                "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_base64},
                             }
-                        })
+                        )
                     except Exception as e:
                         self.log(f"Warning: Could not encode PDF {text}: {e}. Using as text instead.")
                         content.append({"type": "text", "text": text})
@@ -104,7 +102,7 @@ class ClaudeHandler(LLMHandler):
                 )
 
                 # Capture token usage from API response
-                if hasattr(response, 'usage'):
+                if hasattr(response, "usage"):
                     token_usage["input_tokens"] = response.usage.input_tokens
                     token_usage["output_tokens"] = response.usage.output_tokens
 

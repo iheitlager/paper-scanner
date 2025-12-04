@@ -12,6 +12,7 @@ class PDFBrowserException(Exception):
 
 class DatabaseException(PDFBrowserException):
     """Exception raised for database operations."""
+
     pass
 
 

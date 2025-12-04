@@ -72,10 +72,10 @@ class TestCreateApp:
 
         app, _, _ = create_app(mock_config)
 
-        assert app.config['DATABASE_URL'] == "postgresql://localhost/test"
-        assert app.config['PDF_BASE_DIR'] == "/path/to/pdfs"
-        assert app.config['ENV_MODE'] == "local"
-        assert app.config['DEBUG'] is False
+        assert app.config["DATABASE_URL"] == "postgresql://localhost/test"
+        assert app.config["PDF_BASE_DIR"] == "/path/to/pdfs"
+        assert app.config["ENV_MODE"] == "local"
+        assert app.config["DEBUG"] is False
 
     def test_create_app_registers_error_handlers(self):
         """Test that error handlers are registered."""
@@ -481,7 +481,7 @@ class TestYearOverviewRoute:
                     {"file_name": "paper1.pdf", "title": "Paper 1", "citekey": "P1"},
                     {"file_name": "paper2.pdf", "title": "Paper 2", "citekey": "P2"},
                     {"file_name": "paper3.pdf", "title": "Paper 3", "citekey": "P3"},
-                ]
+                ],
             },
             {
                 "year": 2024,
@@ -489,7 +489,7 @@ class TestYearOverviewRoute:
                 "papers": [
                     {"file_name": "paper4.pdf", "title": "Paper 4", "citekey": "P4"},
                     {"file_name": "paper5.pdf", "title": "Paper 5", "citekey": "P5"},
-                ]
+                ],
             },
         ]
         with patch.object(db_manager, "get_year_overview", return_value=mock_year_data):
@@ -599,6 +599,7 @@ class TestPdfRoute:
 
         # Create a temporary test file
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             tmp.write(b"PDF content")
             tmp_path = tmp.name
@@ -614,6 +615,7 @@ class TestPdfRoute:
                 assert response.content_type == "application/pdf"
         finally:
             import os
+
             os.unlink(tmp_path)
 
     def test_get_pdf_not_found_in_db(self):
@@ -665,15 +667,13 @@ class TestPdfRoute:
 
         # Create a temporary test file
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             tmp.write(b"PDF content")
             tmp_path = tmp.name
 
         # Mock record with host path
-        mock_record = {
-            "file_name": "paper.pdf",
-            "file_path": "/Users/iheitlager/wc/papers/paper.pdf"
-        }
+        mock_record = {"file_name": "paper.pdf", "file_path": "/Users/iheitlager/wc/papers/paper.pdf"}
 
         try:
             with patch.object(db_manager, "get_pdf_by_file_name", return_value=mock_record):
@@ -688,6 +688,7 @@ class TestPdfRoute:
                         assert "/papers/paper.pdf" in call_args[0]
         finally:
             import os
+
             os.unlink(tmp_path)
 
 
@@ -735,17 +736,27 @@ class TestParseArgs:
 
     def test_parse_args_with_values(self):
         """Test parse_args with all arguments."""
-        with patch("sys.argv", [
-            "server.py",
-            "--database-url", "postgresql://localhost/test",
-            "--pdf-dir", "/path/to/pdfs",
-            "--env", "docker",
-            "--host", "0.0.0.0",
-            "--port", "8000",
-            "--debug",
-            "--log-level", "DEBUG",
-            "--env-file", "/etc/.env",
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "server.py",
+                "--database-url",
+                "postgresql://localhost/test",
+                "--pdf-dir",
+                "/path/to/pdfs",
+                "--env",
+                "docker",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8000",
+                "--debug",
+                "--log-level",
+                "DEBUG",
+                "--env-file",
+                "/etc/.env",
+            ],
+        ):
             args = parse_args()
 
             assert args.database_url == "postgresql://localhost/test"

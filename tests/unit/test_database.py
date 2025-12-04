@@ -785,7 +785,7 @@ class TestGetYearOverview:
                     {"file_name": "paper1.pdf", "title": "Paper 1", "citekey": "P1"},
                     {"file_name": "paper2.pdf", "title": "Paper 2", "citekey": "P2"},
                     {"file_name": "paper3.pdf", "title": "Paper 3", "citekey": "P3"},
-                ]
+                ],
             },
             {
                 "year": 2024,
@@ -793,7 +793,7 @@ class TestGetYearOverview:
                 "papers": [
                     {"file_name": "paper4.pdf", "title": "Paper 4", "citekey": "P4"},
                     {"file_name": "paper5.pdf", "title": "Paper 5", "citekey": "P5"},
-                ]
+                ],
             },
         ]
         mock_cursor.fetchall.return_value = mock_year_data

@@ -12,6 +12,16 @@ Explore and implement vector embedding capabilities for the paper-scanner projec
 - [ ] Implement semantic search functionality
 - [ ] Test performance and accuracy
 
+## Extensions
+
+- Have a frontend SLM model capturing questions and forwarding to the right menu option or action
+- Be able to upload the document to claude and have it process further
+- Found some deeper approaches to compare and analyse starting from the database
+- Go to the web and make sure the PDF viewer is there including a cluster browser
+- Work on the references too
+- Have links to other databases
+- Be able to click on sections
+
 ## Scripts
 
 ### `load_papers.py`

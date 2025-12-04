@@ -7,6 +7,7 @@ Usage:
 """
 
 import sys
+
 import psycopg2
 from pgvector.psycopg2 import register_vector
 
@@ -49,9 +50,7 @@ def build_reading_list(seed_citekey, total_papers=10):
             continue
 
         paper_id, citekey, title, year, journal = result
-        reading_list.append(
-            {"citekey": citekey, "title": title, "year": year, "journal": journal, "depth": depth}
-        )
+        reading_list.append({"citekey": citekey, "title": title, "year": year, "journal": journal, "depth": depth})
 
         # Find similar papers to add to queue
         cursor.execute(

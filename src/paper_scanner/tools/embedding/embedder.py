@@ -1,10 +1,10 @@
 import sys
+from typing import Dict, List
 
-from typing import List, Dict
+import numpy as np
 
 # Embeddings
 from sentence_transformers import SentenceTransformer
-import numpy as np
 
 
 class EmbeddingGenerator:

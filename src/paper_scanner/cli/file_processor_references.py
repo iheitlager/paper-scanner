@@ -135,7 +135,7 @@ class ReferenceExtractor:
 
                 # Remove any preamble text before the JSON object
                 # Look for the first '{' which starts the JSON
-                json_start = response_text.find('{')
+                json_start = response_text.find("{")
                 if json_start != -1:
                     response_text = response_text[json_start:]
 
@@ -149,16 +149,16 @@ class ReferenceExtractor:
                     response_text = response_text[:-3].rstrip()
 
                 # Find the last '}' which ends the JSON object and remove anything after it
-                json_end = response_text.rfind('}')
+                json_end = response_text.rfind("}")
                 if json_end != -1:
-                    response_text = response_text[:json_end + 1]
+                    response_text = response_text[: json_end + 1]
 
                 self.log(f"Attempting to parse JSON response (length: {len(response_text)} chars)")
 
                 # Parse the JSON response
                 try:
                     references = json.loads(response_text)
-                    self.log(f"Successfully parsed references JSON")
+                    self.log("Successfully parsed references JSON")
                     return references
                 except json.JSONDecodeError as e:
                     self.log(f"Failed to parse references JSON response: {e}")
@@ -187,7 +187,7 @@ class ReferenceExtractor:
 
     def process_jsonlines(self, f_in, f_out):
         """Process JSONLines records and add references field.
-        
+
         Args:
             f_in: Input file handle with JSONLines records (pre-analyzed)
             f_out: Output file handle for enriched JSONLines results
@@ -222,7 +222,9 @@ class ReferenceExtractor:
                         self.log(f"Successfully extracted references for {file_name}")
                         success_count += 1
                     else:
-                        self.log(f"Warning: Failed to extract references for {file_name}, continuing without references")
+                        self.log(
+                            f"Warning: Failed to extract references for {file_name}, continuing without references"
+                        )
                 else:
                     self.log(f"Warning: Could not extract text from {file_path}")
 
@@ -240,7 +242,9 @@ class ReferenceExtractor:
                 error_count += 1
                 continue
 
-        self.log(f"Reference extraction complete! {processed_count} records processed, {success_count} successful, {error_count} errors")
+        self.log(
+            f"Reference extraction complete! {processed_count} records processed, {success_count} successful, {error_count} errors"
+        )
         return processed_count, error_count
 
 

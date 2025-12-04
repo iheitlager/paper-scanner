@@ -15,14 +15,14 @@ Usage:
 
 import json
 import sys
-from pathlib import Path
-from typing import List, Dict, Any
 import time
-from datetime import datetime, UTC
-
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Dict
 
 from paper_scanner.tools.embedding.chunker import PDFChunker
 from paper_scanner.tools.embedding.embedder import EmbeddingGenerator
+
 
 class ChunkEmbedPipeline:
     """
@@ -51,7 +51,7 @@ class ChunkEmbedPipeline:
             chunks = self.chunker.chunk_paper(file_path, strategy="hybrid")
 
             if not chunks:
-                print(f"  Warning: No chunks generated", file=sys.stderr)
+                print("  Warning: No chunks generated", file=sys.stderr)
                 return {
                     **record,
                     "chunks": [],
@@ -71,7 +71,7 @@ class ChunkEmbedPipeline:
 
             # Step 3: Generate paper-level embedding
             paper_embedding = self.embedder.embed_paper(enriched_chunks, method="aggregate_chunks")
-            print(f"  → Generated paper embedding", file=sys.stderr)
+            print("  → Generated paper embedding", file=sys.stderr)
 
             # Step 4: Create enhanced record
             elapsed = time.time() - start_time

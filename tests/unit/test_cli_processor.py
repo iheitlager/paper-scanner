@@ -2,23 +2,22 @@
 
 """Unit tests for paper_processor CLI."""
 
-import json
 import os
 import tempfile
-from unittest.mock import Mock, patch, MagicMock
 from io import StringIO
+from unittest.mock import Mock, patch
 
 import pytest
 
 from paper_scanner.cli.paper_processor import (
-    ProcessorConfig,
-    PaperProcessor,
-    create_parser,
-    merge_configs,
-    load_yaml_config,
-    generate_yaml_definition,
-    DEFAULT_MODEL,
     DEFAULT_MAX_TOKENS,
+    DEFAULT_MODEL,
+    PaperProcessor,
+    ProcessorConfig,
+    create_parser,
+    generate_yaml_definition,
+    load_yaml_config,
+    merge_configs,
 )
 
 

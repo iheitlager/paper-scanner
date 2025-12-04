@@ -4,8 +4,6 @@
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 from paper_scanner.models.ollama import OllamaHandler
 
 
@@ -53,11 +51,7 @@ class TestOllamaHandler:
         mock_run.return_value = mock_result
 
         handler = OllamaHandler()
-        result, token_usage = handler.call(
-            text="test text",
-            system_prompt="test prompt",
-            max_tokens=100
-        )
+        result, token_usage = handler.call(text="test text", system_prompt="test prompt", max_tokens=100)
 
         assert result is not None
         assert result["result"] == "parsed JSON"
@@ -73,11 +67,7 @@ class TestOllamaHandler:
         mock_run.return_value = mock_result
 
         handler = OllamaHandler()
-        result, token_usage = handler.call(
-            text="test text",
-            system_prompt="test prompt",
-            max_tokens=100
-        )
+        result, token_usage = handler.call(text="test text", system_prompt="test prompt", max_tokens=100)
 
         assert result is None
         assert token_usage["input_tokens"] == 0
@@ -91,11 +81,7 @@ class TestOllamaHandler:
         mock_run.return_value = mock_result
 
         handler = OllamaHandler()
-        result, token_usage = handler.call(
-            text="test text",
-            system_prompt="test prompt",
-            max_tokens=100
-        )
+        result, token_usage = handler.call(text="test text", system_prompt="test prompt", max_tokens=100)
 
         assert result is None
 
@@ -103,11 +89,7 @@ class TestOllamaHandler:
     def test_ollama_handler_call_ollama_not_found(self, mock_run):
         """Test Ollama handler when ollama command is not found."""
         handler = OllamaHandler()
-        result, token_usage = handler.call(
-            text="test text",
-            system_prompt="test prompt",
-            max_tokens=100
-        )
+        result, token_usage = handler.call(text="test text", system_prompt="test prompt", max_tokens=100)
 
         assert result is None
 
@@ -115,13 +97,9 @@ class TestOllamaHandler:
     def test_ollama_handler_call_timeout(self, mock_run):
         """Test Ollama handler timeout."""
         mock_run.side_effect = Exception("timeout")
-        
+
         handler = OllamaHandler()
-        result, token_usage = handler.call(
-            text="test text",
-            system_prompt="test prompt",
-            max_tokens=100
-        )
+        result, token_usage = handler.call(text="test text", system_prompt="test prompt", max_tokens=100)
 
         assert result is None
 
@@ -134,7 +112,7 @@ class TestOllamaHandler:
     def test_ollama_handler_extract_pdf_text(self):
         """Test that Ollama handler inherits PDF extraction."""
         handler = OllamaHandler()
-        
+
         assert hasattr(handler, "extract_pdf_text")
         assert callable(handler.extract_pdf_text)
 
@@ -142,7 +120,7 @@ class TestOllamaHandler:
     def test_ollama_handler_pdf_extraction(self, mock_pdf_reader):
         """Test Ollama handler PDF extraction."""
         handler = OllamaHandler()
-        
+
         # Mock the PDF reading
         mock_page = Mock()
         mock_page.extract_text.return_value = "Ollama extracted PDF content"
@@ -168,14 +146,14 @@ class TestOllamaHandler:
 
         handler = OllamaHandler(logger=mock_logger)
         handler.log("test message")
-        
+
         assert len(logged_messages) == 1
         assert logged_messages[0] == "test message"
 
     def test_ollama_handler_get_models(self):
         """Test getting all Ollama models."""
         models = OllamaHandler.get_models()
-        
+
         assert isinstance(models, dict)
         assert len(models) > 0
         assert "phi" in models
@@ -186,25 +164,21 @@ class TestOllamaHandler:
     def test_ollama_handler_call_with_valid_json_output(self, mock_run):
         """Test Ollama handler call with various JSON formats."""
         handler = OllamaHandler()
-        
+
         test_cases = [
             '{"status": "success"}',
             '{"data": [1, 2, 3]}',
             '{"nested": {"key": "value"}}',
         ]
-        
+
         for json_output in test_cases:
             mock_result = Mock()
             mock_result.returncode = 0
             mock_result.stdout = json_output
             mock_run.return_value = mock_result
-            
-            result, token_usage = handler.call(
-                text="test",
-                system_prompt="prompt",
-                max_tokens=100
-            )
-            
+
+            result, token_usage = handler.call(text="test", system_prompt="prompt", max_tokens=100)
+
             assert result is not None
             assert isinstance(result, dict)
 
@@ -217,11 +191,7 @@ class TestOllamaHandler:
         mock_run.return_value = mock_result
 
         handler = OllamaHandler()
-        result, token_usage = handler.call(
-            text="input text here",
-            system_prompt="system prompt here",
-            max_tokens=100
-        )
+        result, token_usage = handler.call(text="input text here", system_prompt="system prompt here", max_tokens=100)
 
         # Token usage should be estimated based on character count
         assert token_usage["input_tokens"] > 0

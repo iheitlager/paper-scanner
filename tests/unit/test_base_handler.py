@@ -2,24 +2,19 @@
 
 """Unit tests for base LLM handler functionality and registry."""
 
-import json
-from typing import Dict, Any
 from unittest.mock import Mock, patch
 
-import pytest
-
+from paper_scanner.models.anthropic import ClaudeHandler
 from paper_scanner.models.base import (
-    LLMHandler,
-    get_handler,
+    _HANDLER_REGISTRY,
     get_all_models,
+    get_handler,
     get_models_by_group,
     get_registered_handlers,
     initialize_handlers,
     parse_json_response,
     register_handler,
-    _HANDLER_REGISTRY,
 )
-from paper_scanner.models.anthropic import ClaudeHandler
 from paper_scanner.models.ollama import OllamaHandler
 
 
@@ -269,7 +264,7 @@ class TestJsonParsing:
 
     def test_parse_invalid_json(self):
         """Test parsing invalid JSON returns None."""
-        response = 'This is not JSON at all'
+        response = "This is not JSON at all"
         result = parse_json_response(response)
 
         assert result is None
@@ -313,9 +308,7 @@ class TestHandlerGrouping:
         all_models_seen = set()
         for group_name, models_dict in models_by_group.items():
             for model_name in models_dict.keys():
-                assert model_name not in all_models_seen, (
-                    f"Model {model_name} appears in multiple groups"
-                )
+                assert model_name not in all_models_seen, f"Model {model_name} appears in multiple groups"
                 all_models_seen.add(model_name)
 
     def test_get_all_models_equals_flattened_groups(self):
