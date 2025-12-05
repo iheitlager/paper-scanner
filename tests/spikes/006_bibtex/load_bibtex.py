@@ -524,14 +524,19 @@ class BibtexReader:
         """Extract individual BibTeX entries from the content."""
         # Match @type{...} patterns, handling nested braces
         # Pattern allows entry types with spaces (e.g., "BibDesk Static Groups")
+        # Pattern matches @ that is either at start of line or preceded by closing brace
         entries = []
-        pattern = r'@([^\{]+)\{'
+        pattern = r'(?:^|\})\s*@([^\{]+)\{'
         
-        for match in re.finditer(pattern, content, re.IGNORECASE):
-            start = match.start()
-            # Find matching closing brace
+        for match in re.finditer(pattern, content, re.IGNORECASE | re.MULTILINE):
+            # Find the position of @ symbol
+            match_start = match.start()
+            # Skip back past any preceding } or whitespace to find @ position
+            at_pos = match.start() + (match.group(0).index('@') if '@' in match.group(0) else 0)
+            
+            # Find matching closing brace starting from the opening brace
             brace_count = 0
-            pos = match.end() - 1
+            pos = match.end() - 1  # Start from the opening brace
             
             while pos < len(content):
                 if content[pos] == '{' and (pos == 0 or content[pos-1] != '\\'):
@@ -539,7 +544,7 @@ class BibtexReader:
                 elif content[pos] == '}' and (pos == 0 or content[pos-1] != '\\'):
                     brace_count -= 1
                     if brace_count == 0:
-                        entries.append(content[start:pos+1])
+                        entries.append(content[at_pos:pos+1])
                         break
                 pos += 1
         
@@ -549,7 +554,8 @@ class BibtexReader:
         """Parse a single BibTeX entry into a Paper object."""
         # Extract entry type and citekey
         # Pattern allows entry types with spaces (e.g., "BibDesk Static Groups")
-        match = re.match(r'@([^\{]+)\{\s*([^,]+)', entry, re.IGNORECASE)
+        # Citekey must not contain comma or newline
+        match = re.match(r'@([^\{]+)\{\s*([^,\n}]+)', entry, re.IGNORECASE)
         if not match:
             logger.debug(f"Could not extract entry type and citekey from: {entry[:100]}")
             return None
@@ -614,6 +620,8 @@ class BibtexReader:
             
             # Extract value (handle braces and quotes)
             value_start = pos
+            value = None  # Initialize value to handle all code paths
+            
             if pos < len(content) and content[pos] == '{':
                 # Brace-delimited value
                 brace_count = 0
@@ -627,6 +635,9 @@ class BibtexReader:
                             pos += 1
                             break
                     pos += 1
+                # If loop ended without finding closing brace, use remaining content
+                if value is None:
+                    value = content[value_start+1:pos]
             elif pos < len(content) and content[pos] == '"':
                 # Quote-delimited value
                 pos += 1
@@ -636,7 +647,8 @@ class BibtexReader:
                     else:
                         pos += 1
                 value = content[value_start+1:pos]
-                pos += 1
+                if pos < len(content):
+                    pos += 1
             else:
                 # Unquoted value (ends at comma or closing brace)
                 while pos < len(content) and content[pos] not in ',}':
@@ -644,9 +656,10 @@ class BibtexReader:
                 value = content[value_start:pos]
             
             # Clean up value
-            value = value.strip()
-            if value:
-                fields[field_name] = value
+            if value is not None:
+                value = value.strip()
+                if value:
+                    fields[field_name] = value
             
             # Skip comma
             while pos < len(content) and content[pos] in ', \t\n':
