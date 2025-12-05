@@ -13,13 +13,14 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS papers (
     id SERIAL PRIMARY KEY,
+    source_key VARCHAR(100) UNIQUE,
     
     -- ========================================
     -- ORIGINAL FIELDS (unchanged)
     -- ========================================
-    file_path VARCHAR(500) UNIQUE NOT NULL,
-    file_name VARCHAR(255) NOT NULL,
-    directory VARCHAR(500) NOT NULL,
+    file_path VARCHAR(500) UNIQUE,
+    file_name VARCHAR(255),
+    directory VARCHAR(500),
     size_bytes BIGINT,
     created_time TIMESTAMP,
     modified_time TIMESTAMP,
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS papers (
     -- ========================================
     authors JSONB,  -- NEW: [{last_name, first_name, initials, order}]
     journal VARCHAR(500),  -- NEW
+    journal_iso VARCHAR(500),  -- NEW
     volume VARCHAR(50),  -- NEW
     issue VARCHAR(50),  -- NEW
     pages VARCHAR(100),  -- NEW
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS papers (
     keywords TEXT[],  -- NEW
     paper_type VARCHAR(50),  -- NEW: 'journal_article', 'conference_paper', etc.
     
+    source_details JSONB,  -- NEW: {source_name, source_url, retrieval_date}
     -- ========================================
     -- NEW FIELDS - Processing Status Tracking
     -- ========================================
