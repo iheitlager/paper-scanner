@@ -61,6 +61,7 @@ class Paper:
     publisher: Optional[str] = None
     abstract: Optional[str] = None
     keywords: Optional[List[str]] = None
+    keywords_extra: Optional[List[str]] = None
     paper_type: Optional[str] = None
     source_details: Optional[Dict[str, Any]] = None
     title_details: Optional[Dict[str, Any]] = None
@@ -84,6 +85,7 @@ class Paper:
             'publisher': self.publisher,
             'abstract': self.abstract,
             'keywords': self.keywords,
+            'keywords_extra': self.keywords_extra,
             'paper_type': self.paper_type,
             'source_details': self.source_details,
             'title_details': self.title_details,
@@ -190,9 +192,23 @@ class BibtexReader:
         # Create Paper object
         paper = Paper(citekey=citekey, paper_type=entry_type, raw_data=fields)
         
+        # Handle keywords separately to support both keywords and keywords-plus
+        keywords_str = fields.get('keywords') or fields.get('keyword')
+        keywords_plus_str = fields.get('keywords-plus')
+        
+        if keywords_str or keywords_plus_str:
+            paper.keywords, paper.keywords_extra = self._parse_keywords_dual(
+                keywords_str, 
+                keywords_plus_str
+            )
+        
         # Map fields to paper attributes
         for bibtex_field, value in fields.items():
             bibtex_field_lower = bibtex_field.lower()
+            
+            # Skip keywords fields (already handled above)
+            if bibtex_field_lower in ('keywords', 'keywords-plus', 'keyword', 'keywords-plus'):
+                continue
             
             if bibtex_field_lower == 'author':
                 paper.authors = self._parse_authors(value)
@@ -201,8 +217,6 @@ class BibtexReader:
                     paper.year = int(value)
                 except (ValueError, TypeError):
                     logger.debug(f"Could not parse year: {value}")
-            elif bibtex_field_lower == 'keywords' or bibtex_field_lower == 'keywords-plus':
-                paper.keywords = self._parse_keywords(value)
             elif bibtex_field_lower in self.FIELD_MAPPINGS:
                 attr = self.FIELD_MAPPINGS[bibtex_field_lower]
                 setattr(paper, attr, value)
@@ -338,15 +352,76 @@ class BibtexReader:
         return authors if authors else None
 
     def _parse_keywords(self, keywords_str: str) -> Optional[List[str]]:
-        """Parse keywords field into a list."""
+        """Parse keywords field into a list, cleaning quotes, BibTeX sequences, and HTML entities."""
         if not keywords_str:
             return None
         
         # Split by semicolon or comma
         keywords = re.split(r'[;,]', keywords_str)
-        keywords = [k.strip() for k in keywords if k.strip()]
         
-        return keywords if keywords else None
+        # Clean each keyword: strip whitespace and remove quotes
+        cleaned = []
+        for k in keywords:
+            k = k.strip()
+            if not k:
+                continue
+            
+            # Remove doubled quotes like `` or '' (do this first)
+            k = re.sub(r'``|\'\'', '', k)
+            
+            # Remove backtick-space-s pattern (` s -> 's)
+            k = re.sub(r'`\s+s\b', "'s", k)
+            k = re.sub(r'`', '', k)  # Remove any remaining backticks
+            
+            # Remove surrounding quotes (both single and double)
+            k = k.strip('\"\\\"').strip()
+            
+            # Remove leading/trailing curly braces (common in BibTeX)
+            k = k.strip('{}').strip()
+            
+            # Remove BibTeX special character sequences like \~{} or \'{} 
+            k = re.sub(r'\\[`\'"^~]{[^}]*}', '', k)  # \~{...}, \'{...}, etc.
+            k = re.sub(r'\\[`\'"^~]', '', k)  # \~, \', etc. without braces
+            k = re.sub(r'\\&', '&', k)  # \& -> &
+            k = re.sub(r'~{}', '', k)  # Remove ~{} sequences
+            k = re.sub(r'{}\s*', '', k)  # Remove {} sequences
+            k = re.sub(r'\{\}', '', k)  # Remove {} anywhere (already done but be thorough)
+            
+            # Remove HTML entities (like &eacute;, &amp;, etc.) - including incomplete ones
+            k = re.sub(r'&\w*;?', '', k)  # Remove &...;
+            
+            # Remove backslash escapes
+            k = re.sub(r'\\(?=[A-Z])', '', k)  # Remove \A -> A
+            k = re.sub(r'\\', '', k)  # Remove any remaining backslashes
+            
+            # Clean up any remaining whitespace (including new spaces from regex removals)
+            k = re.sub(r'\s+', ' ', k).strip()
+            
+            if k:  # Only add if not empty after cleaning
+                cleaned.append(k)
+        
+        return cleaned if cleaned else None
+    
+    def _parse_keywords_dual(self, keywords_str: str, keywords_plus_str: str) -> tuple:
+        """Parse both keywords and keywords-plus fields, keeping them separate.
+        
+        Args:
+            keywords_str: Regular keywords field (author-provided)
+            keywords_plus_str: Keywords-plus field (from Web of Science, etc.)
+        
+        Returns:
+            Tuple of (keywords list, keywords_extra list)
+        """
+        keywords = self._parse_keywords(keywords_str) if keywords_str else None
+        keywords_extra = self._parse_keywords(keywords_plus_str) if keywords_plus_str else None
+        
+        # Remove duplicates between the two lists (keep in keywords, remove from extra)
+        if keywords and keywords_extra:
+            keywords_lower = {k.lower() for k in keywords}
+            keywords_extra = [k for k in keywords_extra if k.lower() not in keywords_lower]
+            keywords_extra = keywords_extra if keywords_extra else None
+        
+        return keywords, keywords_extra
 
 
 class PostgreSQLLoader:
@@ -429,6 +504,13 @@ class PostgreSQLLoader:
                     pass  # Already a list
                 else:
                     data['keywords'] = [data['keywords']]
+            
+            if data.get('keywords_extra'):
+                # Ensure it's a list for PostgreSQL array
+                if isinstance(data['keywords_extra'], list):
+                    pass  # Already a list
+                else:
+                    data['keywords_extra'] = [data['keywords_extra']]
             
             if data.get('source_details'):
                 if isinstance(data['source_details'], dict):

@@ -8,7 +8,7 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ============================================================================
--- MAIN TABLE: papers (EXTENDED - keeping all original fields)
+-- STAGE 1: papers (EXTENDED - keeping all original fields)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS papers (
@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS papers (
     publisher VARCHAR(255),  -- NEW
     abstract TEXT,  -- NEW
     keywords TEXT[],  -- NEW
+    keywords_extra TEXT[],  -- NEW
     paper_type VARCHAR(50),  -- NEW: 'journal_article', 'conference_paper', etc.
     
     source_details JSONB,  -- NEW: {source_name, source_url, retrieval_date}
@@ -347,6 +348,90 @@ WITH (lists = 100);
 
 CREATE INDEX IF NOT EXISTS idx_paper_embeddings_paper ON paper_embeddings(paper_id);
 CREATE INDEX IF NOT EXISTS idx_paper_embeddings_model ON paper_embeddings(model_name);
+
+-- ============================================================================
+-- STAGE 6: PAPER SCREENING
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS paper_screening (
+    id SERIAL PRIMARY KEY,
+    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+    
+    -- Current screening status
+    screening_stage VARCHAR(50) NOT NULL DEFAULT 'unscreened',
+        -- 'unscreened', 'stage1_pass', 'stage1_fail', 'stage2_pass', 'stage2_fail', 
+        -- 'stage3_review', 'stage4_validated', 'included', 'excluded'
+    screening_stage_updated_at TIMESTAMP,
+    
+    -- ========================================
+    -- STAGE 1: Coarse Filter (Rule-based)
+    -- ========================================
+    stage1_processed_at TIMESTAMP,
+    stage1_score INTEGER,  -- Keyword match count
+    stage1_exclusion_reason VARCHAR(255),
+    stage1_matched_keywords TEXT[],  -- Keywords that matched
+    stage1_excluded_keywords TEXT[],  -- Keywords that triggered exclusion
+    
+    -- ========================================
+    -- STAGE 2: Semantic Filter (Embedding-based)
+    -- ========================================
+    stage2_processed_at TIMESTAMP,
+    semantic_similarity DECIMAL(5,4) CHECK (semantic_similarity BETWEEN 0 AND 1),
+        -- Similarity to research question (0-1)
+    stage2_exclusion_reason VARCHAR(255),
+    semantic_embedding vector(768),  -- Store the embedding for reuse
+    
+    -- ========================================
+    -- STAGE 3: LLM Classification (Borderline papers)
+    -- ========================================
+    stage3_processed_at TIMESTAMP,
+    llm_decision VARCHAR(50),  -- 'INCLUDE', 'EXCLUDE', 'UNCERTAIN'
+    llm_confidence DECIMAL(3,2) CHECK (llm_confidence BETWEEN 0 AND 1),
+    llm_reasoning TEXT,
+    llm_model_version VARCHAR(100),  -- Track which model was used
+    llm_tokens_used INTEGER,
+    
+    -- ========================================
+    -- STAGE 4: Cluster Validation (Post-inclusion check)
+    -- ========================================
+    stage4_processed_at TIMESTAMP,
+    cluster_id INTEGER,  -- Assigned cluster (could FK to paper_clusters if you have it)
+    cluster_confidence DECIMAL(3,2),  -- 1 / (1 + distance_to_centroid)
+    distance_to_centroid DECIMAL(5,4),
+    is_outlier BOOLEAN DEFAULT FALSE,
+    outlier_review_required BOOLEAN DEFAULT FALSE,
+    
+    -- ========================================
+    -- FINAL DECISION
+    -- ========================================
+    final_decision VARCHAR(50),  -- 'included', 'excluded', 'pending_review'
+    final_decision_method VARCHAR(50),  -- 'automated', 'manual', 'llm_assisted'
+    final_decision_by VARCHAR(100),  -- Reviewer name/ID
+    final_decision_at TIMESTAMP,
+    
+    -- Rationale
+    exclusion_reason TEXT,  -- Detailed reason if excluded
+    inclusion_justification TEXT,  -- Why included despite flags
+    reviewer_notes TEXT,
+    
+    -- Manual review flags
+    needs_manual_review BOOLEAN DEFAULT FALSE,
+    manual_review_reason TEXT,
+    manual_review_priority INTEGER CHECK (manual_review_priority BETWEEN 1 AND 5),
+        -- 1=urgent, 5=low priority
+    
+    -- Audit trail
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    UNIQUE(paper_id)  -- One screening record per paper
+);
+
+-- Indexes
+CREATE INDEX idx_screening_paper ON paper_screening(paper_id);
+CREATE INDEX idx_screening_stage ON paper_screening(screening_stage);
+CREATE INDEX idx_screening_final_decision ON paper_screening(final_decision);
+
 
 -- ============================================================================
 -- ADDITIONAL TABLES
