@@ -61,6 +61,18 @@ class ScreeningDashboard:
         cursor.execute("SELECT COUNT(*) as count FROM papers;")
         stats['total_papers'] = cursor.fetchone()['count']
 
+        # Papers by source
+        cursor.execute("""
+        SELECT 
+            COALESCE(source_details->>'source', 'Unknown') as source,
+            COUNT(*) as count
+        FROM papers
+        GROUP BY source_details->>'source'
+        ORDER BY count DESC;
+        """)
+        sources = cursor.fetchall()
+        stats['sources'] = {row['source']: row['count'] for row in sources}
+
         # Stage 1 stats
         cursor.execute("""
         SELECT 
@@ -178,10 +190,17 @@ class ScreeningDashboard:
         s1_pct = f"{100*s1_processed/total:.1f}%" if total > 0 else "0%"
         s2_pct = f"{100*s2_processed/total:.1f}%" if total > 0 else "0%"
         
+        # Build source breakdown
+        source_text = ""
+        if stats.get('sources'):
+            for source, count in sorted(stats['sources'].items(), key=lambda x: x[1], reverse=True):
+                pct = f"{100*count/total:.1f}%" if total > 0 else "0%"
+                source_text += f"\n  • {source}: {count:,} ({pct})"
+        
         overview_text = f"""
 [bold cyan]📊 PAPER SCREENING PIPELINE OVERVIEW[/bold cyan]
 
-Total Papers in Database:        [bold]{total:,}[/bold]
+Total Papers in Database:        [bold]{total:,}[/bold]{source_text}
 
 Stage 1 (Keyword Filtering):     [bold yellow]{s1_processed:,}[/bold yellow] processed ({s1_pct})
 Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] processed ({s2_pct})
@@ -207,7 +226,7 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
 [dim]Goal: Remove obviously irrelevant papers (Precision ~70%, Recall ~95%)[/dim]
 
 [bold]Results:[/bold]
-  [green]✓ PASSED[/green]  (Include)     {s1['passed']:4d} papers  ({passed_pct:5.1f}%)
+  [green]✓ PASSED[/green]  (Include)    {s1['passed']:4d} papers  ({passed_pct:5.1f}%)
   [red]✗ FAILED[/red]  (Exclude)    {s1['failed']:4d} papers  ({failed_pct:5.1f}%)
   ────────────────────
   Total:              {total:4d} papers
@@ -383,7 +402,8 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
             with Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
-                console=console
+                console=console,
+                transient=True
             ) as progress:
                 progress.add_task("Fetching statistics...", total=None)
                 stats = self.get_stats()

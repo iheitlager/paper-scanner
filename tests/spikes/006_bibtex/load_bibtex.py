@@ -230,9 +230,10 @@ class WOSTranslator(BibtexTranslator):
                 attr = self.FIELD_MAPPINGS[bibtex_field_lower]
                 setattr(paper, attr, value)
         
-        # Store extra source details
+        # Store extra source details with source identifier
         paper.source_details = {
-            k: fields.get(k) for k in self.SOURCE_DETAIL_FIELDS if k in fields
+            'source': 'Web of Science',
+            **{k: fields.get(k) for k in self.SOURCE_DETAIL_FIELDS if k in fields}
         }
         
         return paper
@@ -290,9 +291,10 @@ class ScopusTranslator(BibtexTranslator):
                 attr = self.FIELD_MAPPINGS[bibtex_field_lower]
                 setattr(paper, attr, value)
         
-        # Store extra source details
+        # Store extra source details with source identifier
         paper.source_details = {
-            k: fields.get(k) for k in self.SOURCE_DETAIL_FIELDS if k in fields
+            'source': 'Scopus',
+            **{k: fields.get(k) for k in self.SOURCE_DETAIL_FIELDS if k in fields}
         }
         
         return paper
@@ -350,9 +352,10 @@ class IEEETranslator(BibtexTranslator):
                 attr = self.FIELD_MAPPINGS[bibtex_field_lower]
                 setattr(paper, attr, value)
         
-        # Store extra source details
+        # Store extra source details with source identifier
         paper.source_details = {
-            k: fields.get(k) for k in self.SOURCE_DETAIL_FIELDS if k in fields
+            'source': 'IEEE Xplore',
+            **{k: fields.get(k) for k in self.SOURCE_DETAIL_FIELDS if k in fields}
         }
         
         return paper
@@ -394,10 +397,19 @@ class Paper:
     
     # Extra fields that don't map directly
     raw_data: Optional[Dict[str, str]] = None
+    _is_bibdesk_metadata: bool = False  # Flag for BibDesk metadata entries
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for database insertion."""
+        """Convert to dictionary for database insertion.
+        
+        Generates source_key combining source and citekey.
+        This key is used to detect and reject duplicate papers from the same source.
+        """
+        source = self.source_details.get('source', 'Unknown') if self.source_details else 'Unknown'
+        source_key = f"{source}:{self.citekey}"
+        
         data = {
+            'source_key': source_key,
             'citekey': self.citekey,
             'title': self.title,
             'authors': self.authors,
@@ -511,8 +523,9 @@ class BibtexReader:
     def _extract_entries(self, content: str) -> List[str]:
         """Extract individual BibTeX entries from the content."""
         # Match @type{...} patterns, handling nested braces
+        # Pattern allows entry types with spaces (e.g., "BibDesk Static Groups")
         entries = []
-        pattern = r'@\w+\s*\{'
+        pattern = r'@([^\{]+)\{'
         
         for match in re.finditer(pattern, content, re.IGNORECASE):
             start = match.start()
@@ -535,18 +548,22 @@ class BibtexReader:
     def _parse_entry(self, entry: str) -> Optional[Paper]:
         """Parse a single BibTeX entry into a Paper object."""
         # Extract entry type and citekey
-        match = re.match(r'@(\w+)\s*\{\s*([^,]+)', entry, re.IGNORECASE)
+        # Pattern allows entry types with spaces (e.g., "BibDesk Static Groups")
+        match = re.match(r'@([^\{]+)\{\s*([^,]+)', entry, re.IGNORECASE)
         if not match:
             logger.debug(f"Could not extract entry type and citekey from: {entry[:100]}")
             return None
         
-        entry_type = match.group(1).lower()
+        entry_type = match.group(1).strip().lower()
         citekey = match.group(2).strip()
         
         # Skip BibDesk metadata entries (Static Groups, Smart Groups)
         if entry_type in ('bibdesk static groups', 'bibdesk smart groups'):
             logger.debug(f"Skipping BibDesk metadata entry: {citekey}")
-            return None
+            # Return a special marker that this should be skipped and reported differently
+            paper = Paper(citekey=citekey, paper_type=entry_type, raw_data={})
+            paper._is_bibdesk_metadata = True
+            return paper
         
         # Parse fields
         fields = self._parse_fields(entry)
@@ -741,6 +758,9 @@ class PostgreSQLLoader:
         """Initialize the loader with PostgreSQL connection string."""
         self.connection_string = connection_string
         self.connection = None
+        self.seen_source_keys = set()  # Track source_keys to reject duplicates
+        self.failed_papers = []  # Track failed papers for reporting
+        self.sources_loaded = {}  # Track loaded papers by source
         logger.info(f"Initialized PostgreSQLLoader")
 
     def connect(self):
@@ -748,6 +768,12 @@ class PostgreSQLLoader:
         try:
             self.connection = psycopg2.connect(self.connection_string)
             logger.info("Connected to PostgreSQL database")
+            # Load existing source_keys from database to avoid duplicates
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT source_key FROM papers WHERE source_key IS NOT NULL")
+            self.seen_source_keys = {row[0] for row in cursor.fetchall()}
+            cursor.close()
+            logger.info(f"Loaded {len(self.seen_source_keys)} existing source_keys from database")
         except psycopg2.Error as e:
             logger.error(f"Failed to connect to database: {e}")
             raise
@@ -758,13 +784,36 @@ class PostgreSQLLoader:
             self.connection.close()
             logger.info("Disconnected from PostgreSQL database")
 
-    def load_papers(self, papers: List[Paper]) -> int:
-        """Load papers into the database. Returns count of loaded papers."""
+    def load_papers(self, papers: List[Paper]) -> tuple:
+        """Load papers into the database. Returns (loaded_count, rejected_count, failed_count, failed_papers_list, sources_dict, skipped_metadata_count)."""
         loaded_count = 0
+        rejected_count = 0
         failed_count = 0
+        skipped_metadata_count = 0
+        rejected_keys = []
+        self.failed_papers = []
+        self.sources_loaded = {}
         
         try:
             for paper in papers:
+                # Check if this is BibDesk metadata - skip and don't count as failure
+                if getattr(paper, '_is_bibdesk_metadata', False):
+                    logger.debug(f"Skipping BibDesk metadata: {paper.citekey}")
+                    skipped_metadata_count += 1
+                    continue
+                
+                # Get source_key for duplicate check
+                paper_data = paper.to_dict()
+                source_key = paper_data.get('source_key')
+                source = paper_data.get('source_details', {}).get('source', 'Unknown') if isinstance(paper_data.get('source_details'), dict) else 'Unknown'
+                
+                # Check if source_key already exists (duplicate)
+                if source_key and source_key in self.seen_source_keys:
+                    logger.warning(f"Rejecting duplicate: {paper.citekey} (source_key: {source_key})")
+                    rejected_keys.append(source_key)
+                    rejected_count += 1
+                    continue
+                
                 # Create fresh connection for each paper to avoid transaction abort cascades
                 if not self.connection:
                     self.connect()
@@ -773,9 +822,15 @@ class PostgreSQLLoader:
                 try:
                     if self._insert_paper(cursor, paper):
                         self.connection.commit()
+                        # Track this source_key to prevent future duplicates
+                        if source_key:
+                            self.seen_source_keys.add(source_key)
                         loaded_count += 1
+                        # Track source
+                        self.sources_loaded[source] = self.sources_loaded.get(source, 0) + 1
                     else:
                         failed_count += 1
+                        self.failed_papers.append((paper.citekey, "Skipped: no title or abstract"))
                 except Exception as e:
                     # Rollback and close connection if there was an error
                     try:
@@ -790,12 +845,14 @@ class PostgreSQLLoader:
                         pass
                     self.connection = None
                     
-                    logger.warning(f"Failed to insert paper {paper.citekey}: {e}")
+                    error_msg = str(e)
+                    logger.warning(f"Failed to insert paper {paper.citekey}: {error_msg}")
+                    self.failed_papers.append((paper.citekey, error_msg))
                     failed_count += 1
                 finally:
                     cursor.close()
             
-            logger.info(f"Loaded {loaded_count} papers, {failed_count} failed")
+            logger.info(f"Loaded {loaded_count} papers, {rejected_count} rejected (duplicates), {failed_count} failed, {skipped_metadata_count} skipped (BibDesk metadata)")
         
         except Exception as e:
             logger.error(f"Fatal error during load: {e}")
@@ -809,7 +866,7 @@ class PostgreSQLLoader:
                     pass
                 self.connection = None
         
-        return loaded_count
+        return loaded_count, rejected_count, failed_count, self.failed_papers, self.sources_loaded, skipped_metadata_count
 
     def _insert_paper(self, cursor, paper: Paper) -> bool:
         """Insert a single paper into the database. Returns True on success."""
@@ -985,7 +1042,8 @@ def validate_papers(papers, sample_limit=None):
     stats = {
         'total': len(papers),
         'valid': 0,
-        'errors': []
+        'errors': [],
+        'skipped_metadata': 0
     }
     
     # Group by source
@@ -998,6 +1056,11 @@ def validate_papers(papers, sample_limit=None):
     reader.IEEE_INDICATOR_FIELDS = BibtexReader.IEEE_INDICATOR_FIELDS
     
     for i, paper in enumerate(papers, 1):
+        # Skip BibDesk metadata entries
+        if getattr(paper, '_is_bibdesk_metadata', False):
+            stats['skipped_metadata'] += 1
+            continue
+        
         try:
             data = paper.to_dict()
             
@@ -1025,6 +1088,9 @@ def validate_papers(papers, sample_limit=None):
     print(f"\n{Fore.GREEN}Total papers:{Style.RESET_ALL}     {stats['total']}")
     print(f"{Fore.GREEN}Valid papers:{Style.RESET_ALL}     {Fore.LIGHTGREEN_EX}{stats['valid']}{Style.RESET_ALL}")
     
+    if stats['skipped_metadata'] > 0:
+        print(f"{Fore.CYAN}Skipped (metadata):{Style.RESET_ALL} {stats['skipped_metadata']}")
+    
     if stats['errors']:
         print(f"{Fore.RED}Invalid papers:{Style.RESET_ALL}   {len(stats['errors'])}")
     else:
@@ -1045,7 +1111,8 @@ def validate_papers(papers, sample_limit=None):
     
     print("\n" + "="*80)
     
-    return stats['valid'] == stats['total']
+    # Return success if no errors (metadata entries don't count as failures)
+    return len(stats['errors']) == 0
 
 
 def main():
@@ -1100,8 +1167,29 @@ def main():
     
     try:
         loader.connect()
-        count = loader.load_papers(papers)
-        print(f"\n{Fore.LIGHTGREEN_EX}{Style.BRIGHT}✓ Successfully loaded {count} papers!{Style.RESET_ALL}\n")
+        loaded_count, rejected_count, failed_count, failed_papers, sources_loaded, skipped_metadata_count = loader.load_papers(papers)
+        
+        print(f"\n{Fore.LIGHTGREEN_EX}{Style.BRIGHT}✓ Load complete!{Style.RESET_ALL}")
+        print(f"  {Fore.GREEN}Loaded:{Style.RESET_ALL}   {Fore.LIGHTGREEN_EX}{loaded_count}{Style.RESET_ALL} papers")
+        if rejected_count > 0:
+            print(f"  {Fore.YELLOW}Rejected:{Style.RESET_ALL}  {Fore.YELLOW}{rejected_count}{Style.RESET_ALL} duplicates")
+        if skipped_metadata_count > 0:
+            print(f"  {Fore.CYAN}Skipped:{Style.RESET_ALL}   {Fore.CYAN}{skipped_metadata_count}{Style.RESET_ALL} not a BibTeX record")
+        if failed_count > 0:
+            print(f"  {Fore.RED}Failed:{Style.RESET_ALL}    {Fore.RED}{failed_count}{Style.RESET_ALL} errors")
+        
+        # Show source breakdown
+        if sources_loaded:
+            print(f"\n{Fore.CYAN}By source:{Style.RESET_ALL}")
+            for source in sorted(sources_loaded.keys()):
+                count = sources_loaded[source]
+                print(f"  {Fore.YELLOW}{source}:{Style.RESET_ALL} {count}")
+        
+        if failed_papers:
+            print(f"\n{Fore.RED}Failed papers:{Style.RESET_ALL}")
+            for citekey, error in failed_papers:
+                print(f"  • {citekey}: {error}")
+        print()
     except Exception as e:
         print(f"{Fore.RED}❌ Error loading papers: {e}{Style.RESET_ALL}")
         sys.exit(1)
