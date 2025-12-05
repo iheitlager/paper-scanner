@@ -1,156 +1,150 @@
-# BibTeX Loader for Paper Scanner
+# Paper Screening Pipeline
 
-This module provides a clean separation between **reading BibTeX files** and **loading them into PostgreSQL**, making it easy to eventually convert these classes into tools in the main package.
+A multi-stage system for loading BibTeX papers and filtering them through keyword and semantic analysis.
 
-## Architecture
+## Overview
 
-### BibtexReader Class
-Handles all BibTeX parsing logic:
-- **Input**: BibTeX file path
-- **Output**: List of `Paper` dataclass objects
-- **Responsibilities**:
-  - Extracts BibTeX entries using regex-based parsing
-  - Maps BibTeX fields to database schema
-  - Handles author parsing ("First Last" and "Last, First" formats)
-  - Parses keywords/tags into lists
-  - Stores extra fields in `source_details` JSONB
-
-**Key Methods**:
-- `parse()`: Main entry point, returns List[Paper]
-- `_extract_entries()`: Splits file into individual @entries
-- `_parse_entry()`: Converts single entry to Paper object
-- `_parse_fields()`: Handles complex field parsing with nested braces
-- `_parse_authors()`: Extracts author list with first/last names
-- `_parse_keywords()`: Converts semicolon/comma-separated keywords
-
-### PostgreSQLLoader Class
-Handles database operations:
-- **Input**: List of `Paper` objects and database connection string
-- **Output**: Count of successfully loaded papers
-- **Responsibilities**:
-  - Manages PostgreSQL connection lifecycle
-  - Converts Python objects to database-compatible types
-  - Implements upsert logic (ON CONFLICT)
-  - Transaction management with rollback on error
-  - Comprehensive error logging
-
-**Key Methods**:
-- `connect()`: Establishes database connection
-- `disconnect()`: Closes connection gracefully
-- `load_papers()`: Loads all papers with transaction handling
-- `_insert_paper()`: Inserts single paper with error handling
-
-### Paper Dataclass
-Represents a paper with:
-- **Required**: `citekey` (unique identifier)
-- **Mapped Fields**: title, authors, year, journal, volume, issue, pages, doi, publisher, abstract, keywords, paper_type
-- **Flexible Storage**: `source_details` and `title_details` JSONB fields for extra data
-- **Raw Data**: `raw_data` dict for debugging
-
-## Database Schema Mapping
-
-| BibTeX Field | Database Column | Type | Notes |
-|---|---|---|---|
-| @article, @inproceedings, etc. | paper_type | VARCHAR | Entry type (article, inproceedings, etc.) |
-| {citekey} | citekey | VARCHAR(100) | Unique identifier |
-| title | title | VARCHAR(500) | - |
-| author | authors | JSONB | Parsed as [{last_name, first_name, initials, order}] |
-| year | year | INTEGER | Extracted as number |
-| journal | journal | VARCHAR(500) | - |
-| journal-iso | journal_iso | VARCHAR(500) | ISO abbreviation |
-| volume | volume | VARCHAR(50) | - |
-| number | issue | VARCHAR(50) | Issue number |
-| pages | pages_range | VARCHAR(100) | Full range like "123-456" |
-| doi | doi | VARCHAR(255) | - |
-| publisher | publisher | VARCHAR(255) | - |
-| abstract | abstract | TEXT | - |
-| keywords | keywords | TEXT[] | Parsed as array |
-| keywords-plus | keywords | TEXT[] | Merges with keywords |
-| * (other) | source_details | JSONB | Captured for reference |
-
-## Usage
-
-### Basic Reading (no database)
-
-```python
-from load_bibtex import BibtexReader
-
-reader = BibtexReader('/path/to/file.bib')
-papers = reader.parse()
-
-for paper in papers:
-    print(f"{paper.citekey}: {paper.title} ({paper.year})")
-    print(f"  Authors: {paper.authors}")
+```
+📚 LOAD BIBTEX → STAGE 1 FILTER → STAGE 2 FILTER → 📊 DASHBOARD
 ```
 
-### Loading into Database
+## 1. Load BibTeX
 
-```python
-from load_bibtex import BibtexReader, PostgreSQLLoader
+Load academic papers from BibTeX files (Web of Science, Scopus, or IEEE Xplore) into PostgreSQL.
 
-# Read papers
-reader = BibtexReader('/path/to/file.bib')
-papers = reader.parse()
+**File**: `load_bibtex.py`
 
-# Load into database
-loader = PostgreSQLLoader('postgresql://user:pass@localhost/pdfdb')
-try:
-    loader.connect()
-    count = loader.load_papers(papers)
-    print(f"Loaded {count} papers")
-finally:
-    loader.disconnect()
+**Triple-Source Support** ✨:
+- **Web of Science (WOS)**: Auto-detected by `WOS:` prefix or `web-of-science-*` fields
+- **Scopus**: Auto-detected by `source=Scopus` or `author_keywords` field
+- **IEEE Xplore**: Auto-detected by fully numeric citekeys or `booktitle + (issn|month)` fields
+- **Automatic field mapping**: 
+  - WOS: `keywords` → keywords, `keywords-plus` → keywords_extra
+  - Scopus: `author_keywords` → keywords, `keywords` → keywords_extra
+  - IEEE: `keywords` → keywords (semicolon-separated)
+
+**Architecture**:
+- `BibtexTranslator`: Base class with common parsing
+- `WOSTranslator`: Web of Science specific field mapping
+- `ScopusTranslator`: Scopus specific field mapping
+- `IEEETranslator`: IEEE Xplore specific field mapping
+- `BibtexReader`: Auto-detects source and uses appropriate translator
+- `PostgreSQLLoader`: Inserts papers with proper JSON serialization
+
+**Usage**:
+```bash
+# Load and upload to database
+python load_bibtex.py papers.bib
+
+# Dry-run validation (no database upload)
+python load_bibtex.py papers.bib --try --sample 50
+
+# List papers without uploading
+python load_bibtex.py papers.bib --list --sample 10
+
+# Custom database
+python load_bibtex.py papers.bib --db postgresql://user:pass@localhost/db
+
+# Verbose output
+python load_bibtex.py papers.bib -v
 ```
 
-### Command Line
+**Supported BibTeX sources**:
+- ✅ Web of Science exports
+- ✅ Scopus exports
+- ✅ IEEE Xplore exports
+- ✅ Mixed BibTeX files with any combination of sources
+
+## 2. Stage 1: Keyword Screening
+
+Coarse filter using keyword rules to remove obviously irrelevant papers.
+
+**File**: `stage1_keyword_screening.py`
+
+**Characteristics**:
+- Precision: ~70% | Recall: ~95%
+- Hard exclusions: papers matching disease/education/military keywords
+- Required inclusions: papers with innovation/digital/supplier keywords
+- Fast, deterministic results
+
+**Output**: Papers marked `stage1_pass` or `stage1_fail`
+
+## 3. Stage 2: Semantic Filtering
+
+Semi-automated semantic analysis using embeddings to find papers similar to research question.
+
+**File**: `stage2_semantic_screening.py`
+
+**Characteristics**:
+- Precision: ~85% | Recall: ~90%
+- Embeddings-based similarity to research question
+- Three-tier classification:
+  - **INCLUDE**: similarity ≥ 0.65
+  - **MANUAL REVIEW**: 0.55–0.65
+  - **EXCLUDE**: < 0.55
+
+**Output**: Papers marked `stage2_pass`, `stage2_review`, or `stage2_fail` with similarity scores
+
+## 4. Multiple Review Passes
+
+Review processes for filtering results across stages.
+
+**Available Scripts**:
+- `show_top_papers.py`: Display high-similarity papers for manual review
+- `semantic_screening_utils.py`: Utilities for similarity analysis
+- Manual review interface via dashboard
+
+## 5. Dashboard
+
+Visual monitoring of the entire screening pipeline.
+
+**File**: `screening_dashboard.py`
+
+**Features**:
+- Real-time statistics for Stage 1 and Stage 2 results
+- Similarity distribution analysis
+- Processing timeline and metrics
+- Recommendations for next actions
+- Color-coded status indicators
+
+**Usage**:
+```bash
+python screening_dashboard.py --db-url postgresql://user:pass@localhost/pdfdb
+```
+
+---
+
+## Quick Start
 
 ```bash
-# Read and print BibTeX (see example_load_bibtex.py)
-python example_load_bibtex.py /path/to/file.bib
+# 1. Load papers
+python load_bibtex.py --bibtex papers.bib
 
-# Load into database (requires DATABASE_URL env var)
-export DATABASE_URL="postgresql://pdfuser:pdfpass@localhost:5432/pdfdb"
-python load_bibtex.py /path/to/file.bib
+# 2. Run Stage 1
+python stage1_keyword_screening.py
+
+# 3. Run Stage 2
+python stage2_semantic_screening.py
+
+# 4. View results
+python screening_dashboard.py
+
+# 5. Show output
+python show_top_papers.py -v
 ```
 
-## Future Integration
+## Database Schema
 
-These classes are designed to become tools in `src/paper_scanner/tools/`:
+Papers stored in `papers` table with:
+- **Identifiers**: citekey, paper_type
+- **Metadata**: title, authors, year, journal, volume, issue, pages, doi, publisher
+- **Content**: abstract, keywords
+- **Screening**: stage1_processed_at, screening_stage, semantic_similarity, final_decision
 
-```python
-# src/paper_scanner/tools/bibtex_reader.py
-from load_bibtex import BibtexReader  # Import and re-export
+## Implementation Files
 
-# src/paper_scanner/tools/database_loader.py
-from load_bibtex import PostgreSQLLoader  # Import and re-export
-```
-
-## Dependencies
-
-```
-psycopg2-binary>=2.9.0
-```
-
-## Error Handling
-
-The loader gracefully handles:
-- **Missing files**: FileNotFoundError with clear message
-- **Parse errors**: Logs warning and continues with next entry
-- **Database errors**: Rolls back transaction and logs details
-- **Encoding issues**: Assumes UTF-8, handles gracefully
-
-## Testing
-
-```bash
-# Test parsing only (no database needed)
-python -m pytest tests/spikes/006_bibtex/ -v -k "parse"
-
-# Test with real database (requires running postgres)
-python -m pytest tests/spikes/006_bibtex/ -v
-```
-
-## Files
-
-- `load_bibtex.py`: Main module with BibtexReader and PostgreSQLLoader
-- `example_load_bibtex.py`: Usage examples
-- `README.md`: This file
+- `load_bibtex.py` - Core loading logic
+- `stage1_keyword_screening.py` - Stage 1 implementation
+- `stage2_semantic_screening.py` - Stage 2 implementation
+- `screening_dashboard.py` - Dashboard interface
+- `test_*.py` - Comprehensive test suite

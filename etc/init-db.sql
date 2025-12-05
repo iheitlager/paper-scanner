@@ -9,6 +9,8 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ============================================================================
 -- STAGE 1: papers (EXTENDED - keeping all original fields)
+
+-- Upgrade to citation info/bibliographical info/abstract * keywords / metadata
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS papers (
@@ -40,7 +42,7 @@ CREATE TABLE IF NOT EXISTS papers (
     journal VARCHAR(500),  -- NEW
     journal_iso VARCHAR(500),  -- NEW
     volume VARCHAR(50),  -- NEW
-    issue VARCHAR(50),  -- NEW
+    issue VARCHAR(100),  -- NEW
     pages VARCHAR(100),  -- NEW
     doi VARCHAR(255),  -- NEW
     publisher VARCHAR(255),  -- NEW
@@ -93,6 +95,8 @@ CREATE INDEX IF NOT EXISTS idx_papers_abstract_fts ON papers USING gin(to_tsvect
 
 -- ============================================================================
 -- STAGE 2: REFERENCES (Enhanced from original)
+
+-- merge with paper database?
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS "references" (
@@ -110,7 +114,7 @@ CREATE TABLE IF NOT EXISTS "references" (
     source_type VARCHAR(100),
     source_name TEXT,
     volume VARCHAR(50),
-    issue VARCHAR(50),
+    issue VARCHAR(100),
     pages_start VARCHAR(50),
     pages_end VARCHAR(50),
     pages_range VARCHAR(100),
