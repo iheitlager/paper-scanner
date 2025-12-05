@@ -841,6 +841,12 @@ class PostgreSQLLoader:
                         data[field] = data[field][:max_len]
                         logger.debug(f"Truncated {field} for {paper.citekey}: {len(original)} -> {max_len} chars")
             
+            # Clean up paper_type: remove "; Early Access" suffix (WOS specific)
+            if 'paper_type' in data and isinstance(data['paper_type'], str):
+                if '; Early Access' in data['paper_type']:
+                    data['paper_type'] = data['paper_type'].replace('; Early Access', '').strip()
+                    logger.debug(f"Cleaned paper_type for {paper.citekey}: removed 'Early Access' suffix")
+            
             # Convert complex types to PostgreSQL format
             # Authors: list of dicts -> JSON
             if 'authors' in data and isinstance(data['authors'], list):
