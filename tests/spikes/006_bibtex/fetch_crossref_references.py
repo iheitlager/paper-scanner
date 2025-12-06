@@ -165,7 +165,7 @@ class PoliteCrossrefClient:
 class CrossrefReferenceFetcher:
     """Fetch references from Crossref API"""
 
-    def __init__(self, email: str = "i.heitlager@eindhoven.nl", rate_limit_delay: float = 0.1):
+    def __init__(self, email: str = CROSSREF_EMAIL, rate_limit_delay: float = 0.1):
         """
         Initialize Crossref fetcher
 
@@ -175,13 +175,14 @@ class CrossrefReferenceFetcher:
         """
         self.email = email
         self.rate_limit_delay = rate_limit_delay
-        self.api_base = "https://api.crossref.org/works"
+        self.api_base = CROSSREF_API_BASE
+        self.verbose = False
 
         try:
             import requests
             self.session = requests.Session()
             self.session.headers.update({
-                'User-Agent': f'PaperScanner/1.0 (mailto:{email})'
+                'User-Agent': f'{CROSSREF_APP_NAME} (mailto:{self.email})'
             })
         except ImportError:
             logger.error("requests library not found. Install with: pip install requests")
@@ -215,7 +216,6 @@ class CrossrefReferenceFetcher:
             if cache_path.exists():
                 try:
                     with open(cache_path, 'r') as f:
-                        logger.debug(f"[cyan]📦 Cache hit[/cyan] for references of {doi}")
                         return json.load(f)
                 except Exception as e:
                     logger.debug(f"Error loading cache for {doi}: {e}")
@@ -295,8 +295,8 @@ class CrossrefReferenceFetcher:
             logger.warning(f"Reference is not a dict, got {type(ref)}: {ref}")
             return {}
         
-        # Log the first reference for debugging
-        if source_paper_id > 0:  # Just log once per paper
+        # Log the first reference for debugging (only in verbose mode)
+        if self.verbose and source_paper_id > 0:  # Just log once per paper
             logger.debug(f"Sample reference keys: {list(ref.keys())}")
         
         # Extract authors
@@ -716,7 +716,8 @@ class CrossrefReferenceLoader:
                     'index': i,
                     'raw': ref
                 })
-                logger.debug(f"Ref {i}: No DOI - using direct data")
+                if self.verbose:
+                    console.print(f"         Ref {i}: No DOI - using direct data")
         
         return {
             'direct': direct_refs,
@@ -742,7 +743,7 @@ class CrossrefReferenceLoader:
         source_apa = self._format_paper_apa(paper)
         console.print(f"[{self.stats['papers_processed'] + 1}] Processing {citekey}")
         console.print(f"  Source: {source_apa}")
-        logger.debug(f"  DOI: {doi}")
+        console.print(f"  DOI: {doi}")
 
         # Fetch references from Crossref
         crossref_data = self.fetcher.fetch_references_for_doi(doi)
@@ -768,8 +769,8 @@ class CrossrefReferenceLoader:
         direct_count = len(resolved['direct'])
         crossref_count = len(resolved['crossref'])
         
-        console.print(f"    → {direct_count} direct (no DOI)")
-        console.print(f"    → {crossref_count} need Crossref lookup (have DOI)")
+        if direct_count > 0 or crossref_count > 0:
+            console.print(f"  Breakdown: [cyan]{direct_count}[/cyan] direct + [cyan]{crossref_count}[/cyan] need lookup")
 
         # Process each reference
         references_added = 0
@@ -964,6 +965,7 @@ def main():
         
         loader = CrossrefReferenceLoader(args.db_url, try_mode=args.try_mode)
         loader.verbose = args.verbose
+        loader.fetcher.verbose = args.verbose
         if args.try_mode:
             console.print("[yellow]🔍 DRY-RUN MODE: Scanning references without uploading[/yellow]")
         if args.email:
