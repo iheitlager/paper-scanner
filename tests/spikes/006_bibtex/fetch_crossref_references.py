@@ -17,6 +17,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import psycopg2
+import requests
 from psycopg2.extras import Json, RealDictCursor
 
 # Configure logging
@@ -25,6 +26,57 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+# Crossref API configuration for fair use / polite pool
+CROSSREF_EMAIL = "i.heitlager@tue.nl"
+CROSSREF_APP_NAME = "PhD-LiteratureReview"
+CROSSREF_API_BASE = "https://api.crossref.org/works"
+
+
+class PoliteCrossrefClient:
+    """
+    Crossref client that follows etiquette guidelines and uses the polite pool.
+    
+    The polite pool provides significantly higher rate limits (50 req/sec vs 1 req/sec)
+    when you include your email in the User-Agent header.
+    
+    See: https://github.com/CrossRef/rest-api-doc#etiquette
+    """
+    
+    def __init__(self, email: str, app_name: str = "PaperScanner"):
+        """
+        Initialize polite Crossref client.
+        
+        Args:
+            email: Your email for polite pool access
+            app_name: Your application name for User-Agent header
+        """
+        self.session = requests.Session()
+        
+        # POLITE POOL: Include contact info in User-Agent
+        # This gives us higher rate limits and better service
+        self.session.headers.update({
+            'User-Agent': f'{app_name}/1.0 (mailto:{email})'
+        })
+        
+        self.email = email
+        self.base_url = CROSSREF_API_BASE
+    
+    def get_work(self, doi: str) -> Dict[str, Any]:
+        """
+        Get work metadata from Crossref.
+        
+        Args:
+            doi: Digital Object Identifier (without https://doi.org/ prefix)
+            
+        Returns:
+            JSON response from Crossref API
+        """
+        url = f'{self.base_url}/{doi}'
+        response = self.session.get(url)
+        response.raise_for_status()
+        return response.json()
 
 
 class CrossrefReferenceFetcher:
