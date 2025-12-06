@@ -61,13 +61,13 @@ class ScreeningDashboard:
         cursor.execute("SELECT COUNT(*) as count FROM papers;")
         stats['total_papers'] = cursor.fetchone()['count']
 
-        # Papers by source
+        # Papers by source type
         cursor.execute("""
         SELECT 
-            COALESCE(source_details->>'source', 'Unknown') as source,
+            COALESCE(source_type, 'Unknown') as source,
             COUNT(*) as count
         FROM papers
-        GROUP BY source_details->>'source'
+        GROUP BY source_type
         ORDER BY count DESC;
         """)
         sources = cursor.fetchall()
@@ -374,7 +374,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
         
         # Create summary text
         summary = f"""
-[bold magenta]✓ Stage 0: Quality Filter (Type/Duplicate/Method)[/bold magenta]
+[bold magenta]✓ Stage 0: Quality Filter (Type/Duplicate/Method)                [/bold magenta]
 [dim]Goal: Remove non-empirical papers, duplicates, and non-peer-reviewed works[/dim]
 
 [bold]Results:[/bold]
@@ -406,7 +406,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
         
         # Create summary text
         summary = f"""
-[bold green]✓ Stage 1: Coarse Filter (Keyword-Based)[/bold green]
+[bold green]✓ Stage 1: Coarse Filter (Keyword-Based)                         [/bold green]   
 [dim]Goal: Remove obviously irrelevant papers (Precision ~70%, Recall ~95%)[/dim]
 
 [bold]Results:[/bold]
@@ -438,25 +438,25 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
         
         # Create summary text
         summary = f"""
-[bold cyan]✓ Stage 2: Semantic Filter (Embedding-Based)[/bold cyan]
+[bold cyan]✓ Stage 2: Semantic Filter (Embedding-Based)                    [/bold cyan]
 [dim]Goal: Find semantically similar papers (Precision ~85%, Recall ~90%)[/dim]
 
 [bold]Classification Results:[/bold]
-  [bold green]✓ INCLUDE[/bold green]         (≥ 0.65)      {s2['included']:4d} papers  ({included_pct:5.1f}%)
-  [bold yellow]⚠ MANUAL REVIEW[/bold yellow]  (0.55-0.65)  {s2['review']:4d} papers  ({review_pct:5.1f}%)
-  [bold red]✗ EXCLUDE[/bold red]        (< 0.55)      {s2['excluded']:4d} papers  ({excluded_pct:5.1f}%)
+  [bold green]✓ INCLUDE[/bold green]        (≥ 0.65)    {s2['included']:4d} papers  ({included_pct:5.1f}%)
+  [bold yellow]⚠ MANUAL REVIEW[/bold yellow]  (0.55-0.65) {s2['review']:4d} papers  ({review_pct:5.1f}%)
+  [bold red]✗ EXCLUDE[/bold red]        (< 0.55)    {s2['excluded']:4d} papers  ({excluded_pct:5.1f}%)
   ────────────────────
-  Total:                   {total:4d} papers
+  Total:                             {total:4d} papers
 
 [bold]Similarity Statistics:[/bold]
-  Average:  {s2['avg_similarity']:.4f}
-  Range:    {s2['min_similarity']:.4f} → {s2['max_similarity']:.4f}
+  Average:  {s2['avg_similarity']:.2f}
+  Range:    {s2['min_similarity']:.2f} → {s2['max_similarity']:.2f}
   
 [bold]Similarity Distribution:[/bold]
-  ≥ 0.65:   {dist['high']:4d} papers  [green]{'█' * max(1, int(dist['high'] * 50 / max(total, 1))):<50}[/green]
-  0.55-0.65: {dist['medium']:4d} papers  [yellow]{'█' * max(1, int(dist['medium'] * 50 / max(total, 1))):<50}[/yellow]
-  0.45-0.55: {dist['low']:4d} papers  [dim]{'█' * max(1, int(dist['low'] * 50 / max(total, 1))):<50}[/dim]
-  < 0.45:   {dist['very_low']:4d} papers  [dim]{'█' * max(1, int(dist['very_low'] * 50 / max(total, 1))):<50}[/dim]
+  ≥ 0.65:    {dist['high']:5d} papers  [green]{'█' * max(1, int(dist['high'] * 10 / max(total, 1)))}[/green]
+  0.55-0.65: {dist['medium']:5d} papers  [yellow]{'█' * max(1, int(dist['medium'] * 10 / max(total, 1)))}[/yellow]
+  0.45-0.55: {dist['low']:5d} papers  [dim]{'█' * max(1, int(dist['low'] * 10 / max(total, 1)))}[/dim]
+  < 0.45:    {dist['very_low']:5d} papers  [dim]{'█' * max(1, int(dist['very_low'] * 10 / max(total, 1)))}[/dim]
 
 [bold]Timeline:[/bold]
   Started:  {self.format_time_ago(s2['earliest']) if s2['earliest'] else 'Never'}

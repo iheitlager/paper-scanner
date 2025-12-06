@@ -63,6 +63,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Suppress noisy loggers
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('requests').setLevel(logging.WARNING)
+
 # Store handler reference to update later
 _log_handler = logging.getLogger(__name__).handlers[0] if logging.getLogger(__name__).handlers else None
 
@@ -116,7 +120,7 @@ class PoliteCrossrefClient:
         if cache_path.exists():
             try:
                 with open(cache_path, 'r') as f:
-                    logger.debug(f"[cyan]📦 Cache hit[/cyan] for {doi}")
+                    # Only log cache hits at debug level when verbose
                     return json.load(f)
             except Exception as e:
                 logger.debug(f"Error loading cache for {doi}: {e}")
@@ -145,8 +149,6 @@ class PoliteCrossrefClient:
         cached = self._load_from_cache(doi)
         if cached:
             return cached
-        
-        logger.debug(f"[yellow]🌐 Fetching[/yellow] from Crossref API for {doi}")
         
         # Rate limiting: sleep before making the request
         time.sleep(self.delay_between_requests)
@@ -184,6 +186,9 @@ class CrossrefReferenceFetcher:
             self.session.headers.update({
                 'User-Agent': f'{CROSSREF_APP_NAME} (mailto:{self.email})'
             })
+            
+            # Create a polite Crossref client for fetching individual works
+            self.polite_client = PoliteCrossrefClient(email=email, rate_limit=1/rate_limit_delay)
         except ImportError:
             logger.error("requests library not found. Install with: pip install requests")
             raise
@@ -221,8 +226,6 @@ class CrossrefReferenceFetcher:
                     logger.debug(f"Error loading cache for {doi}: {e}")
 
             # Query Crossref
-            logger.debug(f"[yellow]🌐 Fetching[/yellow] references from Crossref API for {doi}")
-            
             # Rate limiting: sleep before making the request
             time.sleep(self.rate_limit_delay)
             
@@ -334,6 +337,7 @@ class CrossrefReferenceFetcher:
             'authors_json': json.dumps(authors) if authors else None,
             'citekey': ref.get('key', ''),
             'reference_type': ref.get('type', 'unknown'),
+            'paper_type': ref.get('type', 'unknown'),  # Store paper type from Crossref
             'doi': ref.get('DOI', '').lower() if ref.get('DOI') else None,
             'url': ref.get('URL'),
             'volume': ref.get('volume'),
@@ -341,6 +345,7 @@ class CrossrefReferenceFetcher:
             'pages_range': pages_range,
             'journal': ref.get('journal-title'),
             'publisher': ref.get('publisher'),
+            'abstract': ref.get('abstract'),
             'arxiv_id': self._extract_arxiv(ref.get('URL', '')),
             'raw_citation': json.dumps(ref),
         }
@@ -357,6 +362,100 @@ class CrossrefReferenceFetcher:
             return None
         match = re.search(r'arxiv\.org/abs/(\d+\.\d+)', url, re.IGNORECASE)
         return match.group(1) if match else None
+    
+    def get_crossref_work_for_doi(self, doi: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch full work metadata from Crossref for a DOI
+        Uses the polite client with caching for efficient lookups
+        
+        Args:
+            doi: Digital Object Identifier
+            
+        Returns:
+            Crossref work data or None if not found
+        """
+        try:
+            # Use the polite client which handles caching and rate limiting
+            result = self.polite_client.get_work(doi)
+            
+            # Extract the work data from the API response
+            if result and result.get('status') == 'ok' and 'message' in result:
+                return result['message']
+            return None
+        except Exception as e:
+            # Silently handle 404s and other HTTP errors - just skip those references
+            error_str = str(e)
+            if '404' not in error_str:
+                logger.debug(f"Could not fetch work metadata from Crossref for {doi}: {e}")
+            return None
+    
+    def parse_crossref_work(self, work: Dict[str, Any], source_paper_id: int) -> Dict[str, Any]:
+        """
+        Parse a Crossref work into our reference format
+        
+        Args:
+            work: Crossref work data
+            source_paper_id: ID of the source paper
+            
+        Returns:
+            Parsed reference dictionary
+        """
+        # Extract authors
+        authors = []
+        for author in work.get('author', []):
+            if isinstance(author, dict):
+                author_obj = {
+                    'last_name': author.get('family', ''),
+                    'first_name': author.get('given', ''),
+                    'initials': self._extract_initials(author.get('given', ''))
+                }
+                if author_obj['last_name']:
+                    authors.append(author_obj)
+        
+        # Parse year
+        year = self._extract_year(work)
+        
+        # Extract pages
+        pages_range = None
+        if 'first-page' in work and 'last-page' in work:
+            pages_range = f"{work['first-page']}-{work['last-page']}"
+        elif 'article-number' in work:
+            pages_range = work['article-number']
+        
+        # Get title
+        title = ''
+        if isinstance(work.get('title'), list) and work['title']:
+            title = work['title'][0]
+        elif isinstance(work.get('title'), str):
+            title = work['title']
+        
+        # Get journal title safely
+        journal = None
+        if isinstance(work.get('container-title'), list):
+            container_titles = work.get('container-title', [])
+            journal = container_titles[0] if container_titles else None
+        else:
+            journal = work.get('container-title')
+        
+        return {
+            'source_paper_id': source_paper_id,
+            'title': title,
+            'year': year,
+            'authors': authors,
+            'authors_json': json.dumps(authors) if authors else None,
+            'citekey': work.get('URL', ''),
+            'reference_type': work.get('type', 'article'),
+            'paper_type': work.get('type', 'article'),  # Store paper type from Crossref
+            'doi': work.get('DOI', '').lower() if work.get('DOI') else None,
+            'url': work.get('URL'),
+            'volume': work.get('volume'),
+            'issue': work.get('issue'),
+            'pages_range': pages_range,
+            'journal': journal,
+            'publisher': work.get('publisher'),
+            'arxiv_id': self._extract_arxiv(work.get('URL', '')),
+            'raw_citation': json.dumps(work),
+        }
 
 
 class CrossrefReferenceLoader:
@@ -374,6 +473,8 @@ class CrossrefReferenceLoader:
         self.fetcher = CrossrefReferenceFetcher()
         self.verbose = False
         self.try_mode = try_mode
+        self.export_errors_path = None
+        self.not_found_records = []  # Track papers with missing/failed references
         self.stats = {
             'papers_processed': 0,
             'papers_with_references': 0,
@@ -552,12 +653,11 @@ class CrossrefReferenceLoader:
             cursor.execute(
                 """
                 INSERT INTO papers (
-                    citekey, title, year, authors, doi, 
+                    citekey, title, year, authors, doi, abstract, paper_type,
                     source_type, processing_status,
                     metadata_extracted_at, indexed_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                ON CONFLICT (citekey) DO NOTHING
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 RETURNING id
                 """,
                 (
@@ -566,6 +666,8 @@ class CrossrefReferenceLoader:
                     reference.get('year'),
                     reference.get('authors_json'),
                     reference.get('doi'),
+                    reference.get('abstract'),
+                    reference.get('paper_type'),
                     'crossref',
                     'metadata_extracted'
                 )
@@ -574,7 +676,8 @@ class CrossrefReferenceLoader:
             result = cursor.fetchone()
             if result:
                 paper_id = result[0]
-                logger.debug(f"Inserted referenced paper: {citekey} (ID: {paper_id})")
+                if self.verbose:
+                    logger.debug(f"Inserted referenced paper: {citekey} (ID: {paper_id})")
                 self.stats['new_papers_created'] += 1
                 return paper_id
             else:
@@ -583,6 +686,11 @@ class CrossrefReferenceLoader:
         except Exception as e:
             logger.warning(f"Error inserting referenced paper: {e}")
             self.stats['errors'] += 1
+            # Rollback the transaction to clear the error state
+            try:
+                conn.rollback()
+            except:
+                pass
             return None
         finally:
             cursor.close()
@@ -750,6 +858,11 @@ class CrossrefReferenceLoader:
 
         if not crossref_data:
             console.print("[yellow]  No references found in Crossref[/yellow]")
+            self.not_found_records.append({
+                "citing_doi": doi,
+                "citing_title": citekey,
+                "reason": "no_crossref_data"
+            })
             self.stats['papers_skipped'] += 1
             time.sleep(self.fetcher.rate_limit_delay)
             return 0
@@ -758,6 +871,11 @@ class CrossrefReferenceLoader:
         console.print(f"  Found {len(references)} references")
 
         if len(references) == 0:
+            self.not_found_records.append({
+                "citing_doi": doi,
+                "citing_title": citekey,
+                "reason": "no_references_found"
+            })
             self.stats['papers_skipped'] += 1
             time.sleep(self.fetcher.rate_limit_delay)
             return 0
@@ -774,41 +892,80 @@ class CrossrefReferenceLoader:
 
         # Process each reference
         references_added = 0
-        for i, ref in enumerate(references, 1):
+        
+        # First process direct references (no DOI, use parsed data)
+        for ref_item in resolved['direct']:
             try:
+                i = ref_item['index']
+                ref = ref_item['raw']
+                
                 # Parse reference
                 parsed_ref = self.fetcher.parse_reference(ref, paper_id)
-
-                # Skip if parsing failed
-                if not parsed_ref:
-                    if not parsed_ref:
-                        logger.debug(f"    Ref {i}: Skipping - invalid reference structure")
-                    continue
-
-                # Skip only if we have no useful identifying information at all
-                has_title = bool(parsed_ref.get('title'))
-                has_doi = bool(parsed_ref.get('doi'))
-                has_authors_or_year = bool(parsed_ref.get('authors_json')) or bool(parsed_ref.get('year'))
                 
-                if not (has_title or (has_doi and (has_authors_or_year or parsed_ref.get('journal')))):
-                    logger.debug(f"    Ref {i}: Skipping - insufficient identifying information")
+                if not parsed_ref:
                     continue
-
+                
                 # Insert as new paper
                 cited_paper_id = self.insert_referenced_paper(conn, parsed_ref, paper_id)
-
+                
                 if cited_paper_id:
-                    # Create citation edge
-                    if self.create_citation_edge(conn, paper_id, cited_paper_id):
-                        references_added += 1
-                        if self.verbose:
-                            apa_citation = self.format_apa(parsed_ref)
-                            console.print(f"    Ref {i}: ✓ {apa_citation}")
-                        else:
-                            logger.debug(f"    Ref {i}: ✓ {parsed_ref.get('title')[:50]}...")
-
+                    # Create citation edge (count as added regardless of whether it's new)
+                    self.create_citation_edge(conn, paper_id, cited_paper_id)
+                    references_added += 1
+                    if self.verbose:
+                        apa_citation = self.format_apa(parsed_ref)
+                        console.print(f"    Ref {i}: ✓ {apa_citation}")
+            
             except Exception as e:
-                logger.warning(f"    Ref {i}: Error processing reference: {e}")
+                logger.warning(f"    Ref {i}: Error processing direct reference: {e}")
+                self.stats['errors'] += 1
+        
+        # Then process Crossref references (have DOI, fetch full metadata)
+        crossref_lookup_count = 0
+        for ref_item in resolved['crossref']:
+            try:
+                i = ref_item['index']
+                doi = ref_item['doi']
+                crossref_lookup_count += 1
+                
+                # Show progress for Crossref lookups
+                if not self.verbose:
+                    # In normal mode, show every 10th lookup
+                    if crossref_lookup_count % 10 == 1 and crossref_lookup_count > 1:
+                        console.print(f"  Fetching metadata from Crossref... [cyan]{crossref_lookup_count-10}[/cyan]/{len(resolved['crossref'])}")
+                
+                # Fetch full metadata from Crossref
+                crossref_work = self.fetcher.get_crossref_work_for_doi(doi)
+                
+                if not crossref_work:
+                    if self.verbose:
+                        logger.debug(f"    Ref {i}: Failed to fetch metadata from Crossref for {doi}")
+                    continue
+                
+                # Parse the Crossref data
+                parsed_ref = self.fetcher.parse_crossref_work(crossref_work, paper_id)
+                
+                if not parsed_ref:
+                    if self.verbose:
+                        logger.debug(f"    Ref {i}: Failed to parse Crossref data for {doi}")
+                    continue
+                
+                # Insert as new paper
+                cited_paper_id = self.insert_referenced_paper(conn, parsed_ref, paper_id)
+                
+                if cited_paper_id:
+                    # Create citation edge (count as added regardless of whether it's new)
+                    self.create_citation_edge(conn, paper_id, cited_paper_id)
+                    references_added += 1
+                    if self.verbose:
+                        apa_citation = self.format_apa(parsed_ref)
+                        console.print(f"    Ref {i}: ✓ {apa_citation}")
+                else:
+                    if self.verbose:
+                        logger.debug(f"    Ref {i}: Failed to insert referenced paper for {doi}")
+            
+            except Exception as e:
+                logger.warning(f"    Ref {i}: Error processing Crossref reference {doi}: {e}")
                 self.stats['errors'] += 1
 
         # Commit transaction
@@ -874,12 +1031,26 @@ class CrossrefReferenceLoader:
 
             # Print summary
             self._print_summary()
+            
+            # Export errors if requested
+            if self.export_errors_path and self.not_found_records:
+                self._export_errors()
 
             return self.stats
 
         except Exception as e:
             logger.error(f"Fatal error: {e}")
             raise
+    
+    def _export_errors(self) -> None:
+        """Export not found records to JSON file"""
+        try:
+            export_path = Path(self.export_errors_path)
+            with open(export_path, 'w') as f:
+                json.dump(self.not_found_records, f, indent=2)
+            console.print(f"[green]✓ Exported {len(self.not_found_records)} not found records to {export_path}[/green]")
+        except Exception as e:
+            logger.error(f"Failed to export errors to {self.export_errors_path}: {e}")
 
     def _print_summary(self):
         """Print processing summary"""
@@ -952,6 +1123,13 @@ def main():
         default=50.0,
         help='Request rate limit in requests per second (default: 50)'
     )
+    parser.add_argument(
+        '-e', '--error',
+        nargs='?',
+        const='error.log',
+        default=None,
+        help='Export not found records to JSON file (default: error.log)'
+    )
 
     args = parser.parse_args()
 
@@ -965,6 +1143,7 @@ def main():
         
         loader = CrossrefReferenceLoader(args.db_url, try_mode=args.try_mode)
         loader.verbose = args.verbose
+        loader.export_errors_path = args.error
         loader.fetcher.verbose = args.verbose
         if args.try_mode:
             console.print("[yellow]🔍 DRY-RUN MODE: Scanning references without uploading[/yellow]")

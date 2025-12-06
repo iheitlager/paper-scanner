@@ -202,6 +202,7 @@ class WOSTranslator(BibtexTranslator):
     def translate(self, citekey: str, entry_type: str, fields: Dict[str, str]) -> Optional[Paper]:
         """Translate WOS BibTeX fields to a Paper object."""
         paper = Paper(citekey=citekey, paper_type=entry_type, raw_data=fields)
+        paper.source_type = 'Web of Science'
         
         # Handle keywords separately: keywords and keywords-plus
         keywords_str = fields.get('keywords')
@@ -263,6 +264,7 @@ class ScopusTranslator(BibtexTranslator):
     def translate(self, citekey: str, entry_type: str, fields: Dict[str, str]) -> Optional[Paper]:
         """Translate Scopus BibTeX fields to a Paper object."""
         paper = Paper(citekey=citekey, paper_type=entry_type, raw_data=fields)
+        paper.source_type = 'Scopus'
         
         # Handle keywords: Scopus uses author_keywords and keywords separately
         author_keywords_str = fields.get('author_keywords')
@@ -326,6 +328,7 @@ class IEEETranslator(BibtexTranslator):
     def translate(self, citekey: str, entry_type: str, fields: Dict[str, str]) -> Optional[Paper]:
         """Translate IEEE BibTeX fields to a Paper object."""
         paper = Paper(citekey=citekey, paper_type=entry_type, raw_data=fields)
+        paper.source_type = 'IEEE Xplore'
         
         # Handle keywords: IEEE uses semicolon-separated keywords
         keywords_str = fields.get('keywords')
@@ -392,6 +395,7 @@ class Paper:
     keywords: Optional[List[str]] = None
     keywords_extra: Optional[List[str]] = None
     paper_type: Optional[str] = None
+    source_type: Optional[str] = None  # Source identifier (e.g., 'Web of Science', 'Scopus', 'IEEE Xplore')
     source_details: Optional[Dict[str, Any]] = None
     title_details: Optional[Dict[str, Any]] = None
     
@@ -402,14 +406,15 @@ class Paper:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for database insertion.
         
-        Generates source_key combining source and citekey.
+        Generates source_key combining source_type and citekey.
         This key is used to detect and reject duplicate papers from the same source.
         """
-        source = self.source_details.get('source', 'Unknown') if self.source_details else 'Unknown'
+        source = self.source_type or (self.source_details.get('source', 'Unknown') if self.source_details else 'Unknown')
         source_key = f"{source}:{self.citekey}"
         
         data = {
             'source_key': source_key,
+            'source_type': self.source_type,
             'citekey': self.citekey,
             'title': self.title,
             'authors': self.authors,
@@ -469,6 +474,7 @@ class BibtexReader:
     def parse(self) -> List[Paper]:
         """Parse the BibTeX file and return a list of Paper objects."""
         papers = []
+        seen_citekeys = {}  # Track citekeys to make duplicates unique
         
         with open(self.filepath, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -481,6 +487,18 @@ class BibtexReader:
             try:
                 paper = self._parse_entry(entry)
                 if paper:
+                    # Handle duplicate citekeys within the same file
+                    original_citekey = paper.citekey
+                    if original_citekey in seen_citekeys:
+                        # This is a duplicate citekey, make it unique
+                        count = seen_citekeys[original_citekey]
+                        seen_citekeys[original_citekey] += 1
+                        # Append suffix like _2, _3, etc.
+                        paper.citekey = f"{original_citekey}_{count}"
+                        logger.debug(f"Made duplicate citekey unique: {original_citekey} -> {paper.citekey}")
+                    else:
+                        seen_citekeys[original_citekey] = 2  # Next duplicate will be _2
+                    
                     papers.append(paper)
             except Exception as e:
                 logger.warning(f"Failed to parse entry: {e}")
