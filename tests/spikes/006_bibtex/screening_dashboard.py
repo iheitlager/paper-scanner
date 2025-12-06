@@ -206,8 +206,92 @@ class ScreeningDashboard:
         paper_type_analysis = cursor.fetchall()
         stats['paper_type_analysis'] = [dict(row) for row in paper_type_analysis]
 
+        # Papers per year (total and final pass/review)
+        cursor.execute("""
+        SELECT 
+            p.year,
+            COUNT(*) as total_count,
+            COUNT(CASE WHEN ps.screening_stage IN ('stage2_pass', 'stage2_review') THEN 1 END) as final_count
+        FROM papers p
+        LEFT JOIN paper_screening ps ON p.id = ps.paper_id
+        WHERE p.year IS NOT NULL
+        GROUP BY p.year
+        ORDER BY p.year ASC;
+        """)
+        papers_by_year = cursor.fetchall()
+        stats['papers_by_year'] = [dict(row) for row in papers_by_year]
+
         cursor.close()
         return stats
+
+    def create_year_histogram(self, stats: Dict) -> None:
+        """Display ASCII histogram of papers per year with total and final pass/review counts merged."""
+        papers_by_year = stats.get('papers_by_year', [])
+        
+        if not papers_by_year:
+            return
+        
+        console.print()
+        console.print("[bold cyan]📈 Papers per Year (Total vs Final Pass/Review)[/bold cyan]")
+        
+        # Get max counts for scaling and alignment
+        max_total = max(row['total_count'] for row in papers_by_year) if papers_by_year else 1
+        max_total_width = len(str(max_total))
+        
+        # Create histogram with fixed width for bars
+        bar_width = 40
+        
+        # Calculate total line width
+        total_width = 4 + 3 + bar_width + 3 + (max_total_width * 2 + 3)
+        
+        # Header
+        numbers_header = f"{'Total':>{max_total_width}} / {'Pass':>{max_total_width}}"
+        console.print(f"{'Year':>4} │ {'Merged View':<{bar_width}} │ {numbers_header}")
+        console.print("─" * total_width)
+        
+        for row in papers_by_year:
+            year = row['year']
+            total_count = row['total_count']
+            final_count = row['final_count'] or 0
+            
+            # Calculate bar lengths (proportional to max total)
+            if max_total > 0:
+                total_bar_length = int((total_count / max_total) * bar_width)
+                final_bar_length = int((final_count / max_total) * bar_width)
+            else:
+                total_bar_length = 0
+                final_bar_length = 0
+            
+            # Build the bar character by character without color codes first
+            bar_chars = []
+            
+            # Add green bars for pass/review
+            for i in range(final_bar_length):
+                bar_chars.append("[green]█[/green]")
+            
+            # Add cyan bars for others
+            for i in range(total_bar_length - final_bar_length):
+                bar_chars.append("[cyan]█[/cyan]")
+            
+            # Add spaces to pad to bar_width
+            remaining = bar_width - total_bar_length
+            bar_chars.extend([" "] * remaining)
+            
+            # Join the bar
+            bar_display = "".join(bar_chars)
+            
+            # Format numbers
+            numbers_display = f"{total_count:>{max_total_width}} / {final_count:>{max_total_width}}"
+            
+            # Format the line
+            line = f"{year:4d} │ {bar_display} │ {numbers_display}"
+            console.print(line)
+        
+        # Print scale reference at bottom
+        console.print("─" * total_width)
+        
+        # Legend
+        console.print("[green]█[/green] = Pass/Review | [cyan]█[/cyan] = Other papers")
 
     def format_time_ago(self, dt: Optional[datetime]) -> str:
         """Format datetime as time ago."""
@@ -609,6 +693,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
             self.display_detailed_table(stats)
             self.display_key_metrics(stats)
             self.display_paper_type_analysis(stats)
+            self.create_year_histogram(stats)
             self.display_recommendations(stats)
             
             # Footer
