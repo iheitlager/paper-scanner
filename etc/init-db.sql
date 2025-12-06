@@ -363,10 +363,18 @@ CREATE TABLE IF NOT EXISTS paper_screening (
     
     -- Current screening status
     screening_stage VARCHAR(50) NOT NULL DEFAULT 'unscreened',
-        -- 'unscreened', 'stage1_pass', 'stage1_fail', 'stage2_pass', 'stage2_fail', 
-        -- 'stage3_review', 'stage4_validated', 'included', 'excluded'
+        -- 'unscreened', 'stage0_pass', 'stage0_fail', 'stage1_pass', 'stage1_fail', 
+        -- 'stage2_pass', 'stage2_fail', 'stage3_review', 'stage4_validated', 
+        -- 'included', 'excluded'
     screening_stage_updated_at TIMESTAMP,
-    
+
+    -- ========================================
+    -- STAGE 0: Article types
+    -- ========================================
+    stage0_processed_at TIMESTAMP,
+    stage0_exclusion_reason VARCHAR(255),  -- duplicate, wrong paper_type, wrong method
+    kept_paper_id INTEGER,  -- original for duplicates
+
     -- ========================================
     -- STAGE 1: Coarse Filter (Rule-based)
     -- ========================================

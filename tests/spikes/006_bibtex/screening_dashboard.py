@@ -73,22 +73,52 @@ class ScreeningDashboard:
         sources = cursor.fetchall()
         stats['sources'] = {row['source']: row['count'] for row in sources}
 
+        # Stage 0 stats
+        cursor.execute("""
+        SELECT 
+            COUNT(*) as total,
+            COUNT(CASE WHEN stage0_exclusion_reason IS NOT NULL THEN 1 END) as failed,
+            COUNT(CASE WHEN stage0_exclusion_reason LIKE 'rejected_paper_type%' THEN 1 END) as rejected_type,
+            COUNT(CASE WHEN stage0_exclusion_reason = 'duplicate' THEN 1 END) as rejected_dup,
+            COUNT(CASE WHEN stage0_exclusion_reason = 'review_paper' THEN 1 END) as rejected_review,
+            COUNT(CASE WHEN stage0_exclusion_reason = 'conceptual_paper' THEN 1 END) as rejected_conceptual,
+            MIN(stage0_processed_at) as earliest,
+            MAX(stage0_processed_at) as latest
+        FROM paper_screening
+        WHERE stage0_processed_at IS NOT NULL;
+        """)
+        s0 = cursor.fetchone()
+        total_s0 = s0['total'] or 0
+        failed_s0 = s0['failed'] or 0
+        stats['stage0'] = {
+            'processed': total_s0,
+            'passed': total_s0 - failed_s0,
+            'failed': failed_s0,
+            'rejected_type': s0['rejected_type'] or 0,
+            'rejected_dup': s0['rejected_dup'] or 0,
+            'rejected_review': s0['rejected_review'] or 0,
+            'rejected_conceptual': s0['rejected_conceptual'] or 0,
+            'earliest': s0['earliest'],
+            'latest': s0['latest']
+        }
+
         # Stage 1 stats
         cursor.execute("""
         SELECT 
             COUNT(*) as total,
-            COUNT(CASE WHEN screening_stage = 'stage1_pass' THEN 1 END) as passed,
-            COUNT(CASE WHEN screening_stage = 'stage1_fail' THEN 1 END) as failed,
+            COUNT(CASE WHEN stage1_exclusion_reason IS NOT NULL THEN 1 END) as failed,
             MIN(stage1_processed_at) as earliest,
             MAX(stage1_processed_at) as latest
         FROM paper_screening
         WHERE stage1_processed_at IS NOT NULL;
         """)
         s1 = cursor.fetchone()
+        total_s1 = s1['total'] or 0
+        failed_s1 = s1['failed'] or 0
         stats['stage1'] = {
-            'processed': s1['total'] or 0,
-            'passed': s1['passed'] or 0,
-            'failed': s1['failed'] or 0,
+            'processed': total_s1,
+            'passed': total_s1 - failed_s1,
+            'failed': failed_s1,
             'earliest': s1['earliest'],
             'latest': s1['latest']
         }
@@ -97,9 +127,9 @@ class ScreeningDashboard:
         cursor.execute("""
         SELECT 
             COUNT(*) as total,
-            COUNT(CASE WHEN screening_stage = 'stage2_pass' THEN 1 END) as included,
+            COUNT(CASE WHEN stage2_exclusion_reason IS NULL AND stage2_processed_at IS NOT NULL THEN 1 END) as included,
             COUNT(CASE WHEN screening_stage = 'stage2_review' THEN 1 END) as review,
-            COUNT(CASE WHEN screening_stage = 'stage2_fail' THEN 1 END) as excluded,
+            COUNT(CASE WHEN stage2_exclusion_reason IS NOT NULL THEN 1 END) as excluded,
             ROUND(AVG(semantic_similarity)::numeric, 4) as avg_similarity,
             MIN(semantic_similarity) as min_similarity,
             MAX(semantic_similarity) as max_similarity,
@@ -107,7 +137,8 @@ class ScreeningDashboard:
             MAX(stage2_processed_at) as latest,
             COUNT(CASE WHEN needs_manual_review = true THEN 1 END) as manual_review_count
         FROM paper_screening
-        WHERE stage2_processed_at IS NOT NULL;
+        WHERE stage2_processed_at IS NOT NULL
+          AND stage1_exclusion_reason IS NULL;
         """)
         s2 = cursor.fetchone()
         stats['stage2'] = {
@@ -156,6 +187,25 @@ class ScreeningDashboard:
             'pending': final['final_pending'] or 0
         }
 
+        # Paper type analysis (2D: paper_type vs acceptance/pending/rejection)
+        cursor.execute("""
+        SELECT 
+            COALESCE(p.paper_type, 'Unknown') as paper_type,
+            COUNT(*) as total,
+            COUNT(CASE WHEN ps.stage2_exclusion_reason IS NULL AND ps.stage2_processed_at IS NOT NULL THEN 1 END) as included,
+            COUNT(CASE WHEN ps.screening_stage = 'stage2_review' THEN 1 END) as pending,
+            COUNT(CASE WHEN ps.stage2_exclusion_reason IS NOT NULL THEN 1 END) as excluded,
+            COUNT(CASE WHEN ps.stage0_exclusion_reason IS NOT NULL THEN 1 END) as stage0_rejected,
+            COUNT(CASE WHEN ps.stage1_exclusion_reason IS NOT NULL THEN 1 END) as stage1_rejected,
+            COUNT(CASE WHEN ps.stage2_exclusion_reason IS NOT NULL THEN 1 END) as stage2_rejected
+        FROM papers p
+        LEFT JOIN paper_screening ps ON p.id = ps.paper_id
+        GROUP BY p.paper_type
+        ORDER BY total DESC
+        """)
+        paper_type_analysis = cursor.fetchall()
+        stats['paper_type_analysis'] = [dict(row) for row in paper_type_analysis]
+
         cursor.close()
         return stats
 
@@ -184,9 +234,11 @@ class ScreeningDashboard:
         console.print()
         
         total = stats['total_papers']
+        s0_processed = stats['stage0']['processed']
         s1_processed = stats['stage1']['processed']
         s2_processed = stats['stage2']['processed']
         
+        s0_pct = f"{100*s0_processed/total:.1f}%" if total > 0 else "0%"
         s1_pct = f"{100*s1_processed/total:.1f}%" if total > 0 else "0%"
         s2_pct = f"{100*s2_processed/total:.1f}%" if total > 0 else "0%"
         
@@ -202,11 +254,59 @@ class ScreeningDashboard:
 
 Total Papers in Database:        [bold]{total:,}[/bold]{source_text}
 
-Stage 1 (Keyword Filtering):     [bold yellow]{s1_processed:,}[/bold yellow] processed ({s1_pct})
-Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] processed ({s2_pct})
+Stage 0 (Type/Duplicate Filter):   [bold magenta]{s0_processed:,}[/bold magenta] processed ({s0_pct})
+Stage 1 (Keyword Filtering):       [bold yellow]{s1_processed:,}[/bold yellow] processed ({s1_pct})
+Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] processed ({s2_pct})
 """
         
         console.print(Panel(overview_text.strip(), expand=False, border_style="cyan"))
+
+    def display_stage0(self, stats: Dict) -> None:
+        """Display Stage 0 results."""
+        s0 = stats['stage0']
+        total = s0['processed']
+        
+        if total == 0:
+            console.print("[yellow]⚠️  Stage 0 not yet executed[/yellow]\n")
+            return
+        
+        passed_pct = 100 * s0['passed'] / total
+        failed_pct = 100 * s0['failed'] / total
+        
+        # Build rejection breakdown
+        rejection_text = ""
+        if s0['rejected_type'] > 0:
+            pct = 100 * s0['rejected_type'] / total
+            rejection_text += f"\n    • Wrong citation type:    {s0['rejected_type']:4d} ({pct:5.1f}%)"
+        if s0['rejected_dup'] > 0:
+            pct = 100 * s0['rejected_dup'] / total
+            rejection_text += f"\n    • Duplicates:             {s0['rejected_dup']:4d} ({pct:5.1f}%)"
+        if s0['rejected_review'] > 0:
+            pct = 100 * s0['rejected_review'] / total
+            rejection_text += f"\n    • Literature reviews:     {s0['rejected_review']:4d} ({pct:5.1f}%)"
+        if s0['rejected_conceptual'] > 0:
+            pct = 100 * s0['rejected_conceptual'] / total
+            rejection_text += f"\n    • Conceptual/theoretical: {s0['rejected_conceptual']:4d} ({pct:5.1f}%)"
+        
+        # Create summary text
+        summary = f"""
+[bold magenta]✓ Stage 0: Quality Filter (Type/Duplicate/Method)[/bold magenta]
+[dim]Goal: Remove non-empirical papers, duplicates, and non-peer-reviewed works[/dim]
+
+[bold]Results:[/bold]
+  [green]✓ PASSED[/green]  (Empirical peer-reviewed) {s0['passed']:4d} papers  ({passed_pct:5.1f}%)
+  [red]✗ FAILED[/red]  (Excluded)                {s0['failed']:4d} papers  ({failed_pct:5.1f}%)
+  ────────────────────
+  Total:                              {total:4d} papers
+
+[bold]Rejection Breakdown:[/bold]{rejection_text}
+
+[bold]Timeline:[/bold]
+  Started:  {self.format_time_ago(s0['earliest']) if s0['earliest'] else 'Never'}
+  Latest:   {self.format_time_ago(s0['latest']) if s0['latest'] else 'Never'}
+"""
+        
+        console.print(Panel(summary.strip(), expand=False, border_style="magenta", title="Stage 0"))
 
     def display_stage1(self, stats: Dict) -> None:
         """Display Stage 1 results."""
@@ -283,6 +383,7 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
 
     def display_detailed_table(self, stats: Dict) -> None:
         """Display detailed statistics table."""
+        s0 = stats['stage0']
         s1 = stats['stage1']
         s2 = stats['stage2']
         
@@ -293,6 +394,17 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
         table.add_column("Failed/Excluded", justify="right", style="red")
         table.add_column("Pending Review", justify="right", style="yellow")
         table.add_column("Status", style="white")
+        
+        s0_status = "✓ Complete" if s0['processed'] > 0 else "⏳ Pending"
+        s0_style = "green" if s0['processed'] > 0 else "yellow"
+        table.add_row(
+            "Stage 0",
+            str(s0['processed']),
+            str(s0['passed']),
+            str(s0['failed']),
+            "-",
+            f"[{s0_style}]{s0_status}[/{s0_style}]"
+        )
         
         s1_status = "✓ Complete" if s1['processed'] > 0 else "⏳ Pending"
         s1_style = "green" if s1['processed'] > 0 else "yellow"
@@ -318,9 +430,27 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
         
         console.print(table)
         console.print()
+        
+        # Explain the filtering funnel
+        s0 = stats['stage0']
+        s1 = stats['stage1']
+        s2 = stats['stage2']
+        
+        funnel_explanation = f"""
+[dim]📊 Filtering Funnel Explanation:[/dim]
+  Start:           {s0['processed']:4d} papers (all papers processed at Stage 0)
+  → Stage 0 Pass:  {s0['passed']:4d} papers (removed {s0['failed']:4d} non-empirical/duplicates)
+  → Stage 1 Pass:  {s1['passed']:4d} papers (removed {s1['failed']:4d} keyword-irrelevant)
+  → Stage 2 In:    {s2['processed']:4d} papers (note: may differ from Stage 1 pass if some papers skipped Stage 2)
+     ├─ Included:  {s2['included']:4d} papers
+     ├─ Pending:   {s2['review']:4d} papers (manual review needed)
+     └─ Excluded:  {s2['excluded']:4d} papers
+"""
+        console.print(funnel_explanation)
 
     def display_recommendations(self, stats: Dict) -> None:
         """Display recommendations based on current state."""
+        s0 = stats['stage0']
         s1 = stats['stage1']
         s2 = stats['stage2']
         total = stats['total_papers']
@@ -331,6 +461,8 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
         
         if total == 0:
             recommendations.append("[yellow]Load papers from BibTeX file[/yellow]")
+        elif s0['processed'] == 0:
+            recommendations.append("[yellow]Run Stage 0 (quality filter: type/duplicates/empirical)[/yellow]")
         elif s1['processed'] == 0:
             recommendations.append("[yellow]Run Stage 1 (keyword screening)[/yellow]")
         elif s2['processed'] == 0:
@@ -338,7 +470,7 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
         else:
             if s2['review'] > 0:
                 recommendations.append(f"[yellow]Review {s2['review']} borderline papers (0.55-0.65 similarity)[/yellow]")
-            recommendations.append("[green]Both stages complete![/green]")
+            recommendations.append("[green]All screening stages complete![/green]")
             if s2['review'] > 0:
                 recommendations.append("[cyan]Next: Run Stage 3 (LLM classification for borderline papers)[/cyan]")
         
@@ -347,10 +479,11 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
 
     def display_key_metrics(self, stats: Dict) -> None:
         """Display key performance metrics."""
+        s0 = stats['stage0']
         s1 = stats['stage1']
         s2 = stats['stage2']
         
-        if s1['processed'] == 0 and s2['processed'] == 0:
+        if s0['processed'] == 0 and s1['processed'] == 0 and s2['processed'] == 0:
             return
         
         console.print()
@@ -359,6 +492,11 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
         metrics_table = Table(show_header=True, header_style="bold magenta", title="📈 Key Metrics")
         metrics_table.add_column("Metric", style="cyan")
         metrics_table.add_column("Value", justify="right", style="yellow")
+        
+        # Stage 0 pass rate
+        if s0['processed'] > 0:
+            s0_pass_rate = 100 * s0['passed'] / s0['processed']
+            metrics_table.add_row("Stage 0 Pass Rate", f"{s0_pass_rate:.1f}%")
         
         # Stage 1 pass rate
         if s1['processed'] > 0:
@@ -378,13 +516,68 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
             metrics_table.add_row("Average Similarity", f"{s2['avg_similarity']:.4f}")
         
         # Overall inclusion (if all stages done)
-        if s1['processed'] > 0 and s2['processed'] > 0:
-            # Papers that passed both stages
+        if s0['processed'] > 0 and s1['processed'] > 0 and s2['processed'] > 0:
+            # Papers that passed all stages
             total_passed = s2['included']  # Those that passed Stage 2 as "pass"
-            overall_rate = 100 * total_passed / s1['processed']
-            metrics_table.add_row("Overall Inclusion", f"{overall_rate:.1f}%")
+            overall_rate = 100 * total_passed / s0['processed']
+            metrics_table.add_row("Overall Inclusion (all stages)", f"{overall_rate:.1f}%")
         
         console.print(metrics_table)
+
+    def display_paper_type_analysis(self, stats: Dict) -> None:
+        """Display 2D analysis of paper_type vs acceptance/rejection rates."""
+        paper_type_data = stats.get('paper_type_analysis', [])
+        
+        if not paper_type_data:
+            return
+        
+        console.print()
+        
+        # Create table
+        table = Table(
+            title="📊 Paper Type Analysis (Current Screening Status)",
+            show_header=True,
+            header_style="bold cyan"
+        )
+        table.add_column("Paper Type", style="cyan", width=25)
+        table.add_column("Total", justify="right", style="white")
+        table.add_column("Advancing", justify="right", style="green")
+        table.add_column("% Adv.", justify="right", style="green")
+        table.add_column("Pending", justify="right", style="yellow")
+        table.add_column("% Pend.", justify="right", style="yellow")
+        table.add_column("Rejected", justify="right", style="red")
+        table.add_column("% Rej.", justify="right", style="red")
+        table.add_column("S0 Rej", justify="right", style="dim")
+        
+        for row in paper_type_data:
+            paper_type = row['paper_type'] or 'Unknown'
+            total = row['total']
+            included = row['included'] or 0
+            excluded = row['excluded'] or 0
+            pending = row['pending'] or 0
+            stage0_rejected = row['stage0_rejected'] or 0
+            
+            # Calculate percentages
+            pct_included = 100 * included / total if total > 0 else 0
+            pct_pending = 100 * pending / total if total > 0 else 0
+            pct_excluded = 100 * excluded / total if total > 0 else 0
+            
+            # Truncate paper type if too long
+            paper_type_display = paper_type[:23] if len(paper_type) > 23 else paper_type
+            
+            table.add_row(
+                paper_type_display,
+                str(total),
+                str(included),
+                f"{pct_included:.1f}%",
+                str(pending),
+                f"{pct_pending:.1f}%",
+                str(excluded),
+                f"{pct_excluded:.1f}%",
+                str(stage0_rejected)
+            )
+        
+        console.print(table)
 
     def run(self) -> None:
         """Run the dashboard."""
@@ -410,10 +603,12 @@ Stage 2 (Semantic Filtering):    [bold cyan]{s2_processed:,}[/bold cyan] process
             
             # Display sections
             self.display_overview(stats)
+            self.display_stage0(stats)
             self.display_stage1(stats)
             self.display_stage2(stats)
             self.display_detailed_table(stats)
             self.display_key_metrics(stats)
+            self.display_paper_type_analysis(stats)
             self.display_recommendations(stats)
             
             # Footer

@@ -424,7 +424,7 @@ class Paper:
             'abstract': self.abstract,
             'keywords': self.keywords,
             'keywords_extra': self.keywords_extra,
-            'paper_type': self.paper_type,
+            'paper_type': self.paper_type.lower() if self.paper_type else None,  # Normalize to lowercase
             'source_details': self.source_details,
             'title_details': self.title_details,
         }
@@ -911,11 +911,17 @@ class PostgreSQLLoader:
                         data[field] = data[field][:max_len]
                         logger.debug(f"Truncated {field} for {paper.citekey}: {len(original)} -> {max_len} chars")
             
-            # Clean up paper_type: remove "; Early Access" suffix (WOS specific)
+            # Clean up paper_type: remove "; Early Access" suffix (WOS specific) and normalize to lowercase
             if 'paper_type' in data and isinstance(data['paper_type'], str):
-                if '; Early Access' in data['paper_type']:
-                    data['paper_type'] = data['paper_type'].replace('; Early Access', '').strip()
+                # Remove "; Early Access" suffix (case-insensitive)
+                paper_type_lower = data['paper_type'].lower()
+                if '; early access' in paper_type_lower:
+                    # Find and remove the suffix while preserving the base type
+                    data['paper_type'] = data['paper_type'][:data['paper_type'].lower().index('; early access')].strip()
                     logger.debug(f"Cleaned paper_type for {paper.citekey}: removed 'Early Access' suffix")
+                # Ensure lowercase normalization
+                data['paper_type'] = data['paper_type'].lower()
+                logger.debug(f"Normalized paper_type for {paper.citekey}: {data['paper_type']}")
             
             # Convert complex types to PostgreSQL format
             # Authors: list of dicts -> JSON

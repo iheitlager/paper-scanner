@@ -51,20 +51,27 @@ class Stage1KeywordScreener:
         'school', 'student', 'education', 'teaching',
         'military', 'weapon', 'defense',
 
-        # Wrong level of analysis
-        'individual', 'consumer behavior', 'household'
+        # Wrong level of analysis - be more specific to avoid false positives
+        'consumer behavior', 'household', 'personal use', 'consumer purchase'
     ]
 
     # Required keywords (need at least 2 of these to INCLUDE)
     REQUIRED_KEYWORDS = [
-        # Innovation
+        # Innovation types
         'innovation', 'digital transformation', 'digitalization', 'technology adoption',
+        'digital service innovation', 'service innovation', 'business model innovation',
+        'radical innovation', 'business innovation', 'strategic innovation',
 
         # Organizational context
         'firm', 'company', 'organization', 'enterprise', 'incumbent',
+        'organizational', 'business', 'corporate',
 
         # Supplier/partnership
-        'supplier', 'vendor', 'partner', 'ecosystem', 'collaboration'
+        'supplier', 'vendor', 'partner', 'ecosystem', 'collaboration',
+
+        # Methodology and analysis
+        'qualitative comparative analysis', 'comparative analysis', 'configuration',
+        'ambidexterity', 'ambidextrous', 'performance'
     ]
 
     def __init__(self, db_url: str):
@@ -210,7 +217,7 @@ class Stage1KeywordScreener:
         FROM papers p
         LEFT JOIN paper_screening ps ON p.id = ps.paper_id
         WHERE ps.screening_stage IS NULL 
-           OR ps.screening_stage IN ('unscreened', 'stage1_pass', 'stage1_fail')
+           OR ps.screening_stage IN ('unscreened', 'stage0_pass', 'stage1_pass', 'stage1_fail')
         """
         
         if limit:
