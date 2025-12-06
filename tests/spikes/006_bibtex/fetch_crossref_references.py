@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
@@ -22,6 +23,8 @@ import requests
 from psycopg2.extras import Json, RealDictCursor
 from rich.console import Console
 from rich.logging import RichHandler
+
+from paper_scanner import __version__
 
 # Configure rich console with colored output
 console = Console()
@@ -66,7 +69,7 @@ _log_handler = logging.getLogger(__name__).handlers[0] if logging.getLogger(__na
 
 # Crossref API configuration for fair use / polite pool
 CROSSREF_EMAIL = "i.heitlager@tue.nl"
-CROSSREF_APP_NAME = "PhD-LiteratureReview"
+CROSSREF_APP_NAME = f"PhD - PaperScanner/{__version__}"
 CROSSREF_API_BASE = "https://api.crossref.org/works"
 
 
@@ -80,13 +83,14 @@ class PoliteCrossrefClient:
     See: https://github.com/CrossRef/rest-api-doc#etiquette
     """
     
-    def __init__(self, email: str, app_name: str = "PaperScanner"):
+    def __init__(self, email: str, app_name: str = "PaperScanner", rate_limit: float = 50.0):
         """
         Initialize polite Crossref client.
         
         Args:
             email: Your email for polite pool access
             app_name: Your application name for User-Agent header
+            rate_limit: Requests per second limit (default: 50)
         """
         self.session = requests.Session()
         
@@ -98,6 +102,8 @@ class PoliteCrossrefClient:
         
         self.email = email
         self.base_url = CROSSREF_API_BASE
+        self.rate_limit = rate_limit
+        self.delay_between_requests = 1.0 / rate_limit  # Convert requests/sec to seconds
     
     def _get_cache_path(self, doi: str) -> Path:
         """Get cache file path for a DOI"""
@@ -141,6 +147,10 @@ class PoliteCrossrefClient:
             return cached
         
         logger.debug(f"[yellow]🌐 Fetching[/yellow] from Crossref API for {doi}")
+        
+        # Rate limiting: sleep before making the request
+        time.sleep(self.delay_between_requests)
+        
         url = f'{self.base_url}/{doi}'
         response = self.session.get(url)
         response.raise_for_status()
@@ -176,6 +186,11 @@ class CrossrefReferenceFetcher:
         except ImportError:
             logger.error("requests library not found. Install with: pip install requests")
             raise
+    
+    def _get_cache_path(self, doi: str) -> Path:
+        """Get cache file path for a DOI"""
+        doi_hash = hashlib.md5(doi.encode()).hexdigest()
+        return CACHE_DIR / f"{doi_hash}.json"
 
     def fetch_references_for_doi(self, doi: str) -> Optional[Dict[str, Any]]:
         """
@@ -195,7 +210,22 @@ class CrossrefReferenceFetcher:
             if doi.startswith('https://doi.org/'):
                 doi = doi[16:]
 
+            # Check cache first
+            cache_path = self._get_cache_path(doi)
+            if cache_path.exists():
+                try:
+                    with open(cache_path, 'r') as f:
+                        logger.debug(f"[cyan]📦 Cache hit[/cyan] for references of {doi}")
+                        return json.load(f)
+                except Exception as e:
+                    logger.debug(f"Error loading cache for {doi}: {e}")
+
             # Query Crossref
+            logger.debug(f"[yellow]🌐 Fetching[/yellow] references from Crossref API for {doi}")
+            
+            # Rate limiting: sleep before making the request
+            time.sleep(self.rate_limit_delay)
+            
             url = f"{self.api_base}/{doi}"
             response = self.session.get(url, timeout=10)
 
@@ -212,7 +242,7 @@ class CrossrefReferenceFetcher:
             message = data['message']
             references = message.get('reference', [])
 
-            return {
+            result = {
                 'doi': doi,
                 'title': message.get('title', [''])[0] if isinstance(message.get('title'), list) else message.get('title', ''),
                 'year': self._extract_year(message),
@@ -220,6 +250,15 @@ class CrossrefReferenceFetcher:
                 'reference_count': len(references),
                 'fetched_at': time.time()
             }
+            
+            # Save to cache
+            try:
+                with open(cache_path, 'w') as f:
+                    json.dump(result, f)
+            except Exception as e:
+                logger.debug(f"Error saving cache for {doi}: {e}")
+            
+            return result
 
         except Exception as e:
             logger.warning(f"Error fetching references for DOI {doi}: {e}")
@@ -695,7 +734,8 @@ class CrossrefReferenceLoader:
         console.print(f"[green]✓ Polite Mode Enabled[/green]")
         console.print(f"  Email: {self.fetcher.email}")
         console.print(f"  User-Agent: {self.fetcher.session.headers.get('User-Agent')}")
-        console.print(f"  Rate Limit: 50 requests/sec (polite pool)")
+        console.print(f"  Rate Limit: {self.fetcher.rate_limit} requests/sec")
+        console.print(f"  Delay: {self.fetcher.delay_between_requests*1000:.1f}ms between requests")
         console.print(f"[cyan]📦 Cache Location:[/cyan] {CACHE_DIR}")
         console.print("")
 
@@ -762,6 +802,11 @@ def main():
         description='Fetch references from Crossref for papers in screening stages'
     )
     parser.add_argument(
+        '--version',
+        action='version',
+        version=f'%(prog)s {__version__}'
+    )
+    parser.add_argument(
         '--db-url',
         default=os.getenv('DATABASE_URL', 'postgresql://pdfuser:pdfpass@localhost:5432/pdfdb'),
         help='PostgreSQL connection URL'
@@ -794,6 +839,12 @@ def main():
         default=str(Path.home() / ".crossref"),
         help='Cache directory for Crossref API responses (default: ~/.crossref/)'
     )
+    parser.add_argument(
+        '-r', '--rate',
+        type=float,
+        default=50.0,
+        help='Request rate limit in requests per second (default: 50)'
+    )
 
     args = parser.parse_args()
 
@@ -814,6 +865,11 @@ def main():
             loader.fetcher.session.headers.update({
                 'User-Agent': f'PaperScanner/1.0 (mailto:{args.email})'
             })
+        
+        # Set rate limit
+        if args.rate:
+            loader.fetcher.rate_limit = args.rate
+            loader.fetcher.delay_between_requests = 1.0 / args.rate
 
         stats = loader.run(max_papers=args.max_papers)
 
