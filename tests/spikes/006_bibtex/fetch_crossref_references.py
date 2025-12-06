@@ -628,6 +628,101 @@ class CrossrefReferenceLoader:
         finally:
             cursor.close()
 
+    def _format_paper_apa(self, paper: Dict[str, Any]) -> str:
+        """
+        Format a paper record in APA style
+        
+        Args:
+            paper: Paper record from database
+            
+        Returns:
+            APA formatted citation string
+        """
+        authors = []
+        if paper.get('authors'):
+            try:
+                authors_list = json.loads(paper['authors'])
+                for author in authors_list:
+                    last_name = author.get('last_name', '')
+                    initials = author.get('initials', '')
+                    if last_name:
+                        if initials:
+                            authors.append(f"{last_name}, {initials}.")
+                        else:
+                            authors.append(last_name)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        apa_parts = []
+        
+        # Authors
+        if authors:
+            if len(authors) == 1:
+                apa_parts.append(authors[0])
+            elif len(authors) == 2:
+                apa_parts.append(f"{authors[0]}, & {authors[1]}")
+            else:
+                apa_parts.append(f"{authors[0]}, et al.")
+        
+        # Year
+        year = paper.get('year')
+        if year:
+            apa_parts.append(f"({year})")
+        
+        # Title
+        title = paper.get('title')
+        if title:
+            apa_parts.append(f"{title}.")
+        
+        return " ".join(apa_parts)
+
+    def resolve_references_hierarchical(self, references: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Hierarchically resolve references:
+        1. Those without DOI: use parsed data directly
+        2. Those with DOI: fetch full metadata from Crossref
+        
+        This function does NOT process references, only resolves and categorizes them.
+        
+        Args:
+            references: List of references from Crossref
+            
+        Returns:
+            Dict with 'direct' and 'crossref' reference lists
+        """
+        direct_refs = []  # References without DOI - use as-is
+        crossref_refs = []  # References with DOI - fetch full metadata
+        
+        for i, ref in enumerate(references, 1):
+            if not isinstance(ref, dict):
+                logger.debug(f"Ref {i}: Skipping - not a dict")
+                continue
+            
+            # Check if reference has a DOI
+            ref_doi = ref.get('DOI', '').strip().lower() if ref.get('DOI') else None
+            
+            if ref_doi:
+                # Has DOI - need to fetch full metadata from Crossref
+                crossref_refs.append({
+                    'index': i,
+                    'doi': ref_doi,
+                    'raw': ref
+                })
+                if self.verbose:
+                    console.print(f"         Ref {i}: DOI found - will fetch full metadata: {ref_doi}")
+            else:
+                # No DOI - use parsed data directly
+                direct_refs.append({
+                    'index': i,
+                    'raw': ref
+                })
+                logger.debug(f"Ref {i}: No DOI - using direct data")
+        
+        return {
+            'direct': direct_refs,
+            'crossref': crossref_refs
+        }
+
     def process_paper(self, paper: Dict[str, Any], conn: psycopg2.extensions.connection) -> int:
         """
         Process a single paper: fetch references and load into database
@@ -642,8 +737,11 @@ class CrossrefReferenceLoader:
         paper_id = paper['id']
         citekey = paper['citekey']
         doi = paper['doi']
-
+        
+        # Print source paper in APA format
+        source_apa = self._format_paper_apa(paper)
         console.print(f"[{self.stats['papers_processed'] + 1}] Processing {citekey}")
+        console.print(f"  Source: {source_apa}")
         logger.debug(f"  DOI: {doi}")
 
         # Fetch references from Crossref
@@ -664,6 +762,14 @@ class CrossrefReferenceLoader:
             return 0
 
         self.stats['papers_with_references'] += 1
+
+        # Hierarchically resolve references
+        resolved = self.resolve_references_hierarchical(references)
+        direct_count = len(resolved['direct'])
+        crossref_count = len(resolved['crossref'])
+        
+        console.print(f"    → {direct_count} direct (no DOI)")
+        console.print(f"    → {crossref_count} need Crossref lookup (have DOI)")
 
         # Process each reference
         references_added = 0
