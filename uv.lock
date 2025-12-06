@@ -1517,6 +1517,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pgvector" },
     { name = "psycopg2-binary" },
+    { name = "pydantic" },
     { name = "pypdf" },
     { name = "pyyaml" },
     { name = "requests" },
@@ -1524,6 +1525,7 @@ dependencies = [
     { name = "seaborn" },
     { name = "sentence-transformers" },
     { name = "tiktoken" },
+    { name = "tqdm" },
 ]
 
 [package.dev-dependencies]
@@ -1556,6 +1558,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.3.5" },
     { name = "pgvector", specifier = ">=0.4.1" },
     { name = "psycopg2-binary", specifier = ">=2.9.0" },
+    { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pypdf", specifier = "==6.4.0" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "requests", specifier = "==2.32.5" },
@@ -1563,6 +1566,7 @@ requires-dist = [
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "sentence-transformers", specifier = ">=5.1.2" },
     { name = "tiktoken", specifier = ">=0.12.0" },
+    { name = "tqdm", specifier = ">=4.67.1" },
 ]
 
 [package.metadata.requires-dev]

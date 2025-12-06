@@ -150,6 +150,17 @@ cleanup: ## Clean up Docker resources
 	@docker system prune -a -f --volumes 2>/dev/null || true
 	@echo "✓ Docker cleanup completed"
 
+# ============================================================================
+# CROSSREF REFERENCE FETCHING
+# ============================================================================
+
+test-crossref: ## Test Crossref fetcher functionality
+	@echo "Running Crossref fetcher tests..."
+	uv run pytest tests/unit/test_crossref_fetcher.py -v
+
+fetch-crossref: ## Fetch references from Crossref for papers in screening stages
+	@cd tests/spikes/006_bibtex && uv run python fetch_crossref_references.py
+
 
 .DEFAULT_GOAL := help
 

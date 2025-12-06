@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS papers (
     keywords TEXT[],  -- NEW
     keywords_extra TEXT[],  -- NEW
     paper_type VARCHAR(50),  -- NEW: 'journal_article', 'conference_paper', etc.
+    source_type VARCHAR(100),  -- NEW: 'file', 'crossref', 'arxiv', etc.
     
     source_details JSONB,  -- NEW: {source_name, source_url, retrieval_date}
     -- ========================================
@@ -86,6 +87,7 @@ CREATE INDEX IF NOT EXISTS idx_papers_journal ON papers(journal);
 CREATE INDEX IF NOT EXISTS idx_papers_doi ON papers(doi);
 CREATE INDEX IF NOT EXISTS idx_papers_status ON papers(processing_status);
 CREATE INDEX IF NOT EXISTS idx_papers_paper_type ON papers(paper_type);
+CREATE INDEX IF NOT EXISTS idx_papers_source_type ON papers(source_type);
 CREATE INDEX IF NOT EXISTS idx_papers_authors_gin ON papers USING gin(authors);
 CREATE INDEX IF NOT EXISTS idx_papers_keywords ON papers USING gin(keywords);
 
@@ -96,62 +98,62 @@ CREATE INDEX IF NOT EXISTS idx_papers_abstract_fts ON papers USING gin(to_tsvect
 -- ============================================================================
 -- STAGE 2: REFERENCES (Enhanced from original)
 
--- merge with paper database?
--- ============================================================================
+-- -- merge with paper database?
+-- -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS "references" (
-    id SERIAL PRIMARY KEY,
+-- CREATE TABLE IF NOT EXISTS "references" (
+--     id SERIAL PRIMARY KEY,
     
-    -- ========================================
-    -- ORIGINAL FIELDS (unchanged)
-    -- ========================================
-    source_paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
-    citekey VARCHAR(255) NOT NULL,
-    reference_type VARCHAR(100),
-    authors JSONB,
-    year VARCHAR(50),
-    title TEXT,
-    source_type VARCHAR(100),
-    source_name TEXT,
-    volume VARCHAR(50),
-    issue VARCHAR(100),
-    pages_start VARCHAR(50),
-    pages_end VARCHAR(50),
-    pages_range VARCHAR(100),
-    publisher TEXT,
-    location VARCHAR(255),
-    doi VARCHAR(255),
-    url TEXT,
-    arxiv_id VARCHAR(100),
-    ssrn_id VARCHAR(100),
-    isbn VARCHAR(50),
-    raw_citation TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+--     -- ========================================
+--     -- ORIGINAL FIELDS (unchanged)
+--     -- ========================================
+--     source_paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+--     citekey VARCHAR(255) NOT NULL,
+--     reference_type VARCHAR(100),
+--     authors JSONB,
+--     year VARCHAR(50),
+--     title TEXT,
+--     source_type VARCHAR(100),
+--     source_name TEXT,
+--     volume VARCHAR(50),
+--     issue VARCHAR(100),
+--     pages_start VARCHAR(50),
+--     pages_end VARCHAR(50),
+--     pages_range VARCHAR(100),
+--     publisher TEXT,
+--     location VARCHAR(255),
+--     doi VARCHAR(255),
+--     url TEXT,
+--     arxiv_id VARCHAR(100),
+--     ssrn_id VARCHAR(100),
+--     isbn VARCHAR(50),
+--     raw_citation TEXT,
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    -- ========================================
-    -- NEW FIELDS
-    -- ========================================
-    reference_order INTEGER,  -- NEW: Order in original paper's reference list
-    editors JSONB,  -- NEW: For book chapters
-    edition VARCHAR(50),  -- NEW
-    links_to_paper_id INTEGER REFERENCES papers(id),  -- NEW: Links to papers in our DB
-    parsing_quality VARCHAR(50) DEFAULT 'success',  -- NEW: 'success', 'partial', 'failed'
-    parsing_issues TEXT,  -- NEW
-    confidence_score DECIMAL(3,2),  -- NEW: 0.00 to 1.00
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  -- NEW
-);
+--     -- ========================================
+--     -- NEW FIELDS
+--     -- ========================================
+--     reference_order INTEGER,  -- NEW: Order in original paper's reference list
+--     editors JSONB,  -- NEW: For book chapters
+--     edition VARCHAR(50),  -- NEW
+--     links_to_paper_id INTEGER REFERENCES papers(id),  -- NEW: Links to papers in our DB
+--     parsing_quality VARCHAR(50) DEFAULT 'success',  -- NEW: 'success', 'partial', 'failed'
+--     parsing_issues TEXT,  -- NEW
+--     confidence_score DECIMAL(3,2),  -- NEW: 0.00 to 1.00
+--     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  -- NEW
+-- );
 
--- Original indexes
-CREATE INDEX IF NOT EXISTS idx_references_source_paper ON "references"(source_paper_id);
-CREATE INDEX IF NOT EXISTS idx_references_citekey ON "references"(citekey);
+-- -- Original indexes
+-- CREATE INDEX IF NOT EXISTS idx_references_source_paper ON "references"(source_paper_id);
+-- CREATE INDEX IF NOT EXISTS idx_references_citekey ON "references"(citekey);
 
--- NEW indexes
-CREATE INDEX IF NOT EXISTS idx_references_doi ON "references"(doi);
-CREATE INDEX IF NOT EXISTS idx_references_year ON "references"(year);
-CREATE INDEX IF NOT EXISTS idx_references_type ON "references"(reference_type);
-CREATE INDEX IF NOT EXISTS idx_references_links_to ON "references"(links_to_paper_id);
-CREATE INDEX IF NOT EXISTS idx_references_authors_gin ON "references" USING gin(authors);
-CREATE INDEX IF NOT EXISTS idx_references_title_fts ON "references" USING gin(to_tsvector('english', COALESCE(title, '')));
+-- -- NEW indexes
+-- CREATE INDEX IF NOT EXISTS idx_references_doi ON "references"(doi);
+-- CREATE INDEX IF NOT EXISTS idx_references_year ON "references"(year);
+-- CREATE INDEX IF NOT EXISTS idx_references_type ON "references"(reference_type);
+-- CREATE INDEX IF NOT EXISTS idx_references_links_to ON "references"(links_to_paper_id);
+-- CREATE INDEX IF NOT EXISTS idx_references_authors_gin ON "references" USING gin(authors);
+-- CREATE INDEX IF NOT EXISTS idx_references_title_fts ON "references" USING gin(to_tsvector('english', COALESCE(title, '')));
 
 -- ============================================================================
 -- CITATION NETWORK (Enhanced from original)
@@ -164,25 +166,18 @@ CREATE TABLE IF NOT EXISTS citation_edges (
     -- ORIGINAL FIELDS (unchanged)
     -- ========================================
     citing_paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
-    cited_reference_id INTEGER NOT NULL REFERENCES "references"(id) ON DELETE CASCADE,
+    cited_paper_id INTEGER REFERENCES papers(id) ON DELETE SET NULL,  -- NEW: If we have both papers in DB
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
-    -- ========================================
-    -- NEW FIELDS
-    -- ========================================
-    cited_paper_id INTEGER REFERENCES papers(id) ON DELETE SET NULL,  -- NEW: If we have both papers in DB
-    citation_context TEXT,  -- NEW: The sentence/paragraph where citation appears
     
-    UNIQUE(citing_paper_id, cited_reference_id)
+    UNIQUE(citing_paper_id, cited_paper_id)
 );
 
 -- Original indexes
 CREATE INDEX IF NOT EXISTS idx_citation_edges_citing ON citation_edges(citing_paper_id);
-CREATE INDEX IF NOT EXISTS idx_citation_edges_cited ON citation_edges(cited_reference_id);
-CREATE INDEX IF NOT EXISTS idx_citation_edges_pair ON citation_edges(citing_paper_id, cited_reference_id);
-
--- NEW indexes
-CREATE INDEX IF NOT EXISTS idx_citation_edges_cited_paper ON citation_edges(cited_paper_id);
+CREATE INDEX IF NOT EXISTS idx_citation_edges_cited ON citation_edges(cited_paper_id);
+CREATE INDEX IF NOT EXISTS idx_citation_edges_pair ON citation_edges(citing_paper_id, cited_paper_id);
 
 -- Drop the old citation_metadata table if it exists (replaced by fields in references)
 DROP TABLE IF EXISTS citation_metadata;
@@ -544,7 +539,7 @@ SELECT
     COUNT(DISTINCT ref.id) as reference_count
 FROM papers p
 LEFT JOIN citation_edges ce ON p.id = ce.cited_paper_id
-LEFT JOIN "references" ref ON p.id = ref.source_paper_id
+LEFT JOIN papers ref ON ref.id = ce.citing_paper_id
 GROUP BY p.id;
 
 -- Paper processing status overview
@@ -602,11 +597,11 @@ CREATE TRIGGER trigger_papers_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger for references
-DROP TRIGGER IF EXISTS trigger_references_updated_at ON "references";
-CREATE TRIGGER trigger_references_updated_at
-    BEFORE UPDATE ON "references"
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+-- DROP TRIGGER IF EXISTS trigger_references_updated_at ON "references";
+-- CREATE TRIGGER trigger_references_updated_at
+--     BEFORE UPDATE ON "references"
+--     FOR EACH ROW
+--     EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger for paper_analysis
 DROP TRIGGER IF EXISTS trigger_analysis_updated_at ON paper_analysis;
@@ -630,7 +625,7 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO pdfuser;
 
 -- Analyze tables for query optimization
 ANALYZE papers;
-ANALYZE "references";
+-- ANALYZE "references";
 ANALYZE paper_analysis;
 ANALYZE paper_chunks;
 ANALYZE chunk_embeddings;
