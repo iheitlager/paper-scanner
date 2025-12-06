@@ -189,6 +189,71 @@ class Stage2SemanticScreener:
         # Clamp to [0, 1]
         return float(max(0, min(1, similarity)))
 
+    def stage2_refined_filter(self, paper: Dict, base_similarity: float) -> Dict:
+        """Stage 2: Refine with keywords as BOOST, not filter.
+        
+        MEDIUM PRECISION - narrow down candidates using semantic similarity 
+        with optional keyword boost for alignment enhancement.
+        
+        Args:
+            paper: Paper record from database
+            base_similarity: Base semantic similarity score from embeddings
+            
+        Returns:
+            Dictionary with filtering results including:
+            - passed: Boolean indicating if paper passes screening
+            - method: Description of filtering method used
+            - boosted_similarity: Final similarity score after boost
+            - keyword_boost: Amount of boost applied
+            - flag_for_llm: Boolean indicating if paper should be flagged for LLM review
+        """
+        # Check for strong keyword signals (if available)
+        keyword_boost = 0.0
+        boost_applied = False
+        
+        if paper.get('keywords'):
+            required_terms = [
+                'digital', 'innovation', 'transformation',
+                'supplier', 'vendor', 'partner',
+                'incumbent', 'firm', 'organization'
+            ]
+            
+            keyword_text = ' '.join(paper['keywords']).lower()
+            matches = sum(1 for term in required_terms if term in keyword_text)
+            
+            # Boost score if keywords align (max +0.10)
+            keyword_boost = min(0.10, matches * 0.02)
+            if keyword_boost > 0:
+                boost_applied = True
+        
+        adjusted_similarity = base_similarity + keyword_boost
+        
+        # Decision thresholds
+        if adjusted_similarity >= 0.60:
+            return {
+                'passed': True,
+                'method': 'high_similarity',
+                'boosted_similarity': round(adjusted_similarity, 4),
+                'keyword_boost': round(keyword_boost, 4),
+                'flag_for_llm': False
+            }
+        elif adjusted_similarity >= 0.50:
+            return {
+                'passed': True,
+                'method': 'moderate_similarity_with_boost' if boost_applied else 'moderate_similarity',
+                'boosted_similarity': round(adjusted_similarity, 4),
+                'keyword_boost': round(keyword_boost, 4),
+                'flag_for_llm': True
+            }
+        else:
+            return {
+                'passed': False,
+                'method': 'insufficient_similarity',
+                'boosted_similarity': round(adjusted_similarity, 4),
+                'keyword_boost': round(keyword_boost, 4),
+                'flag_for_llm': False
+            }
+
     def classify_paper(self, similarity: float) -> Tuple[str, str, Optional[str]]:
         """Classify paper based on similarity score.
         
