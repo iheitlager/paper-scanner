@@ -21,7 +21,7 @@ from psycopg2.extras import Json, RealDictCursor
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -126,16 +126,26 @@ class CrossrefReferenceFetcher:
         Returns:
             Dict with parsed reference data
         """
+        # Handle case where ref is not a dictionary
+        if not isinstance(ref, dict):
+            logger.warning(f"Reference is not a dict, got {type(ref)}: {ref}")
+            return {}
+        
+        # Log the first reference for debugging
+        if source_paper_id > 0:  # Just log once per paper
+            logger.debug(f"Sample reference keys: {list(ref.keys())}")
+        
         # Extract authors
         authors = []
         for author in ref.get('author', []):
-            author_obj = {
-                'last_name': author.get('family', ''),
-                'first_name': author.get('given', ''),
-                'initials': self._extract_initials(author.get('given', ''))
-            }
-            if author_obj['last_name']:
-                authors.append(author_obj)
+            if isinstance(author, dict):
+                author_obj = {
+                    'last_name': author.get('family', ''),
+                    'first_name': author.get('given', ''),
+                    'initials': self._extract_initials(author.get('given', ''))
+                }
+                if author_obj['last_name']:
+                    authors.append(author_obj)
 
         # Parse year
         year = None
@@ -154,7 +164,7 @@ class CrossrefReferenceFetcher:
 
         return {
             'source_paper_id': source_paper_id,
-            'title': ref.get('title', ''),
+            'title': ref.get('title') or ref.get('article-title') or ref.get('volume-title') or ref.get('unstructured', ''),
             'year': year,
             'authors': authors,
             'authors_json': json.dumps(authors) if authors else None,
@@ -197,6 +207,7 @@ class CrossrefReferenceLoader:
         """
         self.db_url = db_url
         self.fetcher = CrossrefReferenceFetcher()
+        self.verbose = False
         self.stats = {
             'papers_processed': 0,
             'papers_with_references': 0,
@@ -206,6 +217,66 @@ class CrossrefReferenceLoader:
             'papers_skipped': 0,
             'errors': 0
         }
+
+    def format_apa(self, reference: Dict[str, Any]) -> str:
+        """Format a reference in APA style"""
+        authors = []
+        if reference.get('authors_json'):
+            try:
+                authors_list = json.loads(reference['authors_json'])
+                for author in authors_list:
+                    last_name = author.get('last_name', '')
+                    initials = author.get('initials', '')
+                    if last_name:
+                        if initials:
+                            authors.append(f"{last_name}, {initials}.")
+                        else:
+                            authors.append(last_name)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        
+        # Build APA citation
+        apa_parts = []
+        
+        # Authors
+        if authors:
+            if len(authors) == 1:
+                apa_parts.append(authors[0])
+            elif len(authors) == 2:
+                apa_parts.append(f"{authors[0]}, & {authors[1]}")
+            else:
+                apa_parts.append(f"{authors[0]}, et al.")
+        
+        # Year
+        year = reference.get('year')
+        if year:
+            apa_parts.append(f"({year})")
+        
+        # Title
+        title = reference.get('title')
+        if title:
+            apa_parts.append(f"{title}.")
+        
+        # Journal/Publisher
+        journal = reference.get('journal')
+        if journal:
+            apa_parts.append(f"*{journal}*")
+        
+        # Volume and issue
+        volume = reference.get('volume')
+        issue = reference.get('issue')
+        if volume:
+            if issue:
+                apa_parts.append(f"{volume}({issue})")
+            else:
+                apa_parts.append(f"{volume}")
+        
+        # DOI
+        doi = reference.get('doi')
+        if doi:
+            apa_parts.append(f"https://doi.org/{doi}")
+        
+        return " ".join(apa_parts)
 
     def connect(self) -> psycopg2.extensions.connection:
         """Get database connection"""
@@ -413,8 +484,19 @@ class CrossrefReferenceLoader:
                 # Parse reference
                 parsed_ref = self.fetcher.parse_reference(ref, paper_id)
 
-                if not parsed_ref.get('title'):
-                    logger.debug(f"    Ref {i}: Skipping - no title")
+                # Skip if parsing failed
+                if not parsed_ref:
+                    if not parsed_ref:
+                        logger.debug(f"    Ref {i}: Skipping - invalid reference structure")
+                    continue
+
+                # Skip only if we have no useful identifying information at all
+                has_title = bool(parsed_ref.get('title'))
+                has_doi = bool(parsed_ref.get('doi'))
+                has_authors_or_year = bool(parsed_ref.get('authors_json')) or bool(parsed_ref.get('year'))
+                
+                if not (has_title or (has_doi and (has_authors_or_year or parsed_ref.get('journal')))):
+                    logger.debug(f"    Ref {i}: Skipping - insufficient identifying information")
                     continue
 
                 # Insert as new paper
@@ -424,7 +506,11 @@ class CrossrefReferenceLoader:
                     # Create citation edge
                     if self.create_citation_edge(conn, paper_id, cited_paper_id):
                         references_added += 1
-                        logger.debug(f"    Ref {i}: ✓ {parsed_ref.get('title')[:50]}...")
+                        if self.verbose:
+                            apa_citation = self.format_apa(parsed_ref)
+                            logger.info(f"    Ref {i}: ✓ {apa_citation}")
+                        else:
+                            logger.debug(f"    Ref {i}: ✓ {parsed_ref.get('title')[:50]}...")
 
             except Exception as e:
                 logger.warning(f"    Ref {i}: Error processing reference: {e}")
@@ -536,11 +622,17 @@ def main():
         default='i.heitlager@eindhoven.nl',
         help='Email for Crossref API user-agent'
     )
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Show papers to be added in APA format'
+    )
 
     args = parser.parse_args()
 
     try:
         loader = CrossrefReferenceLoader(args.db_url)
+        loader.verbose = args.verbose
         if args.email:
             loader.fetcher.email = args.email
             loader.fetcher.session.headers.update({
