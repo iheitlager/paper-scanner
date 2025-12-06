@@ -49,9 +49,12 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
         "total_size_mb": 0,
         "entries_with_references": 0,
         "entries_without_references": 0,
+        "records_without_year": 0,
         "papers_by_year": defaultdict(int),
         "errors": [],
-        "not_found_records": [],  # Track records with no found references
+        # Categorized tracking for clarity
+        "papers_no_references": [],  # Papers where Crossref returned no references
+        "references_missing_doi": [],  # References found but missing DOI field
         "invalid_records": [],  # Track invalid/malformed records
     }
     
@@ -73,8 +76,11 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
             with open(cache_file, 'r') as f:
                 data = json.load(f)
             
-            # Check if it has references (basic validation)
+            # If it's valid JSON, consider it valid (jq can parse it)
             if isinstance(data, dict):
+                stats["valid_files"] += 1
+                
+                # Try to extract references if structure matches expected format
                 if "message" in data and isinstance(data["message"], dict):
                     message = data["message"]
                     references = message.get("reference", [])
@@ -87,14 +93,12 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
                         stats["entries_with_references"] += 1
                     else:
                         stats["entries_without_references"] += 1
-                        # Track not found records
-                        stats["not_found_records"].append({
+                        # Track papers with no references found
+                        stats["papers_no_references"].append({
                             "citing_doi": citing_doi,
                             "citing_title": citing_title,
-                            "cited_dois": [],
-                            "reason": "no_references_found"
+                            "status": "needs_investigation"
                         })
-                    stats["valid_files"] += 1
                     
                     # Extract publication year from references and track missing DOIs
                     for ref in references:
@@ -105,27 +109,28 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
                             if year:
                                 stats["papers_by_year"][year] += 1
                             
-                            # Track cited DOIs that might not be found
+                            # Track references that SHOULD have DOI but don't (journal articles, conference papers)
+                            ref_type = ref.get("type", "journal-article").lower()
                             cited_doi = ref.get("DOI")
-                            if not cited_doi:
-                                # Record missing cited DOI
-                                if citing_doi not in [r["citing_doi"] for r in stats["not_found_records"]]:
-                                    stats["not_found_records"].append({
-                                        "citing_doi": citing_doi,
-                                        "citing_title": citing_title,
-                                        "cited_dois": [ref.get("key", "unknown")],
-                                        "reason": "cited_doi_missing"
-                                    })
-                else:
-                    error_msg = f"Malformed entry: {cache_file.name}"
-                    stats["errors"].append(error_msg)
-                    stats["invalid_files"] += 1
-                    stats["invalid_records"].append({
-                        "file": cache_file.name,
-                        "error": error_msg
-                    })
+                            # Only flag as missing if it's a publication type that typically has DOIs
+                            if not cited_doi and ref_type in ("journal-article", "proceedings-article", "article", "journal"):
+                                stats["references_missing_doi"].append({
+                                    "citing_doi": citing_doi,
+                                    "citing_title": citing_title,
+                                    "reference_key": ref.get("key", "unknown"),
+                                    "reference_title": ref.get("title", "unknown"),
+                                    "reference_type": ref_type,
+                                    "status": "needs_doi_lookup"
+                                })
+                    
+                    # Also track the citing paper's year
+                    citing_year = message.get("issued", {}).get("date-parts", [[None]])[0][0]
+                    if citing_year:
+                        stats["papers_by_year"][citing_year] += 1
+                    else:
+                        stats["records_without_year"] += 1
             else:
-                error_msg = f"Invalid JSON structure: {cache_file.name}"
+                error_msg = f"Invalid JSON structure (not a dict): {cache_file.name}"
                 stats["errors"].append(error_msg)
                 stats["invalid_files"] += 1
                 stats["invalid_records"].append({
@@ -150,12 +155,17 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
                 "error": error_msg
             })
     
-    # Export not found records if requested
-    if export_errors and stats["not_found_records"]:
+    # Export issue records if requested
+    if export_errors:
         try:
             export_path = Path(export_errors)
+            # Export both categories of issues
+            issues = {
+                "papers_with_no_references": stats["papers_no_references"],
+                "references_missing_doi": stats["references_missing_doi"]
+            }
             with open(export_path, 'w') as f:
-                json.dump(stats["not_found_records"], f, indent=2)
+                json.dump(issues, f, indent=2)
         except Exception as e:
             stats["errors"].append(f"Failed to export errors to {export_errors}: {str(e)}")
     
@@ -312,6 +322,10 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
         "Entries without References",
         Text(str(stats["entries_without_references"]), style="yellow")
     )
+    table.add_row(
+        "Records without Year",
+        Text(str(stats["records_without_year"]), style="dim")
+    )
     table.add_row("Total Cache Size", f"{stats['total_size_mb']:.2f} MB")
     
     console.print(table)
@@ -328,18 +342,38 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
         ))
         console.print("\n")
     
-    # Display not found records info
-    if stats["not_found_records"]:
-        console.print(Panel(
-            f"[yellow]{len(stats['not_found_records'])} records with missing references or DOIs[/yellow]",
-            title="[bold yellow]Not Found Records[/bold yellow]",
-            border_style="yellow",
-            expand=False
-        ))
+    # Display categorized issues in a single overview table
+    if stats["papers_no_references"] or stats["references_missing_doi"]:
+        issues_table = Table(title="📋 Issues Requiring Investigation", show_header=True, header_style="bold")
+        issues_table.add_column("Issue Type", style="cyan")
+        issues_table.add_column("Count", justify="right", style="yellow")
+        issues_table.add_column("Description", style="dim")
+        issues_table.add_column("Action", style="green")
+        
+        if stats["papers_no_references"]:
+            issues_table.add_row(
+                "[bold yellow]No References[/bold yellow]",
+                str(len(stats["papers_no_references"])),
+                "Papers where Crossref returned no references",
+                "Verify if Crossref has data"
+            )
+        
+        if stats["references_missing_doi"]:
+            issues_table.add_row(
+                "[bold cyan]Missing DOI[/bold cyan]",
+                str(len(stats["references_missing_doi"])),
+                "Journal/conference articles without DOI",
+                "Lookup or enrich with DOI"
+            )
+        
+        console.print()
+        console.print(issues_table)
+        console.print()
+        
         if export_path:
-            console.print(f"[green]✓ Exported to: {export_path}[/green]\n")
+            console.print(f"[green]✓ Exported detailed records to: {export_path}[/green]\n")
         else:
-            console.print("[dim]Use -e/--error flag to export details[/dim]\n")
+            console.print("[dim]Use -e/--error flag to export details for investigation[/dim]\n")
     
     # Display invalid/failed records info
     if stats["invalid_records"]:
