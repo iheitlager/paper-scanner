@@ -9,11 +9,13 @@ This script:
 4. Creates citation edges linking the original papers to the new references
 """
 
+import hashlib
 import json
 import os
 import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
 
 import psycopg2
 import requests
@@ -24,14 +26,42 @@ from rich.logging import RichHandler
 # Configure rich console with colored output
 console = Console()
 
+# Configure cache directory (will be set by main or use default)
+CACHE_DIR = Path.home() / ".crossref"
+
+def set_cache_dir(path: str) -> None:
+    """Set cache directory"""
+    global CACHE_DIR
+    CACHE_DIR = Path(path).expanduser()
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# Initialize default cache directory
+set_cache_dir(str(CACHE_DIR))
+
 # Configure rich logging with colors and better formatting
 import logging
+
+# Create custom RichHandler that shows path only in verbose mode
+class VerboseRichHandler(RichHandler):
+    def __init__(self, *args, show_path=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.show_path = show_path
+    
+    def emit(self, record):
+        # Hide level name and path by default
+        if not self.show_path:
+            record.levelname = ""
+        super().emit(record)
+
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(message)s",
-    handlers=[RichHandler(console=console, rich_tracebacks=True)]
+    handlers=[VerboseRichHandler(console=console, rich_tracebacks=True, show_time=False, show_path=False)]
 )
 logger = logging.getLogger(__name__)
+
+# Store handler reference to update later
+_log_handler = logging.getLogger(__name__).handlers[0] if logging.getLogger(__name__).handlers else None
 
 
 # Crossref API configuration for fair use / polite pool
@@ -69,6 +99,32 @@ class PoliteCrossrefClient:
         self.email = email
         self.base_url = CROSSREF_API_BASE
     
+    def _get_cache_path(self, doi: str) -> Path:
+        """Get cache file path for a DOI"""
+        doi_hash = hashlib.md5(doi.encode()).hexdigest()
+        return CACHE_DIR / f"{doi_hash}.json"
+    
+    def _load_from_cache(self, doi: str) -> Optional[Dict[str, Any]]:
+        """Load response from cache if it exists"""
+        cache_path = self._get_cache_path(doi)
+        if cache_path.exists():
+            try:
+                with open(cache_path, 'r') as f:
+                    logger.debug(f"[cyan]📦 Cache hit[/cyan] for {doi}")
+                    return json.load(f)
+            except Exception as e:
+                logger.debug(f"Error loading cache for {doi}: {e}")
+        return None
+    
+    def _save_to_cache(self, doi: str, data: Dict[str, Any]) -> None:
+        """Save response to cache"""
+        cache_path = self._get_cache_path(doi)
+        try:
+            with open(cache_path, 'w') as f:
+                json.dump(data, f)
+        except Exception as e:
+            logger.debug(f"Error saving cache for {doi}: {e}")
+    
     def get_work(self, doi: str) -> Dict[str, Any]:
         """
         Get work metadata from Crossref.
@@ -79,10 +135,21 @@ class PoliteCrossrefClient:
         Returns:
             JSON response from Crossref API
         """
+        # Check cache first
+        cached = self._load_from_cache(doi)
+        if cached:
+            return cached
+        
+        logger.debug(f"[yellow]🌐 Fetching[/yellow] from Crossref API for {doi}")
         url = f'{self.base_url}/{doi}'
         response = self.session.get(url)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        
+        # Save to cache
+        self._save_to_cache(doi, data)
+        
+        return data
 
 
 class CrossrefReferenceFetcher:
@@ -357,6 +424,17 @@ class CrossrefReferenceLoader:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
         try:
+            # First, get count of eligible papers
+            eligible_query = """
+                SELECT COUNT(*) as count
+                FROM papers p
+                JOIN paper_screening ps ON p.id = ps.paper_id
+                WHERE ps.screening_stage IN ('stage2_pass', 'stage2_review')
+            """
+            cursor.execute(eligible_query)
+            eligible_count = cursor.fetchone()['count']
+            
+            # Then get papers with DOIs
             query = """
                 SELECT 
                     p.id,
@@ -377,7 +455,8 @@ class CrossrefReferenceLoader:
             cursor.execute(query)
             papers = cursor.fetchall()
 
-            logger.info(f"Found {len(papers)} papers with DOIs in stages 'stage2_pass' or 'stage2_review'")
+            console.print(f"Base paper set: {eligible_count} eligible papers")
+            console.print(f"Papers with DOIs: {len(papers)} papers ready for processing")
             return papers
 
         finally:
@@ -525,20 +604,20 @@ class CrossrefReferenceLoader:
         citekey = paper['citekey']
         doi = paper['doi']
 
-        logger.info(f"[{self.stats['papers_processed'] + 1}] Processing {citekey}")
+        console.print(f"[{self.stats['papers_processed'] + 1}] Processing {citekey}")
         logger.debug(f"  DOI: {doi}")
 
         # Fetch references from Crossref
         crossref_data = self.fetcher.fetch_references_for_doi(doi)
 
         if not crossref_data:
-            logger.warning(f"  No references found in Crossref")
+            console.print("[yellow]  No references found in Crossref[/yellow]")
             self.stats['papers_skipped'] += 1
             time.sleep(self.fetcher.rate_limit_delay)
             return 0
 
         references = crossref_data.get('references', [])
-        logger.info(f"  Found {len(references)} references")
+        console.print(f"  Found {len(references)} references")
 
         if len(references) == 0:
             self.stats['papers_skipped'] += 1
@@ -578,7 +657,7 @@ class CrossrefReferenceLoader:
                         references_added += 1
                         if self.verbose:
                             apa_citation = self.format_apa(parsed_ref)
-                            logger.info(f"    Ref {i}: ✓ {apa_citation}")
+                            console.print(f"    Ref {i}: ✓ {apa_citation}")
                         else:
                             logger.debug(f"    Ref {i}: ✓ {parsed_ref.get('title')[:50]}...")
 
@@ -597,7 +676,7 @@ class CrossrefReferenceLoader:
         self.stats['total_references_found'] += len(references)
         time.sleep(self.fetcher.rate_limit_delay)
 
-        logger.info(f"  Added {references_added}/{len(references)} references")
+        console.print(f"  Added {references_added}/{len(references)} references")
         return references_added
 
     def run(self, max_papers: Optional[int] = None) -> Dict[str, int]:
@@ -610,23 +689,29 @@ class CrossrefReferenceLoader:
         Returns:
             Statistics dictionary
         """
-        logger.info("=" * 70)
-        logger.info("CROSSREF REFERENCE FETCHER")
-        logger.info("=" * 70)
+        console.print("=" * 70)
+        console.print("CROSSREF REFERENCE FETCHER")
+        console.print("=" * 70)
+        console.print(f"[green]✓ Polite Mode Enabled[/green]")
+        console.print(f"  Email: {self.fetcher.email}")
+        console.print(f"  User-Agent: {self.fetcher.session.headers.get('User-Agent')}")
+        console.print(f"  Rate Limit: 50 requests/sec (polite pool)")
+        console.print(f"[cyan]📦 Cache Location:[/cyan] {CACHE_DIR}")
+        console.print("")
 
         try:
             # Get papers to process
             papers = self.get_papers_for_processing()
 
             if not papers:
-                logger.warning("No papers found to process")
+                console.print("[yellow]No papers found to process[/yellow]")
                 return self.stats
 
-            if max_papers:
+            if max_papers is not None:
                 papers = papers[:max_papers]
 
-            logger.info(f"Processing {len(papers)} papers...")
-            logger.info("")
+            console.print(f"Processing {len(papers)} papers...")
+            console.print("")
 
             # Process each paper
             for paper in papers:
@@ -651,22 +736,22 @@ class CrossrefReferenceLoader:
 
     def _print_summary(self):
         """Print processing summary"""
-        logger.info("")
-        logger.info("=" * 70)
-        logger.info("SUMMARY")
-        logger.info("=" * 70)
-        logger.info(f"Papers processed:         {self.stats['papers_processed']}")
-        logger.info(f"Papers with references:   {self.stats['papers_with_references']}")
-        logger.info(f"Total references found:   {self.stats['total_references_found']}")
-        logger.info(f"New papers created:       {self.stats['new_papers_created']}")
-        logger.info(f"Citation edges created:   {self.stats['citation_edges_created']}")
-        logger.info(f"Papers skipped:           {self.stats['papers_skipped']}")
-        logger.info(f"Errors:                   {self.stats['errors']}")
-        logger.info("")
+        console.print("")
+        console.print("=" * 70)
+        console.print("SUMMARY")
+        console.print("=" * 70)
+        console.print(f"Papers processed:         {self.stats['papers_processed']}")
+        console.print(f"Papers with references:   {self.stats['papers_with_references']}")
+        console.print(f"Total references found:   {self.stats['total_references_found']}")
+        console.print(f"New papers created:       {self.stats['new_papers_created']}")
+        console.print(f"Citation edges created:   {self.stats['citation_edges_created']}")
+        console.print(f"Papers skipped:           {self.stats['papers_skipped']}")
+        console.print(f"Errors:                   {self.stats['errors']}")
+        console.print("")
 
         if self.stats['papers_processed'] > 0:
             success_rate = (self.stats['papers_with_references'] / self.stats['papers_processed']) * 100
-            logger.info(f"Success rate: {success_rate:.1f}%")
+            console.print(f"Success rate: {success_rate:.1f}%")
 
 
 def main():
@@ -682,14 +767,15 @@ def main():
         help='PostgreSQL connection URL'
     )
     parser.add_argument(
-        '--max-papers',
+        '-n', '--limit',
         type=int,
         default=None,
-        help='Maximum number of papers to process'
+        dest='max_papers',
+        help='Limit to first n papers from the eligible set'
     )
     parser.add_argument(
         '--email',
-        default='i.heitlager@eindhoven.nl',
+        default=CROSSREF_EMAIL,
         help='Email for Crossref API user-agent'
     )
     parser.add_argument(
@@ -703,14 +789,26 @@ def main():
         dest='try_mode',
         help='Scan references without uploading to database (dry-run)'
     )
+    parser.add_argument(
+        '--cache',
+        default=str(Path.home() / ".crossref"),
+        help='Cache directory for Crossref API responses (default: ~/.crossref/)'
+    )
 
     args = parser.parse_args()
 
     try:
+        # Set cache directory before anything else
+        set_cache_dir(args.cache)
+        
+        # Enable file path display in logs only in verbose mode
+        if args.verbose and _log_handler:
+            _log_handler.show_path = True
+        
         loader = CrossrefReferenceLoader(args.db_url, try_mode=args.try_mode)
         loader.verbose = args.verbose
         if args.try_mode:
-            logger.info("[yellow]🔍 DRY-RUN MODE: Scanning references without uploading[/yellow]")
+            console.print("[yellow]🔍 DRY-RUN MODE: Scanning references without uploading[/yellow]")
         if args.email:
             loader.fetcher.email = args.email
             loader.fetcher.session.headers.update({
