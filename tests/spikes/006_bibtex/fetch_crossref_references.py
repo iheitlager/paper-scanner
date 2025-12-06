@@ -256,16 +256,18 @@ class CrossrefReferenceFetcher:
 class CrossrefReferenceLoader:
     """Load Crossref references into the database"""
 
-    def __init__(self, db_url: str):
+    def __init__(self, db_url: str, try_mode: bool = False):
         """
         Initialize database loader
 
         Args:
             db_url: PostgreSQL connection URL
+            try_mode: If True, scan without uploading to database
         """
         self.db_url = db_url
         self.fetcher = CrossrefReferenceFetcher()
         self.verbose = False
+        self.try_mode = try_mode
         self.stats = {
             'papers_processed': 0,
             'papers_with_references': 0,
@@ -395,6 +397,11 @@ class CrossrefReferenceLoader:
         Returns:
             ID of the inserted paper, or None if insert fails
         """
+        if self.try_mode:
+            # In try_mode, just return a dummy ID for testing
+            self.stats['new_papers_created'] += 1
+            return 999999
+        
         cursor = conn.cursor()
 
         try:
@@ -475,6 +482,11 @@ class CrossrefReferenceLoader:
         Returns:
             True if successful
         """
+        if self.try_mode:
+            # In try_mode, skip actual insertion
+            self.stats['citation_edges_created'] += 1
+            return True
+        
         cursor = conn.cursor()
 
         try:
@@ -685,12 +697,20 @@ def main():
         action='store_true',
         help='Show papers to be added in APA format'
     )
+    parser.add_argument(
+        '-t', '--try',
+        action='store_true',
+        dest='try_mode',
+        help='Scan references without uploading to database (dry-run)'
+    )
 
     args = parser.parse_args()
 
     try:
-        loader = CrossrefReferenceLoader(args.db_url)
+        loader = CrossrefReferenceLoader(args.db_url, try_mode=args.try_mode)
         loader.verbose = args.verbose
+        if args.try_mode:
+            logger.info("[yellow]🔍 DRY-RUN MODE: Scanning references without uploading[/yellow]")
         if args.email:
             loader.fetcher.email = args.email
             loader.fetcher.session.headers.update({
