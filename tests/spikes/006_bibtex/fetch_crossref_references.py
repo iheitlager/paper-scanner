@@ -10,7 +10,6 @@ This script:
 """
 
 import json
-import logging
 import os
 import re
 import time
@@ -19,11 +18,18 @@ from typing import Any, Dict, List, Optional, Tuple
 import psycopg2
 import requests
 from psycopg2.extras import Json, RealDictCursor
+from rich.console import Console
+from rich.logging import RichHandler
 
-# Configure logging
+# Configure rich console with colored output
+console = Console()
+
+# Configure rich logging with colors and better formatting
+import logging
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(message)s",
+    handlers=[RichHandler(console=console, rich_tracebacks=True)]
 )
 logger = logging.getLogger(__name__)
 
