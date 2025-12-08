@@ -78,7 +78,9 @@ def cluster_papers(conn, n_clusters=5):
         print(f"\n{cluster_name}: {len(cluster_papers)} papers")
         if avg_year:
             print(f"  Avg year: {avg_year:.1f}")
-        print(f"  Papers: {', '.join(ck for _, ck, _, _ in cluster_papers)}")
+        citekeys = [ck for _, ck, _, _ in cluster_papers if ck]
+        if citekeys:
+            print(f"  Papers: {', '.join(citekeys[:5])}" + (f" (+ {len(citekeys)-5} more)" if len(citekeys) > 5 else ""))
 
         # Step 4: Insert cluster into database
         centroid_str = "[" + ",".join(map(str, centroids[cluster_id])) + "]"

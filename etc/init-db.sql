@@ -16,6 +16,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE IF NOT EXISTS papers (
     id SERIAL PRIMARY KEY,
     source_key VARCHAR(100) UNIQUE,
+    citekey VARCHAR(100),
     
     -- ========================================
     -- ORIGINAL FIELDS (unchanged)
@@ -27,9 +28,9 @@ CREATE TABLE IF NOT EXISTS papers (
     created_time TIMESTAMP,
     modified_time TIMESTAMP,
     accessed_time TIMESTAMP,
+
     tags TEXT,
     title VARCHAR(500),
-    citekey VARCHAR(100),
     year INTEGER,
     title_details JSONB,
     analysis JSONB,
@@ -51,7 +52,8 @@ CREATE TABLE IF NOT EXISTS papers (
     keywords_extra TEXT[],  -- NEW
     paper_type VARCHAR(50),  -- NEW: 'journal_article', 'conference_paper', etc.
     source_type VARCHAR(100),  -- NEW: 'file', 'crossref', 'arxiv', etc.
-    
+    discovery_method VARCHAR(100),  -- NEW: 'manual_upload', 'api_import', 'web_scrape', etc.
+        
     source_details JSONB,  -- NEW: {source_name, source_url, retrieval_date}
     -- ========================================
     -- NEW FIELDS - Processing Status Tracking

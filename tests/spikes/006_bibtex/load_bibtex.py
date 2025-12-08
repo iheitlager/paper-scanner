@@ -35,6 +35,7 @@ init(autoreset=True)
 logger = logging.getLogger(__name__)
 verbose_mode = False
 
+DISCOVERY_METHOD = "keyword_search"
 
 def setup_logging(verbose: bool):
     """Configure logging based on verbose flag."""
@@ -432,6 +433,7 @@ class Paper:
             'paper_type': self.paper_type.lower() if self.paper_type else None,  # Normalize to lowercase
             'source_details': self.source_details,
             'title_details': self.title_details,
+            'discovery_method': DISCOVERY_METHOD,
         }
         # Remove None values
         return {k: v for k, v in data.items() if v is not None}
