@@ -169,7 +169,7 @@ def main():
     """Main entry point"""
 
     if len(sys.argv) != 3:
-        print("Usage: python chunk_embed_pipeline.py input.jsonl output.jsonl", file=sys.stderr)
+        print("Usage: python chunk_papers.py input.jsonl output.jsonl", file=sys.stderr)
         sys.exit(1)
 
     input_path = sys.argv[1]
