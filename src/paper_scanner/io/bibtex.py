@@ -132,25 +132,25 @@ def bibtex_entry_to_paper(
 ) -> Paper:
     """
     Convert single BibTeX entry to Paper Pydantic model
-    
+
     Args:
         entry: BibTeX entry dictionary
         discovery: Discovery object for tracking import
-    
+
     Returns:
         Paper Pydantic model
     """
-    
-    # Get citekey (required)
-    citekey = entry.get('ID')
-    if not citekey:
-        raise ValueError("BibTeX entry missing ID (citekey)")
-    
+
+    # Get cite_key (required)
+    cite_key = entry.get('ID')
+    if not cite_key:
+        raise ValueError("BibTeX entry missing ID (cite_key)")
+
     # Basic fields
     title = entry.get('title', '').strip()
     if not title:
-        raise ValueError(f"BibTeX entry {citekey} missing title")
-    
+        raise ValueError(f"BibTeX entry {cite_key} missing title")
+
     # Remove LaTeX braces from title
     title = re.sub(r'[{}]', '', title)
     
@@ -203,11 +203,11 @@ def bibtex_entry_to_paper(
     pages = entry.get('pages', '').strip() or None
     
     # Source key - use original BibTeX ID
-    source_key = citekey
+    source_key = cite_key
     
     # Create Paper model
     paper = Paper(
-        citekey=citekey,
+        cite_key=cite_key,
         source_key=source_key,
         title=title,
         abstract=abstract,
@@ -233,13 +233,17 @@ def bibtex_entry_to_paper(
 
 def bibtex_to_papers(
     bibtex_string: str,
-    discovery: Optional[Discovery] = None
+    discovery: Optional[Discovery] = None,
+    source_type: Optional[str] = None,
+    discovery_method: Optional[DiscoveryMethod] = None,
+    import_batch_id: Optional[str] = None
 ) -> List[Paper]:
     """
     Parse BibTeX string and convert to list of Paper models
 
     Args:
         bibtex_string: BibTeX content as string
+        discovery: Optional Discovery object for tracking import
         source_type: Source database ('scopus', 'wos', 'ieee', 'manual', etc.)
         discovery_method: How papers were discovered
         import_batch_id: Optional batch ID for tracking
@@ -247,6 +251,23 @@ def bibtex_to_papers(
     Returns:
         List of Paper Pydantic models
     """
+
+    # Build discovery object if parameters provided
+    if source_type or discovery_method or import_batch_id:
+        if discovery is None:
+            discovery = Discovery(
+                method=discovery_method or DiscoveryMethod.MANUAL,
+                source_database=source_type,
+                import_batch_id=import_batch_id
+            )
+        else:
+            # Update provided discovery object with new values
+            if source_type:
+                discovery.source_database = source_type
+            if discovery_method:
+                discovery.method = discovery_method
+            if import_batch_id:
+                discovery.import_batch_id = import_batch_id
 
     # Parse BibTeX
     parser = BibTexParser(common_strings=True)
@@ -265,8 +286,8 @@ def bibtex_to_papers(
             )
             papers.append(paper)
         except Exception as e:
-            citekey = entry.get('ID', 'unknown')
-            print(f"Warning: Failed to parse BibTeX entry {citekey}: {e}")
+            cite_key = entry.get('ID', 'unknown')
+            print(f"Warning: Failed to parse BibTeX entry {cite_key}: {e}")
             continue
     
     return papers
@@ -274,7 +295,10 @@ def bibtex_to_papers(
 
 def bibtex_file_to_papers(
     filepath: str,
-    discovery: Optional[Discovery] = None
+    discovery: Optional[Discovery] = None,
+    source_type: Optional[str] = None,
+    discovery_method: Optional[DiscoveryMethod] = None,
+    import_batch_id: Optional[str] = None
 ) -> List[Paper]:
     """
     Load BibTeX file and convert to Paper models
@@ -282,6 +306,9 @@ def bibtex_file_to_papers(
     Args:
         filepath: Path to .bib file
         discovery: Optional Discovery object for tracking import
+        source_type: Source database ('scopus', 'wos', 'ieee', 'manual', etc.)
+        discovery_method: How papers were discovered
+        import_batch_id: Optional batch ID for tracking
 
     Returns:
         List of Paper models
@@ -292,7 +319,10 @@ def bibtex_file_to_papers(
 
     return bibtex_to_papers(
         bibtex_string,
-        discovery=discovery
+        discovery=discovery,
+        source_type=source_type,
+        discovery_method=discovery_method,
+        import_batch_id=import_batch_id
     )
 
 
@@ -375,21 +405,21 @@ def paper_to_bibtex_entry(paper: Paper, use_source_key: bool = True) -> Dict:
     Args:
         paper: Paper Pydantic model
         use_source_key: If True and source_key exists, use it as ID.
-                       Otherwise use citekey.
+                       Otherwise use cite_key.
     
     Returns:
         BibTeX entry dictionary
     """
     
-    # Determine citekey to use
+    # Determine cite_key to use
     if use_source_key and paper.source_key:
-        citekey = paper.source_key
+        cite_key = paper.source_key
     else:
-        citekey = paper.citekey
+        cite_key = paper.cite_key
     
     # Build entry
     entry = {
-        'ID': citekey,
+        'ID': cite_key,
         'ENTRYTYPE': infer_bibtex_type(paper),
         'title': paper.title,
     }
@@ -455,7 +485,7 @@ def papers_to_bibtex(
     
     Args:
         papers: List of Paper Pydantic models
-        use_source_key: Use source_key if available, otherwise citekey
+        use_source_key: Use source_key if available, otherwise cite_key
     
     Returns:
         BibTeX formatted string
@@ -471,7 +501,7 @@ def papers_to_bibtex(
             entry = paper_to_bibtex_entry(paper, use_source_key=use_source_key)
             entries.append(entry)
         except Exception as e:
-            print(f"Warning: Failed to convert paper {paper.citekey} to BibTeX: {e}")
+            print(f"Warning: Failed to convert paper {paper.cite_key} to BibTeX: {e}")
             continue
     
     bib_database.entries = entries
@@ -708,7 +738,7 @@ if __name__ == "__main__":
     
     print(f"Imported {len(papers)} papers")
     print(f"\nFirst paper:")
-    print(f"  Citekey: {papers[0].citekey}")
+    print(f"  cite_key: {papers[0].cite_key}")
     print(f"  Title: {papers[0].title[:60]}...")
     print(f"  Authors: {papers[0].author_string}")
     print(f"  Year: {papers[0].year}")

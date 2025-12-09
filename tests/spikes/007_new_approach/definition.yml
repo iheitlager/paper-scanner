@@ -1,0 +1,78 @@
+# ============================================================================
+# Innovation Review Configuration - LOCAL TEST
+# ============================================================================
+
+# Project metadata
+project:
+  name: "Supplier Digital Innovation Review"
+  description: "Systematic literature review on supplier involvement in digital innovation"
+  researcher: "Ilja Heitlager"
+  institution: "TU Eindhoven"
+  start_date: "2024-01-15"
+  research_question: "How do incumbent firms involve suppliers in digital innovation processes?"
+
+# Database configuration
+database:
+  host: "localhost"
+  port: 5432
+  name: "paper_scanner"
+  user: "pdfuser"
+  password: "pdfpass"
+
+# Search definition
+search:
+  name: "Supplier Digital Innovation Review"
+  description: "Papers on supplier/vendor involvement in digital innovation and transformation"
+  
+  # Date range
+  date_range:
+    from: 2015
+    to: 2024
+  
+  # Databases searched
+  databases:
+    - scopus
+    - web_of_science
+    - ieee_xplore
+
+# Import configuration - using local test data
+steps:
+  - step: Import sample BibTeX files from different sources
+    builtin.bibtex_import:
+      batch_id: "import_test_20241209"
+      imports:
+        - name: "Scopus - Sample"
+          description: "Sample Scopus papers"
+          file_path: "tests/data/scopus_sample_20.bib"
+          source_type: "scopus"
+          expected_count: 19
+          
+        - name: "IEEE - Sample"
+          description: "Sample IEEE papers"
+          file_path: "tests/data/ieee_sample_20.bib"
+          source_type: "ieee"
+          expected_count: 20
+          
+        - name: "Web of Science - Sample"
+          description: "Sample WOS papers"
+          file_path: "tests/data/wos_sample_20.bib"
+          source_type: "wos"
+          expected_count: 20
+
+  - step: "Intermediate message"
+    builtin.echo:
+      message: "Processing complete - bibtex imported"
+
+  - step: Display database statistics and summary
+    builtin.database_summary: {}
+  
+  - step: Export database to JSONL format
+    builtin.output_db:
+      format: jsonl
+      output_path: "~/tmp/papers_export.jsonl"
+      exclude_none: true
+  
+  - step: Export database to BibTeX format
+    builtin.output_db:
+      format: bibtex
+      output_path: "~/tmp/papers_export.bib"

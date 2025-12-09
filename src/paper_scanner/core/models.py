@@ -384,7 +384,9 @@ class Paper(BaseModel):
     # ========================================
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    citekey: str  # Unique citation key
+    db_id: Optional[int] = None  # Database primary key
+
+    cite_key: str  # Unique (bibtex) citation key
     source_key: Optional[str] = None  # Original ID from source
 
     # External identifiers
@@ -400,8 +402,7 @@ class Paper(BaseModel):
     # DEDUPLICATION
     # ========================================
 
-    duplicate_of_id: Optional[str] = None
-    is_duplicate: bool = False
+    duplicate_of: Optional[Paper] = None
 
     # ========================================
     # BIBLIOGRAPHIC DATA
@@ -537,7 +538,7 @@ class Paper(BaseModel):
         return self.screening.final_decision == ScreeningDecision.INCLUDED
 
     def __str__(self) -> str:
-        return f"{self.citekey}: {self.title[:60]}... ({self.year})"
+        return f"{self.cite_key}: {self.title[:60]}... ({self.year})"
 
 
 # ============================================================================

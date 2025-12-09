@@ -240,13 +240,13 @@ class TestBibtexEntryToPaper:
         }
         paper = bibtex_entry_to_paper(entry, discovery=discovery)
 
-        assert paper.citekey == "smith2020"
+        assert paper.cite_key == "smith2020"
         assert paper.title == "Test Article"
         assert paper.discovery is not None
         assert paper.discovery.method == DiscoveryMethod.MANUAL
 
-    def test_bibtex_entry_missing_citekey(self):
-        """Verify error on missing citekey"""
+    def test_bibtex_entry_missing_cite_key(self):
+        """Verify error on missing cite_key"""
         entry = {
             "ENTRYTYPE": "article",
             "title": "Test Article",
@@ -411,7 +411,7 @@ class TestBibtexToPapers:
         """
         papers = bibtex_to_papers(bibtex_string)
         assert len(papers) == 1
-        assert papers[0].citekey == "smith2020"
+        assert papers[0].cite_key == "smith2020"
 
     def test_bibtex_multiple_entries(self):
         """Verify parsing multiple BibTeX entries"""
@@ -427,8 +427,8 @@ class TestBibtexToPapers:
         """
         papers = bibtex_to_papers(bibtex_string)
         assert len(papers) == 2
-        assert papers[0].citekey == "smith2020"
-        assert papers[1].citekey == "doe2021"
+        assert papers[0].cite_key == "smith2020"
+        assert papers[1].cite_key == "doe2021"
 
     def test_bibtex_different_entry_types(self):
         """Verify parsing mixed entry types"""
@@ -515,7 +515,7 @@ class TestBibtexFileToPapers:
 
         assert len(papers) > 0
         assert all(isinstance(p, Paper) for p in papers)
-        assert all(p.citekey for p in papers)
+        assert all(p.cite_key for p in papers)
         assert all(p.title for p in papers)
 
     def test_bibtex_file_scopus(self):
@@ -581,7 +581,7 @@ class TestBibtexParsingIntegration:
         assert len(papers) >= 5
 
         for paper in papers[:5]:  # Check first 5
-            assert paper.citekey
+            assert paper.cite_key
             assert paper.title
             assert paper.discovery.source_database == "ieee"
             assert isinstance(paper.authors, list)
@@ -603,7 +603,7 @@ class TestBibtexParsingIntegration:
 
         assert len(papers) >= 5
         for paper in papers[:5]:
-            assert paper.citekey
+            assert paper.cite_key
             assert paper.title
             assert paper.discovery.source_database == "scopus"
 
@@ -623,7 +623,7 @@ class TestBibtexParsingIntegration:
 
         assert len(papers) >= 5
         for paper in papers[:5]:
-            assert paper.citekey
+            assert paper.cite_key
             assert paper.title
             assert paper.discovery.source_database == "wos"
             assert len(paper.authors) > 0 or paper.title  # At least has title
@@ -669,7 +669,7 @@ class TestBibtexParsingIntegration:
         papers = bibtex_to_papers(bibtex_string)
         paper = papers[0]
 
-        assert paper.citekey == "smith2020"
+        assert paper.cite_key == "smith2020"
         assert len(paper.authors) == 2
         assert paper.title == "Advanced Machine Learning"
         assert paper.journal == "Nature"

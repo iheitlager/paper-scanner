@@ -492,12 +492,12 @@ def paper_to_dict_minimal(paper: Paper) -> Dict[str, Any]:
     """
     Export minimal paper info (for listings, overviews)
     
-    Fields: id, citekey, title, authors, year, doi, final_decision
+    Fields: id, cite_key, title, authors, year, doi, final_decision
     """
     
     return {
         'id': str(paper.id),
-        'citekey': paper.citekey,
+        'cite_key': paper.cite_key,
         'title': paper.title,
         'authors': paper.author_string,
         'year': paper.year,
@@ -515,7 +515,7 @@ def paper_to_dict_bibliographic(paper: Paper) -> Dict[str, Any]:
     
     return {
         'id': str(paper.id),
-        'citekey': paper.citekey,
+        'cite_key': paper.cite_key,
         'doi': paper.doi,
         'title': paper.title,
         'abstract': paper.abstract,
@@ -550,7 +550,7 @@ def paper_to_dict_screening(paper: Paper) -> Dict[str, Any]:
     
     result = {
         'id': str(paper.id),
-        'citekey': paper.citekey,
+        'cite_key': paper.cite_key,
         'title': paper.title[:100],
         'current_stage': screening.current_stage,
         'final_decision': screening.final_decision.value
@@ -595,7 +595,7 @@ def paper_to_dict_camo(paper: Paper) -> Dict[str, Any]:
     
     result = {
         'id': str(paper.id),
-        'citekey': paper.citekey,
+        'cite_key': paper.cite_key,
         'title': paper.title,
         'year': paper.year,
         'camo_statements': []
@@ -891,7 +891,7 @@ if __name__ == "__main__":
     from datetime import datetime
     
     sample_paper = Paper(
-        citekey="Smith2023",
+        cite_key="Smith2023",
         title="Digital Transformation in Manufacturing: A Systematic Review",
         abstract="This paper examines...",
         authors=[
@@ -928,8 +928,8 @@ if __name__ == "__main__":
     # Paper → JSON → Paper
     restored_paper = json_to_paper(json_output)
     
-    print(f"Original citekey: {sample_paper.citekey}")
-    print(f"Restored citekey: {restored_paper.citekey}")
+    print(f"Original cite_key: {sample_paper.cite_key}")
+    print(f"Restored cite_key: {restored_paper.cite_key}")
     print(f"Titles match: {sample_paper.title == restored_paper.title}")
     print(f"Authors match: {len(sample_paper.authors) == len(restored_paper.authors)}")
     print(f"Round-trip successful: {verify_round_trip(sample_paper)}")
@@ -973,7 +973,7 @@ if __name__ == "__main__":
     # Stream (memory efficient)
     print("\nStreaming papers:")
     for i, paper in enumerate(stream_jsonl_file("output/papers.jsonl"), 1):
-        print(f"  {i}. {paper.citekey}")
+        print(f"  {i}. {paper.cite_key}")
     print()
     
     # ========================================

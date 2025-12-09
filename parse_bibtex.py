@@ -151,7 +151,7 @@ def output_txt(papers, args):
 
     # Print detailed results
     for i, paper in enumerate(papers, 1):
-        print(f"\n[{i}] {paper.citekey}")
+        print(f"\n[{i}] {paper.cite_key}")
         print("-" * 80)
         print(f"Title: {paper.title}")
         

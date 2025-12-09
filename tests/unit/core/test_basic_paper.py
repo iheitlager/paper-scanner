@@ -356,51 +356,44 @@ class TestPaperClass:
         """Verify Paper can be created with required fields"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="smith2020",
+            cite_key="smith2020",
             title="Test Paper",
             discovery=discovery
         )
-        assert paper.citekey == "smith2020"
+        assert paper.cite_key == "smith2020"
         assert paper.title == "Test Paper"
         assert isinstance(paper.id, str)
 
-    def test_paper_citekey_required(self):
-        """Verify citekey is required"""
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
+    def test_paper_cite_key_required(self):
+        """Verify cite_key is required"""
         with pytest.raises(ValidationError) as exc_info:
             Paper(
-                title="Test Paper",
-                source_type="bibtex",
-                discovery=discovery
+                title="Test Paper"
             )
         errors = exc_info.value.errors()
-        assert any(e['loc'] == ('citekey',) for e in errors)
+        assert any(e['loc'] == ('cite_key',) for e in errors)
 
     def test_paper_title_required(self):
         """Verify title is required"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         with pytest.raises(ValidationError) as exc_info:
             Paper(
-                citekey="test2020",
-                source_type="bibtex",
-                discovery=discovery
+                cite_key="test2020"
             )
         errors = exc_info.value.errors()
         assert any(e['loc'] == ('title',) for e in errors)
 
     def test_paper_with_all_identifiers(self):
         """Verify Paper can have all identifier fields"""
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="smith2020",
+            cite_key="smith2020",
             title="Test Paper",
             doi="10.1234/test",
             arxiv_id="2001.00001",
             pmid="12345678",
             isbn="978-3-16-148410-0",
             issn="1234-5678",
-            url="https://example.com/paper",
-            discovery=discovery
+            url="https://example.com/paper"
         )
         assert paper.doi == "10.1234/test"
         assert paper.arxiv_id == "2001.00001"
@@ -413,12 +406,10 @@ class TestPaperClass:
         """Verify Paper can have authors"""
         author1 = Author(given_name="John", family_name="Smith", full_name="John Smith")
         author2 = Author(given_name="Jane", family_name="Doe", full_name="Jane Doe")
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="smith2020",
+            cite_key="smith2020",
             title="Test Paper",
-            authors=[author1, author2],
-            discovery=discovery
+            authors=[author1, author2]
         )
         assert len(paper.authors) == 2
         assert paper.authors[0].family_name == "Smith"
@@ -426,17 +417,15 @@ class TestPaperClass:
 
     def test_paper_with_publication_details(self):
         """Verify Paper can have publication details"""
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="smith2020",
+            cite_key="smith2020",
             title="Test Paper",
             journal="Nature",
             volume="500",
             number="5",
             pages="123-145",
             publisher="Springer",
-            year=2020,
-            discovery=discovery
+            year=2020
         )
         assert paper.journal == "Nature"
         assert paper.volume == "500"
@@ -448,12 +437,10 @@ class TestPaperClass:
     def test_paper_author_string_single_author(self):
         """Verify author_string property with single author"""
         author = Author(given_name="John", family_name="Smith", full_name="John Smith")
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="smith2020",
+            cite_key="smith2020",
             title="Test Paper",
-            authors=[author],
-            discovery=discovery
+            authors=[author]
         )
         assert paper.author_string == "Smith"
 
@@ -461,12 +448,10 @@ class TestPaperClass:
         """Verify author_string property with two authors"""
         author1 = Author(given_name="John", family_name="Smith", full_name="John Smith")
         author2 = Author(given_name="Jane", family_name="Doe", full_name="Jane Doe")
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="smith2020",
+            cite_key="smith2020",
             title="Test Paper",
-            authors=[author1, author2],
-            discovery=discovery
+            authors=[author1, author2]
         )
         assert paper.author_string == "Smith & Doe"
 
@@ -477,7 +462,7 @@ class TestPaperClass:
         author3 = Author(given_name="Bob", family_name="Johnson", full_name="Bob Johnson")
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="smith2020",
+            cite_key="smith2020",
             title="Test Paper",
             authors=[author1, author2, author3],
             discovery=discovery
@@ -488,7 +473,7 @@ class TestPaperClass:
         """Verify author_string property with no authors"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="unknown2020",
+            cite_key="unknown2020",
             title="Test Paper",
             discovery=discovery
         )
@@ -499,7 +484,7 @@ class TestPaperClass:
         author = Author(given_name="John", family_name="Smith", full_name="John Smith")
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="smith2020",
+            cite_key="smith2020",
             title="Test Paper",
             authors=[author],
             year=2020,
@@ -511,7 +496,7 @@ class TestPaperClass:
         """Verify citation_key_apa property without author"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="unknown",
+            cite_key="unknown",
             title="Test Paper",
             year=2020,
             discovery=discovery
@@ -523,7 +508,7 @@ class TestPaperClass:
         author = Author(given_name="John", family_name="Smith", full_name="John Smith")
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="smith",
+            cite_key="smith",
             title="Test Paper",
             authors=[author],
             discovery=discovery
@@ -534,7 +519,7 @@ class TestPaperClass:
         """Verify is_included property reflects screening decision"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             discovery=discovery
         )
@@ -549,7 +534,7 @@ class TestPaperClass:
         """Verify is_processed property returns False for PENDING"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             discovery=discovery
         )
@@ -560,7 +545,7 @@ class TestPaperClass:
         """Verify is_processed property returns True for EXCLUDED"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             discovery=discovery
         )
@@ -571,7 +556,7 @@ class TestPaperClass:
         """Verify Paper can have keywords"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             keywords=["machine learning", "AI", "neural networks"],
             discovery=discovery
@@ -584,7 +569,7 @@ class TestPaperClass:
         abstract_text = "This is a test abstract about machine learning."
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             abstract=abstract_text,
             discovery=discovery
@@ -594,21 +579,24 @@ class TestPaperClass:
     def test_paper_deduplication_fields(self):
         """Verify Paper deduplication fields"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
-        paper = Paper(
-            citekey="test2020",
+        orig_paper = Paper(
+            cite_key="test2020",
             title="Test Paper",
-            is_duplicate=True,
-            duplicate_of_id="original_id",
             discovery=discovery
         )
-        assert paper.is_duplicate is True
-        assert paper.duplicate_of_id == "original_id"
+        paper = Paper(
+            cite_key="test2010",
+            title="Test Paper 2",
+            duplicate_of=orig_paper,
+            discovery=discovery
+        )
+        assert paper.duplicate_of.cite_key == "test2020"
 
     def test_paper_citation_counts(self):
         """Verify Paper citation count fields"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             reference_count=15,
             citation_count=42,
@@ -623,7 +611,7 @@ class TestPaperClass:
         raw_bibtex = "@article{test2020, title={Test}, year={2020}}"
         raw_json = {"title": "Test", "year": 2020}
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             raw_bibtex=raw_bibtex,
             raw_json=raw_json,
@@ -636,7 +624,7 @@ class TestPaperClass:
         """Verify Paper timestamps are auto-generated"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             discovery=discovery
         )
@@ -648,7 +636,7 @@ class TestPaperClass:
         """Verify Paper validation tracking fields"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             manually_validated=True,
             validation_notes="Manually checked for quality",
@@ -664,7 +652,7 @@ class TestPaperClass:
         """Verify Paper language defaults to English"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             discovery=discovery
         )
@@ -674,7 +662,7 @@ class TestPaperClass:
         """Verify Paper language can be set"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             language="fr",
             discovery=discovery
@@ -692,7 +680,7 @@ class TestPaperClass:
         for method in methods:
             discovery = Discovery(method=method)
             paper = Paper(
-                citekey="test",
+                cite_key="test",
                 title="Test Paper",
                 discovery=discovery
             )
@@ -703,7 +691,7 @@ class TestPaperClass:
         author = Author(given_name="John", family_name="Smith", full_name="John Smith")
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             doi="10.1234/test",
             authors=[author],
@@ -711,7 +699,7 @@ class TestPaperClass:
             discovery=discovery
         )
         dumped = paper.model_dump()
-        assert dumped["citekey"] == "test2020"
+        assert dumped["cite_key"] == "test2020"
         assert dumped["title"] == "Test Paper"
         assert dumped["doi"] == "10.1234/test"
         assert dumped["year"] == 2020
@@ -720,7 +708,7 @@ class TestPaperClass:
         """Verify Paper can track citations"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             cited_by=["paper1", "paper2", "paper3"],
             discovery=discovery
@@ -732,7 +720,7 @@ class TestPaperClass:
         """Verify Paper can have booktitle for conference papers"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="conf2020",
+            cite_key="conf2020",
             title="Conference Paper",
             booktitle="Proceedings of ICML 2020",
             discovery=discovery
@@ -743,7 +731,7 @@ class TestPaperClass:
         """Verify Paper can have journal abbreviation"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="nature2020",
+            cite_key="nature2020",
             title="Nature Paper",
             journal="Nature Machine Intelligence",
             journal_abbreviation="Nat. Mach. Intell.",
@@ -756,7 +744,7 @@ class TestPaperClass:
         pub_date = datetime(2020, 3, 15, tzinfo=timezone.utc)
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="test2020",
+            cite_key="test2020",
             title="Test Paper",
             publication_date=pub_date,
             discovery=discovery
@@ -767,12 +755,12 @@ class TestPaperClass:
         """Verify each Paper gets unique ID"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper1 = Paper(
-            citekey="test1",
+            cite_key="test1",
             title="Test Paper 1",
             discovery=discovery
         )
         paper2 = Paper(
-            citekey="test2",
+            cite_key="test2",
             title="Test Paper 2",
             discovery=discovery
         )
@@ -782,7 +770,7 @@ class TestPaperClass:
         """Verify Paper has string representation"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
-            citekey="smith2020",
+            cite_key="smith2020",
             title="Test Paper",
             discovery=discovery
         )

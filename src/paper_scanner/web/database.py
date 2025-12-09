@@ -107,16 +107,16 @@ class DatabaseManager:
                 for tag in tag_list:
                     cursor.execute("INSERT INTO tags (tag_name) VALUES (%s) ON CONFLICT (tag_name) DO NOTHING", (tag,))
 
-            # Extract title and citekey from title-details if present
+            # Extract title and cite_key from title-details if present
             title = None
-            citekey = None
+            cite_key = None
             year = None
             title_details = None
 
             if "title-details" in record:
                 title_details = record["title-details"]
                 title = title_details.get("title")
-                citekey = title_details.get("citekey")
+                cite_key = title_details.get("cite_key")
                 year = title_details.get("year")
                 # Convert year to int if it's a string
                 if year is not None:
@@ -132,14 +132,14 @@ class DatabaseManager:
                 """
                 INSERT INTO papers 
                 (file_path, file_name, directory, size_bytes, 
-                 created_time, modified_time, accessed_time, tags, title, citekey, year, title_details, analysis)
+                 created_time, modified_time, accessed_time, tags, title, cite_key, year, title_details, analysis)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (file_path) DO UPDATE SET
                     modified_time = EXCLUDED.modified_time,
                     accessed_time = EXCLUDED.accessed_time,
                     tags = EXCLUDED.tags,
                     title = EXCLUDED.title,
-                    citekey = EXCLUDED.citekey,
+                    cite_key = EXCLUDED.cite_key,
                     year = EXCLUDED.year,
                     title_details = EXCLUDED.title_details,
                     analysis = EXCLUDED.analysis
@@ -154,7 +154,7 @@ class DatabaseManager:
                     record.get("accessed_time"),
                     tags,
                     title,
-                    citekey,
+                    cite_key,
                     year,
                     json.dumps(title_details) if title_details else None,
                     json.dumps(analysis) if analysis else None,
@@ -301,7 +301,7 @@ class DatabaseManager:
                 SELECT 
                     year,
                     COUNT(*) as count,
-                    json_agg(json_build_object('file_name', file_name, 'title', title, 'citekey', citekey)) as papers
+                    json_agg(json_build_object('file_name', file_name, 'title', title, 'cite_key', cite_key)) as papers
                 FROM papers
                 WHERE year IS NOT NULL
                 GROUP BY year
@@ -350,7 +350,7 @@ class DatabaseManager:
                 cursor.execute(
                     """
                     INSERT INTO "references" 
-                    (source_paper_id, citekey, reference_type, authors, year, title, 
+                    (source_paper_id, cite_key, reference_type, authors, year, title, 
                      source_type, source_name, volume, issue, pages_start, pages_end, 
                      pages_range, publisher, location, doi, url, arxiv_id, ssrn_id, 
                      isbn, raw_citation)
@@ -359,7 +359,7 @@ class DatabaseManager:
                     """,
                     (
                         source_paper_id,
-                        ref.get("citekey"),
+                        ref.get("cite_key"),
                         ref.get("type"),  # Changed from "reference_type" to "type"
                         json.dumps(ref.get("authors")) if ref.get("authors") else None,
                         ref.get("year"),
@@ -431,7 +431,7 @@ class DatabaseManager:
             cursor.execute(
                 """
                 SELECT 
-                    r.id, r.source_paper_id, r.citekey, r.reference_type, r.authors, r.year,
+                    r.id, r.source_paper_id, r.cite_key, r.reference_type, r.authors, r.year,
                     r.title, r.source_type, r.source_name, r.volume, r.issue, r.pages_start,
                     r.pages_end, r.pages_range, r.publisher, r.location, r.doi, r.url,
                     r.arxiv_id, r.ssrn_id, r.isbn, r.raw_citation, r.created_at,

@@ -1,0 +1,33 @@
+project:
+  name: Echo Step Demo
+  description: Demonstrates the echo step for logging and debugging
+
+steps:
+  - step: "Initial setup message"
+    builtin.echo:
+      message: "Starting paper scanner processing"
+  
+  - step: "Import papers from Scopus"
+    builtin.bibtex_import:
+      batch_id: "demo_batch_1"
+      imports:
+        - name: "Scopus Sample"
+          file_path: "tests/data/scopus_sample_20.bib"
+          source_type: "scopus"
+          expected_count: 19
+  
+  - step: "Report import complete"
+    builtin.echo:
+      message: "Successfully imported papers from Scopus"
+  
+  - step: "Get database summary"
+    builtin.database_summary: {}
+  
+  - step: "Final message"
+    builtin.echo:
+      message: "Processing complete - exporting results"
+  
+  - step: "Export to JSONL"
+    builtin.output_db:
+      format: "jsonl"
+      output_path: "/tmp/echo_demo_export.jsonl"

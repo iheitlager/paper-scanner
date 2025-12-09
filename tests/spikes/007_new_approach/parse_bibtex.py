@@ -128,7 +128,7 @@ def main():
 
 def output_jsonl(papers, args):
     """Output papers as JSONL format"""
-    jsonl_string = papers_to_jsonl(papers)
+    jsonl_string = papers_to_jsonl(papers, exclude_none=True)
     print(jsonl_string, end="")
 
 
@@ -159,7 +159,7 @@ def output_txt(papers, args):
 
     # Print detailed results
     for i, paper in enumerate(papers, 1):
-        print(f"\n[{i}] {paper.citekey}")
+        print(f"\n[{i}] {paper.cite_key}")
         print("-" * 80)
         print(f"Title: {paper.title}")
 
