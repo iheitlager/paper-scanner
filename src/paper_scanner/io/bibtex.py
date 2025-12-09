@@ -99,7 +99,7 @@ def parse_keywords(keywords_string: str) -> List[str]:
         keywords = [keywords_string]
 
     # Clean up
-    keywords = [k.strip() for k in keywords if k.strip()]
+    keywords = [k.strip().lower() for k in keywords if k.strip()]
 
     return keywords
 
@@ -178,7 +178,10 @@ def bibtex_entry_to_paper(
                     year = int(year_match.group(1))
     
     # Keywords - check both 'keywords' and 'author_keywords' (Scopus uses both)
-    keywords_string = entry.get('keywords', '') or entry.get('author_keywords', '')
+    keywords_string = ""
+    for kw in ['keyword', 'keywords', 'author_keywords', 'keywords-plus']:
+        if kw in entry:
+            keywords_string += entry[kw] + ';'
     keywords = parse_keywords(keywords_string)
     
     # Identifiers

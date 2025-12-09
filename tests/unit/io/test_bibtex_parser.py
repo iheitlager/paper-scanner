@@ -120,7 +120,7 @@ class TestParseKeywords:
         assert len(keywords) == 3
         assert "machine learning" in keywords
         assert "deep learning" in keywords
-        assert "AI" in keywords
+        assert "ai" in keywords
 
     def test_parse_keywords_comma_separated(self):
         """Verify parsing of comma-separated keywords"""

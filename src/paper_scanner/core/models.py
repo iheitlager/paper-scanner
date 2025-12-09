@@ -378,14 +378,14 @@ class Paper(BaseModel):
     """
     Complete paper model - central data structure
     """
-    
+
     # ========================================
     # IDENTIFIERS
     # ========================================
-    
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     citekey: str  # Unique citation key
-    source_key: Optional[str] = None  # Original ID from source    
+    source_key: Optional[str] = None  # Original ID from source
 
     # External identifiers
     doi: Optional[str] = None
@@ -395,122 +395,115 @@ class Paper(BaseModel):
     issn: Optional[str] = None
     url: Optional[str] = None
 
-    
+
     # ========================================
     # DEDUPLICATION
     # ========================================
-    
+
     duplicate_of_id: Optional[str] = None
     is_duplicate: bool = False
-    
+
     # ========================================
     # BIBLIOGRAPHIC DATA
     # ========================================
-    
+
     # Core fields
     title: str
     abstract: Optional[str] = None
     keywords: List[str] = Field(default_factory=list)
     authors: List[Author] = Field(default_factory=list)
     year: Optional[int] = None
-    
+
     # Publication venue
     journal: Optional[str] = None
     journal_abbreviation: Optional[str] = None
     booktitle: Optional[str] = None  # For conference papers
     publisher: Optional[str] = None
-    
+
     # Volume/issue
     volume: Optional[str] = None
     number: Optional[str] = None
     pages: Optional[str] = None
-    
+
     # Dates
     publication_date: Optional[datetime] = None
-    
+
     # Language
     language: Optional[str] = "en"
-    
+
     # ========================================
     # EMBEDDINGS
     # ========================================
-    
-    title_embedding: Optional[Embedding] = None
-    abstract_embedding: Optional[Embedding] = None
+
     title_abstract_embedding: Optional[Embedding] = None  # Combined
-    
+
     # ========================================
     # DISCOVERY
     # ========================================
-    
+
     discovery: Optional[Discovery] = None
-    
+
     # ========================================
     # SCREENING
     # ========================================
-    
+
     screening: Screening = Field(default_factory=Screening)
-    
+
     # ========================================
     # REFERENCES & CITATIONS
     # ========================================
-    
+
     references: List[Reference] = Field(default_factory=list)
     cited_by: List[str] = Field(default_factory=list)  # Paper IDs
-    
+
     reference_count: int = 0
     citation_count: int = 0
-    
+
     # ========================================
     # PDF & FULL TEXT
     # ========================================
-    
+
     pdf_info: Optional[PDFInfo] = None
-    
+
     # ========================================
     # CONCEPTUAL ANALYSIS
     # ========================================
-    
+
     conceptual_analysis: Optional[ConceptualAnalysis] = None
-    
+
     # ========================================
     # METADATA & TIMESTAMPS
     # ========================================
-    
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
-    # Processing status
-    processing_locked: bool = False
-    processing_locked_by: Optional[str] = None
-    processing_locked_at: Optional[datetime] = None
-    
+
     # ========================================
     # VALIDATION
     # ========================================
-    
+
     manually_validated: bool = False
     validation_notes: Optional[str] = None
     validated_by: Optional[str] = None
     validated_at: Optional[datetime] = None
-    
+
     # ========================================
     # RAW DATA (for audit)
     # ========================================
-    
+
     raw_bibtex: Optional[str] = None
     raw_json: Optional[Dict[str, Any]] = None
-    
+
     model_config = ConfigDict(
         extra='forbid',  # Don't allow extra fields
         validate_assignment=True,  # Validate on attribute assignment
         str_strip_whitespace=True
     )
-    
+
     # ========================================
     # COMPUTED PROPERTIES
     # ========================================
-    
+
     @property
     def author_string(self) -> str:
         """Format authors as string"""
@@ -522,14 +515,14 @@ class Paper(BaseModel):
             return f"{self.authors[0].family_name} & {self.authors[1].family_name}"
         else:
             return f"{self.authors[0].family_name} et al."
-    
+
     @property
     def citation_key_apa(self) -> str:
         """Generate APA-style citation key"""
         author_part = self.authors[0].family_name if self.authors else "Unknown"
         year_part = self.year or "n.d."
         return f"{author_part}, {year_part}"
-    
+
     @property
     def is_processed(self) -> bool:
         """Check if paper completed all processing"""
@@ -537,12 +530,12 @@ class Paper(BaseModel):
             self.screening.final_decision != ScreeningDecision.PENDING and
             (self.pdf_info is not None if self.screening.final_decision == ScreeningDecision.INCLUDED else True)
         )
-    
+
     @property
     def is_included(self) -> bool:
         """Check if paper passed screening"""
         return self.screening.final_decision == ScreeningDecision.INCLUDED
-    
+
     def __str__(self) -> str:
         return f"{self.citekey}: {self.title[:60]}... ({self.year})"
 

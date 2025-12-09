@@ -101,7 +101,7 @@ def main():
         source_database=args.source_type,
         import_batch_id=f"parse_bibtex_{filepath.stem}_{int(Path(filepath).stat().st_mtime)}_{int(datetime.now().timestamp())}"
     )
-        
+
     try:
         papers = bibtex_file_to_papers(
             str(filepath),
@@ -138,14 +138,14 @@ def output_txt(papers, args):
         # Print summary
         print("\nSUMMARY")
         print("-" * 80)
-        
+
         total_authors = sum(len(p.authors) for p in papers)
         papers_with_doi = sum(1 for p in papers if p.doi)
         papers_with_abstract = sum(1 for p in papers if p.abstract)
         papers_with_keywords = sum(1 for p in papers if p.keywords)
-        
+
         avg_year = sum(p.year for p in papers if p.year) / sum(1 for p in papers if p.year) if any(p.year for p in papers) else 0
-        
+
         print(f"Total papers: {len(papers)}")
         print(f"Total authors: {total_authors}")
         print(f"Avg authors per paper: {total_authors / len(papers) if papers else 0:.1f}")
@@ -154,7 +154,7 @@ def output_txt(papers, args):
         print(f"Papers with keywords: {papers_with_keywords} ({100*papers_with_keywords/len(papers):.1f}%)")
         if avg_year:
             print(f"Average year: {avg_year:.0f}")
-        
+
         return
 
     # Print detailed results
@@ -162,17 +162,17 @@ def output_txt(papers, args):
         print(f"\n[{i}] {paper.citekey}")
         print("-" * 80)
         print(f"Title: {paper.title}")
-        
+
         if paper.authors:
             authors_str = paper.author_string
             print(f"Authors ({len(paper.authors)}): {authors_str}")
-        
+
         if paper.year:
             print(f"Year: {paper.year}")
-        
+
         if paper.doi:
             print(f"DOI: {paper.doi}")
-        
+
         if paper.journal:
             journal_info = f"Journal: {paper.journal}"
             if paper.volume:
@@ -182,26 +182,26 @@ def output_txt(papers, args):
             if paper.pages:
                 journal_info += f", pp. {paper.pages}"
             print(journal_info)
-        
+
         if paper.booktitle:
             print(f"Booktitle: {paper.booktitle}")
-        
+
         if paper.publisher:
             print(f"Publisher: {paper.publisher}")
-        
+
         if paper.keywords:
             print(f"Keywords ({len(paper.keywords)}): {'; '.join(paper.keywords[:5])}", end="")
             if len(paper.keywords) > 5:
                 print(f" ... +{len(paper.keywords) - 5} more")
             else:
                 print()
-        
+
         if paper.abstract:
             abstract_preview = paper.abstract[:200]
             if len(paper.abstract) > 200:
                 abstract_preview += "..."
             print(f"Abstract: {abstract_preview}")
-        
+
         if args.verbose:
             print("\nFull Paper Details:")
             print("-" * 80)

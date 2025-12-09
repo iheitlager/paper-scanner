@@ -660,22 +660,6 @@ class TestPaperClass:
         assert paper.validation_notes == "Manually checked for quality"
         assert paper.validated_by == "user123"
 
-    def test_paper_processing_lock_fields(self):
-        """Verify Paper processing lock fields"""
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
-        lock_time = datetime.now(timezone.utc)
-        paper = Paper(
-            citekey="test2020",
-            title="Test Paper",
-            processing_locked=True,
-            processing_locked_by="worker1",
-            processing_locked_at=lock_time,
-            discovery=discovery
-        )
-        assert paper.processing_locked is True
-        assert paper.processing_locked_by == "worker1"
-        assert paper.processing_locked_at == lock_time
-
     def test_paper_language_default(self):
         """Verify Paper language defaults to English"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
