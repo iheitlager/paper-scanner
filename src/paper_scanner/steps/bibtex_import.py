@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from rich.console import Console
+import yaml
 
-from ..io.bibtex import bibtex_file_to_papers
+from ..io.bibtex import bibtex_file_to_papers, load_type_mapping_config
 from ..core.models import Paper
 from ..core.enum import DiscoveryMethod
 
@@ -38,6 +39,19 @@ def execute(
     
     batch_id = config.get("batch_id", f"import_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     imports = config.get("imports", [])
+    type_mapping_config_path = config.get("type_mapping_config_path")
+    
+    # Load type mapping configuration
+    type_mapping_config = None
+    if type_mapping_config_path:
+        if verbose:
+            console.print(f"[cyan]Loading type mapping config from:[/cyan] {type_mapping_config_path}")
+        type_mapping_config = load_type_mapping_config(type_mapping_config_path)
+    else:
+        # Use default location
+        type_mapping_config = load_type_mapping_config()
+        if verbose:
+            console.print("[cyan]Using default type mapping configuration[/cyan]")
     
     results = {
         "step": "bibtex_import",
@@ -71,12 +85,13 @@ def execute(
                 console.print(f"    [yellow]Source:[/yellow] {source_type}")
             
             if not dry_run:
-                # Parse BibTeX file
+                # Parse BibTeX file with type mapping config
                 papers = bibtex_file_to_papers(
                     str(path),
                     source_type=source_type,
                     discovery_method=DiscoveryMethod.KEYWORD_SEARCH,
-                    import_batch_id=batch_id
+                    import_batch_id=batch_id,
+                    type_mapping_config=type_mapping_config
                 )
                 
                 # Add to database
@@ -92,7 +107,10 @@ def execute(
                         console.print(f"    [{style}]{match} Expected: {expected_count}, Got: {count}[/{style}]")
             else:
                 # Dry run: just show what would happen
-                papers = bibtex_file_to_papers(str(path))
+                papers = bibtex_file_to_papers(
+                    str(path),
+                    type_mapping_config=type_mapping_config
+                )
                 count = len(papers)
                 if verbose:
                     console.print(f"    [yellow][DRY RUN] Would import {count} papers[/yellow]")

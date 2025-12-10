@@ -26,6 +26,7 @@ classifiers = [
 
 dependencies = [
     "anthropic==0.75.0",
+    "bibtexparser>=1.4.0",
     "colorama>=0.4.6",
     "dotenv>=0.9.9",
     "flask>=3.0.0",

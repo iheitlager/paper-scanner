@@ -1,0 +1,164 @@
+# BibTeX Type Mapping Configuration
+# Maps BibTeX entry types to standardized paper types from PaperType enum
+
+# Standard BibTeX entry types
+type_mappings:
+  # Journal articles
+  article:
+    paper_type: "article"
+    description: "Journal article"
+    confidence: 0.95
+
+  # Conference proceedings
+  inproceedings:
+    paper_type: "conference_paper"
+    description: "Conference paper / proceedings"
+    confidence: 0.95
+
+  conference:
+    paper_type: "conference_paper"
+    description: "Conference paper (variant)"
+    confidence: 0.90
+
+  # Books
+  book:
+    paper_type: "book"
+    description: "Full book"
+    confidence: 0.95
+
+  # Book chapters and sections
+  incollection:
+    paper_type: "book_chapter"
+    description: "Chapter in edited book"
+    confidence: 0.90
+
+  inbook:
+    paper_type: "book_chapter"
+    description: "Book chapter"
+    confidence: 0.90
+
+  # Theses
+  phdthesis:
+    paper_type: "thesis"
+    description: "PhD dissertation"
+    confidence: 0.95
+
+  mastersthesis:
+    paper_type: "thesis"
+    description: "Master's thesis"
+    confidence: 0.95
+
+  thesis:
+    paper_type: "thesis"
+    description: "Thesis (generic)"
+    confidence: 0.85
+
+  # Reports
+  techreport:
+    paper_type: "technical_report"
+    description: "Technical report"
+    confidence: 0.90
+
+  report:
+    paper_type: "technical_report"
+    description: "Technical report (variant)"
+    confidence: 0.85
+
+  # Working papers / preprints
+  unpublished:
+    paper_type: "working_paper"
+    description: "Unpublished work / working paper"
+    confidence: 0.75
+
+  preprint:
+    paper_type: "preprint"
+    description: "Preprint (e.g., arXiv)"
+    confidence: 0.90
+
+  # Patents
+  patent:
+    paper_type: "patent"
+    description: "Patent"
+    confidence: 0.95
+
+  # Generic/other
+  misc:
+    paper_type: "other"
+    description: "Miscellaneous"
+    confidence: 0.5
+
+  mastered:
+    paper_type: "other"
+    description: "Mastered work (undefined type)"
+    confidence: 0.4
+
+  # Extended BibTeX variants
+  electronic:
+    paper_type: "other"
+    description: "Electronic resource"
+    confidence: 0.6
+
+  dataset:
+    paper_type: "other"
+    description: "Dataset"
+    confidence: 0.7
+
+  proceedings:
+    paper_type: "conference_paper"
+    description: "Conference proceedings volume"
+    confidence: 0.8
+
+  standard:
+    paper_type: "technical_report"
+    description: "Technical standard"
+    confidence: 0.8
+
+  webpublication:
+    paper_type: "other"
+    description: "Web-published work"
+    confidence: 0.5
+
+# Custom mappings (if not found in standard mappings, try these fallbacks)
+custom_mappings: {}
+
+# Source-specific overrides
+# Can refine mappings based on the source database (scopus, wos, ieee, etc.)
+source_overrides:
+  scopus:
+    # Scopus entries typically have 'type' field with values like "Article", "Conference Paper"
+    article_type_field: "type"
+    # Map Scopus type values to paper_type
+    type_value_mappings:
+      "Article": "article"
+      "Conference Paper": "conference_paper"
+      "Book": "book"
+      "Book Chapter": "book_chapter"
+      "Review": "article"
+      "Short Survey": "article"
+
+  ieee:
+    # IEEE uses specific fields for publication type
+    article_type_field: "type"
+    type_value_mappings:
+      "Journals & Magazines": "article"
+      "Conferences": "conference_paper"
+      "Books": "book"
+      "Early Access": "preprint"
+      "Standards": "technical_report"
+
+  wos:
+    # Web of Science document types
+    article_type_field: "document_type"
+    type_value_mappings:
+      "Journal Article": "article"
+      "Proceedings Paper": "conference_paper"
+      "Book Chapter": "book_chapter"
+      "Book Review": "article"
+
+# Field preference order for inferring paper type
+# Some sources include rich metadata that can help disambiguate
+field_priorities:
+  - "type"           # Most sources have a 'type' field
+  - "document_type"  # Used by some databases
+  - "article_type"   # Alternative field name
+  - "entrytype"      # BibTeX entry type (fallback)

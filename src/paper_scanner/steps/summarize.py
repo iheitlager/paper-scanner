@@ -26,7 +26,12 @@ def execute(
     Execute database summary step
     
     Args:
-        config: Step configuration
+        config: Step configuration with options:
+            - summary: bool (default: True) - Show summary statistics
+            - table_by_paper_type: bool (default: False) - DEPRECATED: Use tabulate instead
+            - tabulate: dict or list of dicts with options:
+                - field: str - Field to tabulate (e.g., 'paper_type', 'journal', 'booktitle')
+                - duplicates: bool/str (default: False) - Include duplicates (False, True, or 'only')
         papers_db: Current papers database
         verbose: Enable verbose output
         dry_run: Don't actually process, just show what would happen
@@ -35,10 +40,29 @@ def execute(
         Dictionary with database statistics
     """
     
+    # Get configuration options
+    show_summary = config.get("summary", True)
+    
+    # Support both old and new configuration format
+    tabulate_configs = []
+    
+    # Check for new tabulate format (dict or list)
+    if "tabulate" in config:
+        tabulate_config = config["tabulate"]
+        if isinstance(tabulate_config, dict):
+            tabulate_configs = [tabulate_config]
+        elif isinstance(tabulate_config, list):
+            tabulate_configs = tabulate_config
+    
+    # Fallback to deprecated table_by_paper_type for backward compatibility
+    if not tabulate_configs and config.get("table_by_paper_type", False):
+        tabulate_configs = [{"field": "paper_type", "duplicates": False}]
+    
     results = {
         "step": "database_summary",
         "timestamp": None,
-        "statistics": {}
+        "statistics": {},
+        "tables": {}
     }
     
     if len(papers_db) == 0:
@@ -90,11 +114,11 @@ def execute(
     unique_papers = sum(1 for p in papers_db if p.duplicate_of is None)
     duplicate_papers = sum(1 for p in papers_db if p.duplicate_of is not None)
     
-    # Paper types
+    # Paper types (from paper.paper_type field, not screening)
     paper_types = Counter()
     for paper in papers_db:
-        if paper.screening.categorization:
-            paper_types[paper.screening.categorization.paper_type.value] += 1
+        if paper.paper_type:
+            paper_types[paper.paper_type] += 1
     
     results["statistics"] = {
         "total_papers": total,
@@ -112,7 +136,7 @@ def execute(
         "paper_types": dict(paper_types) if paper_types else None
     }
     
-    if verbose:
+    if verbose and show_summary:
         console.print("\n  [bold yellow]Database Summary:[/bold yellow]")
         console.print(f"    Total papers: [cyan]{total}[/cyan]")
         console.print(f"    Unique papers: [green]{unique_papers}[/green]")
@@ -131,5 +155,131 @@ def execute(
         if screening_status:
             status_str = str(dict(screening_status))
             console.print(f"    Screening status: [dim]{status_str}[/dim]")
+        
+        if paper_types:
+            types_str = str(dict(paper_types))
+            console.print(f"    Paper types: [dim]{types_str}[/dim]")
+    
+    # Generate tables if requested
+    if verbose and tabulate_configs:
+        for tab_config in tabulate_configs:
+            field = tab_config.get("field")
+            duplicates = tab_config.get("duplicates", False)
+            
+            if not field:
+                continue
+            
+            # Filter papers based on duplicates setting
+            papers_to_tabulate = _filter_by_duplicates(papers_db, duplicates)
+            
+            # Generate table for this field
+            table_data = _generate_field_table(papers_to_tabulate, field, len(papers_db))
+            if table_data:
+                console.print(f"\n  [bold yellow]Papers by {field.title()}:[/bold yellow]")
+                console.print(table_data)
+                results["tables"][field] = "generated"
     
     return results
+
+
+def _filter_by_duplicates(papers: List[Paper], duplicates: Any) -> List[Paper]:
+    """
+    Filter papers based on duplicates setting
+    
+    Args:
+        papers: List of papers
+        duplicates: False (exclude), True (include all), 'only' (only duplicates)
+    
+    Returns:
+        Filtered list of papers
+    """
+    if duplicates == "only":
+        return [p for p in papers if p.duplicate_of is not None]
+    elif duplicates is True:
+        return papers
+    else:  # False or default
+        return [p for p in papers if p.duplicate_of is None]
+
+
+def _generate_field_table(papers_db: List[Paper], field: str, total_papers: int) -> Table:
+    """
+    Generate a table of papers grouped by a specified field
+    
+    Args:
+        papers_db: List of papers to tabulate
+        field: Field name to group by (e.g., 'paper_type', 'journal', 'booktitle')
+        total_papers: Total papers in database (for percentage calculation)
+    
+    Returns:
+        Rich Table with field statistics
+    """
+    
+    # Group papers by field value
+    papers_by_field = {}
+    no_field = []
+    
+    for paper in papers_db:
+        value = getattr(paper, field, None)
+        
+        if value:
+            # Handle list fields
+            if isinstance(value, list):
+                value_str = f"{len(value)} items"
+            else:
+                value_str = str(value)
+            
+            if value_str not in papers_by_field:
+                papers_by_field[value_str] = []
+            papers_by_field[value_str].append(paper)
+        else:
+            no_field.append(paper)
+    
+    # Create table
+    table = Table(title=f"Paper Statistics by {field.title()}")
+    table.add_column(field.title(), style="cyan")
+    table.add_column("Count", justify="right", style="green")
+    table.add_column("% of Total", justify="right", style="yellow")
+    table.add_column("With DOI", justify="right", style="blue")
+    table.add_column("With Abstract", justify="right", style="magenta")
+    
+    # Add rows for each field value
+    for field_value in sorted(papers_by_field.keys()):
+        papers = papers_by_field[field_value]
+        count = len(papers)
+        percentage = (count / total_papers * 100) if total_papers > 0 else 0
+        with_doi = sum(1 for p in papers if p.doi)
+        with_abstract = sum(1 for p in papers if p.abstract)
+        
+        table.add_row(
+            field_value[:30],  # Truncate long values
+            str(count),
+            f"{percentage:.1f}%",
+            str(with_doi),
+            str(with_abstract)
+        )
+    
+    # Add row for papers without field
+    if no_field:
+        count = len(no_field)
+        percentage = (count / total_papers * 100) if total_papers > 0 else 0
+        with_doi = sum(1 for p in no_field if p.doi)
+        with_abstract = sum(1 for p in no_field if p.abstract)
+        
+        table.add_row(
+            f"[dim]No {field.title()}[/dim]",
+            str(count),
+            f"{percentage:.1f}%",
+            str(with_doi),
+            str(with_abstract)
+        )
+    
+    # Add total row
+    table.add_row(
+        "[bold]Total[/bold]",
+        f"[bold]{len(papers_db)}[/bold]",
+        "[bold]100.0%[/bold]",
+        f"[bold]{sum(1 for p in papers_db if p.doi)}[/bold]",
+        f"[bold]{sum(1 for p in papers_db if p.abstract)}[/bold]"
+    )
+    
+    return table

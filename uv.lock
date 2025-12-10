@@ -66,6 +66,15 @@ wheels = [
 ]
 
 [[package]]
+name = "bibtexparser"
+version = "1.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyparsing" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/92/8d/e296c7af03757debd8fc80df2898cbed4fb69fc61ed2c9b4a1d42e923a9e/bibtexparser-1.4.3.tar.gz", hash = "sha256:a9c7ded64bc137720e4df0b1b7f12734edc1361185f1c9097048ff7c35af2b8f", size = 55582, upload-time = "2024-12-19T20:41:57.754Z" }
+
+[[package]]
 name = "blinker"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1509,6 +1518,7 @@ name = "paper-scanner"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "bibtexparser" },
     { name = "colorama" },
     { name = "dotenv" },
     { name = "flask" },
@@ -1550,6 +1560,7 @@ local = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = "==0.75.0" },
+    { name = "bibtexparser", specifier = ">=1.4.0" },
     { name = "colorama", specifier = ">=0.4.6" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "flask", specifier = ">=3.0.0" },

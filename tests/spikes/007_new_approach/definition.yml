@@ -93,6 +93,12 @@ steps:
 
   - step: Display database statistics and summary
     builtin.summarize:
+      summary: true
+      tabulate:
+        - field: paper_type
+          duplicates: false
+        - field: journal
+          duplicates: false
   
   - step: Export database to JSONL format
     builtin.export:

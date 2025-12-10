@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from paper_scanner.cli.paper_processor import (
+from paper_scanner.cli.paper_processor_old import (
     DEFAULT_MAX_TOKENS,
     DEFAULT_MODEL,
     PaperProcessor,

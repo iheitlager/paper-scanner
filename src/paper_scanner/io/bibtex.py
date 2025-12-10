@@ -11,11 +11,151 @@ from bibtexparser.bparser import BibTexParser
 from bibtexparser.bwriter import BibTexWriter
 from bibtexparser.bibdatabase import BibDatabase
 import re
+import yaml
+from pathlib import Path
 
 from ..core.models import (
     Paper, Author, Discovery, 
     DiscoveryMethod, PaperType
 )
+
+
+# ============================================================================
+# TYPE MAPPING CONFIGURATION
+# ============================================================================
+
+# Cache for loaded type mappings
+_type_mapping_cache: Optional[Dict[str, Any]] = None
+
+
+def load_type_mapping_config(config_path: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Load BibTeX type mapping configuration from YAML file.
+    
+    Args:
+        config_path: Path to YAML config file. If None, uses default location.
+        
+    Returns:
+        Dictionary with type mappings and source-specific overrides
+    """
+    global _type_mapping_cache
+    
+    if _type_mapping_cache is not None:
+        return _type_mapping_cache
+    
+    if config_path is None:
+        # Use default location relative to this module
+        config_path = Path(__file__).parent.parent.parent.parent / "etc" / "bibtex_type_mapping.yaml"
+    
+    config_path = Path(config_path)
+    
+    if not config_path.exists():
+        # Return minimal default mappings if config file not found
+        return {
+            'type_mappings': {
+                'article': {'paper_type': 'article', 'confidence': 0.95},
+                'inproceedings': {'paper_type': 'conference_paper', 'confidence': 0.95},
+                'book': {'paper_type': 'book', 'confidence': 0.95},
+                'incollection': {'paper_type': 'book_chapter', 'confidence': 0.90},
+                'inbook': {'paper_type': 'book_chapter', 'confidence': 0.90},
+                'phdthesis': {'paper_type': 'thesis', 'confidence': 0.95},
+                'mastersthesis': {'paper_type': 'thesis', 'confidence': 0.95},
+                'techreport': {'paper_type': 'technical_report', 'confidence': 0.90},
+                'unpublished': {'paper_type': 'working_paper', 'confidence': 0.75},
+                'misc': {'paper_type': 'other', 'confidence': 0.5},
+            },
+            'source_overrides': {},
+            'custom_mappings': {}
+        }
+    
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f) or {}
+    
+    _type_mapping_cache = config
+    return config
+
+
+def evaluate_paper_type(
+    entry: Dict,
+    source_type: Optional[str] = None,
+    type_mapping_config: Optional[Dict[str, Any]] = None
+) -> tuple[Optional[str], float]:
+    """
+    Evaluate paper type from BibTeX entry using configurable mappings.
+    
+    This function tries multiple strategies:
+    1. Source-specific type field and mapping
+    2. Standard BibTeX entry type mapping
+    3. Custom field mappings
+    4. Fallback to entry type
+    
+    Args:
+        entry: BibTeX entry dictionary
+        source_type: Source database type (scopus, wos, ieee, etc.)
+        type_mapping_config: Loaded type mapping configuration
+        
+    Returns:
+        Tuple of (paper_type: str, confidence: float)
+        Returns (None, 0.0) if no type could be determined
+    """
+    
+    if type_mapping_config is None:
+        type_mapping_config = load_type_mapping_config()
+    
+    entry_type = entry.get('ENTRYTYPE', '').lower()
+    
+    # Strategy 1: Check source-specific overrides
+    if source_type and 'source_overrides' in type_mapping_config:
+        source_config = type_mapping_config['source_overrides'].get(source_type.lower())
+        if source_config:
+            # Try to get type from source-specific field
+            type_field = source_config.get('article_type_field')
+            if type_field and type_field in entry:
+                source_type_value = entry[type_field].strip()
+                type_value_mappings = source_config.get('type_value_mappings', {})
+                
+                if source_type_value in type_value_mappings:
+                    paper_type = type_value_mappings[source_type_value]
+                    # Look up confidence from main mappings
+                    confidence = 0.85  # Default for source-specific match
+                    if paper_type in type_mapping_config.get('type_mappings', {}):
+                        confidence = type_mapping_config['type_mappings'][paper_type].get('confidence', 0.85)
+                    return paper_type, confidence
+    
+    # Strategy 2: Use standard type mapping from BibTeX entry type
+    type_mappings = type_mapping_config.get('type_mappings', {})
+    if entry_type in type_mappings:
+        mapping = type_mappings[entry_type]
+        return mapping.get('paper_type'), mapping.get('confidence', 0.5)
+    
+    # Strategy 3: Try custom mappings
+    custom_mappings = type_mapping_config.get('custom_mappings', {})
+    if entry_type in custom_mappings:
+        mapping = custom_mappings[entry_type]
+        return mapping.get('paper_type'), mapping.get('confidence', 0.5)
+    
+    # Strategy 4: Fallback - check common field variations
+    for field_name in ['type', 'document_type', 'article_type']:
+        if field_name in entry:
+            field_value = entry[field_name].strip().lower()
+            # Try to match against known types
+            if 'article' in field_value:
+                return 'article', 0.6
+            elif 'conference' in field_value or 'proceedings' in field_value:
+                return 'conference_paper', 0.6
+            elif 'book' in field_value:
+                if 'chapter' in field_value:
+                    return 'book_chapter', 0.6
+                return 'book', 0.6
+    
+    # Last resort: map entry type if it exists
+    if entry_type:
+        # Try case-insensitive match
+        for known_type, mapping in type_mappings.items():
+            if known_type.lower() == entry_type.lower():
+                return mapping.get('paper_type'), mapping.get('confidence', 0.5)
+    
+    return None, 0.0
 
 
 # ============================================================================
@@ -128,7 +268,9 @@ def infer_paper_type(entry: Dict) -> PaperType:
 
 def bibtex_entry_to_paper(
     entry: Dict,
-    discovery: Optional[Discovery] = None
+    discovery: Optional[Discovery] = None,
+    source_type: Optional[str] = None,
+    type_mapping_config: Optional[Dict[str, Any]] = None
 ) -> Paper:
     """
     Convert single BibTeX entry to Paper Pydantic model
@@ -136,6 +278,8 @@ def bibtex_entry_to_paper(
     Args:
         entry: BibTeX entry dictionary
         discovery: Discovery object for tracking import
+        source_type: Source database type (scopus, wos, ieee, etc.)
+        type_mapping_config: Loaded type mapping configuration
 
     Returns:
         Paper Pydantic model
@@ -205,6 +349,13 @@ def bibtex_entry_to_paper(
     # Source key - use original BibTeX ID
     source_key = cite_key
     
+    # Evaluate paper type from BibTeX entry
+    paper_type, type_confidence = evaluate_paper_type(
+        entry,
+        source_type=source_type,
+        type_mapping_config=type_mapping_config
+    )
+    
     # Create Paper model
     paper = Paper(
         cite_key=cite_key,
@@ -224,6 +375,7 @@ def bibtex_entry_to_paper(
         volume=volume,
         number=number,
         pages=pages,
+        paper_type=paper_type,
         discovery=discovery,
         raw_bibtex=format_bibtex_entry(entry)
     )
@@ -236,7 +388,8 @@ def bibtex_to_papers(
     discovery: Optional[Discovery] = None,
     source_type: Optional[str] = None,
     discovery_method: Optional[DiscoveryMethod] = None,
-    import_batch_id: Optional[str] = None
+    import_batch_id: Optional[str] = None,
+    type_mapping_config: Optional[Dict[str, Any]] = None
 ) -> List[Paper]:
     """
     Parse BibTeX string and convert to list of Paper models
@@ -247,6 +400,7 @@ def bibtex_to_papers(
         source_type: Source database ('scopus', 'wos', 'ieee', 'manual', etc.)
         discovery_method: How papers were discovered
         import_batch_id: Optional batch ID for tracking
+        type_mapping_config: Optional pre-loaded type mapping configuration
 
     Returns:
         List of Paper Pydantic models
@@ -269,6 +423,10 @@ def bibtex_to_papers(
             if import_batch_id:
                 discovery.import_batch_id = import_batch_id
 
+    # Load type mapping configuration if not provided
+    if type_mapping_config is None:
+        type_mapping_config = load_type_mapping_config()
+
     # Parse BibTeX
     parser = BibTexParser(common_strings=True)
     parser.ignore_nonstandard_types = False
@@ -282,7 +440,9 @@ def bibtex_to_papers(
         try:
             paper = bibtex_entry_to_paper(
                 entry,
-                discovery=discovery
+                discovery=discovery,
+                source_type=source_type,
+                type_mapping_config=type_mapping_config
             )
             papers.append(paper)
         except Exception as e:
@@ -298,7 +458,8 @@ def bibtex_file_to_papers(
     discovery: Optional[Discovery] = None,
     source_type: Optional[str] = None,
     discovery_method: Optional[DiscoveryMethod] = None,
-    import_batch_id: Optional[str] = None
+    import_batch_id: Optional[str] = None,
+    type_mapping_config: Optional[Dict[str, Any]] = None
 ) -> List[Paper]:
     """
     Load BibTeX file and convert to Paper models
@@ -309,6 +470,7 @@ def bibtex_file_to_papers(
         source_type: Source database ('scopus', 'wos', 'ieee', 'manual', etc.)
         discovery_method: How papers were discovered
         import_batch_id: Optional batch ID for tracking
+        type_mapping_config: Optional pre-loaded type mapping configuration
 
     Returns:
         List of Paper models
@@ -322,7 +484,8 @@ def bibtex_file_to_papers(
         discovery=discovery,
         source_type=source_type,
         discovery_method=discovery_method,
-        import_batch_id=import_batch_id
+        import_batch_id=import_batch_id,
+        type_mapping_config=type_mapping_config
     )
 
 
