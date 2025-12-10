@@ -464,11 +464,21 @@ def process_definition(
             results["papers_unique"] = len([p for p in papers_db if p.duplicate_of is None])
             results["papers_duplicates"] = len([p for p in papers_db if p.duplicate_of is not None])
             
-            # Ansible-style result output
-            if verbose:
-                console.print(f"[green]ok[/green]: [{step_name}]")
+            # Check if step failed
+            if step_result.get("status") == "error":
+                # Step failed - add to errors and continue
+                error_msg = step_result.get("error", "Unknown error")
+                results["errors"].append(f"{step_name}: {error_msg}")
+                if verbose:
+                    console.print(f"[red]fatal[/red]: [{step_name}] {error_msg}")
+                else:
+                    console.print(f"[red]fatal[/red]: [{step_name}]")
             else:
-                console.print(f"[green]ok[/green]: [{step_name}]")
+                # Ansible-style result output
+                if verbose:
+                    console.print(f"[green]ok[/green]: [{step_name}]")
+                else:
+                    console.print(f"[green]ok[/green]: [{step_name}]")
             
         except HaltException as e:
             # Graceful halt - not an error

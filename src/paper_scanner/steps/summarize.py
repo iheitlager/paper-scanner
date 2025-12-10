@@ -113,21 +113,23 @@ def execute(
     }
     
     if verbose:
-        print("\n  Database Summary:")
-        print(f"    Total papers: {total}")
-        print(f"    Unique papers: {unique_papers}")
-        print(f"    Duplicate papers: {duplicate_papers}")
-        print(f"    Total authors: {len(all_authors)}")
-        print(f"    Unique authors: {unique_authors}")
-        print(f"    Year range: {year_range}")
-        print(f"    Papers with DOI: {with_doi}")
-        print(f"    Papers with abstract: {with_abstract}")
-        print(f"    Unique keywords: {unique_keywords}")
+        console.print("\n  [bold yellow]Database Summary:[/bold yellow]")
+        console.print(f"    Total papers: [cyan]{total}[/cyan]")
+        console.print(f"    Unique papers: [green]{unique_papers}[/green]")
+        console.print(f"    Duplicate papers: [red]{duplicate_papers}[/red]")
+        console.print(f"    Total authors: [cyan]{len(all_authors)}[/cyan]")
+        console.print(f"    Unique authors: [green]{unique_authors}[/green]")
+        console.print(f"    Year range: [cyan]{year_range}[/cyan]")
+        console.print(f"    Papers with DOI: [cyan]{with_doi}[/cyan]")
+        console.print(f"    Papers with abstract: [cyan]{with_abstract}[/cyan]")
+        console.print(f"    Unique keywords: [cyan]{unique_keywords}[/cyan]")
         
         if sources:
-            print(f"    Sources: {dict(sources)}")
+            sources_str = str(dict(sources))
+            console.print(f"    Sources: [dim]{sources_str}[/dim]")
         
         if screening_status:
-            print(f"    Screening status: {dict(screening_status)}")
+            status_str = str(dict(screening_status))
+            console.print(f"    Screening status: [dim]{status_str}[/dim]")
     
     return results

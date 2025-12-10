@@ -40,6 +40,7 @@ def execute(
     output_path = config.get("output_path")
     exclude_none = config.get("exclude_none", True)
     duplicates_option = config.get("duplicates", False)  # false, true, or "only"
+    overwrite = config.get("overwrite", False)  # Default to False - fail on existing files
     
     # Expand tilde and resolve the path
     if output_path:
@@ -90,6 +91,15 @@ def execute(
         # Create output directory if needed
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Check if file exists and overwrite is False
+        if path.exists() and not overwrite:
+            error_msg = f"File already exists and overwrite=False: {output_path}"
+            results["status"] = "error"
+            results["error"] = error_msg
+            if verbose:
+                console.print(f"  [red]✗ Error: {error_msg}[/red]")
+            return results
         
         if verbose:
             # Build descriptive message based on duplicates option
