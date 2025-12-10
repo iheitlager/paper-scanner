@@ -82,7 +82,14 @@ steps:
           threshold: 0.95
 
   - step: Save checkpoint after deduplication
-    builtin.checkpoint: 
+    builtin.checkpoint:
+
+  - step: Categorize and screen papers for quality
+    builtin.categorization:
+      enabled: true
+
+  - step: Save checkpoint after categorization
+    builtin.checkpoint:
 
   - step: Display database statistics and summary
     builtin.summarize:

@@ -188,14 +188,14 @@ def papers_to_json_file(
 def dict_to_paper(data: Dict[str, Any]) -> Paper:
     """
     Convert dictionary to Paper Pydantic model (100% complete)
-    
+
     Args:
         data: Dictionary representation of Paper
-    
+
     Returns:
         Paper Pydantic model with all fields restored
     """
-    
+
     # Pydantic will handle all validation and type conversion
     return Paper.model_validate(data)
 
@@ -203,14 +203,14 @@ def dict_to_paper(data: Dict[str, Any]) -> Paper:
 def json_to_paper(json_string: str) -> Paper:
     """
     Convert JSON string to Paper model
-    
+
     Args:
         json_string: JSON representation of Paper
-    
+
     Returns:
         Paper Pydantic model
     """
-    
+
     data = json.loads(json_string)
     return dict_to_paper(data)
 
@@ -218,53 +218,53 @@ def json_to_paper(json_string: str) -> Paper:
 def json_to_papers(json_string: str) -> List[Paper]:
     """
     Convert JSON string to list of Papers
-    
+
     Args:
         json_string: JSON array of papers
-    
+
     Returns:
         List of Paper models
     """
-    
+
     data_list = json.loads(json_string)
-    
+
     if not isinstance(data_list, list):
         raise ValueError("Expected JSON array of papers")
-    
+
     return [dict_to_paper(data) for data in data_list]
 
 
 def json_file_to_paper(filepath: str) -> Paper:
     """
     Load Paper from JSON file
-    
+
     Args:
         filepath: Path to JSON file
-    
+
     Returns:
         Paper model
     """
-    
+
     with open(filepath, 'r', encoding='utf-8') as f:
         json_string = f.read()
-    
+
     return json_to_paper(json_string)
 
 
 def json_file_to_papers(filepath: str) -> List[Paper]:
     """
     Load Papers from JSON file
-    
+
     Args:
         filepath: Path to JSON file (array of papers)
-    
+
     Returns:
         List of Paper models
     """
-    
+
     with open(filepath, 'r', encoding='utf-8') as f:
         json_string = f.read()
-    
+
     return json_to_papers(json_string)
 
 

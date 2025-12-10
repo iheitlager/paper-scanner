@@ -420,6 +420,9 @@ class Paper(BaseModel):
     journal_abbreviation: Optional[str] = None
     booktitle: Optional[str] = None  # For conference papers
     publisher: Optional[str] = None
+    
+    # Paper type from source (e.g., BibTeX entry type)
+    paper_type: Optional[str] = None  # "journal_article", "conference_paper", "book", etc.
 
     # Volume/issue
     volume: Optional[str] = None
