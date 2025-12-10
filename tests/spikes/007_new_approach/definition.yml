@@ -42,19 +42,21 @@ steps:
       batch_id: "import_test_20241209"
       imports:
         - name: "Scopus - Sample"
-          description: "Sample Scopus papers"
           file_path: "tests/data/scopus_sample_20.bib"
           source_type: "scopus"
           expected_count: 19
-          
+
+        - name: "Scopus - Sample"
+          file_path: "tests/data/scopus_sample_20.bib"
+          source_type: "scopus"
+          expected_count: 19          
+
         - name: "IEEE - Sample"
-          description: "Sample IEEE papers"
           file_path: "tests/data/ieee_sample_20.bib"
           source_type: "ieee"
           expected_count: 20
           
         - name: "Web of Science - Sample"
-          description: "Sample WOS papers"
           file_path: "tests/data/wos_sample_20.bib"
           source_type: "wos"
           expected_count: 20
@@ -63,16 +65,35 @@ steps:
     builtin.echo:
       message: "Processing complete - bibtex imported"
 
+  - step: stop the process for testing
+    builtin.halt:
+      message: "Stopping process for testing purposes"
+
+  - step: Deduplicate papers using multiple matching methods
+    builtin.deduplication:
+      enabled: true
+      methods:
+        - method: "doi_exact"
+          priority: 1
+        - method: "title_author_fuzzy"
+          priority: 2
+          threshold: 0.90
+        - method: "title_fuzzy"
+          priority: 3
+          threshold: 0.95
+
   - step: Display database statistics and summary
-    builtin.database_summary: {}
+    builtin.summarize: {}
   
   - step: Export database to JSONL format
-    builtin.output_db:
+    builtin.export:
       format: jsonl
       output_path: "~/tmp/papers_export.jsonl"
       exclude_none: true
+      duplicates: false
   
   - step: Export database to BibTeX format
-    builtin.output_db:
+    builtin.export:
       format: bibtex
       output_path: "~/tmp/papers_export.bib"
+      duplicates: only

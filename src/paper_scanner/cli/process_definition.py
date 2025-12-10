@@ -7,6 +7,7 @@ Processes YAML definition files and executes sequential steps
 import argparse
 import sys
 import importlib
+import os
 from pathlib import Path
 from typing import List, Dict, Any, Callable, Optional
 import yaml
@@ -19,6 +20,7 @@ from rich.table import Table
 from rich.panel import Panel
 
 from paper_scanner.core.models import Paper
+from paper_scanner.steps.halt import HaltException
 
 # Initialize rich console for colored output
 console = Console()
@@ -219,7 +221,8 @@ def validate_definition(definition: Dict[str, Any]) -> None:
 def process_definition(
     definition_file: Path,
     verbose: bool = False,
-    dry_run: bool = False
+    dry_run: bool = False,
+    cache_dir: Optional[Path] = None
 ) -> Dict[str, Any]:
     """
     Process definition file and execute steps
@@ -228,6 +231,7 @@ def process_definition(
         definition_file: Path to YAML definition file
         verbose: Enable verbose output
         dry_run: Don't actually execute steps
+        cache_dir: Optional cache directory (overrides env and definition file)
     
     Returns:
         Execution results
@@ -240,11 +244,39 @@ def process_definition(
     definition = load_definition(definition_file)
     validate_definition(definition)
     
+    # Determine cache_dir with priority:
+    # 1. CLI argument (cache_dir parameter)
+    # 2. Environment variable CACHE_DIR
+    # 3. Definition file project.cache_dir
+    # 4. Default: ~/.paper-scanner
+    if cache_dir is None:
+        cache_dir = Path(os.getenv("CACHE_DIR", ""))
+        if not cache_dir or str(cache_dir) == ".":
+            cache_dir = None
+    
+    if cache_dir is None and "project" in definition:
+        project = definition["project"]
+        if "cache_dir" in project:
+            cache_dir = Path(project["cache_dir"])
+    
+    if cache_dir is None:
+        cache_dir = Path("~/.paper-scanner").expanduser()
+    else:
+        cache_dir = cache_dir.expanduser()
+    
+    # Create cache directory if it doesn't exist
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    
+    if verbose:
+        console.print(f"Cache directory: [cyan]{cache_dir}[/cyan]\n")
+    
     # Print project info if available
     if "project" in definition and verbose:
         project = definition["project"]
+        description = project.get('description', 'N/A')
+        project_info = f"[yellow]{description}[/yellow]\n[dim]Cache: {cache_dir}[/dim]"
         project_panel = Panel(
-            f"[yellow]{project.get('description', 'N/A')}[/yellow]",
+            project_info,
             title=f"[bold blue]{project.get('name', 'Unknown')}[/bold blue]",
             border_style="cyan"
         )
@@ -256,10 +288,13 @@ def process_definition(
     # Execute steps
     results = {
         "definition_file": str(definition_file),
+        "cache_dir": str(cache_dir),
         "timestamp": datetime.now().isoformat(),
         "dry_run": dry_run,
         "steps_executed": [],
-        "total_papers": 0,
+        "papers_total": 0,
+        "papers_unique": 0,
+        "papers_duplicates": 0,
         "errors": []
     }
     
@@ -290,13 +325,36 @@ def process_definition(
             )
             
             results["steps_executed"].append(step_result)
-            results["total_papers"] = len(papers_db)
+            
+            # Track papers statistics
+            results["papers_total"] = len(papers_db)
+            results["papers_unique"] = len([p for p in papers_db if p.duplicate_of is None])
+            results["papers_duplicates"] = len([p for p in papers_db if p.duplicate_of is not None])
             
             # Ansible-style result output
             if verbose:
-                console.print(f"[green]ok[/green]: [{step_name}] => {step_result.get('status', 'ok')}")
+                console.print(f"[green]ok[/green]: [{step_name}]")
             else:
                 console.print(f"[green]ok[/green]: [{step_name}]")
+            
+        except HaltException as e:
+            # Graceful halt - not an error
+            halt_msg = f"Pipeline halted: {str(e)}"
+            results["steps_executed"].append({
+                "step": step_name,
+                "status": "halted",
+                "message": str(e)
+            })
+            
+            # Track final papers statistics
+            results["papers_total"] = len(papers_db)
+            results["papers_unique"] = len([p for p in papers_db if p.duplicate_of is None])
+            results["papers_duplicates"] = len([p for p in papers_db if p.duplicate_of is not None])
+            
+            console.print(f"[yellow]halt[/yellow]: [{step_name}] => {str(e)}")
+            
+            # Stop processing remaining steps
+            break
             
         except Exception as e:
             error_msg = f"Step {i} ({step_name}) failed: {str(e)}"
@@ -325,7 +383,9 @@ def process_definition(
             summary_line += f" failed={error_count}"
         
         console.print(f"Definition file: [green]{summary_line}[/green]")
-        console.print(f"Total papers in database: [cyan]{results['total_papers']}[/cyan]")
+        console.print(f"Total papers in database: [cyan]{results['papers_total']}[/cyan]")
+        console.print(f"Unique papers: [cyan]{results['papers_unique']}[/cyan]")
+        console.print(f"Duplicate papers: [cyan]{results['papers_duplicates']}[/cyan]")
         
         if results["errors"]:
             console.print(f"\n[red bold]Failed tasks:[/red bold]")
@@ -367,13 +427,21 @@ def main():
         help="Output results to JSON file"
     )
     
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+    )
+    
     args = parser.parse_args()
     
     try:
         results = process_definition(
             args.definition_file,
             verbose=args.verbose,
-            dry_run=args.dry_run
+            dry_run=args.dry_run,
+            cache_dir=args.cache_dir
         )
         
         # Output results

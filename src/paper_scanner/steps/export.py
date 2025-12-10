@@ -39,15 +39,32 @@ def execute(
     output_format = config.get("format", "jsonl").lower()
     output_path = config.get("output_path")
     exclude_none = config.get("exclude_none", True)
+    duplicates_option = config.get("duplicates", False)  # false, true, or "only"
     
     # Expand tilde and resolve the path
     if output_path:
         output_path = str(Path(output_path).expanduser().resolve())
     
+    # Filter papers based on duplicates option
+    if duplicates_option == "only":
+        # Export only duplicates
+        papers_to_export = [p for p in papers_db if p.duplicate_of is not None]
+        duplicates_label = "duplicate papers only"
+    elif duplicates_option is True:
+        # Export all papers (with duplicates)
+        papers_to_export = papers_db
+        duplicates_label = "all papers (including duplicates)"
+    else:
+        # Export only unique papers (no duplicates)
+        papers_to_export = [p for p in papers_db if p.duplicate_of is None]
+        duplicates_label = "unique papers only"
+    
     results = {
         "step": "output_db",
         "format": output_format,
-        "papers_exported": len(papers_db),
+        "papers_exported": len(papers_to_export),
+        "papers_total": len(papers_db),
+        "duplicates_option": duplicates_option,
         "output_path": output_path,
         "status": "success",
         "error": None
@@ -75,18 +92,27 @@ def execute(
         path.parent.mkdir(parents=True, exist_ok=True)
         
         if verbose:
-            console.print(f"\n  [bold cyan]Exporting {len(papers_db)} papers to {output_format}[/bold cyan]")
+            # Build descriptive message based on duplicates option
+            if duplicates_option == "only":
+                export_desc = f"[cyan]duplicate papers[/cyan] ({len(papers_to_export)}/{len(papers_db)})"
+            elif duplicates_option is True:
+                export_desc = f"[cyan]all papers[/cyan] ({len(papers_to_export)}/{len(papers_db)})"
+            else:
+                export_desc = f"[cyan]unique papers[/cyan] ({len(papers_to_export)}/{len(papers_db)})"
+            
+            console.print(f"\n  [bold cyan]Exporting {export_desc} to {output_format}[/bold cyan]")
+            console.print(f"    [yellow]Papers:[/yellow] {duplicates_label} ({len(papers_to_export)}/{len(papers_db)})")
             console.print(f"    [yellow]Output path:[/yellow] {output_path}")
         
         if not dry_run:
             if output_format == "jsonl":
                 # Export to JSONL format
-                jsonl_content = papers_to_jsonl(papers_db, exclude_none=exclude_none)
+                jsonl_content = papers_to_jsonl(papers_to_export, exclude_none=exclude_none)
                 with open(path, 'w', encoding='utf-8') as f:
                     f.write(jsonl_content)
                 
                 # Count lines
-                line_count = len(papers_db)
+                line_count = len(papers_to_export)
                 results["output_format"] = "JSONL (one JSON object per line)"
                 results["file_size_bytes"] = len(jsonl_content.encode('utf-8'))
                 
@@ -96,7 +122,7 @@ def execute(
             
             elif output_format == "json":
                 # Export to JSON format (array of papers)
-                papers_dicts = [p.model_dump(exclude_none=exclude_none) for p in papers_db]
+                papers_dicts = [p.model_dump(exclude_none=exclude_none) for p in papers_to_export]
                 json_content = json.dumps(papers_dicts, indent=2, default=str)
                 
                 with open(path, 'w', encoding='utf-8') as f:
@@ -106,12 +132,12 @@ def execute(
                 results["file_size_bytes"] = len(json_content.encode('utf-8'))
                 
                 if verbose:
-                    console.print(f"    [green]✓ Exported {len(papers_db)} papers to JSON array[/green]")
+                    console.print(f"    [green]✓ Exported {len(papers_to_export)} papers to JSON array[/green]")
                     console.print(f"    [cyan]File size:[/cyan] {results['file_size_bytes']} bytes")
             
             elif output_format == "bibtex":
                 # Export to BibTeX format
-                bibtex_content = papers_to_bibtex(papers_db)
+                bibtex_content = papers_to_bibtex(papers_to_export)
                 with open(path, 'w', encoding='utf-8') as f:
                     f.write(bibtex_content)
                 
@@ -119,7 +145,7 @@ def execute(
                 results["file_size_bytes"] = len(bibtex_content.encode('utf-8'))
                 
                 if verbose:
-                    console.print(f"    [green]✓ Exported {len(papers_db)} papers to BibTeX[/green]")
+                    console.print(f"    [green]✓ Exported {len(papers_to_export)} papers to BibTeX[/green]")
                     console.print(f"    [cyan]File size:[/cyan] {results['file_size_bytes']} bytes")
         
         else:
@@ -127,15 +153,15 @@ def execute(
             if output_format == "jsonl":
                 results["output_format"] = "JSONL (one JSON object per line)"
                 if verbose:
-                    console.print(f"    [yellow][DRY RUN] Would export {len(papers_db)} papers to JSONL[/yellow]")
+                    console.print(f"    [yellow][DRY RUN] Would export {len(papers_to_export)} papers to JSONL[/yellow]")
             elif output_format == "json":
                 results["output_format"] = "JSON (array of papers)"
                 if verbose:
-                    console.print(f"    [yellow][DRY RUN] Would export {len(papers_db)} papers to JSON array[/yellow]")
+                    console.print(f"    [yellow][DRY RUN] Would export {len(papers_to_export)} papers to JSON array[/yellow]")
             elif output_format == "bibtex":
                 results["output_format"] = "BibTeX"
                 if verbose:
-                    console.print(f"    [yellow][DRY RUN] Would export {len(papers_db)} papers to BibTeX[/yellow]")
+                    console.print(f"    [yellow][DRY RUN] Would export {len(papers_to_export)} papers to BibTeX[/yellow]")
         
         return results
     
@@ -145,6 +171,4 @@ def execute(
         results["error"] = error_msg
         if verbose:
             console.print(f"  [red]✗ Error exporting database: {str(e)}[/red]")
-        if verbose:
-            print(f"  ✗ Error: {error_msg}")
         return results
