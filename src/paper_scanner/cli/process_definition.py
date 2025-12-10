@@ -14,6 +14,7 @@ from typing import List, Dict, Any, Callable, Optional
 import yaml
 import json
 from datetime import datetime
+import time
 
 from rich.console import Console
 from rich.syntax import Syntax
@@ -287,7 +288,8 @@ def process_definition(
     dry_run: bool = False,
     cache_dir: Optional[Path] = None,
     skip_checkpoint: bool = False,
-    clear_checkpoint: bool = False
+    clear_checkpoint: bool = False,
+    show_timings: bool = False
 ) -> Dict[str, Any]:
     """
     Process definition file and execute steps
@@ -299,6 +301,7 @@ def process_definition(
         cache_dir: Optional cache directory (overrides env and definition file)
         skip_checkpoint: Skip loading from checkpoints (start fresh)
         clear_checkpoint: Clear all checkpoints before processing
+        show_timings: Show timing information for each step
     
     Returns:
         Execution results
@@ -405,6 +408,9 @@ def process_definition(
         if verbose:
             console.print(f"[green]Loaded {len(papers_db)} papers from checkpoint[/green]\n")
     
+    # Start overall timing
+    overall_start_time = time.time()
+    
     # Execute steps
     results = {
         "definition_file": str(definition_file),
@@ -417,7 +423,9 @@ def process_definition(
         "papers_duplicates": 0,
         "errors": [],
         "checkpoint": str(checkpoint_file) if checkpoint_file else None,
-        "resumed_from_step": resume_from_step
+        "resumed_from_step": resume_from_step,
+        "step_timings": [] if show_timings else None,
+        "total_duration_seconds": 0
     }
     
     for i, step_config in enumerate(steps, 1):
@@ -446,6 +454,9 @@ def process_definition(
         else:
             console.print(f"\n[bold magenta]TASK[/bold magenta] [cyan]{task_header}[/cyan]")
         
+        # Start step timing
+        step_start_time = time.time() if show_timings else None
+        
         try:
             step_result = StepExecutor.execute_step(
                 step_config,
@@ -456,6 +467,15 @@ def process_definition(
                 step_index=i - 1,  # 0-based index for checkpoint naming
                 project_name=project_name
             )
+            
+            # Record step timing
+            if show_timings:
+                step_duration = time.time() - step_start_time
+                results["step_timings"].append({
+                    "step": step_name,
+                    "duration_seconds": round(step_duration, 2),
+                    "duration_ms": round(step_duration * 1000, 0)
+                })
             
             results["steps_executed"].append(step_result)
             
@@ -509,6 +529,10 @@ def process_definition(
             # Continue to next step on error
             continue
     
+    # Calculate total duration
+    total_duration = time.time() - overall_start_time
+    results["total_duration_seconds"] = round(total_duration, 2)
+    
     # Final summary (Ansible-style)
     if verbose:
         console.print(f"\n[bold cyan]{'='*70}[/bold cyan]")
@@ -534,6 +558,13 @@ def process_definition(
             console.print(f"\n[red bold]Failed tasks:[/red bold]")
             for error in results["errors"]:
                 console.print(f"  - [red]{error}[/red]")
+        
+        # Show timing epilog if enabled
+        if show_timings and results["step_timings"]:
+            console.print(f"\n[bold yellow]TIMINGS[/bold yellow]")
+            for timing in results["step_timings"]:
+                console.print(f"  {timing['step']}: [cyan]{timing['duration_seconds']}s[/cyan] ({timing['duration_ms']:.0f}ms)")
+            console.print(f"  [bold yellow]Total[/bold yellow]: [cyan]{results['total_duration_seconds']}s[/cyan]")
     
     return results
 
@@ -589,6 +620,12 @@ def main():
         help="Clear all checkpoints before processing (creates new ones)"
     )
     
+    parser.add_argument(
+        "-t", "--timings",
+        action="store_true",
+        help="Show timing information for each step"
+    )
+    
     args = parser.parse_args()
     
     try:
@@ -598,7 +635,8 @@ def main():
             dry_run=args.dry_run,
             cache_dir=args.cache_dir,
             skip_checkpoint=args.no_checkpoint,
-            clear_checkpoint=args.clear_checkpoint
+            clear_checkpoint=args.clear_checkpoint,
+            show_timings=args.timings
         )
         
         # Output results
