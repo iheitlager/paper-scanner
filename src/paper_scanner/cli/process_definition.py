@@ -8,6 +8,7 @@ import argparse
 import sys
 import importlib
 import os
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any, Callable, Optional
 import yaml
@@ -150,7 +151,10 @@ class StepExecutor:
         step_config: Dict[str, Any],
         papers_db: List[Paper],
         verbose: bool = False,
-        dry_run: bool = False
+        dry_run: bool = False,
+        cache_dir: Optional[Path] = None,
+        step_index: Optional[int] = None,
+        project_name: str = "Unknown"
     ) -> Dict[str, Any]:
         """
         Execute a single step with Ansible-style output
@@ -160,6 +164,9 @@ class StepExecutor:
             papers_db: Current papers database
             verbose: Enable verbose output
             dry_run: Don't actually execute
+            cache_dir: Cache directory (for checkpoint steps)
+            step_index: Step index in definition (for checkpoint steps)
+            project_name: Project name (for checkpoint steps)
         
         Returns:
             Step execution results
@@ -167,6 +174,13 @@ class StepExecutor:
         
         # Parse configuration
         step_name, step_params, description = StepExecutor.parse_step_config(step_config)
+        
+        # For checkpoint steps, add cache_dir and step_index to params
+        if step_name == "checkpoint" and cache_dir is not None:
+            step_params = dict(step_params)  # Make a copy
+            step_params["cache_dir"] = str(cache_dir)
+            step_params["step_index"] = step_index
+            step_params["project_name"] = project_name
         
         # Get the step function
         step_func = StepExecutor.get_step(step_name)
@@ -218,11 +232,62 @@ def validate_definition(definition: Dict[str, Any]) -> None:
             raise ValueError(f"Step {i} missing 'step' key")
 
 
+def _find_latest_checkpoint(cache_dir: Path, project_name: str, steps: List[Dict[str, Any]]) -> tuple[Optional[int], Optional[Path]]:
+    """
+    Find the latest checkpoint file in cache directory
+    
+    Scans checkpoints folder for existing checkpoint files and returns the index
+    of the step to resume from (checkpoint_index + 1) and the checkpoint file path.
+    
+    Args:
+        cache_dir: Cache directory path
+        project_name: Project name for generating checkpoint hash
+        steps: List of step configurations
+    
+    Returns:
+        Tuple of (resume_step_index, checkpoint_file) or (None, None) if no checkpoint
+    """
+    import hashlib
+    
+    checkpoints_dir = cache_dir / "checkpoints"
+    if not checkpoints_dir.exists():
+        return None, None
+    
+    # Generate expected checkpoint filenames and find the latest existing one
+    project_hash = hashlib.md5(project_name.encode()).hexdigest()[:8]
+    latest_index = None
+    latest_file = None
+    
+    for i in range(len(steps)):
+        checkpoint_name = f"checkpoint_{project_hash}_step_{i:03d}.json"
+        checkpoint_file = checkpoints_dir / checkpoint_name
+        
+        if checkpoint_file.exists():
+            latest_index = i
+            latest_file = checkpoint_file
+    
+    if latest_index is not None:
+        # Resume from the step AFTER the checkpoint
+        return latest_index + 1, latest_file
+    
+    return None, None
+
+
+def _load_checkpoint(checkpoint_file: Path) -> List[Any]:
+    """Load papers from checkpoint file"""
+    from paper_scanner.steps.checkpoint import load_checkpoint
+    
+    papers, _ = load_checkpoint(checkpoint_file)
+    return papers
+
+
 def process_definition(
     definition_file: Path,
     verbose: bool = False,
     dry_run: bool = False,
-    cache_dir: Optional[Path] = None
+    cache_dir: Optional[Path] = None,
+    skip_checkpoint: bool = False,
+    clear_checkpoint: bool = False
 ) -> Dict[str, Any]:
     """
     Process definition file and execute steps
@@ -232,6 +297,8 @@ def process_definition(
         verbose: Enable verbose output
         dry_run: Don't actually execute steps
         cache_dir: Optional cache directory (overrides env and definition file)
+        skip_checkpoint: Skip loading from checkpoints (start fresh)
+        clear_checkpoint: Clear all checkpoints before processing
     
     Returns:
         Execution results
@@ -282,8 +349,61 @@ def process_definition(
         )
         console.print(project_panel)
     
+    # PRERUN: Check for existing checkpoints
+    steps = definition.get("steps", [])
+    project_name = definition.get("project", {}).get("name", "Unknown")
+    resume_from_step = None
+    checkpoint_file = None
+    
+    # Get checkpoint options from definition file (can be overridden by CLI args)
+    project_config = definition.get("project", {})
+    checkpoint_config = project_config.get("checkpoints", {})
+    
+    # Determine checkpoint behavior
+    # Priority: CLI args > definition file > default (use checkpoints)
+    use_checkpoints = True
+    if skip_checkpoint:
+        use_checkpoints = False
+    elif isinstance(checkpoint_config, str):
+        if checkpoint_config.lower() == "skip":
+            use_checkpoints = False
+    elif isinstance(checkpoint_config, dict):
+        if checkpoint_config.get("mode") == "skip":
+            use_checkpoints = False
+    
+    # Handle clear checkpoints
+    should_clear_checkpoints = clear_checkpoint or (isinstance(checkpoint_config, str) and checkpoint_config.lower() == "clear") or (isinstance(checkpoint_config, dict) and checkpoint_config.get("mode") == "clear")
+    
+    if should_clear_checkpoints and not skip_checkpoint:
+        checkpoints_dir = cache_dir / "checkpoints"
+        if checkpoints_dir.exists():
+            shutil.rmtree(checkpoints_dir)
+            if verbose:
+                console.print(f"[yellow]Cleared checkpoints directory[/yellow]\n")
+    
+    if verbose:
+        if use_checkpoints:
+            console.print("\n[bold yellow]PRERUN[/bold yellow]: Scanning for checkpoints...\n")
+        else:
+            console.print("\n[bold yellow]PRERUN[/bold yellow]: Checkpoint loading disabled\n")
+    
+    # Only search for checkpoints if enabled
+    if use_checkpoints:
+        resume_from_step, checkpoint_file = _find_latest_checkpoint(cache_dir, project_name, steps)
+        
+        if checkpoint_file:
+            if verbose:
+                console.print(f"[green]Found checkpoint[/green]: {checkpoint_file.name}")
+                console.print(f"[dim]Resuming from step {resume_from_step}[/dim]\n")
+    
     # Initialize papers database
     papers_db: List[Paper] = []
+    
+    # Load checkpoint if found
+    if checkpoint_file and use_checkpoints:
+        papers_db = _load_checkpoint(checkpoint_file)
+        if verbose:
+            console.print(f"[green]Loaded {len(papers_db)} papers from checkpoint[/green]\n")
     
     # Execute steps
     results = {
@@ -295,19 +415,29 @@ def process_definition(
         "papers_total": 0,
         "papers_unique": 0,
         "papers_duplicates": 0,
-        "errors": []
+        "errors": [],
+        "checkpoint": str(checkpoint_file) if checkpoint_file else None,
+        "resumed_from_step": resume_from_step
     }
-    
-    steps = definition.get("steps", [])
     
     for i, step_config in enumerate(steps, 1):
         step_name = step_config.get("step", "unknown")
         description = step_config.get("description", "")
         
+        # Check if we should skip this step (it's before the checkpoint resume point)
+        should_skip = resume_from_step is not None and i < resume_from_step
+        
         # Ansible-style output
         task_header = f"{step_name}"
         if description:
             task_header += f" | {description}"
+        
+        if should_skip:
+            # Skip this step - show as skipped in verbose mode
+            if verbose:
+                console.print(f"\n[bold magenta]TASK[/bold magenta] [cyan]{task_header}[/cyan]")
+                console.print(f"[dim]skipped[/dim]: [{step_name}] (checkpoint resume)")
+            continue
         
         if verbose:
             console.print(f"\n[bold magenta]TASK[/bold magenta] [cyan]{task_header}[/cyan]")
@@ -321,7 +451,10 @@ def process_definition(
                 step_config,
                 papers_db,
                 verbose=verbose,
-                dry_run=dry_run
+                dry_run=dry_run,
+                cache_dir=cache_dir,
+                step_index=i - 1,  # 0-based index for checkpoint naming
+                project_name=project_name
             )
             
             results["steps_executed"].append(step_result)
@@ -434,6 +567,18 @@ def main():
         help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
     )
     
+    parser.add_argument(
+        "--no-checkpoint",
+        action="store_true",
+        help="Skip loading from checkpoints (start fresh from beginning)"
+    )
+    
+    parser.add_argument(
+        "--clear-checkpoint",
+        action="store_true",
+        help="Clear all checkpoints before processing (creates new ones)"
+    )
+    
     args = parser.parse_args()
     
     try:
@@ -441,7 +586,9 @@ def main():
             args.definition_file,
             verbose=args.verbose,
             dry_run=args.dry_run,
-            cache_dir=args.cache_dir
+            cache_dir=args.cache_dir,
+            skip_checkpoint=args.no_checkpoint,
+            clear_checkpoint=args.clear_checkpoint
         )
         
         # Output results

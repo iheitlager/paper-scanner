@@ -86,6 +86,10 @@ def execute(
     for paper in papers_db:
         screening_status[paper.screening.final_decision.value] += 1
     
+    # Duplicates
+    unique_papers = sum(1 for p in papers_db if p.duplicate_of is None)
+    duplicate_papers = sum(1 for p in papers_db if p.duplicate_of is not None)
+    
     # Paper types
     paper_types = Counter()
     for paper in papers_db:
@@ -94,6 +98,8 @@ def execute(
     
     results["statistics"] = {
         "total_papers": total,
+        "unique_papers": unique_papers,
+        "duplicate_papers": duplicate_papers,
         "total_authors": len(all_authors),
         "unique_authors": unique_authors,
         "year_range": year_range,
@@ -109,6 +115,8 @@ def execute(
     if verbose:
         print("\n  Database Summary:")
         print(f"    Total papers: {total}")
+        print(f"    Unique papers: {unique_papers}")
+        print(f"    Duplicate papers: {duplicate_papers}")
         print(f"    Total authors: {len(all_authors)}")
         print(f"    Unique authors: {unique_authors}")
         print(f"    Year range: {year_range}")

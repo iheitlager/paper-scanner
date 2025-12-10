@@ -65,9 +65,8 @@ steps:
     builtin.echo:
       message: "Processing complete - bibtex imported"
 
-  - step: stop the process for testing
-    builtin.halt:
-      message: "Stopping process for testing purposes"
+  - step: Save checkpoint after import
+    builtin.checkpoint:
 
   - step: Deduplicate papers using multiple matching methods
     builtin.deduplication:
@@ -82,8 +81,11 @@ steps:
           priority: 3
           threshold: 0.95
 
+  - step: Save checkpoint after deduplication
+    builtin.checkpoint: 
+
   - step: Display database statistics and summary
-    builtin.summarize: {}
+    builtin.summarize:
   
   - step: Export database to JSONL format
     builtin.export:

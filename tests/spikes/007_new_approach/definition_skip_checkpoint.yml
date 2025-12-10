@@ -1,0 +1,44 @@
+# ============================================================================
+# Innovation Review Configuration - TEST WITH SKIP CHECKPOINTS
+# ============================================================================
+
+# Project metadata
+project:
+  name: "Supplier Digital Innovation Review"
+  description: "Test with checkpoint: skip"
+  researcher: "Ilja Heitlager"
+  institution: "TU Eindhoven"
+  
+  # Skip checkpoints in definition file
+  checkpoints: skip
+
+# Database configuration
+database:
+  host: "localhost"
+  port: 5432
+  name: "paper_scanner"
+  user: "pdfuser"
+  password: "pdfpass"
+
+# Import configuration - using local test data
+steps:
+  - step: Import sample BibTeX files from different sources
+    builtin.bibtex_import:
+      batch_id: "import_test_20241209"
+      imports:
+        - name: "Scopus - Sample"
+          file_path: "tests/data/scopus_sample_20.bib"
+          source_type: "scopus"
+          expected_count: 19
+
+        - name: "IEEE - Sample"
+          file_path: "tests/data/ieee_sample_20.bib"
+          source_type: "ieee"
+          expected_count: 20
+
+  - step: "Summary of import"
+    builtin.echo:
+      message: "Processing complete"
+
+  - step: Display database statistics and summary
+    builtin.summarize: {}
