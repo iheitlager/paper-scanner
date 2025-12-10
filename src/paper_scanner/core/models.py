@@ -83,31 +83,31 @@ class Embedding(BaseModel):
 # REFERENCE MODEL
 # ============================================================================
 
-class Reference(BaseModel):
+class Citation(BaseModel):
     """Bibliographic reference"""
-    
+
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
-    
+
     # Identifiers
     doi: Optional[str] = None
     title: Optional[str] = None
     authors: List[str] = Field(default_factory=list)
     year: Optional[int] = None
-    
+
     # Publication details
     journal: Optional[str] = None
     volume: Optional[str] = None
     issue: Optional[str] = None
     pages: Optional[str] = None
     publisher: Optional[str] = None
-    
+
     # Extraction metadata
     extraction_method: str = Field(description="grobid, crossref, manual, etc.")
     confidence: Optional[float] = Field(ge=0, le=1, default=None)
     raw_text: Optional[str] = None
-    
+
     # Linking
-    resolved_paper_id: Optional[str] = None  # If reference matches known paper
+    resolved_paper: Optional[Paper] = None  # If citation matches known paper
 
 
 # ============================================================================
@@ -142,7 +142,7 @@ class DeduplicationResult(BaseModel):
     """Result of deduplication check"""
     
     is_duplicate: bool
-    duplicate_of_id: Optional[str] = None
+    duplicate_of: Optional[Paper] = None
     similarity_score: Optional[float] = Field(ge=0, le=1, default=None)
     method: str  # "doi_exact", "title_author", "fuzzy_title", etc.
     confidence: float = Field(ge=0, le=1)
@@ -454,7 +454,7 @@ class Paper(BaseModel):
     # REFERENCES & CITATIONS
     # ========================================
 
-    references: List[Reference] = Field(default_factory=list)
+    citations: List[Citation] = Field(default_factory=list)
     cited_by: List[str] = Field(default_factory=list)  # Paper IDs
 
     reference_count: int = 0

@@ -2,13 +2,16 @@
 Deduplication step for paper scanner
 
 Identifies and marks duplicate papers using multiple matching methods
+Records audit trail in screening.deduplication for full traceability
 """
 
-from typing import Dict, Any, List, Optional
+import time
+from typing import Dict, Any, List, Optional, Tuple
 from difflib import SequenceMatcher
+from datetime import datetime, timezone
 from rich.console import Console
 
-from ..core.models import Paper
+from ..core.models import Paper, DeduplicationResult, ProcessingMetadata
 
 # Initialize rich console
 console = Console()
@@ -18,18 +21,17 @@ def _normalize_title(title: Optional[str]) -> str:
     """Normalize title for comparison"""
     if not title:
         return ""
-    # Convert to lowercase, remove extra whitespace
     return " ".join(title.lower().split())
 
 
-def _doi_exact_match(paper: Paper, existing_papers: List[Paper]) -> Optional[str]:
-    """Check for exact DOI match"""
+def _doi_exact_match(paper: Paper, existing_papers: List[Paper]) -> Optional[Tuple[str, float]]:
+    """Check for exact DOI match - returns (paper_id, similarity_score)"""
     if not paper.doi:
         return None
     
     for existing in existing_papers:
         if existing.doi and existing.doi.lower() == paper.doi.lower():
-            return existing.id
+            return (existing.id, 1.0)
     
     return None
 
@@ -38,7 +40,7 @@ def _title_author_fuzzy_match(
     paper: Paper,
     existing_papers: List[Paper],
     threshold: float = 0.90
-) -> Optional[str]:
+) -> Optional[Tuple[str, float]]:
     """Check for fuzzy title + first author match"""
     if not paper.title or not paper.authors:
         return None
@@ -56,14 +58,12 @@ def _title_author_fuzzy_match(
         existing_norm_title = _normalize_title(existing.title)
         existing_first_author = existing.authors[0].family_name.lower()
         
-        # Check if first authors match
         if first_author != existing_first_author:
             continue
         
-        # Check title similarity
         similarity = SequenceMatcher(None, norm_title, existing_norm_title).ratio()
         if similarity >= threshold:
-            return existing.id
+            return (existing.id, similarity)
     
     return None
 
@@ -72,7 +72,7 @@ def _title_fuzzy_match(
     paper: Paper,
     existing_papers: List[Paper],
     threshold: float = 0.95
-) -> Optional[str]:
+) -> Optional[Tuple[str, float]]:
     """Check for fuzzy title-only match"""
     if not paper.title:
         return None
@@ -87,9 +87,20 @@ def _title_fuzzy_match(
         similarity = SequenceMatcher(None, norm_title, existing_norm_title).ratio()
         
         if similarity >= threshold:
-            return existing.id
+            return (existing.id, similarity)
     
     return None
+
+
+def _get_confidence(method: str, similarity_score: float) -> float:
+    """Calculate confidence based on method and similarity score"""
+    if method == "doi_exact":
+        return 1.0  # 100% confident for DOI exact match
+    elif method == "title_author_fuzzy":
+        return min(1.0, similarity_score)  # Use similarity as confidence
+    elif method == "title_fuzzy":
+        return min(1.0, similarity_score)
+    return 0.5
 
 
 def execute(
@@ -101,27 +112,23 @@ def execute(
     """
     Execute deduplication step
     
+    Updates papers with:
+    1. Simple flag: paper.duplicate_of = matching_paper
+    2. Full audit trail: paper.screening.deduplication = DeduplicationResult(...)
+    
     Args:
-        config: Step configuration (includes deduplication methods and thresholds)
-        papers_db: Current papers database (will be modified in-place to mark duplicates)
+        config: Step configuration
+        papers_db: Current papers database (modified in-place)
         verbose: Enable verbose output
-        dry_run: Don't actually modify papers
+        dry_run: Don't modify papers
     
     Returns:
         Dictionary with deduplication results
     """
     
-    # Get deduplication configuration - supports nested "deduplication" key
-    # Can be called as:
-    #   builtin.deduplication:
-    #     enabled: true
-    #     methods: [...]
-    # OR
-    #   builtin.deduplication:
-    #     deduplication:
-    #       enabled: true
-    #       methods: [...]
+    step_start_time = time.time()
     
+    # Get deduplication configuration
     dedup_config = config.get("deduplication")
     if dedup_config is None:
         dedup_config = config
@@ -174,21 +181,38 @@ def execute(
             method = method_config.get("method")
             threshold = method_config.get("threshold", 0.95)
             
-            duplicate_id = None
+            match_result = None
             
             if method == "doi_exact":
-                duplicate_id = _doi_exact_match(paper, unique_papers)
+                match_result = _doi_exact_match(paper, unique_papers)
             elif method == "title_author_fuzzy":
-                duplicate_id = _title_author_fuzzy_match(paper, unique_papers, threshold)
+                match_result = _title_author_fuzzy_match(paper, unique_papers, threshold)
             elif method == "title_fuzzy":
-                duplicate_id = _title_fuzzy_match(paper, unique_papers, threshold)
+                match_result = _title_fuzzy_match(paper, unique_papers, threshold)
             
-            if duplicate_id:
+            if match_result:
+                duplicate_id, similarity_score = match_result
+                
                 # Find the duplicate paper and link it
                 for dup in unique_papers:
                     if dup.id == duplicate_id:
                         if not dry_run:
+                            # 1. Set simple duplicate_of field
                             paper.duplicate_of = dup
+                            
+                            # 2. Create full audit trail in screening model
+                            paper.screening.deduplication = DeduplicationResult(
+                                is_duplicate=True,
+                                duplicate_of=dup,
+                                similarity_score=similarity_score,
+                                method=method,
+                                confidence=_get_confidence(method, similarity_score),
+                                metadata=ProcessingMetadata(
+                                    timestamp=datetime.now(timezone.utc),
+                                    success=True
+                                )
+                            )
+                            paper.screening.current_stage = "deduplication_complete"
                         
                         results["duplicates_found"] += 1
                         results["duplicates"].append({
@@ -196,7 +220,9 @@ def execute(
                             "paper_title": paper.title,
                             "duplicate_of_id": duplicate_id,
                             "duplicate_of_title": dup.title,
-                            "method": method
+                            "method": method,
+                            "similarity_score": round(similarity_score, 3),
+                            "confidence": round(_get_confidence(method, similarity_score), 3)
                         })
                         
                         if verbose:
@@ -211,7 +237,29 @@ def execute(
         
         # If not a duplicate, add to unique papers
         if not duplicate_found:
+            if not dry_run:
+                # Mark as non-duplicate in screening model
+                paper.screening.deduplication = DeduplicationResult(
+                    is_duplicate=False,
+                    duplicate_of=None,
+                    similarity_score=None,
+                    method="none",
+                    confidence=1.0,
+                    metadata=ProcessingMetadata(
+                        timestamp=datetime.now(timezone.utc),
+                        success=True
+                    )
+                )
+                paper.screening.current_stage = "deduplication_complete"
+            
             unique_papers.append(paper)
+    
+    # Record processing time
+    duration = time.time() - step_start_time
+    if not dry_run:
+        for paper in papers_db:
+            if paper.screening.deduplication:
+                paper.screening.deduplication.metadata.duration_seconds = duration
     
     if verbose:
         console.print(f"    [green]✓ Deduplication complete[/green]")

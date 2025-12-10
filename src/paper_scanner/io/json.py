@@ -12,7 +12,7 @@ from pathlib import Path
 import uuid
 
 from ..core.models import (
-    Paper, Author, Embedding, Reference, TextChunk, Discovery,
+    Paper, Author, Embedding, Citation, TextChunk, Discovery,
     Screening, Categorization, KeywordScreening, SemanticScreening,
     DeduplicationResult, PDFInfo, CAMOStatement, ConceptualAnalysis,
     ProcessingMetadata, PaperCollection,
@@ -54,11 +54,29 @@ def paper_to_dict(paper: Paper, exclude_none: bool = False) -> Dict[str, Any]:
     """
     
     # Use Pydantic's built-in serialization with custom mode
-    return paper.model_dump(
+    result = paper.model_dump(
         mode='json',
         exclude_none=exclude_none,
         by_alias=False
     )
+    
+    # Convert duplicate_of Paper object to just the ID
+    if result.get('duplicate_of') is not None:
+        if isinstance(result['duplicate_of'], dict):
+            result['duplicate_of'] = result['duplicate_of'].get('id')
+        elif isinstance(result['duplicate_of'], Paper):
+            result['duplicate_of'] = result['duplicate_of'].id
+    
+    # Convert duplicate_of reference in screening.deduplication to just the ID
+    if result.get('screening') and result['screening'].get('deduplication'):
+        dedup = result['screening']['deduplication']
+        if dedup.get('duplicate_of') is not None:
+            if isinstance(dedup['duplicate_of'], dict):
+                dedup['duplicate_of'] = dedup['duplicate_of'].get('id')
+            elif isinstance(dedup['duplicate_of'], Paper):
+                dedup['duplicate_of'] = dedup['duplicate_of'].id
+    
+    return result
 
 
 def paper_to_json(

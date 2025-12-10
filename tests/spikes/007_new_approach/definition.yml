@@ -94,7 +94,15 @@ steps:
       exclude_none: true
       duplicates: false
       overwrite: true
-  
+
+  - step: Export database to JSONL format
+    builtin.export:
+      format: jsonl
+      output_path: "~/tmp/papers_export_duplicates_only.jsonl"
+      exclude_none: false
+      duplicates: only
+      overwrite: true
+
   - step: Export database to BibTeX format
     builtin.export:
       format: bibtex
