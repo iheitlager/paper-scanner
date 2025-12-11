@@ -147,15 +147,16 @@ def execute(
         
         if verbose:
             # Build descriptive message based on duplicates option
+            total_count = papers_db.count(primary_only=False)
             if duplicates_option == "only":
-                export_desc = f"[cyan]duplicate papers[/cyan] ({len(papers_to_export)}/{len(papers_db)})"
+                export_desc = f"[cyan]duplicate papers[/cyan] ({len(papers_to_export)}/{total_count})"
             elif duplicates_option is True:
-                export_desc = f"[cyan]all papers[/cyan] ({len(papers_to_export)}/{len(papers_db)})"
+                export_desc = f"[cyan]all papers[/cyan] ({len(papers_to_export)}/{total_count})"
             else:
-                export_desc = f"[cyan]unique papers[/cyan] ({len(papers_to_export)}/{len(papers_db)})"
+                export_desc = f"[cyan]unique papers[/cyan] ({len(papers_to_export)}/{total_count})"
             
             console.print(f"\n  [bold cyan]Exporting {export_desc} to {output_format}[/bold cyan]")
-            console.print(f"    [yellow]Papers:[/yellow] {duplicates_label} ({len(papers_to_export)}/{len(papers_db)})")
+            console.print(f"    [yellow]Papers:[/yellow] {duplicates_label} ({len(papers_to_export)}/{total_count})")
             console.print(f"    [yellow]Output path:[/yellow] {output_path}")
         
         if not dry_run:

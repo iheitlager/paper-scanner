@@ -386,7 +386,7 @@ def execute(
 
     results = {
         "step": "categorization",
-        "total_papers": len(papers_db),
+        "total_papers": papers_db.count(primary_only=False),
         "categorized": 0,
         "included": 0,
         "excluded": 0,

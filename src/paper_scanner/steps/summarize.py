@@ -149,33 +149,33 @@ def execute(
     year_range = f"{min(years_with_papers)}-{max(years_with_papers)}" if years_with_papers else "N/A"
     
     # Identifiers
-    with_doi = sum(1 for p in papers_db if p.doi)
-    with_abstract = sum(1 for p in papers_db if p.abstract)
+    with_doi = sum(1 for p in papers_db.to_list(primary_only=False) if p.doi)
+    with_abstract = sum(1 for p in papers_db.to_list(primary_only=False) if p.abstract)
     
     # Keywords
     all_keywords = []
-    for paper in papers_db:
+    for paper in papers_db.to_list(primary_only=False):
         all_keywords.extend(paper.keywords)
     unique_keywords = len(set(all_keywords))
     
     # Sources
     sources = Counter()
-    for paper in papers_db:
+    for paper in papers_db.to_list(primary_only=False):
         if paper.discovery and paper.discovery.source_database:
             sources[paper.discovery.source_database] += 1
     
     # Screening status
     screening_status = Counter()
-    for paper in papers_db:
+    for paper in papers_db.to_list(primary_only=False):
         screening_status[paper.screening.final_decision.value] += 1
     
     # Duplicates
-    unique_papers = sum(1 for p in papers_db if p.duplicate_of is None)
-    duplicate_papers = sum(1 for p in papers_db if p.duplicate_of is not None)
+    unique_papers = sum(1 for p in papers_db.to_list(primary_only=False) if p.duplicate_of is None)
+    duplicate_papers = sum(1 for p in papers_db.to_list(primary_only=False) if p.duplicate_of is not None)
     
     # Paper types (from paper.paper_type field, not screening)
     paper_types = Counter()
-    for paper in papers_db:
+    for paper in papers_db.to_list(primary_only=False):
         if paper.paper_type:
             paper_types[paper.paper_type] += 1
     
@@ -188,7 +188,7 @@ def execute(
         "year_range": year_range,
         "papers_with_doi": with_doi,
         "papers_with_abstract": with_abstract,
-        "papers_with_keywords": sum(1 for p in papers_db if p.keywords),
+        "papers_with_keywords": sum(1 for p in papers_db.to_list(primary_only=False) if p.keywords),
         "unique_keywords": unique_keywords,
         "sources": dict(sources),
         "screening_status": dict((k, v) for k, v in screening_status.items()),
@@ -229,10 +229,11 @@ def execute(
                 continue
             
             # Filter papers based on duplicates setting
-            papers_to_tabulate = _filter_by_duplicates(papers_db, duplicates)
+            all_papers = papers_db.to_list(primary_only=False)
+            papers_to_tabulate = _filter_by_duplicates(all_papers, duplicates)
             
             # Generate table for this field
-            table_data = _generate_field_table(papers_to_tabulate, field, len(papers_db))
+            table_data = _generate_field_table(papers_to_tabulate, field, papers_db.count(primary_only=False))
             if table_data:
                 console.print(f"\n  [bold yellow]Papers by {field.title()}:[/bold yellow]")
                 console.print(table_data)
@@ -241,7 +242,7 @@ def execute(
     # Display screening results if requested
     if verbose and show_screening:
         console.print("\n  [bold yellow]Screening Results by Paper Type:[/bold yellow]")
-        _display_screening_results(papers_db)
+        _display_screening_results(papers_db.to_list(primary_only=False))
     
     return results
 

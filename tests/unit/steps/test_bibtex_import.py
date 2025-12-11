@@ -1,0 +1,351 @@
+"""
+Unit tests for bibtex_import step
+"""
+
+import pytest
+from pathlib import Path
+import tempfile
+from unittest.mock import patch, MagicMock
+
+from paper_scanner.steps.bibtex_import import validate, execute, _fix_cite_key_collisions
+from paper_scanner.core.models import Paper, Author, PaperType
+from paper_scanner.core.database import PapersDatabase
+
+
+class TestValidate:
+    """Tests for validate function"""
+    
+    def test_validate_valid_basic_config(self):
+        """Test validation of minimal valid config"""
+        config = {
+            "imports": [
+                {"file_path": "test.bib"}
+            ]
+        }
+        is_valid, errors = validate(config)
+        assert is_valid is True
+        assert len(errors) == 0
+    
+    def test_validate_valid_full_config(self):
+        """Test validation of full config with all fields"""
+        config = {
+            "batch_id": "test_batch",
+            "imports": [
+                {
+                    "name": "Test Import",
+                    "file_path": "test.bib",
+                    "source_type": "scopus",
+                    "expected_count": 10,
+                    "fix_cite_key": True
+                }
+            ],
+            "type_mapping_config_path": "/path/to/config.yaml"
+        }
+        is_valid, errors = validate(config)
+        assert is_valid is True
+        assert len(errors) == 0
+    
+    def test_validate_missing_file_path(self):
+        """Test validation fails without file_path"""
+        config = {
+            "imports": [{"source_type": "scopus"}]
+        }
+        is_valid, errors = validate(config)
+        assert is_valid is False
+        assert any("file_path" in err for err in errors)
+    
+    def test_validate_invalid_source_type(self):
+        """Test validation fails with invalid source_type"""
+        config = {
+            "imports": [
+                {"file_path": "test.bib", "source_type": "invalid"}
+            ]
+        }
+        is_valid, errors = validate(config)
+        assert is_valid is False
+        assert any("source_type" in err for err in errors)
+    
+    def test_validate_invalid_expected_count(self):
+        """Test validation fails with invalid expected_count"""
+        config = {
+            "imports": [
+                {"file_path": "test.bib", "expected_count": "not_a_number"}
+            ]
+        }
+        is_valid, errors = validate(config)
+        assert is_valid is False
+        assert any("expected_count" in err for err in errors)
+    
+    def test_validate_invalid_fix_cite_key(self):
+        """Test validation fails with non-boolean fix_cite_key"""
+        config = {
+            "imports": [
+                {"file_path": "test.bib", "fix_cite_key": "true"}
+            ]
+        }
+        is_valid, errors = validate(config)
+        assert is_valid is False
+        assert any("fix_cite_key" in err for err in errors)
+    
+    def test_validate_invalid_batch_id_type(self):
+        """Test validation fails with non-string batch_id"""
+        config = {
+            "batch_id": 123,
+            "imports": [{"file_path": "test.bib"}]
+        }
+        is_valid, errors = validate(config)
+        assert is_valid is False
+        assert any("batch_id" in err for err in errors)
+
+
+class TestFixCiteKeyCollisions:
+    """Tests for _fix_cite_key_collisions function"""
+    
+    def test_no_collisions(self):
+        """Test when there are no collisions"""
+        papers_db = PapersDatabase()
+        papers = [
+            Paper(
+                id="p1", cite_key="paper1",
+                title="Paper 1",
+                authors=[Author(family_name="A", given_name="A", full_name="A A")],
+                paper_type=PaperType.ARTICLE
+            ),
+            Paper(
+                id="p2", cite_key="paper2",
+                title="Paper 2",
+                authors=[Author(family_name="B", given_name="B", full_name="B B")],
+                paper_type=PaperType.ARTICLE
+            )
+        ]
+        
+        fixed_count = _fix_cite_key_collisions(papers, papers_db)
+        
+        # Cite keys should remain unchanged
+        assert papers[0].cite_key == "paper1"
+        assert papers[1].cite_key == "paper2"
+        assert fixed_count == 0
+    
+    def test_collision_with_existing_database(self):
+        """Test collision with existing database entry"""
+        papers_db = PapersDatabase()
+        existing_paper = Paper(
+            id="p_existing", cite_key="duplicate",
+            title="Existing Paper",
+            authors=[Author(family_name="E", given_name="E", full_name="E E")],
+            paper_type=PaperType.ARTICLE
+        )
+        papers_db.add(existing_paper)
+        
+        papers = [
+            Paper(
+                id="p1", cite_key="duplicate",
+                title="New Paper",
+                authors=[Author(family_name="N", given_name="N", full_name="N N")],
+                paper_type=PaperType.ARTICLE
+            )
+        ]
+        
+        fixed_count = _fix_cite_key_collisions(papers, papers_db)
+        
+        # New paper should have _01 suffix
+        assert papers[0].cite_key == "duplicate_01"
+        assert fixed_count == 1
+    
+    def test_multiple_collisions(self):
+        """Test multiple collision handling"""
+        papers_db = PapersDatabase()
+        
+        # Add existing papers with suffixes
+        for i in range(3):
+            key = "paper" if i == 0 else f"paper_{i:02d}"
+            existing_paper = Paper(
+                id=f"p_existing_{i}", cite_key=key,
+                title=f"Existing Paper {i}",
+                authors=[Author(family_name="E", given_name="E", full_name="E E")],
+                paper_type=PaperType.ARTICLE
+            )
+            papers_db.add(existing_paper)
+        
+        papers = [
+            Paper(
+                id="p1", cite_key="paper",
+                title="New Paper 1",
+                authors=[Author(family_name="N", given_name="N", full_name="N N")],
+                paper_type=PaperType.ARTICLE
+            ),
+            Paper(
+                id="p2", cite_key="paper",
+                title="New Paper 2",
+                authors=[Author(family_name="N", given_name="N", full_name="N N")],
+                paper_type=PaperType.ARTICLE
+            )
+        ]
+        
+        fixed_count = _fix_cite_key_collisions(papers, papers_db)
+        
+        # Should assign _03 and _04 since _01 and _02 exist
+        assert papers[0].cite_key == "paper_03"
+        assert papers[1].cite_key == "paper_04"
+        assert fixed_count == 2
+    
+    def test_collision_between_imported_papers(self):
+        """Test collision between papers in the same import"""
+        papers_db = PapersDatabase()
+        
+        papers = [
+            Paper(
+                id="p1", cite_key="samefile",
+                title="Paper 1",
+                authors=[Author(family_name="A", given_name="A", full_name="A A")],
+                paper_type=PaperType.ARTICLE
+            ),
+            Paper(
+                id="p2", cite_key="samefile",
+                title="Paper 2",
+                authors=[Author(family_name="B", given_name="B", full_name="B B")],
+                paper_type=PaperType.ARTICLE
+            ),
+            Paper(
+                id="p3", cite_key="samefile",
+                title="Paper 3",
+                authors=[Author(family_name="C", given_name="C", full_name="C C")],
+                paper_type=PaperType.ARTICLE
+            )
+        ]
+        
+        fixed_count = _fix_cite_key_collisions(papers, papers_db)
+        
+        # First should keep original, others get suffixes
+        assert papers[0].cite_key == "samefile"
+        assert papers[1].cite_key == "samefile_01"
+        assert papers[2].cite_key == "samefile_02"
+        assert fixed_count == 2
+    
+    def test_suffix_format(self):
+        """Test that suffix is correctly formatted with leading zeros"""
+        papers_db = PapersDatabase()
+        
+        # Add existing paper "paper" and papers with suffixes up to _08
+        existing_paper = Paper(
+            id="p_existing_0", cite_key="paper",
+            title="Original Paper",
+            authors=[Author(family_name="E", given_name="E", full_name="E E")],
+            paper_type=PaperType.ARTICLE
+        )
+        papers_db.add(existing_paper)
+        
+        for i in range(1, 9):
+            existing_paper = Paper(
+                id=f"p_existing_{i}", cite_key=f"paper_{i:02d}",
+                title=f"Existing Paper {i}",
+                authors=[Author(family_name="E", given_name="E", full_name="E E")],
+                paper_type=PaperType.ARTICLE
+            )
+            papers_db.add(existing_paper)
+        
+        papers = [
+            Paper(
+                id="p1", cite_key="paper",
+                title="New Paper",
+                authors=[Author(family_name="N", given_name="N", full_name="N N")],
+                paper_type=PaperType.ARTICLE
+            )
+        ]
+        
+        fixed_count = _fix_cite_key_collisions(papers, papers_db)
+        
+        # Should be paper_09 (9 with leading zero, since _01 through _08 exist)
+        assert papers[0].cite_key == "paper_09"
+        assert fixed_count == 1
+
+
+class TestExecute:
+    """Tests for execute function"""
+    
+    def test_execute_file_not_found(self):
+        """Test execute with non-existent file"""
+        config = {
+            "imports": [
+                {"name": "Missing File", "file_path": "/nonexistent/file.bib"}
+            ]
+        }
+        papers_db = PapersDatabase()
+        
+        result = execute(config, papers_db, verbose=False, dry_run=False)
+        
+        assert result["step"] == "bibtex_import"
+        assert result["files_processed"] == 0
+        assert len(result["errors"]) > 0
+        assert any("File not found" in err for err in result["errors"])
+    
+    @patch('paper_scanner.steps.bibtex_import.bibtex_file_to_papers')
+    def test_execute_dry_run(self, mock_bibtex_parser):
+        """Test execute in dry run mode"""
+        mock_bibtex_parser.return_value = [
+            Paper(
+                id="p1", cite_key="test",
+                title="Test Paper",
+                authors=[Author(family_name="T", given_name="T", full_name="T T")],
+                paper_type=PaperType.ARTICLE
+            )
+        ]
+        
+        config = {
+            "imports": [
+                {"name": "Test", "file_path": "test.bib", "expected_count": 1}
+            ]
+        }
+        papers_db = PapersDatabase()
+        
+        with tempfile.NamedTemporaryFile(suffix=".bib") as tmp:
+            config["imports"][0]["file_path"] = tmp.name
+            result = execute(config, papers_db, verbose=False, dry_run=True)
+        
+        assert result["step"] == "bibtex_import"
+        assert result["papers_imported"] == 0  # Dry run doesn't import
+        assert result["files_processed"] == 1
+    
+    @patch('paper_scanner.steps.bibtex_import.bibtex_file_to_papers')
+    def test_execute_with_fix_cite_key(self, mock_bibtex_parser):
+        """Test execute with fix_cite_key enabled"""
+        papers_list = [
+            Paper(
+                id="p1", cite_key="dup",
+                title="Paper 1",
+                authors=[Author(family_name="A", given_name="A", full_name="A A")],
+                paper_type=PaperType.ARTICLE
+            ),
+            Paper(
+                id="p2", cite_key="dup",
+                title="Paper 2",
+                authors=[Author(family_name="B", given_name="B", full_name="B B")],
+                paper_type=PaperType.ARTICLE
+            )
+        ]
+        mock_bibtex_parser.return_value = papers_list
+        
+        config = {
+            "imports": [
+                {
+                    "name": "Test",
+                    "file_path": "test.bib",
+                    "fix_cite_key": True,
+                    "expected_count": 2
+                }
+            ]
+        }
+        papers_db = PapersDatabase()
+        
+        with tempfile.NamedTemporaryFile(suffix=".bib") as tmp:
+            config["imports"][0]["file_path"] = tmp.name
+            result = execute(config, papers_db, verbose=False, dry_run=False)
+        
+        assert result["step"] == "bibtex_import"
+        assert result["papers_imported"] == 2
+        assert result["files_processed"] == 1
+        
+        # Verify papers in database have unique cite_keys
+        db_papers = papers_db.to_list()
+        cite_keys = [p.cite_key for p in db_papers]
+        assert len(cite_keys) == len(set(cite_keys))  # All unique

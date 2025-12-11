@@ -63,12 +63,55 @@ def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
                 expected = imp["expected_count"]
                 if not isinstance(expected, int) or expected < 0:
                     errors.append(f"Import {i} 'expected_count' must be a non-negative integer")
+            
+            if "fix_cite_key" in imp:
+                fix_cite_key = imp["fix_cite_key"]
+                if not isinstance(fix_cite_key, bool):
+                    errors.append(f"Import {i} 'fix_cite_key' must be a boolean")
     
     # Check type_mapping_config_path
     if "type_mapping_config_path" in config and not isinstance(config["type_mapping_config_path"], str):
         errors.append("'type_mapping_config_path' must be a string")
     
     return len(errors) == 0, errors
+
+
+def _fix_cite_key_collisions(papers: List[Paper], existing_db: PapersDatabase) -> int:
+    """
+    Fix cite_key collisions by adding _XX suffix to duplicates.
+    
+    For each paper with a cite_key that collides with existing entries in the database
+    or with other papers in the import, add a _XX suffix where XX is a decimal number
+    starting from 01 and incrementing until the key is unique.
+    
+    Args:
+        papers: List of papers to fix
+        existing_db: Existing papers database to check against
+    
+    Returns:
+        Number of cite_keys that were fixed (had collisions)
+    """
+    seen_keys = set()
+    fixed_count = 0
+    
+    for paper in papers:
+        original_key = paper.cite_key
+        unique_key = original_key
+        counter = 1
+        
+        # Check if the key already exists in the database or was already processed
+        while existing_db.get_by_cite_key(unique_key) is not None or unique_key in seen_keys:
+            unique_key = f"{original_key}_{counter:02d}"
+            counter += 1
+        
+        # If the key was changed, increment fixed count
+        if unique_key != original_key:
+            fixed_count += 1
+        
+        paper.cite_key = unique_key
+        seen_keys.add(unique_key)
+    
+    return fixed_count
 
 
 def execute(
@@ -121,6 +164,7 @@ def execute(
         file_path = import_spec.get("file_path")
         source_type = import_spec.get("source_type", "manual")
         expected_count = import_spec.get("expected_count")
+        fix_cite_key = import_spec.get("fix_cite_key", False)
         
         try:
             # Check file exists
@@ -146,6 +190,12 @@ def execute(
                     import_batch_id=batch_id,
                     type_mapping_config=type_mapping_config
                 )
+                
+                # Fix cite_key collisions if requested
+                if fix_cite_key:
+                    fixed_count = _fix_cite_key_collisions(papers, papers_db)
+                    if verbose:
+                        console.print(f"    [cyan]✓ Fixed {fixed_count} cite_key collisions[/cyan]")
                 
                 # Add to database
                 papers_db.add_many(papers)
