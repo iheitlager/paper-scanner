@@ -10,6 +10,7 @@ from rich.console import Console
 from rich.table import Table
 
 from ..core.models import Paper
+from ..core.database import PapersDatabase
 from ..core.enum import ScreeningDecision
 
 # Initialize rich console
@@ -74,7 +75,7 @@ def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
 
 def execute(
     config: Dict[str, Any],
-    papers_db: List[Paper],
+    papers_db: PapersDatabase,
     verbose: bool = False,
     dry_run: bool = False
 ) -> Dict[str, Any]:
@@ -123,7 +124,7 @@ def execute(
         "tables": {}
     }
     
-    if len(papers_db) == 0:
+    if papers_db.count(primary_only=False) == 0:
         results["statistics"] = {
             "total_papers": 0,
             "message": "No papers in database"
@@ -134,17 +135,17 @@ def execute(
         return results
     
     # Basic statistics
-    total = len(papers_db)
+    total = papers_db.count(primary_only=False)
     
     # Authors statistics
     all_authors = []
-    for paper in papers_db:
+    for paper in papers_db.to_list(primary_only=False):
         all_authors.extend(paper.authors)
     
     unique_authors = len(set(a.full_name for a in all_authors))
     
     # Years
-    years_with_papers = [p.year for p in papers_db if p.year]
+    years_with_papers = [p.year for p in papers_db.to_list(primary_only=False) if p.year]
     year_range = f"{min(years_with_papers)}-{max(years_with_papers)}" if years_with_papers else "N/A"
     
     # Identifiers

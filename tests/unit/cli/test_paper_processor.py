@@ -15,6 +15,7 @@ from paper_scanner.cli.paper_processor import (
 
 parse_step_config = StepExecutor.parse_step_config
 from paper_scanner.core.models import Paper, Author
+from paper_scanner.core.database import PapersDatabase
 
 
 class TestStepDiscovery:
@@ -201,7 +202,7 @@ class TestStepExecutorIntegration:
         execute_fn = StepExecutor.get_step("echo")
         
         config = {"message": "test message"}
-        papers_db = []
+        papers_db = PapersDatabase()
         
         result = execute_fn(config, papers_db, verbose=False)
         
@@ -214,25 +215,24 @@ class TestStepExecutorIntegration:
         execute_fn = StepExecutor.get_step("echo")
         
         # Create some test papers
-        papers = [
-            Paper(
-                cite_key="test1",
-                title="Test Paper 1",
-                authors=[Author(full_name="Author One", family_name="One", given_name="Author")]
-            ),
-            Paper(
-                cite_key="test2",
-                title="Test Paper 2",
-                authors=[Author(full_name="Author Two", family_name="Two", given_name="Author")]
-            )
-        ]
+        papers_db = PapersDatabase()
+        papers_db.add(Paper(
+            cite_key="test1",
+            title="Test Paper 1",
+            authors=[Author(full_name="Author One", family_name="One", given_name="Author")]
+        ))
+        papers_db.add(Paper(
+            cite_key="test2",
+            title="Test Paper 2",
+            authors=[Author(full_name="Author Two", family_name="Two", given_name="Author")]
+        ))
         
         config = {"message": "Processing papers"}
-        result = execute_fn(config, papers, verbose=False)
+        result = execute_fn(config, papers_db, verbose=False)
         
         assert isinstance(result, dict)
         # Papers should be unchanged by echo step
-        assert len(papers) == 2
+        assert papers_db.count(primary_only=False) == 2
 
 
 class TestStepDiscoveryEdgeCases:

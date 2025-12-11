@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 
 from paper_scanner.core.models import Paper, Author, KeywordScreening, ProcessingMetadata
 from paper_scanner.core.enum import PaperType, ScreeningDecision
+from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.keyword_screening import (
     _normalize_text,
     _check_keyword_match,
@@ -416,7 +417,9 @@ class TestStepExecution:
 
     def test_execute_filters_papers(self, sample_paper, sample_paper_excluded, keyword_config):
         """Test that execute properly filters papers."""
-        papers_db = [sample_paper, sample_paper_excluded]
+        papers_db = PapersDatabase()
+        papers_db.add(sample_paper)
+        papers_db.add(sample_paper_excluded)
         results = execute(keyword_config, papers_db)
         
         assert results["step"] == "keyword_screening"
@@ -426,24 +429,28 @@ class TestStepExecution:
 
     def test_execute_updates_screening_model(self, sample_paper, keyword_config):
         """Test that execute updates paper screening model."""
-        papers_db = [sample_paper]
+        papers_db = PapersDatabase()
+        papers_db.add(sample_paper)
         execute(keyword_config, papers_db, dry_run=False)
         
-        assert papers_db[0].screening.keyword_screening is not None
-        assert isinstance(papers_db[0].screening.keyword_screening, KeywordScreening)
+        paper = papers_db.get_by_id(sample_paper.id)
+        assert paper.screening.keyword_screening is not None
+        assert isinstance(paper.screening.keyword_screening, KeywordScreening)
 
     def test_execute_dry_run_no_updates(self, sample_paper, keyword_config):
         """Test that dry_run doesn't modify papers."""
-        papers_db = [sample_paper]
-        original_screening = papers_db[0].screening.keyword_screening
+        papers_db = PapersDatabase()
+        papers_db.add(sample_paper)
+        original_screening = papers_db.get_by_id(sample_paper.id).screening.keyword_screening
         
         execute(keyword_config, papers_db, dry_run=True)
         
-        assert papers_db[0].screening.keyword_screening == original_screening
+        assert papers_db.get_by_id(sample_paper.id).screening.keyword_screening == original_screening
 
     def test_execute_returns_statistics(self, sample_paper, keyword_config):
         """Test that execute returns proper statistics."""
-        papers_db = [sample_paper]
+        papers_db = PapersDatabase()
+        papers_db.add(sample_paper)
         results = execute(keyword_config, papers_db)
         
         assert "total_papers" in results
@@ -457,7 +464,10 @@ class TestStepExecution:
     def test_execute_with_multiple_papers(self, sample_paper, sample_paper_no_keywords, 
                                           sample_paper_excluded, keyword_config):
         """Test execute with multiple papers."""
-        papers_db = [sample_paper, sample_paper_no_keywords, sample_paper_excluded]
+        papers_db = PapersDatabase()
+        papers_db.add(sample_paper)
+        papers_db.add(sample_paper_no_keywords)
+        papers_db.add(sample_paper_excluded)
         results = execute(keyword_config, papers_db)
         
         assert results["total_papers"] == 3
@@ -475,26 +485,25 @@ class TestIntegration:
     def test_realistic_workflow(self):
         """Test realistic screening workflow."""
         # Create papers with varying characteristics
-        papers = [
-            Paper(
-                id="p1", cite_key="p1", year=2024,
-                title="Digital Innovation in Supply Chain",
-                abstract="Firms leverage digital technologies with suppliers.",
-                authors=[], paper_type=PaperType.ARTICLE
-            ),
-            Paper(
-                id="p2", cite_key="p2", year=2024,
-                title="Medical Device Technology",
-                abstract="Patient outcomes in clinical settings.",
-                authors=[], paper_type=PaperType.ARTICLE
-            ),
-            Paper(
-                id="p3", cite_key="p3", year=2024,
-                title="Agricultural Farming Practices",
-                abstract="Crop management and farm technology.",
-                authors=[], paper_type=PaperType.ARTICLE
-            ),
-        ]
+        papers_db = PapersDatabase()
+        papers_db.add(Paper(
+            id="p1", cite_key="p1", year=2024,
+            title="Digital Innovation in Supply Chain",
+            abstract="Firms leverage digital technologies with suppliers.",
+            authors=[], paper_type=PaperType.ARTICLE
+        ))
+        papers_db.add(Paper(
+            id="p2", cite_key="p2", year=2024,
+            title="Medical Device Technology",
+            abstract="Patient outcomes in clinical settings.",
+            authors=[], paper_type=PaperType.ARTICLE
+        ))
+        papers_db.add(Paper(
+            id="p3", cite_key="p3", year=2024,
+            title="Agricultural Farming Practices",
+            abstract="Crop management and farm technology.",
+            authors=[], paper_type=PaperType.ARTICLE
+        ))
         
         config = {
             "enabled": True,
@@ -503,15 +512,19 @@ class TestIntegration:
             "threshold": 2
         }
         
-        results = execute(config, papers)
+        results = execute(config, papers_db)
         
         # Should pass p1, fail p2 and p3
         assert results["failed"] >= 2
-        assert papers[1].screening.keyword_screening is not None
-        assert papers[1].screening.keyword_screening.passed is False
+        p2 = papers_db.get_by_id("p2")
+        assert p2.screening.keyword_screening is not None
+        assert p2.screening.keyword_screening.passed is False
 
     def test_configurable_threshold(self, sample_paper):
         """Test different threshold values."""
+        papers_db = PapersDatabase()
+        papers_db.add(sample_paper)
+        
         config_low = {
             "enabled": True,
             "hard_exclusions": [],
@@ -526,11 +539,13 @@ class TestIntegration:
             "threshold": 10
         }
         
-        papers_low = [sample_paper]
-        papers_high = [sample_paper]
+        papers_db_low = PapersDatabase()
+        papers_db_low.add(sample_paper)
+        papers_db_high = PapersDatabase()
+        papers_db_high.add(sample_paper)
         
-        results_low = execute(config_low, papers_low)
-        results_high = execute(config_high, papers_high)
+        results_low = execute(config_low, papers_db_low)
+        results_high = execute(config_high, papers_db_high)
         
         # Low threshold should allow more papers
         assert results_low["passed"] >= results_high["passed"]

@@ -23,6 +23,7 @@ from rich.table import Table
 from rich.panel import Panel
 
 from paper_scanner.core.models import Paper
+from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.halt import HaltException
 
 # Initialize rich console for colored output
@@ -154,7 +155,7 @@ class StepExecutor:
     @staticmethod
     def execute_step(
         step_config: Dict[str, Any],
-        papers_db: List[Paper],
+        papers_db: PapersDatabase,
         verbose: bool = False,
         dry_run: bool = False,
         cache_dir: Optional[Path] = None,
@@ -167,7 +168,7 @@ class StepExecutor:
 
         Args:
             step_config: Step configuration (must have 'step' key)
-            papers_db: Current papers database
+            papers_db: Current papers database (PapersDatabase instance)
             verbose: Enable verbose output
             dry_run: Don't actually execute
             cache_dir: Cache directory (for checkpoint steps)
@@ -544,13 +545,14 @@ def process_definition(
                 console.print(f"[dim]Resuming from step {resume_from_step}[/dim]\n")
 
     # Initialize papers database
-    papers_db: List[Paper] = []
+    papers_db = PapersDatabase()
 
     # Load checkpoint if found
     if checkpoint_file and use_checkpoints:
-        papers_db = _load_checkpoint(checkpoint_file)
+        checkpoint_papers = _load_checkpoint(checkpoint_file)
+        papers_db.from_list(checkpoint_papers)
         if verbose:
-            console.print(f"[green]Loaded {len(papers_db)} papers from checkpoint[/green]\n")
+            console.print(f"[green]Loaded {len(checkpoint_papers)} papers from checkpoint[/green]\n")
 
     # Start overall timing
     overall_start_time = time.time()
@@ -627,9 +629,9 @@ def process_definition(
             results["steps_executed"].append(step_result)
 
             # Track papers statistics
-            results["papers_total"] = len(papers_db)
-            results["papers_unique"] = len([p for p in papers_db if p.duplicate_of is None])
-            results["papers_duplicates"] = len([p for p in papers_db if p.duplicate_of is not None])
+            results["papers_total"] = papers_db.count(primary_only=False)
+            results["papers_unique"] = papers_db.count(primary_only=True)
+            results["papers_duplicates"] = papers_db.count(primary_only=False) - papers_db.count(primary_only=True)
 
             # Check if step failed
             if step_result.get("status") == "error":
@@ -653,9 +655,9 @@ def process_definition(
             results["steps_executed"].append({"step": step_name, "status": "halted", "message": str(e)})
 
             # Track final papers statistics
-            results["papers_total"] = len(papers_db)
-            results["papers_unique"] = len([p for p in papers_db if p.duplicate_of is None])
-            results["papers_duplicates"] = len([p for p in papers_db if p.duplicate_of is not None])
+            results["papers_total"] = papers_db.count(primary_only=False)
+            results["papers_unique"] = papers_db.count(primary_only=True)
+            results["papers_duplicates"] = papers_db.count(primary_only=False) - papers_db.count(primary_only=True)
 
             console.print(f"[yellow]halt[/yellow]: [{step_name}] => {str(e)}")
 

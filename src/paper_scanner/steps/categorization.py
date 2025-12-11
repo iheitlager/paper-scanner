@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from rich.console import Console
 
 from ..core.models import Paper, Categorization, ProcessingMetadata
+from ..core.database import PapersDatabase
 from ..core.enum import PaperType, StudyType, QualityTier, ScreeningDecision
 
 # Initialize rich console for colored output
@@ -358,7 +359,7 @@ def _categorize_paper(
 
 def execute(
     config: Dict[str, Any],
-    papers_db: List[Paper],
+    papers_db: PapersDatabase,
     verbose: bool = False,
     dry_run: bool = False
 ) -> Dict[str, Any]:
@@ -370,7 +371,7 @@ def execute(
             - enabled: bool (default: True) - Run categorization
             - exclude_types: bool (default: True) - Exclude non-article types (conferences, books, etc.)
             - exclude_reviews: bool (default: True) - Exclude literature reviews
-        papers_db: Current papers database
+        papers_db: Current papers database (PapersDatabase instance)
         verbose: Enable verbose output
         dry_run: Don't actually modify papers
 
@@ -399,14 +400,15 @@ def execute(
     }
 
     if verbose:
-        console.print(f"\n  [bold cyan]Categorizing {len(papers_db)} papers[/bold cyan]")
+        console.print(f"\n  [bold cyan]Categorizing {papers_db.count(primary_only=False)} papers[/bold cyan]")
 
     # Process each paper
-    for i, paper in enumerate(papers_db):
+    all_papers = papers_db.to_list(primary_only=False)
+    for i, paper in enumerate(all_papers):
         # Show progress every 100 papers
         if verbose and (i + 1) % 100 == 0:
             import sys
-            sys.stdout.write(f"\r    Processed {i + 1}/{len(papers_db)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
+            sys.stdout.write(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
             sys.stdout.flush()
         
         categorization, should_include, exclusion_reason = _categorize_paper(
@@ -429,6 +431,9 @@ def execute(
                 elif exclude_reviews and "review" in exclusion_reason.lower():
                     paper.screening.final_decision = ScreeningDecision.EXCLUDED
                     paper.screening.notes = exclusion_reason
+            
+            # Update paper in database
+            papers_db.update(paper)
 
         results["categorized"] += 1
 

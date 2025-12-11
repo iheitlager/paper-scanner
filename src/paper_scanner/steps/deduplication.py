@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from rich.console import Console
 
 from ..core.models import Paper, DeduplicationResult, ProcessingMetadata
+from ..core.database import PapersDatabase
 
 # Initialize rich console
 console = Console()
@@ -157,7 +158,7 @@ def _get_confidence(method: str, similarity_score: float) -> float:
 
 def execute(
     config: Dict[str, Any],
-    papers_db: List[Paper],
+    papers_db: PapersDatabase,
     verbose: bool = False,
     dry_run: bool = False
 ) -> Dict[str, Any]:
@@ -170,7 +171,7 @@ def execute(
     
     Args:
         config: Step configuration
-        papers_db: Current papers database (modified in-place)
+        papers_db: Current papers database (PapersDatabase instance, modified in-place)
         verbose: Enable verbose output
         dry_run: Don't modify papers
     
@@ -190,7 +191,7 @@ def execute(
     if not enabled:
         return {
             "step": "deduplication",
-            "total_papers": len(papers_db),
+            "total_papers": papers_db.count(primary_only=False),
             "duplicates_found": 0,
             "duplicates": [],
             "methods_used": [],
@@ -208,20 +209,21 @@ def execute(
     
     results = {
         "step": "deduplication",
-        "total_papers": len(papers_db),
+        "total_papers": papers_db.count(primary_only=False),
         "duplicates_found": 0,
         "duplicates": [],
         "methods_used": [m.get("method") for m in methods]
     }
     
     if verbose:
-        console.print(f"\n  [bold cyan]Deduplicating {len(papers_db)} papers[/bold cyan]")
+        console.print(f"\n  [bold cyan]Deduplicating {papers_db.count(primary_only=False)} papers[/bold cyan]")
         console.print(f"    [yellow]Methods:[/yellow] {', '.join([m.get('method') for m in methods])}")
     
-    # Track which papers we've already identified as unique
+    # Get all papers and track which have been processed as unique
+    all_papers = papers_db.to_list(primary_only=False)
     unique_papers = []
     
-    for i, paper in enumerate(papers_db):
+    for i, paper in enumerate(all_papers):
         # Skip if already marked as duplicate
         if paper.duplicate_of is not None:
             continue
@@ -231,7 +233,7 @@ def execute(
         # Show progress every 100 papers
         if verbose and (i + 1) % 100 == 0:
             import sys
-            sys.stdout.write(f"\r    Processed {i + 1}/{len(papers_db)} papers... Found {results['duplicates_found']} duplicates so far")
+            sys.stdout.write(f"\r    Processed {i + 1}/{len(all_papers)} papers... Found {results['duplicates_found']} duplicates so far")
             sys.stdout.flush()
         
         # Try each method in priority order
@@ -271,6 +273,9 @@ def execute(
                                 )
                             )
                             paper.screening.current_stage = "deduplication_complete"
+                            
+                            # Update the paper in the database
+                            papers_db.update(paper)
                         
                         results["duplicates_found"] += 1
                         results["duplicates"].append({
@@ -305,13 +310,16 @@ def execute(
                     )
                 )
                 paper.screening.current_stage = "deduplication_complete"
+                
+                # Update the paper in the database
+                papers_db.update(paper)
             
             unique_papers.append(paper)
     
     # Record processing time
     duration = time.time() - step_start_time
     if not dry_run:
-        for paper in papers_db:
+        for paper in papers_db.to_list(primary_only=False):
             if paper.screening.deduplication:
                 paper.screening.deduplication.metadata.duration_seconds = duration
     

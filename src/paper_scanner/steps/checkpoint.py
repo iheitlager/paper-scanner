@@ -15,6 +15,7 @@ from datetime import datetime
 from rich.console import Console
 
 from paper_scanner.core.models import Paper
+from paper_scanner.core.database import PapersDatabase
 
 console = Console()
 
@@ -63,7 +64,7 @@ def _deserialize_papers(data: List[Dict[str, Any]]) -> List[Paper]:
     return [Paper(**item) for item in data]
 
 
-def execute(config: Dict[str, Any], papers: List[Paper], verbose: bool = False, dry_run: bool = False) -> Dict[str, Any]:
+def execute(config: Dict[str, Any], papers: PapersDatabase, verbose: bool = False, dry_run: bool = False) -> Dict[str, Any]:
     """
     Execute checkpoint step
     
@@ -105,20 +106,20 @@ def execute(config: Dict[str, Any], papers: List[Paper], verbose: bool = False, 
             "project_name": project_name,
             "step_index": step_index,
             "timestamp": datetime.now().isoformat(),
-            "papers_count": len(papers),
-            "papers": _serialize_papers(papers)
+            "papers_count": papers.count(primary_only=False),
+            "papers": _serialize_papers(papers.to_list(primary_only=False))
         }
         
         with open(checkpoint_file, 'w', encoding='utf-8') as f:
             json.dump(checkpoint_data, f, indent=2)
     
     if verbose:
-        console.print(f"[cyan]Checkpoint saved[/cyan]: {checkpoint_file.name} ({len(papers)} papers)")
+        console.print(f"[cyan]Checkpoint saved[/cyan]: {checkpoint_file.name} ({papers.count(primary_only=False)} papers)")
     
     return {
         "status": "ok",
         "checkpoint_file": str(checkpoint_file),
-        "papers_count": len(papers)
+        "papers_count": papers.count(primary_only=False)
     }
 
 

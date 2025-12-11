@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from rich.console import Console
 
 from ..core.models import Paper, KeywordScreening, ProcessingMetadata
+from ..core.database import PapersDatabase
 from ..core.enum import ScreeningDecision
 
 # Initialize rich console for colored output
@@ -387,7 +388,7 @@ def _parse_keyword_config(config: Dict[str, Any]) -> Tuple[List[str], List[str],
 
 def execute(
     config: Dict[str, Any],
-    papers_db: List[Paper],
+    papers_db: PapersDatabase,
     verbose: bool = False,
     dry_run: bool = False
 ) -> Dict[str, Any]:
@@ -396,7 +397,7 @@ def execute(
     
     Args:
         config: Step configuration (see _parse_keyword_config for structure)
-        papers_db: Current papers database
+        papers_db: Current papers database (PapersDatabase instance)
         verbose: Enable verbose output
         dry_run: Don't actually modify papers
         
@@ -422,12 +423,12 @@ def execute(
         console.print(f"    [dim]Hard exclusions: {len(hard_exclusions)} keywords[/dim]")
         console.print(f"    [dim]Inclusion keywords: {len(inclusion_keywords)} keywords[/dim]")
         console.print(f"    [dim]Threshold: {threshold}[/dim]")
-        console.print(f"    [dim]Processing {len(papers_db)} papers...[/dim]")
+        console.print(f"    [dim]Processing {papers_db.count(primary_only=False)} papers...[/dim]")
     
     # Initialize results
     results = {
         "step": "keyword_screening",
-        "total_papers": len(papers_db),
+        "total_papers": papers_db.count(primary_only=False),
         "screened": 0,
         "passed": 0,
         "failed": 0,
@@ -440,11 +441,12 @@ def execute(
     keyword_counts = {}
     
     # Process each paper
-    for i, paper in enumerate(papers_db):
+    all_papers = papers_db.to_list(primary_only=False)
+    for i, paper in enumerate(all_papers):
         # Show progress every 100 papers
         if verbose and (i + 1) % 100 == 0:
             import sys
-            sys.stdout.write(f"\r    Processed {i + 1}/{len(papers_db)} papers... Passed: {results['passed']}, Failed: {results['failed']}")
+            sys.stdout.write(f"\r    Processed {i + 1}/{len(all_papers)} papers... Passed: {results['passed']}, Failed: {results['failed']}")
             sys.stdout.flush()
         
         screening, passed, exclusion_reason = _screen_paper(
@@ -464,6 +466,9 @@ def execute(
                 paper.screening.final_decision = ScreeningDecision.EXCLUDED
                 paper.screening.final_decision_at = datetime.now(timezone.utc)
                 paper.screening.final_decision_by = "automated:keyword_screening"
+            
+            # Update paper in database
+            papers_db.update(paper)
         
         results["screened"] += 1
         

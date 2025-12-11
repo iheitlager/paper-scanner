@@ -4,10 +4,12 @@ Halt step for paper scanner
 Stops the pipeline execution at this step without error
 """
 
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 from rich.console import Console
 
 from ..core.models import Paper
+from ..core.database import PapersDatabase
+from ..core.database import PapersDatabase
 
 # Initialize rich console
 console = Console()
@@ -39,7 +41,7 @@ def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
 
 def execute(
     config: Dict[str, Any],
-    papers_db: List[Paper],
+    papers_db: PapersDatabase,
     verbose: bool = False,
     dry_run: bool = False
 ) -> Dict[str, Any]:
@@ -61,12 +63,12 @@ def execute(
     result = {
         "status": "halted",
         "message": message,
-        "papers_count": len(papers_db)
+        "papers_count": papers_db.count(primary_only=False)
     }
     
     if verbose:
         console.print(f"\n  [bold yellow]⏸ Halt:[/bold yellow] {message}")
-        console.print(f"  [cyan]Papers in database:[/cyan] {len(papers_db)}")
+        console.print(f"  [cyan]Papers in database:[/cyan] {papers_db.count(primary_only=False)}")
     
     # Raise exception to halt pipeline
     raise HaltException(message)

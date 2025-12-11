@@ -27,6 +27,7 @@ from scipy.spatial.distance import cosine
 
 from ..core.enum import ScreeningDecision
 from ..core.models import Paper, ProcessingMetadata, SemanticScreening
+from ..core.database import PapersDatabase
 
 # Suppress verbose logging from transformers/sentence-transformers
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -220,7 +221,7 @@ class _SemanticScreener:
 
 def execute(
     config: Dict[str, Any],
-    papers_db: List[Paper],
+    papers_db: PapersDatabase,
     verbose: bool = False,
     dry_run: bool = False,
     project_config: Optional[Dict[str, Any]] = None
@@ -235,7 +236,7 @@ def execute(
                 - auto_include: float (default: 0.65) - Score >= this → INCLUDED
                 - manual_review: float (default: 0.55) - Threshold for manual review
                 - auto_exclude: float (default: 0.55) - Score < this → EXCLUDED
-        papers_db: Current papers database
+        papers_db: Current papers database (PapersDatabase instance)
         verbose: Enable verbose output
         dry_run: Don't actually modify papers
         project_config: Project configuration containing research_question
@@ -254,7 +255,7 @@ def execute(
         return {
             "step": "semantic_screening",
             "error": "research_question not found in project configuration",
-            "total_papers": len(papers_db),
+            "total_papers": papers_db.count(primary_only=False),
             "screened": 0,
             "included": 0,
             "excluded": 0,
@@ -269,7 +270,7 @@ def execute(
     
     results = {
         "step": "semantic_screening",
-        "total_papers": len(papers_db),
+        "total_papers": papers_db.count(primary_only=False),
         "screened": 0,
         "included": 0,
         "excluded": 0,
@@ -283,7 +284,7 @@ def execute(
     }
     
     if verbose:
-        console.print(f"\n  [bold cyan]Semantic screening {len(papers_db)} papers[/bold cyan]")
+        console.print(f"\n  [bold cyan]Semantic screening {papers_db.count(primary_only=False)} papers[/bold cyan]")
         console.print(f"    Model: [dim]{model_name}[/dim]")
         console.print(f"    Research question: [dim]{research_question[:80]}...[/dim]")
     
@@ -300,16 +301,17 @@ def execute(
         return {
             "step": "semantic_screening",
             "error": f"Required package not installed: {e}",
-            "total_papers": len(papers_db),
+            "total_papers": papers_db.count(primary_only=False),
             "screened": 0,
         }
     
     # Screen each paper
-    for i, paper in enumerate(papers_db):
+    all_papers = papers_db.to_list(primary_only=False)
+    for i, paper in enumerate(all_papers):
         # Show progress every 100 papers
         if verbose and (i + 1) % 100 == 0:
             import sys
-            sys.stdout.write(f"\r    Processed {i + 1}/{len(papers_db)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
+            sys.stdout.write(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
             sys.stdout.flush()
         
         try:
@@ -322,6 +324,9 @@ def execute(
                 # Update final decision if not already decided
                 if paper.screening.final_decision == ScreeningDecision.PENDING:
                     paper.screening.final_decision = semantic_screening.llm_decision
+                
+                # Update paper in database
+                papers_db.update(paper)
             
             results["screened"] += 1
             

@@ -12,6 +12,7 @@ import yaml
 
 from ..io.bibtex import bibtex_file_to_papers, load_type_mapping_config
 from ..core.models import Paper
+from ..core.database import PapersDatabase
 from ..core.enum import DiscoveryMethod
 
 # Initialize rich console
@@ -72,7 +73,7 @@ def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
 
 def execute(
     config: Dict[str, Any],
-    papers_db: List[Paper],
+    papers_db: PapersDatabase,
     verbose: bool = False,
     dry_run: bool = False
 ) -> Dict[str, Any]:
@@ -81,7 +82,7 @@ def execute(
     
     Args:
         config: Step configuration (includes batch_id and imports list)
-        papers_db: Current papers database (list of Paper objects)
+        papers_db: Current papers database (PapersDatabase instance)
         verbose: Enable verbose output
         dry_run: Don't actually import, just show what would happen
     
@@ -147,7 +148,7 @@ def execute(
                 )
                 
                 # Add to database
-                papers_db.extend(papers)
+                papers_db.add_many(papers)
                 count = len(papers)
                 results["papers_imported"] += count
                 

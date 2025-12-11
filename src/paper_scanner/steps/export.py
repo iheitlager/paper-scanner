@@ -12,6 +12,7 @@ from rich.console import Console
 from ..io.json import papers_to_jsonl
 from ..io.bibtex import papers_to_bibtex
 from ..core.models import Paper
+from ..core.database import PapersDatabase
 
 # Initialize rich console
 console = Console()
@@ -62,7 +63,7 @@ def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
 
 def execute(
     config: Dict[str, Any],
-    papers_db: List[Paper],
+    papers_db: PapersDatabase,
     verbose: bool = False,
     dry_run: bool = False
 ) -> Dict[str, Any]:
@@ -71,7 +72,7 @@ def execute(
     
     Args:
         config: Step configuration (includes format and output_path)
-        papers_db: Current papers database
+        papers_db: Current papers database (PapersDatabase instance)
         verbose: Enable verbose output
         dry_run: Don't actually write files
     
@@ -92,22 +93,22 @@ def execute(
     # Filter papers based on duplicates option
     if duplicates_option == "only":
         # Export only duplicates
-        papers_to_export = [p for p in papers_db if p.duplicate_of is not None]
+        papers_to_export = papers_db.find(lambda p: p.duplicate_of is not None, primary_only=False)
         duplicates_label = "duplicate papers only"
     elif duplicates_option is True:
         # Export all papers (with duplicates)
-        papers_to_export = papers_db
+        papers_to_export = papers_db.to_list(primary_only=False)
         duplicates_label = "all papers (including duplicates)"
     else:
         # Export only unique papers (no duplicates)
-        papers_to_export = [p for p in papers_db if p.duplicate_of is None]
+        papers_to_export = papers_db.to_list(primary_only=True)
         duplicates_label = "unique papers only"
     
     results = {
         "step": "output_db",
         "format": output_format,
         "papers_exported": len(papers_to_export),
-        "papers_total": len(papers_db),
+        "papers_total": papers_db.count(primary_only=False),
         "duplicates_option": duplicates_option,
         "output_path": output_path,
         "status": "success",
