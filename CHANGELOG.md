@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2025-12-11
+
+### Added
+
+- **Unified Step-Based Processing Pipeline**: Generic, composable step framework replacing single-use processors
+  - Unified command: `paper-processor` for flexible pipeline composition
+  - Built-in steps: `bibtex_import`, `categorization`, `checkpoint`, `deduplication`, `echo`, `export`, `halt`, `keyword_screening`, `semantic_screening`, `summarize`
+  - Step YAML configuration with chainable processing logic
+  - New `PaperProcessor` class with step registration and execution engine
+  - Step-specific documentation in [`docs/steps/`](docs/README.md) directory
+
+- **Modular Step Architecture**: Each step is independently configurable and testable
+  - Input/output contracts defined per step for predictable data flow
+  - Extensible step registry for easy addition of custom processing steps
+  - Comprehensive error handling and validation within step execution
+
+- **Enhanced CLI Interface**: Improved command structure with step-based processing
+  - Backward compatibility maintained with legacy single-purpose CLI tools
+  - New step parameters configuration via YAML or CLI flags
+  - Integrated step help and documentation
+
+### Changed
+
+- Processing architecture evolved from single-purpose tools to flexible step-based system
+- Configuration management now unified across all processing steps
+- Improved code organization with dedicated step implementations
+
+### Technical Details
+
+- `PaperProcessor` in `core/processor.py`: step registry, execution engine, validation logic
+- Step base class in `steps/base.py`: abstract interface for all step implementations
+- Individual step modules: `bibtex_import.py`, `categorization.py`, `checkpoint.py`, etc.
+- Configuration dataclass evolved to support step-specific parameters
+
 ## [1.0.0] - 2025-12-04
 
 ### Added
