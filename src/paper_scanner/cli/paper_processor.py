@@ -193,13 +193,22 @@ class StepExecutor:
         # Get the step function
         step_func = StepExecutor.get_step(step_name)
 
-        # Execute the step - check if it accepts project_config
+        # Execute the step - check what parameters it accepts
         import inspect
         sig = inspect.signature(step_func)
+        
+        # Build kwargs for step execution
+        kwargs = {"verbose": verbose, "dry_run": dry_run}
+        
+        # Pass cache_dir if the step accepts it
+        if "cache_dir" in sig.parameters:
+            kwargs["cache_dir"] = cache_dir
+        
+        # Pass project_config if the step accepts it
         if "project_config" in sig.parameters:
-            result = step_func(step_params, papers_db, verbose=verbose, dry_run=dry_run, project_config=project_config)
-        else:
-            result = step_func(step_params, papers_db, verbose=verbose, dry_run=dry_run)
+            kwargs["project_config"] = project_config
+        
+        result = step_func(step_params, papers_db, **kwargs)
 
         # Ensure step and description are in result
         result["step"] = step_name
@@ -481,7 +490,8 @@ def process_definition(
     cache_dir.mkdir(parents=True, exist_ok=True)
 
     if verbose:
-        console.print(f"Cache directory: [cyan]{cache_dir}[/cyan]\n")
+        console.print(f"Cache directory: [cyan]{cache_dir}[/cyan]")
+        console.print(f"  [dim]├─ Crossref cache: {cache_dir}/crossref[/dim]\n")
 
     # Print project info if available
     if "project" in definition and verbose:

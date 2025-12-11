@@ -142,6 +142,16 @@ class EchoConfig:
 
 
 @dataclass
+class LoadFilesConfig:
+    """Load files step configuration"""
+    file_path: str
+    store_path: str
+    source: List[str] = field(default_factory=lambda: ["crossref"])
+    download_details: bool = True
+    expected_count: Optional[int] = None
+
+
+@dataclass
 class SummarizeConfig:
     """Summarize step configuration"""
     summary: bool = True
@@ -304,6 +314,25 @@ class EchoStep(Step):
         }
 
 
+class LoadFilesStep(Step):
+    """Load files step"""
+    
+    def __init__(self, config: LoadFilesConfig):
+        self.config = config
+    
+    def get_name(self) -> str:
+        return "load_files"
+    
+    def get_description(self) -> str:
+        return f"Load PDF files from {self.config.file_path}"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "step": self.get_description(),
+            "builtin.load_files": asdict(self.config)
+        }
+
+
 class SummarizeStep(Step):
     """Summarize step"""
     
@@ -457,6 +486,20 @@ class Definition:
     def echo(self, message: Optional[str] = None) -> "Definition":
         """Add echo step"""
         self.steps.append(EchoStep(EchoConfig(message)))
+        return self
+    
+    def load_files(
+        self,
+        file_path: str,
+        store_path: str,
+        source: Optional[List[str]] = None,
+        download_details: bool = True,
+        expected_count: Optional[int] = None
+    ) -> "Definition":
+        """Add load files step"""
+        self.steps.append(LoadFilesStep(LoadFilesConfig(
+            file_path, store_path, source or ["crossref"], download_details, expected_count
+        )))
         return self
     
     def summarize(

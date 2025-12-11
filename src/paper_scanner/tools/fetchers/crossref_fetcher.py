@@ -35,7 +35,7 @@ class PoliteCrossrefClient:
     See: https://github.com/CrossRef/rest-api-doc#etiquette
     """
     
-    def __init__(self, email: str, app_name: str = "PaperScanner", rate_limit: float = 50.0, 
+    def __init__(self, email: str = CROSSREF_EMAIL, app_name: str = CROSSREF_APP_NAME, rate_limit: float = 50.0, 
                  cache_dir: Optional[Path] = None):
         """
         Initialize polite Crossref client.
@@ -51,7 +51,7 @@ class PoliteCrossrefClient:
         # POLITE POOL: Include contact info in User-Agent
         # This gives us higher rate limits and better service
         self.session.headers.update({
-            'User-Agent': f'{app_name}/1.0 (mailto:{email})'
+            'User-Agent': f'{CROSSREF_APP_NAME} (mailto:{email})'
         })
         
         self.email = email
@@ -59,6 +59,7 @@ class PoliteCrossrefClient:
         self.rate_limit = rate_limit
         self.delay_between_requests = 1.0 / rate_limit  # Convert requests/sec to seconds
         self.cache = JSONFileCache(cache_dir)
+        self.last_cache_hit = False  # Track if last request was from cache
     
     def get_work(self, doi: str) -> Dict[str, Any]:
         """
@@ -73,7 +74,10 @@ class PoliteCrossrefClient:
         # Check cache first
         cached = self.cache.get(doi)
         if cached:
+            self.last_cache_hit = True
             return cached
+        
+        self.last_cache_hit = False
         
         # Rate limiting: sleep before making the request
         time.sleep(self.delay_between_requests)

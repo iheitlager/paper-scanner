@@ -350,25 +350,11 @@ class PDFInfo(BaseModel):
     file_name: Optional[str] = None
     file_size_bytes: Optional[int] = None
     file_hash: Optional[str] = None  # SHA256
-    
+
     # Download info
     download_source: Optional[str] = None  # "unpaywall", "openalex", etc.
     download_url: Optional[str] = None
     downloaded_at: Optional[datetime] = None
-    
-    # PDF metadata
-    pdf_pages: Optional[int] = None
-    pdf_is_scanned: Optional[bool] = None
-    pdf_extraction_success: bool = False
-    
-    # Text extraction
-    full_text: Optional[str] = None
-    full_text_word_count: Optional[int] = None
-    chunks: List[TextChunk] = Field(default_factory=list)
-    
-    # Metadata
-    metadata: Optional[ProcessingMetadata] = None
-
 
 # ============================================================================
 # MAIN PAPER MODEL

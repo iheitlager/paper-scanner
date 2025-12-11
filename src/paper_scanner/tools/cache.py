@@ -32,6 +32,9 @@ class JSONFileCache:
         """
         if cache_dir is None:
             cache_dir = Path.home() / ".crossref"
+        else:
+            # Append 'crossref' subdirectory to the provided cache_dir
+            cache_dir = Path(cache_dir) / "crossref"
         
         self.cache_dir = Path(cache_dir).expanduser()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
