@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from rich.console import Console
 
 from ..core.models import Paper, Categorization, ProcessingMetadata
-from ..core.enum import PaperType, StudyType, QualityTier
+from ..core.enum import PaperType, StudyType, QualityTier, ScreeningDecision
 
 # Initialize rich console for colored output
 console = Console()
@@ -44,6 +44,14 @@ def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
     # Check enabled flag
     if "enabled" in config and not isinstance(config["enabled"], bool):
         errors.append("'enabled' must be a boolean")
+    
+    # Check exclude_types flag
+    if "exclude_types" in config and not isinstance(config["exclude_types"], bool):
+        errors.append("'exclude_types' must be a boolean")
+    
+    # Check exclude_reviews flag
+    if "exclude_reviews" in config and not isinstance(config["exclude_reviews"], bool):
+        errors.append("'exclude_reviews' must be a boolean")
     
     return len(errors) == 0, errors
 
@@ -358,7 +366,10 @@ def execute(
     Execute categorization step.
 
     Args:
-        config: Step configuration
+        config: Step configuration with options:
+            - enabled: bool (default: True) - Run categorization
+            - exclude_types: bool (default: True) - Exclude non-article types (conferences, books, etc.)
+            - exclude_reviews: bool (default: True) - Exclude literature reviews
         papers_db: Current papers database
         verbose: Enable verbose output
         dry_run: Don't actually modify papers
@@ -367,6 +378,10 @@ def execute(
         Dictionary with execution results
     """
     step_start_time = time.time()
+    
+    # Get configuration options
+    exclude_types = config.get("exclude_types", True)
+    exclude_reviews = config.get("exclude_reviews", True)
 
     results = {
         "step": "categorization",
@@ -406,9 +421,14 @@ def execute(
             # Set current stage
             paper.screening.current_stage = "categorization_complete"
 
-            # Update final decision if not included
+            # Apply exclude_types filter
             if not should_include:
-                paper.screening.notes = exclusion_reason
+                if exclude_types and ("Type" in exclusion_reason or "type" in exclusion_reason):
+                    paper.screening.final_decision = ScreeningDecision.EXCLUDED
+                    paper.screening.notes = exclusion_reason
+                elif exclude_reviews and "review" in exclusion_reason.lower():
+                    paper.screening.final_decision = ScreeningDecision.EXCLUDED
+                    paper.screening.notes = exclusion_reason
 
         results["categorized"] += 1
 

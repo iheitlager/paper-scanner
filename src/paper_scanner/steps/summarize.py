@@ -32,6 +32,10 @@ def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if "summary" in config and not isinstance(config["summary"], bool):
         errors.append("'summary' must be a boolean")
     
+    # Check screening flag
+    if "screening" in config and not isinstance(config["screening"], bool):
+        errors.append("'screening' must be a boolean")
+    
     # Check tabulate configuration
     if "tabulate" in config:
         tabulate = config["tabulate"]
@@ -80,6 +84,7 @@ def execute(
     Args:
         config: Step configuration with options:
             - summary: bool (default: True) - Show summary statistics
+            - screening: bool (default: False) - Show screening results
             - table_by_paper_type: bool (default: False) - DEPRECATED: Use tabulate instead
             - tabulate: dict or list of dicts with options:
                 - field: str - Field to tabulate (e.g., 'paper_type', 'journal', 'booktitle')
@@ -93,7 +98,8 @@ def execute(
     """
     
     # Get configuration options
-    show_summary = config.get("summary", True)
+    show_summary = config.get("summary", False)
+    show_screening = config.get("screening", False)
     
     # Support both old and new configuration format
     tabulate_configs = []
@@ -231,6 +237,11 @@ def execute(
                 console.print(table_data)
                 results["tables"][field] = "generated"
     
+    # Display screening results if requested
+    if verbose and show_screening:
+        console.print("\n  [bold yellow]Screening Results by Paper Type:[/bold yellow]")
+        _display_screening_results(papers_db)
+    
     return results
 
 
@@ -335,3 +346,92 @@ def _generate_field_table(papers_db: List[Paper], field: str, total_papers: int)
     )
     
     return table
+
+
+def _display_screening_results(papers_db: List[Paper]) -> None:
+    """
+    Display screening results breakdown by paper_type
+    
+    Args:
+        papers_db: List of papers to analyze
+    """
+    if not papers_db:
+        console.print("\n  [red]No papers to display screening results[/red]")
+        return
+    
+    # Group papers by paper_type and screening decision
+    papers_by_type = {}
+    
+    for paper in papers_db:
+        paper_type = paper.paper_type or "Unknown"
+        decision = paper.screening.final_decision.value
+        
+        if paper_type not in papers_by_type:
+            papers_by_type[paper_type] = {
+                ScreeningDecision.INCLUDED.value: 0,
+                ScreeningDecision.EXCLUDED.value: 0,
+                ScreeningDecision.PENDING.value: 0,
+                ScreeningDecision.MANUAL_REVIEW.value: 0,
+                ScreeningDecision.UNCERTAIN.value: 0,
+                "total": 0,
+            }
+        
+        papers_by_type[paper_type][decision] += 1
+        papers_by_type[paper_type]["total"] += 1
+    
+    # Create table
+    table = Table(title="Screening Results by Paper Type")
+    table.add_column("Paper Type", style="cyan")
+    table.add_column("Included", justify="right", style="green")
+    table.add_column("Excluded", justify="right", style="red")
+    table.add_column("Pending", justify="right", style="yellow")
+    table.add_column("Manual Review", justify="right", style="cyan")
+    table.add_column("Uncertain", justify="right", style="magenta")
+    table.add_column("Total", justify="right", style="bold")
+    
+    # Add rows for each paper type
+    total_included = 0
+    total_excluded = 0
+    total_pending = 0
+    total_manual_review = 0
+    total_uncertain = 0
+    total_papers = 0
+    
+    for paper_type in sorted(papers_by_type.keys()):
+        counts = papers_by_type[paper_type]
+        included = counts[ScreeningDecision.INCLUDED.value]
+        excluded = counts[ScreeningDecision.EXCLUDED.value]
+        pending = counts[ScreeningDecision.PENDING.value]
+        manual_review = counts[ScreeningDecision.MANUAL_REVIEW.value]
+        uncertain = counts[ScreeningDecision.UNCERTAIN.value]
+        total = counts["total"]
+        
+        total_included += included
+        total_excluded += excluded
+        total_pending += pending
+        total_manual_review += manual_review
+        total_uncertain += uncertain
+        total_papers += total
+        
+        table.add_row(
+            paper_type,
+            str(included),
+            str(excluded),
+            str(pending),
+            str(manual_review),
+            str(uncertain),
+            str(total)
+        )
+    
+    # Add total row
+    table.add_row(
+        "[bold]Total[/bold]",
+        f"[bold green]{total_included}[/bold green]",
+        f"[bold red]{total_excluded}[/bold red]",
+        f"[bold yellow]{total_pending}[/bold yellow]",
+        f"[bold cyan]{total_manual_review}[/bold cyan]",
+        f"[bold magenta]{total_uncertain}[/bold magenta]",
+        f"[bold]{total_papers}[/bold]"
+    )
+    
+    console.print(table)
