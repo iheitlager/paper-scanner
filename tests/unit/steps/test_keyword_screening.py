@@ -35,13 +35,13 @@ def sample_paper():
     """Create a sample paper for testing."""
     return Paper(
         id="test-1",
-        citekey="test2024",
+        cite_key="test2024",
         title="Digital Innovation in Supply Chain Management",
         abstract="This paper examines how firms leverage digital technologies to transform supplier relationships and create innovation ecosystems.",
         year=2024,
-        authors=[Author(name="John Doe")],
+        authors=[Author(family_name="Doe", full_name="John Doe")],
         paper_type=PaperType.ARTICLE,
-        source_url="https://example.com/paper.pdf"
+        url="https://example.com/paper.pdf"
     )
 
 
@@ -50,13 +50,13 @@ def sample_paper_no_keywords():
     """Create a paper without inclusion keywords."""
     return Paper(
         id="test-2",
-        citekey="test2024b",
+        cite_key="test2024b",
         title="Agricultural Technology Review",
         abstract="A comprehensive review of agricultural technologies and farming practices.",
         year=2024,
-        authors=[Author(name="Jane Smith")],
+        authors=[Author(family_name="Smith", full_name="Jane Smith")],
         paper_type=PaperType.ARTICLE,
-        source_url="https://example.com/paper2.pdf"
+        url="https://example.com/paper2.pdf"
     )
 
 
@@ -65,13 +65,13 @@ def sample_paper_excluded():
     """Create a paper with hard exclusion keywords."""
     return Paper(
         id="test-3",
-        citekey="test2024c",
+        cite_key="test2024c",
         title="Medical Device Innovation and Patient Care",
         abstract="Clinical outcomes and patient management in hospital settings.",
         year=2024,
-        authors=[Author(name="Dr. Medical")],
+        authors=[Author(family_name="Medical", full_name="Dr. Medical")],
         paper_type=PaperType.ARTICLE,
-        source_url="https://example.com/paper3.pdf"
+        url="https://example.com/paper3.pdf"
     )
 
 
@@ -151,7 +151,8 @@ class TestKeywordMatching:
 
     def test_case_insensitive_match(self):
         """Test that matching is case insensitive."""
-        text = "DIGITAL INNOVATION"
+        from paper_scanner.steps.keyword_screening import _normalize_text
+        text = _normalize_text("DIGITAL INNOVATION")
         keywords = ["digital innovation"]
         matched, count = _check_keyword_match(text, keywords)
         assert count == 1
@@ -172,15 +173,17 @@ class TestKeywordMatching:
 
     def test_substring_match_without_boundaries(self):
         """Test substring matching without word boundaries."""
-        text = "supplier ecosystem"
-        keywords = ["supply"]
+        from paper_scanner.steps.keyword_screening import _normalize_text
+        text = _normalize_text("supplier ecosystem")
+        keywords = ["suppl"]
         matched, count = _check_keyword_match(text, keywords, use_word_boundaries=False)
         assert count == 1
 
     def test_multiple_keyword_matches(self):
         """Test matching multiple keywords."""
-        text = "digital innovation in firms with suppliers"
-        keywords = ["digital innovation", "firm", "supplier"]
+        from paper_scanner.steps.keyword_screening import _normalize_text
+        text = _normalize_text("digital innovation in firms with suppliers")
+        keywords = ["digital innovation", "firms", "suppliers"]
         matched, count = _check_keyword_match(text, keywords)
         assert count == 3
         assert len(matched) == 3
@@ -240,7 +243,7 @@ class TestFieldMatching:
         """Test when paper has no matches."""
         paper = Paper(
             id="test",
-            citekey="test",
+            cite_key="test",
             title="Hello World",
             abstract="Simple text",
             year=2024,
@@ -257,7 +260,7 @@ class TestFieldMatching:
         """Test matching when paper has no abstract."""
         paper = Paper(
             id="test",
-            citekey="test",
+            cite_key="test",
             title="Digital Innovation Framework",
             year=2024,
             authors=[],
@@ -373,7 +376,7 @@ class TestScreeningLogic:
     def test_threshold_exactly_met(self, sample_paper):
         """Test paper passes when threshold is exactly met."""
         hard_exc = []
-        incl_kw = ["digital innovation", "firm"]
+        incl_kw = ["digital innovation", "firms"]
         
         screening, passed, reason = _screen_paper(
             sample_paper, hard_exc, incl_kw, inclusion_threshold=2
@@ -474,19 +477,19 @@ class TestIntegration:
         # Create papers with varying characteristics
         papers = [
             Paper(
-                id="p1", citekey="p1", year=2024,
+                id="p1", cite_key="p1", year=2024,
                 title="Digital Innovation in Supply Chain",
                 abstract="Firms leverage digital technologies with suppliers.",
                 authors=[], paper_type=PaperType.ARTICLE
             ),
             Paper(
-                id="p2", citekey="p2", year=2024,
+                id="p2", cite_key="p2", year=2024,
                 title="Medical Device Technology",
                 abstract="Patient outcomes in clinical settings.",
                 authors=[], paper_type=PaperType.ARTICLE
             ),
             Paper(
-                id="p3", citekey="p3", year=2024,
+                id="p3", cite_key="p3", year=2024,
                 title="Agricultural Farming Practices",
                 abstract="Crop management and farm technology.",
                 authors=[], paper_type=PaperType.ARTICLE

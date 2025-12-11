@@ -384,7 +384,7 @@ def execute(
             
             # Update screening decision if appropriate
             if not passed and paper.screening.final_decision == ScreeningDecision.PENDING:
-                paper.screening.final_decision = ScreeningDecision.EXCLUDE
+                paper.screening.final_decision = ScreeningDecision.EXCLUDED
                 paper.screening.final_decision_at = datetime.now(timezone.utc)
                 paper.screening.final_decision_by = "automated:keyword_screening"
         

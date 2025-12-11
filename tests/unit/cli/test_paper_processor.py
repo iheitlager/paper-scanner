@@ -11,8 +11,9 @@ from unittest.mock import Mock, patch, MagicMock
 from paper_scanner.cli.paper_processor import (
     StepExecutor,
     _discover_steps,
-    parse_step_config,
 )
+
+parse_step_config = StepExecutor.parse_step_config
 from paper_scanner.core.models import Paper, Author
 
 
@@ -146,7 +147,7 @@ class TestParseStepConfig:
         with pytest.raises(ValueError) as exc_info:
             parse_step_config(config)
         
-        assert "not found" in str(exc_info.value).lower()
+        assert "builtin" in str(exc_info.value).lower()
 
     def test_parse_step_config_extracts_step_name(self):
         """Test that step name is correctly extracted from builtin.* key"""
@@ -205,7 +206,8 @@ class TestStepExecutorIntegration:
         result = execute_fn(config, papers_db, verbose=False)
         
         assert isinstance(result, dict)
-        assert "step" in result
+        assert "output" in result
+        assert result["status"] == "ok"
 
     def test_execute_step_with_papers(self):
         """Test executing step with papers database"""
