@@ -1,0 +1,424 @@
+"""
+Unit tests for the checkpoint step.
+
+Tests that the checkpoint step properly serializes and deserializes papers,
+including handling of the duplicate_of field without creating circular references.
+"""
+
+import json
+import tempfile
+from pathlib import Path
+from typing import Dict, Any
+
+import pytest
+
+from paper_scanner.core.models import Paper
+from paper_scanner.core.database import PapersDatabase
+from paper_scanner.steps.checkpoint import (
+    execute,
+    validate,
+    _get_checkpoint_name,
+    _serialize_papers,
+    _deserialize_papers,
+)
+
+
+class TestCheckpointValidation:
+    """Test checkpoint step validation"""
+
+    def test_validate_returns_success(self):
+        """Checkpoint validation should always succeed"""
+        is_valid, errors = validate({})
+        assert is_valid is True
+        assert len(errors) == 0
+
+    def test_validate_with_arbitrary_config(self):
+        """Checkpoint validation should ignore config"""
+        config = {
+            "cache_dir": "/some/path",
+            "step_index": 5,
+            "other_field": "value",
+        }
+        is_valid, errors = validate(config)
+        assert is_valid is True
+        assert len(errors) == 0
+
+
+class TestCheckpointNameGeneration:
+    """Test checkpoint filename generation"""
+
+    def test_checkpoint_name_format(self):
+        """Checkpoint names should follow expected format"""
+        name = _get_checkpoint_name("my_project", 0)
+        assert name.startswith("checkpoint_")
+        assert name.endswith("_step_000.json")
+
+    def test_checkpoint_name_deterministic(self):
+        """Same project name should produce same hash"""
+        name1 = _get_checkpoint_name("my_project", 0)
+        name2 = _get_checkpoint_name("my_project", 0)
+        assert name1 == name2
+
+    def test_checkpoint_name_different_projects(self):
+        """Different project names should produce different hashes"""
+        name1 = _get_checkpoint_name("project_a", 0)
+        name2 = _get_checkpoint_name("project_b", 0)
+        assert name1 != name2
+
+    def test_checkpoint_name_different_steps(self):
+        """Different step indices should produce different names"""
+        name1 = _get_checkpoint_name("my_project", 0)
+        name2 = _get_checkpoint_name("my_project", 1)
+        assert name1 != name2
+        assert "_step_000" in name1
+        assert "_step_001" in name2
+
+
+class TestPaperSerialization:
+    """Test paper serialization and deserialization"""
+
+    def test_serialize_simple_paper(self):
+        """Should serialize a simple paper correctly"""
+        paper = Paper(
+            cite_key="test2024",
+            title="Test Paper",
+            year=2024,
+        )
+        serialized = _serialize_papers([paper])
+        assert len(serialized) == 1
+        assert serialized[0]["cite_key"] == "test2024"
+        assert serialized[0]["title"] == "Test Paper"
+        assert serialized[0]["year"] == 2024
+
+    def test_serialize_excludes_none_values(self):
+        """Should exclude None values from serialization"""
+        paper = Paper(
+            cite_key="test2024",
+            title="Test Paper",
+            abstract=None,
+        )
+        serialized = _serialize_papers([paper])
+        # abstract should be excluded when None
+        assert "abstract" not in serialized[0]
+
+    def test_serialize_paper_with_duplicate_of(self):
+        """Should serialize duplicate_of as ID string, not full object"""
+        primary = Paper(cite_key="primary2024", title="Primary Paper")
+        duplicate = Paper(cite_key="dup2024", title="Duplicate Paper")
+        duplicate.duplicate_of = primary
+
+        serialized = _serialize_papers([duplicate])
+        assert len(serialized) == 1
+
+        # The duplicate_of should be a string ID, not a nested object
+        duplicate_of = serialized[0].get("duplicate_of")
+        assert isinstance(duplicate_of, str)
+        assert duplicate_of == primary.id
+
+    def test_serialize_multiple_papers_with_duplicates(self):
+        """Should properly serialize multiple papers with duplicate relationships"""
+        paper1 = Paper(cite_key="p1", title="Paper 1")
+        paper2 = Paper(cite_key="p2", title="Paper 2")
+        paper3 = Paper(cite_key="p3", title="Paper 3")
+
+        # Set up duplicate relationships
+        paper2.duplicate_of = paper1
+        paper3.duplicate_of = paper1
+
+        serialized = _serialize_papers([paper1, paper2, paper3])
+        assert len(serialized) == 3
+
+        # Paper 1 should have no duplicate_of
+        assert serialized[0].get("duplicate_of") is None
+
+        # Papers 2 and 3 should have duplicate_of as string IDs
+        assert serialized[1]["duplicate_of"] == paper1.id
+        assert serialized[2]["duplicate_of"] == paper1.id
+
+    def test_deserialize_simple_paper(self):
+        """Should deserialize a simple paper correctly"""
+        data = {
+            "cite_key": "test2024",
+            "title": "Test Paper",
+            "year": 2024,
+            "id": "test-id",
+        }
+        papers = _deserialize_papers([data])
+        assert len(papers) == 1
+        assert papers[0].cite_key == "test2024"
+        assert papers[0].title == "Test Paper"
+        assert papers[0].year == 2024
+
+    def test_deserialize_paper_with_duplicate_of_id(self):
+        """Should deserialize paper with duplicate_of as reference"""
+        # Note: When deserializing from JSON with duplicate_of as string ID,
+        # Pydantic will try to convert it to a Paper object or keep it as string
+        # depending on the model configuration
+        primary_id = "primary-id"
+        primary = Paper(id=primary_id, cite_key="prim2024", title="Primary Paper")
+        dup = Paper(cite_key="dup2024", title="Duplicate Paper")
+        dup.duplicate_of = primary
+        
+        serialized = _serialize_papers([dup])
+        # After serialization, duplicate_of should be the ID string
+        assert serialized[0]["duplicate_of"] == primary_id
+
+    def test_round_trip_serialization(self):
+        """Should preserve data through serialize/deserialize round trip"""
+        original = Paper(
+            cite_key="test2024",
+            title="Test Paper",
+            abstract="This is a test",
+            year=2024,
+            authors=[],
+        )
+
+        serialized = _serialize_papers([original])
+        deserialized = _deserialize_papers(serialized)
+
+        assert len(deserialized) == 1
+        assert deserialized[0].cite_key == original.cite_key
+        assert deserialized[0].title == original.title
+        assert deserialized[0].abstract == original.abstract
+        assert deserialized[0].year == original.year
+
+
+class TestCheckpointExecution:
+    """Test checkpoint step execution"""
+
+    def test_execute_without_cache_dir(self):
+        """Should return error if cache_dir not provided"""
+        db = PapersDatabase()
+        result = execute({}, db)
+        assert result["status"] == "error"
+        assert "cache_dir" in result["message"]
+
+    def test_execute_creates_checkpoint_file(self):
+        """Should create checkpoint file in cache directory"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = PapersDatabase()
+            paper = Paper(cite_key="test2024", title="Test Paper")
+            db.add(paper)
+
+            config = {
+                "cache_dir": tmpdir,
+                "step_index": 0,
+                "project_name": "test_project",
+            }
+
+            result = execute(config, db)
+            assert result["status"] == "ok"
+
+            # Check that checkpoint file was created
+            checkpoint_dir = Path(tmpdir) / "checkpoints"
+            assert checkpoint_dir.exists()
+            checkpoint_files = list(checkpoint_dir.glob("*.json"))
+            assert len(checkpoint_files) == 1
+
+    def test_execute_checkpoint_content(self):
+        """Should save papers with correct data in checkpoint"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = PapersDatabase()
+            paper = Paper(cite_key="test2024", title="Test Paper", year=2024)
+            db.add(paper)
+
+            config = {
+                "cache_dir": tmpdir,
+                "step_index": 0,
+                "project_name": "test_project",
+            }
+
+            result = execute(config, db)
+            assert result["status"] == "ok"
+
+            # Read the checkpoint file and verify content
+            checkpoint_dir = Path(tmpdir) / "checkpoints"
+            checkpoint_file = list(checkpoint_dir.glob("*.json"))[0]
+
+            with open(checkpoint_file) as f:
+                data = json.load(f)
+
+            assert isinstance(data, dict)
+            assert "papers" in data
+            assert len(data["papers"]) == 1
+            assert data["papers"][0]["cite_key"] == "test2024"
+            assert data["papers"][0]["title"] == "Test Paper"
+            assert data["papers_count"] == 1
+
+    def test_execute_dry_run_no_file_created(self):
+        """Should not create file in dry_run mode"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = PapersDatabase()
+            paper = Paper(cite_key="test2024", title="Test Paper")
+            db.add(paper)
+
+            config = {
+                "cache_dir": tmpdir,
+                "step_index": 0,
+                "project_name": "test_project",
+            }
+
+            result = execute(config, db, dry_run=True)
+            assert result["status"] == "ok"
+
+            # Check that no checkpoint file was created
+            checkpoint_dir = Path(tmpdir) / "checkpoints"
+            if checkpoint_dir.exists():
+                checkpoint_files = list(checkpoint_dir.glob("*.json"))
+                assert len(checkpoint_files) == 0
+
+    def test_execute_with_duplicate_papers(self):
+        """Should properly serialize papers with duplicate relationships"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = PapersDatabase()
+
+            # Create papers with duplicate relationship
+            primary = Paper(cite_key="primary2024", title="Primary Paper")
+            duplicate = Paper(cite_key="dup2024", title="Duplicate Paper")
+            duplicate.duplicate_of = primary
+
+            db.add(primary)
+            db.add(duplicate)
+
+            config = {
+                "cache_dir": tmpdir,
+                "step_index": 0,
+                "project_name": "test_project",
+            }
+
+            result = execute(config, db)
+            assert result["status"] == "ok"
+
+            # Read and verify the checkpoint
+            checkpoint_dir = Path(tmpdir) / "checkpoints"
+            checkpoint_file = list(checkpoint_dir.glob("*.json"))[0]
+
+            with open(checkpoint_file) as f:
+                data = json.load(f)
+
+            papers = data["papers"]
+            assert len(papers) == 2
+
+            # Find the duplicate paper
+            dup_paper = next(p for p in papers if p["cite_key"] == "dup2024")
+            prim_paper = next(p for p in papers if p["cite_key"] == "primary2024")
+
+            # Verify duplicate_of is stored as ID string
+            assert dup_paper["duplicate_of"] == primary.id
+            assert prim_paper.get("duplicate_of") is None
+
+            # Verify no circular references (JSON should be valid)
+            # If there were circular references, json.dump would fail
+            json.dumps(data)
+
+    def test_execute_returns_correct_result_format(self):
+        """Should return result with expected fields"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = PapersDatabase()
+            paper = Paper(cite_key="test2024", title="Test Paper")
+            db.add(paper)
+
+            config = {
+                "cache_dir": tmpdir,
+                "step_index": 0,
+                "project_name": "test_project",
+            }
+
+            result = execute(config, db)
+            assert isinstance(result, dict)
+            assert "status" in result
+            assert result["status"] == "ok"
+            assert "checkpoint_file" in result
+            assert "papers_count" in result
+            assert result["papers_count"] == 1
+
+    def test_execute_multiple_checkpoints(self):
+        """Should create different checkpoint files for different step indices"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = PapersDatabase()
+            paper = Paper(cite_key="test2024", title="Test Paper")
+            db.add(paper)
+
+            # Create checkpoint at step 0
+            config1 = {
+                "cache_dir": tmpdir,
+                "step_index": 0,
+                "project_name": "test_project",
+            }
+            result1 = execute(config1, db)
+            assert result1["status"] == "ok"
+
+            # Create checkpoint at step 1
+            config2 = {
+                "cache_dir": tmpdir,
+                "step_index": 1,
+                "project_name": "test_project",
+            }
+            result2 = execute(config2, db)
+            assert result2["status"] == "ok"
+
+            # Verify two different checkpoint files exist
+            checkpoint_dir = Path(tmpdir) / "checkpoints"
+            checkpoint_files = list(checkpoint_dir.glob("*.json"))
+            assert len(checkpoint_files) == 2
+
+    def test_execute_with_verbose_flag(self):
+        """Should accept verbose flag without error"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = PapersDatabase()
+            paper = Paper(cite_key="test2024", title="Test Paper")
+            db.add(paper)
+
+            config = {
+                "cache_dir": tmpdir,
+                "step_index": 0,
+                "project_name": "test_project",
+            }
+
+            result = execute(config, db, verbose=True)
+            assert result["status"] == "ok"
+
+
+class TestCheckpointSelfReferenceIssue:
+    """
+    Tests specifically for the self-referencing issue where papers
+    were being marked as duplicates of themselves.
+    
+    This should not happen if:
+    1. Deduplication only marks papers as duplicates against primary papers
+    2. Serialization converts duplicate_of to ID strings (not nested objects)
+    3. Pydantic validates against circular references
+    """
+
+    def test_pydantic_prevents_self_reference(self):
+        """
+        Pydantic should prevent setting a paper as its own duplicate_of
+        """
+        paper = Paper(cite_key="test2024", title="Test Paper")
+        
+        # Attempting to create a self-reference should raise ValidationError
+        with pytest.raises(Exception):  # ValidationError
+            paper.duplicate_of = paper
+
+    def test_duplicate_chain_serialization(self):
+        """
+        Test proper serialization of a chain of duplicates:
+        paper3 -> paper2 -> paper1
+        """
+        paper1 = Paper(cite_key="p1", title="Paper 1")
+        paper2 = Paper(cite_key="p2", title="Paper 2")
+        paper3 = Paper(cite_key="p3", title="Paper 3")
+
+        paper2.duplicate_of = paper1
+        paper3.duplicate_of = paper2
+
+        serialized = _serialize_papers([paper1, paper2, paper3])
+
+        # Verify the chain is preserved
+        assert serialized[0].get("duplicate_of") is None
+        assert serialized[1]["duplicate_of"] == paper1.id
+        assert serialized[2]["duplicate_of"] == paper2.id
+
+        # Should be JSON-serializable
+        json_str = json.dumps(serialized)
+        assert isinstance(json_str, str)

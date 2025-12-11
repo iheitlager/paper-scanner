@@ -16,6 +16,7 @@ from rich.console import Console
 
 from paper_scanner.core.models import Paper
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.io.json import paper_to_dict
 
 console = Console()
 
@@ -56,7 +57,7 @@ def _get_checkpoint_name(project_name: str, step_index: int) -> str:
 
 def _serialize_papers(papers: List[Paper]) -> List[Dict[str, Any]]:
     """Convert papers to JSON-serializable format"""
-    return [json.loads(p.model_dump_json(exclude_none=True)) for p in papers]
+    return [paper_to_dict(p, exclude_none=True) for p in papers]
 
 
 def _deserialize_papers(data: List[Dict[str, Any]]) -> List[Paper]:
