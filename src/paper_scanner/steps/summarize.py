@@ -4,7 +4,7 @@ Database summary step for paper scanner
 Outputs database statistics and relevant facts
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from collections import Counter
 from rich.console import Console
 from rich.table import Table
@@ -14,6 +14,58 @@ from ..core.enum import ScreeningDecision
 
 # Initialize rich console
 console = Console()
+
+
+def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Validate summarize step configuration.
+    
+    Args:
+        config: Step configuration
+        
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+    
+    # Check summary flag
+    if "summary" in config and not isinstance(config["summary"], bool):
+        errors.append("'summary' must be a boolean")
+    
+    # Check tabulate configuration
+    if "tabulate" in config:
+        tabulate = config["tabulate"]
+        if isinstance(tabulate, dict):
+            # Single tabulate config
+            if "field" not in tabulate:
+                errors.append("'tabulate' dictionary must have 'field' key")
+            elif not isinstance(tabulate["field"], str):
+                errors.append("'tabulate.field' must be a string")
+            
+            if "duplicates" in tabulate:
+                dup = tabulate["duplicates"]
+                if dup not in {False, True, "only"}:
+                    errors.append(f"'tabulate.duplicates' must be False, True, or 'only', got {dup}")
+        elif isinstance(tabulate, list):
+            # Multiple tabulate configs
+            for i, tab in enumerate(tabulate):
+                if not isinstance(tab, dict):
+                    errors.append(f"'tabulate' list item {i} must be a dictionary")
+                    continue
+                
+                if "field" not in tab:
+                    errors.append(f"'tabulate' list item {i} must have 'field' key")
+                elif not isinstance(tab["field"], str):
+                    errors.append(f"'tabulate' list item {i} 'field' must be a string")
+                
+                if "duplicates" in tab:
+                    dup = tab["duplicates"]
+                    if dup not in {False, True, "only"}:
+                        errors.append(f"'tabulate' list item {i} 'duplicates' must be False, True, or 'only'")
+        else:
+            errors.append("'tabulate' must be a dictionary or list of dictionaries")
+    
+    return len(errors) == 0, errors
 
 
 def execute(

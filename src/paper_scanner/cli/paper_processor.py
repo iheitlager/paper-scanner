@@ -10,7 +10,7 @@ import importlib
 import os
 import shutil
 from pathlib import Path
-from typing import List, Dict, Any, Callable, Optional
+from typing import List, Dict, Any, Callable, Optional, Tuple
 import yaml
 import json
 from datetime import datetime
@@ -285,6 +285,135 @@ def _load_checkpoint(checkpoint_file: Path) -> List[Any]:
 
     papers, _ = load_checkpoint(checkpoint_file)
     return papers
+
+
+def validate_definition_file(definition_file: Path, verbose: bool = False) -> Tuple[bool, List[str]]:
+    """
+    Validate definition file structure and step configurations.
+    
+    Args:
+        definition_file: Path to YAML definition file
+        verbose: Enable verbose output
+        
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+    definition_file = Path(definition_file)
+    
+    # Check file exists
+    if not definition_file.exists():
+        return False, [f"Definition file not found: {definition_file}"]
+    
+    try:
+        # Load YAML
+        with open(definition_file, "r", encoding="utf-8") as f:
+            definition = yaml.safe_load(f)
+        
+        if not definition:
+            return False, ["Definition file is empty"]
+        
+        # Check structure
+        if "steps" not in definition:
+            return False, ["Definition file missing 'steps' key"]
+        
+        steps = definition["steps"]
+        if not isinstance(steps, list):
+            return False, ["'steps' must be a list"]
+        
+        if len(steps) == 0:
+            return False, ["'steps' list is empty"]
+    
+    except Exception as e:
+        return False, [f"Error parsing YAML: {str(e)}"]
+    
+    # Validate each step
+    for i, step_config in enumerate(steps):
+        try:
+            if not isinstance(step_config, dict):
+                errors.append(f"Step {i}: Configuration is not a dictionary")
+                continue
+                
+            if "step" not in step_config:
+                errors.append(f"Step {i}: Missing 'step' key")
+                continue
+            
+            # Parse step configuration
+            step_name, step_params, description = StepExecutor.parse_step_config(step_config)
+            
+            # Check if step exists
+            if step_name not in StepExecutor.BUILTIN_STEPS:
+                errors.append(f"Step {i}: Unknown step '{step_name}'. Available: {list(StepExecutor.BUILTIN_STEPS.keys())}")
+                continue
+            
+            # Get the step module and run validation
+            step_module_name = StepExecutor.BUILTIN_STEPS[step_name]
+            step_func_module = __import__(
+                f"paper_scanner.steps.{step_module_name}",
+                fromlist=["validate"]
+            )
+            
+            if hasattr(step_func_module, "validate"):
+                is_valid, validation_errors = step_func_module.validate(step_params)
+                if not is_valid:
+                    for error in validation_errors:
+                        errors.append(f"Step {i} ({step_name}): {error}")
+        
+        except Exception as e:
+            errors.append(f"Step {i}: {str(e)}")
+    
+    return len(errors) == 0, errors
+
+
+def _validate_and_run_definition(
+    definition_file: Path,
+    verbose: bool = False,
+    dry_run: bool = False,
+    cache_dir: Optional[Path] = None,
+    skip_checkpoint: bool = False,
+    clear_checkpoint: bool = False,
+    show_timings: bool = False,
+) -> Dict[str, Any]:
+    """
+    Validate definition file, then process it.
+    
+    Args:
+        definition_file: Path to YAML definition file
+        verbose: Enable verbose output
+        dry_run: Don't actually execute steps
+        cache_dir: Optional cache directory
+        skip_checkpoint: Skip loading from checkpoints
+        clear_checkpoint: Clear all checkpoints before processing
+        show_timings: Show timing information
+        
+    Returns:
+        Execution results
+    """
+    if verbose:
+        console.print(f"Validating definition file: [bold cyan]{definition_file}[/bold cyan]")
+    
+    # Validate the definition
+    is_valid, errors = validate_definition_file(definition_file, verbose=verbose)
+    
+    if not is_valid:
+        console.print(f"\n[red bold]Validation failed:[/red bold]")
+        for error in errors:
+            console.print(f"  [red]✗[/red] {error}")
+        sys.exit(1)
+    
+    if verbose:
+        console.print(f"[green]✓ Definition file is valid[/green]\n")
+    
+    # If validation passed, proceed with execution
+    return process_definition(
+        definition_file,
+        verbose=verbose,
+        dry_run=dry_run,
+        cache_dir=cache_dir,
+        skip_checkpoint=skip_checkpoint,
+        clear_checkpoint=clear_checkpoint,
+        show_timings=show_timings,
+    )
 
 
 def process_definition(
@@ -641,6 +770,24 @@ def main():
         help="Show timing information for each step"
     )
     
+    # ===== VALIDATE COMMAND =====
+    validate_parser = subparsers.add_parser(
+        "validate",
+        help="Validate a definition file"
+    )
+    
+    validate_parser.add_argument(
+        "definition_file",
+        type=Path,
+        help="Path to YAML definition file"
+    )
+    
+    validate_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output"
+    )
+    
     # ===== CACHE COMMAND =====
     cache_parser = subparsers.add_parser(
         "cache",
@@ -682,7 +829,7 @@ def main():
     
     try:
         if args.command == "run":
-            results = process_definition(
+            results = _validate_and_run_definition(
                 args.definition_file,
                 verbose=args.verbose,
                 dry_run=args.dry_run,
@@ -703,6 +850,20 @@ def main():
             if results["errors"]:
                 sys.exit(1)
             else:
+                sys.exit(0)
+        
+        elif args.command == "validate":
+            is_valid, errors = validate_definition_file(args.definition_file, verbose=args.verbose)
+            
+            if not is_valid:
+                console.print(f"\n[red bold]Validation failed:[/red bold]")
+                for error in errors:
+                    console.print(f"  [red]✗[/red] {error}")
+                sys.exit(1)
+            else:
+                console.print(f"[green]✓ Definition file is valid[/green]")
+                if args.verbose:
+                    console.print(f"File: [cyan]{args.definition_file}[/cyan]")
                 sys.exit(0)
         
         elif args.command == "cache":

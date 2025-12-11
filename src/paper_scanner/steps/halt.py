@@ -4,7 +4,7 @@ Halt step for paper scanner
 Stops the pipeline execution at this step without error
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from rich.console import Console
 
 from ..core.models import Paper
@@ -16,6 +16,25 @@ console = Console()
 class HaltException(Exception):
     """Exception raised to halt pipeline execution"""
     pass
+
+
+def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Validate halt step configuration.
+    
+    Args:
+        config: Step configuration
+        
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+    
+    # Message is optional
+    if "message" in config and not isinstance(config["message"], str):
+        errors.append("'message' must be a string")
+    
+    return len(errors) == 0, errors
 
 
 def execute(

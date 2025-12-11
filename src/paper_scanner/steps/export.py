@@ -5,7 +5,7 @@ Exports papers database to various formats (JSONL, BibTeX)
 """
 
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 import json
 from rich.console import Console
 
@@ -15,6 +15,49 @@ from ..core.models import Paper
 
 # Initialize rich console
 console = Console()
+
+VALID_FORMATS = {"jsonl", "bibtex"}
+VALID_DUPLICATES = {False, True, "only"}
+
+
+def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Validate export step configuration.
+    
+    Args:
+        config: Step configuration
+        
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+    
+    # Check format
+    if "format" in config:
+        fmt = config["format"]
+        if fmt.lower() not in VALID_FORMATS:
+            errors.append(f"'format' must be one of {VALID_FORMATS}, got '{fmt}'")
+    
+    # Check output_path
+    if "output_path" not in config:
+        errors.append("'output_path' is required")
+    elif not isinstance(config["output_path"], str):
+        errors.append("'output_path' must be a string")
+    
+    # Check boolean fields
+    if "exclude_none" in config and not isinstance(config["exclude_none"], bool):
+        errors.append("'exclude_none' must be a boolean")
+    
+    if "overwrite" in config and not isinstance(config["overwrite"], bool):
+        errors.append("'overwrite' must be a boolean")
+    
+    # Check duplicates option
+    if "duplicates" in config:
+        dup = config["duplicates"]
+        if dup not in VALID_DUPLICATES:
+            errors.append(f"'duplicates' must be one of {VALID_DUPLICATES}, got {dup}")
+    
+    return len(errors) == 0, errors
 
 
 def execute(

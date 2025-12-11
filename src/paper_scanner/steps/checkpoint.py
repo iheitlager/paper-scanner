@@ -9,7 +9,7 @@ allowing the pipeline to resume from this checkpoint on subsequent runs.
 import json
 import hashlib
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple
 from datetime import datetime
 
 from rich.console import Console
@@ -17,6 +17,24 @@ from rich.console import Console
 from paper_scanner.core.models import Paper
 
 console = Console()
+
+
+def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Validate checkpoint step configuration.
+    
+    Args:
+        config: Step configuration
+        
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+    
+    # Checkpoint has no required configuration
+    # It's a marker step that just saves state
+    
+    return len(errors) == 0, errors
 
 
 def _get_checkpoint_name(project_name: str, step_index: int) -> str:

@@ -29,6 +29,25 @@ from ..core.enum import PaperType, StudyType, QualityTier
 console = Console()
 
 
+def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Validate categorization step configuration.
+    
+    Args:
+        config: Step configuration
+        
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+    
+    # Check enabled flag
+    if "enabled" in config and not isinstance(config["enabled"], bool):
+        errors.append("'enabled' must be a boolean")
+    
+    return len(errors) == 0, errors
+
+
 # ============================================================================
 # CATEGORIZATION RULES
 # ============================================================================
@@ -368,7 +387,13 @@ def execute(
         console.print(f"\n  [bold cyan]Categorizing {len(papers_db)} papers[/bold cyan]")
 
     # Process each paper
-    for paper in papers_db:
+    for i, paper in enumerate(papers_db):
+        # Show progress every 100 papers
+        if verbose and (i + 1) % 100 == 0:
+            import sys
+            sys.stdout.write(f"\r    Processed {i + 1}/{len(papers_db)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
+            sys.stdout.flush()
+        
         categorization, should_include, exclusion_reason = _categorize_paper(
             paper,
             verbose=verbose
@@ -410,21 +435,13 @@ def execute(
                 elif "conceptual" in exclusion_reason.lower():
                     results["exclusions"]["conceptual_paper"] += 1
 
-        if verbose and not should_include:
-            console.print(f"    [yellow]Excluded:[/yellow] {paper.title[:60]}...")
-            console.print(f"      [dim]Reason: {exclusion_reason}[/dim]")
-
     duration = time.time() - step_start_time
 
     if verbose:
-        console.print(f"    [green]✓ Categorization complete[/green]")
-        console.print(f"    [cyan]Included:[/cyan] {results['included']}")
-        console.print(f"    [cyan]Excluded:[/cyan] {results['excluded']}")
-        console.print(f"\n    [cyan]Study Types:[/cyan]")
-        for study_type, count in results["study_types"].items():
-            console.print(f"      {study_type:15s}: {count:3d}")
-        console.print(f"\n    [cyan]Quality Tiers:[/cyan]")
-        for tier, count in sorted(results["quality_tiers"].items()):
-            console.print(f"      {tier:15s}: {count:3d}")
+        # Clear the progress line and print final result
+        import sys
+        sys.stdout.write("\r" + " " * 100 + "\r")  # Clear the line
+        sys.stdout.flush()
+        console.print(f"    [green]✓ Categorization complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan]")
 
     return results

@@ -16,6 +16,58 @@ from ..core.models import Paper, DeduplicationResult, ProcessingMetadata
 # Initialize rich console
 console = Console()
 
+# Valid deduplication methods
+VALID_METHODS = {"doi_exact", "title_author_fuzzy", "title_fuzzy"}
+
+
+def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Validate deduplication step configuration.
+    
+    Args:
+        config: Step configuration
+        
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+    
+    # Get the deduplication config (might be nested or flat)
+    dedup_config = config.get("deduplication", config)
+    
+    # Check enabled flag
+    if "enabled" in dedup_config and not isinstance(dedup_config["enabled"], bool):
+        errors.append("'enabled' must be a boolean")
+    
+    # Check methods
+    if "methods" in dedup_config:
+        methods = dedup_config["methods"]
+        if not isinstance(methods, list):
+            errors.append("'methods' must be a list")
+        else:
+            for i, method in enumerate(methods):
+                if not isinstance(method, dict):
+                    errors.append(f"Method {i} must be a dictionary")
+                    continue
+                
+                method_name = method.get("method")
+                if not method_name:
+                    errors.append(f"Method {i} missing 'method' field")
+                elif method_name not in VALID_METHODS:
+                    errors.append(f"Method {i}: unknown method '{method_name}'. Valid: {VALID_METHODS}")
+                
+                if "priority" in method and not isinstance(method["priority"], int):
+                    errors.append(f"Method {i} 'priority' must be an integer")
+                
+                if "threshold" in method:
+                    threshold = method["threshold"]
+                    if not isinstance(threshold, (int, float)):
+                        errors.append(f"Method {i} 'threshold' must be a number")
+                    elif not (0.0 <= threshold <= 1.0):
+                        errors.append(f"Method {i} 'threshold' must be between 0.0 and 1.0")
+    
+    return len(errors) == 0, errors
+
 
 def _normalize_title(title: Optional[str]) -> str:
     """Normalize title for comparison"""
@@ -176,6 +228,12 @@ def execute(
         
         duplicate_found = False
         
+        # Show progress every 100 papers
+        if verbose and (i + 1) % 100 == 0:
+            import sys
+            sys.stdout.write(f"\r    Processed {i + 1}/{len(papers_db)} papers... Found {results['duplicates_found']} duplicates so far")
+            sys.stdout.flush()
+        
         # Try each method in priority order
         for method_config in methods:
             method = method_config.get("method")
@@ -225,10 +283,6 @@ def execute(
                             "confidence": round(_get_confidence(method, similarity_score), 3)
                         })
                         
-                        if verbose:
-                            console.print(f"    [yellow]Duplicate found:[/yellow] {paper.title[:60]}...")
-                            console.print(f"      [cyan]Method:[/cyan] {method}, [cyan]Linked to:[/cyan] {dup.title[:60]}...")
-                        
                         duplicate_found = True
                         break
             
@@ -262,8 +316,10 @@ def execute(
                 paper.screening.deduplication.metadata.duration_seconds = duration
     
     if verbose:
-        console.print(f"    [green]✓ Deduplication complete[/green]")
-        console.print(f"    [cyan]Duplicates found:[/cyan] {results['duplicates_found']}")
-        console.print(f"    [cyan]Unique papers:[/cyan] {len(unique_papers)}")
+        # Clear the progress line and print final result
+        import sys
+        sys.stdout.write("\r" + " " * 80 + "\r")  # Clear the line
+        sys.stdout.flush()
+        console.print(f"    [green]✓ Deduplication complete[/green] - Found [cyan]{results['duplicates_found']}[/cyan] duplicates, [cyan]{len(unique_papers)}[/cyan] unique papers")
     
     return results

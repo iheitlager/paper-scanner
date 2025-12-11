@@ -31,6 +31,77 @@ from ..core.enum import ScreeningDecision
 console = Console()
 
 
+def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Validate keyword_screening step configuration.
+    
+    Args:
+        config: Step configuration
+        
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+    
+    # Check enabled flag
+    if "enabled" in config and not isinstance(config["enabled"], bool):
+        errors.append("'enabled' must be a boolean")
+    
+    # Check word_boundaries flag
+    if "word_boundaries" in config and not isinstance(config["word_boundaries"], bool):
+        errors.append("'word_boundaries' must be a boolean")
+    
+    # Check threshold
+    if "threshold" in config:
+        threshold = config["threshold"]
+        if not isinstance(threshold, int):
+            errors.append("'threshold' must be an integer")
+        elif threshold < 0:
+            errors.append("'threshold' must be non-negative")
+    
+    # Check exclusion_keywords
+    if "exclusion_keywords" in config:
+        exc_kw = config["exclusion_keywords"]
+        if isinstance(exc_kw, dict):
+            # Nested format: validate all values are lists/strings
+            for key, val in exc_kw.items():
+                if isinstance(val, list):
+                    for item in val:
+                        if not isinstance(item, str):
+                            errors.append(f"'exclusion_keywords.{key}' must contain strings")
+                elif not isinstance(val, str):
+                    errors.append(f"'exclusion_keywords.{key}' must be a string or list of strings")
+        elif isinstance(exc_kw, list):
+            # Flat format
+            for item in exc_kw:
+                if not isinstance(item, str):
+                    errors.append("'exclusion_keywords' must contain strings")
+        else:
+            errors.append("'exclusion_keywords' must be a list or dictionary")
+    
+    # Check inclusion_keywords
+    if "inclusion_keywords" in config:
+        inc_kw = config["inclusion_keywords"]
+        if isinstance(inc_kw, dict):
+            # Nested format
+            for key, val in inc_kw.items():
+                if isinstance(val, list):
+                    for item in val:
+                        if not isinstance(item, str):
+                            errors.append(f"'inclusion_keywords.{key}' must contain strings")
+                elif not isinstance(val, str):
+                    errors.append(f"'inclusion_keywords.{key}' must be a string or list of strings")
+        elif isinstance(inc_kw, list):
+            # Flat format
+            for item in inc_kw:
+                if not isinstance(item, str):
+                    errors.append("'inclusion_keywords' must contain strings")
+        else:
+            errors.append("'inclusion_keywords' must be a list or dictionary")
+    
+    return len(errors) == 0, errors
+
+
 # ============================================================================
 # KEYWORD MATCHING UTILITIES
 # ============================================================================
@@ -369,7 +440,13 @@ def execute(
     keyword_counts = {}
     
     # Process each paper
-    for paper in papers_db:
+    for i, paper in enumerate(papers_db):
+        # Show progress every 100 papers
+        if verbose and (i + 1) % 100 == 0:
+            import sys
+            sys.stdout.write(f"\r    Processed {i + 1}/{len(papers_db)} papers... Passed: {results['passed']}, Failed: {results['failed']}")
+            sys.stdout.flush()
+        
         screening, passed, exclusion_reason = _screen_paper(
             paper,
             hard_exclusions,
@@ -408,11 +485,6 @@ def execute(
         # Track matched keywords
         for keyword in screening.inclusion_keywords:
             keyword_counts[keyword] = keyword_counts.get(keyword, 0) + 1
-        
-        if verbose and not passed:
-            console.print(f"    [yellow]Excluded:[/yellow] {paper.title[:60]}...")
-            if exclusion_reason:
-                console.print(f"      [dim]Reason: {exclusion_reason}[/dim]")
     
     # Get top matched keywords
     if keyword_counts:
@@ -423,13 +495,10 @@ def execute(
     results["duration_seconds"] = duration
     
     if verbose:
-        console.print(f"    [green]✓ Keyword screening complete[/green]")
-        console.print(f"    [cyan]Passed:[/cyan] {results['passed']}/{results['total_papers']}")
-        console.print(f"    [cyan]Failed:[/cyan] {results['failed']}/{results['total_papers']}")
-        
-        if results["top_matched_keywords"]:
-            console.print(f"\n    [cyan]Top Matched Keywords:[/cyan]")
-            for keyword, count in results["top_matched_keywords"].items():
-                console.print(f"      {keyword:30s}: {count:3d} papers")
+        # Clear the progress line and print final result
+        import sys
+        sys.stdout.write("\r" + " " * 100 + "\r")  # Clear the line
+        sys.stdout.flush()
+        console.print(f"    [green]✓ Keyword screening complete[/green] - Passed: [cyan]{results['passed']}[/cyan], Failed: [cyan]{results['failed']}[/cyan]")
     
     return results

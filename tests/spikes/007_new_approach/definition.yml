@@ -53,12 +53,12 @@ steps:
 
         - name: "IEEE - Sample"
           file_path: "tests/data/ieee_sample_20.bib"
-          source_type: "ieee"
+          source_type: "ieee_xplore"
           expected_count: 20
           
         - name: "Web of Science - Sample"
           file_path: "tests/data/wos_sample_20.bib"
-          source_type: "wos"
+          source_type: "web_of_science"
           expected_count: 20
 
   - step: "Intermediate message"

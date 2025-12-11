@@ -4,12 +4,32 @@ Echo step - simply outputs the step description
 Useful for debugging and documenting definition file execution
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 from rich.console import Console
 from ..core.models import Paper
 
 # Initialize rich console
 console = Console()
+
+
+def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Validate echo step configuration.
+    
+    Args:
+        config: Step configuration
+        
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+    
+    # Message is optional, no validation needed
+    # Just check that if provided, it's a string
+    if "message" in config and not isinstance(config["message"], str):
+        errors.append("'message' must be a string")
+    
+    return len(errors) == 0, errors
 
 
 def execute(

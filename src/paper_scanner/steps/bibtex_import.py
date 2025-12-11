@@ -5,7 +5,7 @@ Sequentially imports BibTeX files and adds papers to the database
 """
 
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
 from rich.console import Console
 import yaml
@@ -16,6 +16,58 @@ from ..core.enum import DiscoveryMethod
 
 # Initialize rich console
 console = Console()
+
+# Valid source types
+VALID_SOURCE_TYPES = {"scopus", "web_of_science", "ieee_xplore", "other"}
+
+
+def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Validate bibtex_import step configuration.
+    
+    Args:
+        config: Step configuration
+        
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    errors = []
+    
+    # Check batch_id
+    if "batch_id" in config and not isinstance(config["batch_id"], str):
+        errors.append("'batch_id' must be a string")
+    
+    # Check imports list
+    imports = config.get("imports", [])
+    if not isinstance(imports, list):
+        errors.append("'imports' must be a list")
+    else:
+        for i, imp in enumerate(imports):
+            if not isinstance(imp, dict):
+                errors.append(f"Import {i} must be a dictionary")
+                continue
+            
+            # Check required fields
+            if "file_path" not in imp:
+                errors.append(f"Import {i} missing required field 'file_path'")
+            elif not isinstance(imp["file_path"], str):
+                errors.append(f"Import {i} 'file_path' must be a string")
+            
+            if "source_type" in imp:
+                source_type = imp["source_type"]
+                if source_type not in VALID_SOURCE_TYPES:
+                    errors.append(f"Import {i} 'source_type' must be one of {VALID_SOURCE_TYPES}, got '{source_type}'")
+            
+            if "expected_count" in imp:
+                expected = imp["expected_count"]
+                if not isinstance(expected, int) or expected < 0:
+                    errors.append(f"Import {i} 'expected_count' must be a non-negative integer")
+    
+    # Check type_mapping_config_path
+    if "type_mapping_config_path" in config and not isinstance(config["type_mapping_config_path"], str):
+        errors.append("'type_mapping_config_path' must be a string")
+    
+    return len(errors) == 0, errors
 
 
 def execute(
