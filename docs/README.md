@@ -6,6 +6,28 @@ This directory contains comprehensive documentation for all steps in the paper s
 
 The paper scanner processes papers through a configurable pipeline of steps. Each step performs specific operations and can be combined to create flexible screening workflows.
 
+### Documentation Files
+
+| # | File | Purpose | Lines |
+|---|------|---------|-------|
+| 1 | `README.md` | Index, workflow patterns, best practices | 280+ |
+| 2 | `cli_validate_command.md` | Configuration validation | 180+ |
+
+
+
+| # | File | Purpose | Lines |
+|---|------|---------|-------|
+| 1 | `bibtex_import.md` | Multi-source BibTeX import step | 130+ |
+| 2 | `deduplication.md` | Duplicate detection step | 120+ |
+| 3 | `categorization.md` | Publication type filtering step | 120+ |
+| 4 | `keyword_screening.md` | Keyword-based screening step | 140+ |
+| 5 | `semantic_screening.md` | Embedding-based screening step | 144+ |
+| 6 | `checkpoint.md` | State saving step | 100+ |
+| 7 | `echo.md` | Messaging step | 90+ |
+| 8 | `halt.md` | Conditional halt step | 100+ |
+| 9 | `summarize.md` | Statistics/reporting step | 140+ |
+| 10 | `export.md` | Multi-format export step | 150+ |
+
 ### Step Categories
 
 #### **Data Import**

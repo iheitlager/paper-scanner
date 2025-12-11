@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2025-12-11
+
+### Changed
+
+- **Test Suite Refactoring**: Improved test organization and pytest compatibility
+  - Added pytest fixtures for database URL configuration
+  - Fixed module naming conflicts between `tests/classic/` and `tests/unit/` directories
+  - Activated crossref_fetcher tests with proper fixture injection
+  - Added `__init__.py` files to test directories for proper Python package structure
+  - Standardized environment variable handling for test database configuration
+
+- **Test Infrastructure Improvements**:
+  - Database URL fixture loads from `DATABASE_URL` environment variable
+  - Default fallback to `postgresql://pdfuser:pdfpass@localhost:5432/paper_scanner`
+  - Both pytest and legacy script execution modes supported
+  - Cleaner separation between pytest tests and standalone test scripts
+
+### Technical Details
+
+- Test fixtures in `tests/classic/test_crossref_fetcher.py` using `@pytest.fixture`
+- Database configuration via environment variables with sensible defaults
+- Improved test discovery and execution with proper package structure
+
+## [2.0.1] - 2025-12-11
+
+### Investigating
+
+- **Pythonic Definition API** (Spike Investigation - See `tests/spikes/007_new_approach/`)
+  - Exploring type-safe Python-based pipeline definitions as alternative to YAML
+  - Fluent builder API: `Definition("Project").bibtex_import(...).export(...).run()`
+  - Full IDE support with autocomplete and compile-time type checking
+  - Comprehensive documentation in `tests/spikes/0007_new_approach/PYTHONIC_DEFINITION_API.md`
+  - Working examples in `tests/spikes/0007_new_approach/` directory:
+    - Simple import/export workflows
+    - Complex multi-source pipelines with deduplication
+    - Conditional step logic with factory functions
+    - Batch processing across multiple years/topics
+  - Detailed comparison with YAML approach in `tests/spikes/0007_new_approach/YAML_VS_PYTHONIC_COMPARISON.md`
+  - Spike implementation in `src/paper_scanner/definition/__init__.py`
+
 ## [2.0.0] - 2025-12-11
 
 ### Added
@@ -34,8 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Technical Details
 
-- `PaperProcessor` in `core/processor.py`: step registry, execution engine, validation logic
-- Step base class in `steps/base.py`: abstract interface for all step implementations
 - Individual step modules: `bibtex_import.py`, `categorization.py`, `checkpoint.py`, etc.
 - Configuration dataclass evolved to support step-specific parameters
 
