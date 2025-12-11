@@ -7,6 +7,7 @@ Processes YAML definition files and executes sequential steps
 import argparse
 import sys
 import importlib
+import inspect
 import os
 import shutil
 from pathlib import Path
@@ -159,6 +160,7 @@ class StepExecutor:
         cache_dir: Optional[Path] = None,
         step_index: Optional[int] = None,
         project_name: str = "Unknown",
+        project_config: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Execute a single step with Ansible-style output
@@ -171,6 +173,7 @@ class StepExecutor:
             cache_dir: Cache directory (for checkpoint steps)
             step_index: Step index in definition (for checkpoint steps)
             project_name: Project name (for checkpoint steps)
+            project_config: Project configuration (for steps needing it)
 
         Returns:
             Step execution results
@@ -189,8 +192,13 @@ class StepExecutor:
         # Get the step function
         step_func = StepExecutor.get_step(step_name)
 
-        # Execute the step
-        result = step_func(step_params, papers_db, verbose=verbose, dry_run=dry_run)
+        # Execute the step - check if it accepts project_config
+        import inspect
+        sig = inspect.signature(step_func)
+        if "project_config" in sig.parameters:
+            result = step_func(step_params, papers_db, verbose=verbose, dry_run=dry_run, project_config=project_config)
+        else:
+            result = step_func(step_params, papers_db, verbose=verbose, dry_run=dry_run)
 
         # Ensure step and description are in result
         result["step"] = step_name
@@ -602,6 +610,7 @@ def process_definition(
                 cache_dir=cache_dir,
                 step_index=i - 1,  # 0-based index for checkpoint naming
                 project_name=project_name,
+                project_config=definition.get("project"),
             )
 
             # Record step timing

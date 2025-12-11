@@ -350,7 +350,7 @@ def _generate_field_table(papers_db: List[Paper], field: str, total_papers: int)
 
 def _display_screening_results(papers_db: List[Paper]) -> None:
     """
-    Display screening results breakdown by paper_type
+    Display screening results breakdown by paper_type with stage progression
     
     Args:
         papers_db: List of papers to analyze
@@ -359,79 +359,98 @@ def _display_screening_results(papers_db: List[Paper]) -> None:
         console.print("\n  [red]No papers to display screening results[/red]")
         return
     
-    # Group papers by paper_type and screening decision
+    # Group papers by paper_type and track through screening stages
     papers_by_type = {}
     
     for paper in papers_db:
         paper_type = paper.paper_type or "Unknown"
-        decision = paper.screening.final_decision.value
         
         if paper_type not in papers_by_type:
             papers_by_type[paper_type] = {
-                ScreeningDecision.INCLUDED.value: 0,
-                ScreeningDecision.EXCLUDED.value: 0,
-                ScreeningDecision.PENDING.value: 0,
-                ScreeningDecision.MANUAL_REVIEW.value: 0,
-                ScreeningDecision.UNCERTAIN.value: 0,
                 "total": 0,
+                "categorization_excluded": 0,
+                "keyword_excluded": 0,
+                "semantic_excluded": 0,
+                "manual_review": 0,
+                "included": 0,
             }
         
-        papers_by_type[paper_type][decision] += 1
         papers_by_type[paper_type]["total"] += 1
+        
+        # Track through screening stages
+        final_decision = paper.screening.final_decision.value
+        
+        # Check categorization exclusion
+        if paper.screening.categorization and not paper.screening.categorization.is_peer_reviewed:
+            papers_by_type[paper_type]["categorization_excluded"] += 1
+        # Check keyword screening exclusion
+        elif paper.screening.keyword_screening and not paper.screening.keyword_screening.passed:
+            papers_by_type[paper_type]["keyword_excluded"] += 1
+        # Check semantic screening exclusion
+        elif paper.screening.semantic_screening and not paper.screening.semantic_screening.passed:
+            papers_by_type[paper_type]["semantic_excluded"] += 1
+        # Check manual review flag
+        elif final_decision == ScreeningDecision.MANUAL_REVIEW.value:
+            papers_by_type[paper_type]["manual_review"] += 1
+        # Included
+        elif final_decision == ScreeningDecision.INCLUDED.value:
+            papers_by_type[paper_type]["included"] += 1
     
-    # Create table
-    table = Table(title="Screening Results by Paper Type")
-    table.add_column("Paper Type", style="cyan")
-    table.add_column("Included", justify="right", style="green")
-    table.add_column("Excluded", justify="right", style="red")
-    table.add_column("Pending", justify="right", style="yellow")
-    table.add_column("Manual Review", justify="right", style="cyan")
-    table.add_column("Uncertain", justify="right", style="magenta")
+    # Create comprehensive table
+    table = Table(title="Screening Results Progression")
+    table.add_column("Paper Type", style="cyan", width=18)
     table.add_column("Total", justify="right", style="bold")
+    table.add_column("Categorization\nExcluded", justify="right", style="yellow")
+    table.add_column("Keyword\nExcluded", justify="right", style="yellow")
+    table.add_column("Semantic\nExcluded", justify="right", style="yellow")
+    table.add_column("Manual\nReview", justify="right", style="blue")
+    table.add_column("Included", justify="right", style="green")
+    
+    # Totals tracking
+    total_all = 0
+    total_cat_excl = 0
+    total_kw_excl = 0
+    total_sem_excl = 0
+    total_manual = 0
+    total_included = 0
     
     # Add rows for each paper type
-    total_included = 0
-    total_excluded = 0
-    total_pending = 0
-    total_manual_review = 0
-    total_uncertain = 0
-    total_papers = 0
-    
     for paper_type in sorted(papers_by_type.keys()):
         counts = papers_by_type[paper_type]
-        included = counts[ScreeningDecision.INCLUDED.value]
-        excluded = counts[ScreeningDecision.EXCLUDED.value]
-        pending = counts[ScreeningDecision.PENDING.value]
-        manual_review = counts[ScreeningDecision.MANUAL_REVIEW.value]
-        uncertain = counts[ScreeningDecision.UNCERTAIN.value]
-        total = counts["total"]
         
-        total_included += included
-        total_excluded += excluded
-        total_pending += pending
-        total_manual_review += manual_review
-        total_uncertain += uncertain
-        total_papers += total
+        total_all += counts["total"]
+        total_cat_excl += counts["categorization_excluded"]
+        total_kw_excl += counts["keyword_excluded"]
+        total_sem_excl += counts["semantic_excluded"]
+        total_manual += counts["manual_review"]
+        total_included += counts["included"]
         
         table.add_row(
             paper_type,
-            str(included),
-            str(excluded),
-            str(pending),
-            str(manual_review),
-            str(uncertain),
-            str(total)
+            str(counts["total"]),
+            str(counts["categorization_excluded"]),
+            str(counts["keyword_excluded"]),
+            str(counts["semantic_excluded"]),
+            str(counts["manual_review"]),
+            str(counts["included"]),
         )
     
     # Add total row
     table.add_row(
         "[bold]Total[/bold]",
+        f"[bold]{total_all}[/bold]",
+        f"[bold yellow]{total_cat_excl}[/bold yellow]",
+        f"[bold yellow]{total_kw_excl}[/bold yellow]",
+        f"[bold yellow]{total_sem_excl}[/bold yellow]",
+        f"[bold blue]{total_manual}[/bold blue]",
         f"[bold green]{total_included}[/bold green]",
-        f"[bold red]{total_excluded}[/bold red]",
-        f"[bold yellow]{total_pending}[/bold yellow]",
-        f"[bold cyan]{total_manual_review}[/bold cyan]",
-        f"[bold magenta]{total_uncertain}[/bold magenta]",
-        f"[bold]{total_papers}[/bold]"
     )
     
     console.print(table)
+    
+    # Print summary statistics
+    total_excluded = total_cat_excl + total_kw_excl + total_sem_excl
+    inclusion_rate = (total_included / total_all * 100) if total_all > 0 else 0
+    
+    console.print(f"\n  [dim]Total excluded: {total_excluded} ({total_excluded/total_all*100:.1f}%)[/dim]")
+    console.print(f"  [dim]Inclusion rate: {total_included}/{total_all} ({inclusion_rate:.1f}%)[/dim]")
