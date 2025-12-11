@@ -578,63 +578,166 @@ def process_definition(
 
 def main():
     """Main entry point"""
-
-    parser = argparse.ArgumentParser(description="Process definition files and execute paper scanner steps")
-
-    parser.add_argument("definition_file", type=Path, help="Path to YAML definition file")
-
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
-
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Don't actually execute steps, just show what would happen"
+    
+    parser = argparse.ArgumentParser(
+        description="Process definition files and execute paper scanner steps"
     )
-
-    parser.add_argument("-o", "--output", type=Path, default=None, help="Output results to JSON file")
-
-    parser.add_argument(
-        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+    
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    
+    # ===== RUN COMMAND =====
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run a definition file"
     )
-
-    parser.add_argument(
-        "--no-checkpoint", action="store_true", help="Skip loading from checkpoints (start fresh from beginning)"
+    
+    run_parser.add_argument(
+        "definition_file",
+        type=Path,
+        help="Path to YAML definition file"
     )
-
-    parser.add_argument(
-        "--clear-checkpoint", action="store_true", help="Clear all checkpoints before processing (creates new ones)"
+    
+    run_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output"
     )
-
-    parser.add_argument("-t", "--timings", action="store_true", help="Show timing information for each step")
-
+    
+    run_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Don't actually execute steps, just show what would happen"
+    )
+    
+    run_parser.add_argument(
+        "-o", "--output",
+        type=Path,
+        default=None,
+        help="Output results to JSON file"
+    )
+    
+    run_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+    )
+    
+    run_parser.add_argument(
+        "--no-checkpoint",
+        action="store_true",
+        help="Skip loading from checkpoints (start fresh from beginning)"
+    )
+    
+    run_parser.add_argument(
+        "--clear-checkpoint",
+        action="store_true",
+        help="Clear all checkpoints before processing (creates new ones)"
+    )
+    
+    run_parser.add_argument(
+        "-t", "--timings",
+        action="store_true",
+        help="Show timing information for each step"
+    )
+    
+    # ===== CACHE COMMAND =====
+    cache_parser = subparsers.add_parser(
+        "cache",
+        help="Manage cache operations"
+    )
+    
+    cache_subparsers = cache_parser.add_subparsers(dest="cache_command", help="Cache operations")
+    
+    clear_parser = cache_subparsers.add_parser(
+        "clear",
+        help="Clear cache contents"
+    )
+    
+    clear_parser.add_argument(
+        "target",
+        choices=["checkpoints"],
+        help="What to clear"
+    )
+    
+    clear_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+    )
+    
+    clear_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output"
+    )
+    
     args = parser.parse_args()
-
+    
+    # Handle no command provided
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+    
     try:
-        results = process_definition(
-            args.definition_file,
-            verbose=args.verbose,
-            dry_run=args.dry_run,
-            cache_dir=args.cache_dir,
-            skip_checkpoint=args.no_checkpoint,
-            clear_checkpoint=args.clear_checkpoint,
-            show_timings=args.timings,
-        )
-
-        # Output results
-        if args.output:
-            with open(args.output, "w", encoding="utf-8") as f:
-                json.dump(results, f, indent=2, default=str)
-            if args.verbose:
-                console.print(f"\n[green]Results saved to:[/green] [bold cyan]{args.output}[/bold cyan]")
-
-        # Exit with appropriate code
-        if results["errors"]:
-            sys.exit(1)
-        else:
-            sys.exit(0)
-
+        if args.command == "run":
+            results = process_definition(
+                args.definition_file,
+                verbose=args.verbose,
+                dry_run=args.dry_run,
+                cache_dir=args.cache_dir,
+                skip_checkpoint=args.no_checkpoint,
+                clear_checkpoint=args.clear_checkpoint,
+                show_timings=args.timings
+            )
+            
+            # Output results
+            if args.output:
+                with open(args.output, 'w', encoding='utf-8') as f:
+                    json.dump(results, f, indent=2, default=str)
+                if args.verbose:
+                    console.print(f"\n[green]Results saved to:[/green] [bold cyan]{args.output}[/bold cyan]")
+            
+            # Exit with appropriate code
+            if results["errors"]:
+                sys.exit(1)
+            else:
+                sys.exit(0)
+        
+        elif args.command == "cache":
+            if not args.cache_command:
+                cache_parser.print_help()
+                sys.exit(1)
+            
+            if args.cache_command == "clear":
+                # Determine cache_dir
+                cache_dir = args.cache_dir
+                if cache_dir is None:
+                    cache_dir = Path(os.getenv("CACHE_DIR", ""))
+                    if not cache_dir or str(cache_dir) == ".":
+                        cache_dir = None
+                
+                if cache_dir is None:
+                    cache_dir = Path("~/.paper-scanner").expanduser()
+                else:
+                    cache_dir = cache_dir.expanduser()
+                
+                if args.target == "checkpoints":
+                    checkpoints_dir = cache_dir / "checkpoints"
+                    
+                    if args.verbose:
+                        console.print(f"Cache directory: [cyan]{cache_dir}[/cyan]")
+                        console.print(f"Target: [yellow]checkpoints[/yellow]")
+                    
+                    if checkpoints_dir.exists():
+                        shutil.rmtree(checkpoints_dir)
+                        console.print(f"[green]✓ Cleared checkpoints[/green]: {checkpoints_dir}")
+                    else:
+                        console.print(f"[green]✓ No checkpoints to clear[/green] (directory is clean)")
+                    
+                    sys.exit(0)
+    
     except Exception as e:
         console.print(f"[red bold]Error:[/red bold] {e}", style="red")
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
