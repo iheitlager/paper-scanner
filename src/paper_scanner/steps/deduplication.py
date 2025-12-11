@@ -77,13 +77,17 @@ def _normalize_title(title: Optional[str]) -> str:
     return " ".join(title.lower().split())
 
 
-def _doi_exact_match(paper: Paper, existing_papers: List[Paper]) -> Optional[Tuple[str, float]]:
-    """Check for exact DOI match - returns (paper_id, similarity_score)"""
+def _doi_exact_match(paper: Paper, papers_db: PapersDatabase) -> Optional[Tuple[str, float]]:
+    """Check for exact DOI match using indexed lookup - returns (paper_id, similarity_score)"""
     if not paper.doi:
         return None
     
-    for existing in existing_papers:
-        if existing.doi and existing.doi.lower() == paper.doi.lower():
+    # Use the indexed lookup for O(1) performance
+    matching_papers = papers_db.get_by_doi(paper.doi)
+    if matching_papers:
+        # Return the first match (there should only be one with same DOI)
+        existing = matching_papers[0]
+        if existing.id != paper.id:  # Make sure it's not the same paper
             return (existing.id, 1.0)
     
     return None
@@ -105,6 +109,10 @@ def _title_author_fuzzy_match(
     first_author = paper.authors[0].family_name.lower()
     
     for existing in existing_papers:
+        # Skip the same paper
+        if existing.id == paper.id:
+            continue
+            
         if not existing.title or not existing.authors:
             continue
         
@@ -133,6 +141,10 @@ def _title_fuzzy_match(
     norm_title = _normalize_title(paper.title)
     
     for existing in existing_papers:
+        # Skip the same paper
+        if existing.id == paper.id:
+            continue
+            
         if not existing.title:
             continue
         
@@ -219,13 +231,16 @@ def execute(
         console.print(f"\n  [bold cyan]Deduplicating {papers_db.count(primary_only=False)} papers[/bold cyan]")
         console.print(f"    [yellow]Methods:[/yellow] {', '.join([m.get('method') for m in methods])}")
     
-    # Get all papers and track which have been processed as unique
+    # Get all papers
     all_papers = papers_db.to_list(primary_only=False)
-    unique_papers = []
+    
+    # Track papers already processed
+    processed_ids = set()
     
     for i, paper in enumerate(all_papers):
         # Skip if already marked as duplicate
         if paper.duplicate_of is not None:
+            processed_ids.add(paper.id)
             continue
         
         duplicate_found = False
@@ -242,59 +257,71 @@ def execute(
             threshold = method_config.get("threshold", 0.95)
             
             match_result = None
+            matching_paper = None
             
             if method == "doi_exact":
-                match_result = _doi_exact_match(paper, unique_papers)
+                # Use indexed lookup for O(1) performance
+                match_result = _doi_exact_match(paper, papers_db)
+                if match_result:
+                    duplicate_id, similarity_score = match_result
+                    matching_paper = papers_db.get_by_id(duplicate_id)
             elif method == "title_author_fuzzy":
-                match_result = _title_author_fuzzy_match(paper, unique_papers, threshold)
+                # For fuzzy matching, we need to check against primary papers only
+                primary_papers = papers_db.to_list(primary_only=True)
+                match_result = _title_author_fuzzy_match(paper, primary_papers, threshold)
+                if match_result:
+                    duplicate_id, similarity_score = match_result
+                    matching_paper = papers_db.get_by_id(duplicate_id)
             elif method == "title_fuzzy":
-                match_result = _title_fuzzy_match(paper, unique_papers, threshold)
+                # For fuzzy matching, check against primary papers only
+                primary_papers = papers_db.to_list(primary_only=True)
+                match_result = _title_fuzzy_match(paper, primary_papers, threshold)
+                if match_result:
+                    duplicate_id, similarity_score = match_result
+                    matching_paper = papers_db.get_by_id(duplicate_id)
             
-            if match_result:
+            if match_result and matching_paper:
                 duplicate_id, similarity_score = match_result
                 
-                # Find the duplicate paper and link it
-                for dup in unique_papers:
-                    if dup.id == duplicate_id:
-                        if not dry_run:
-                            # 1. Set simple duplicate_of field
-                            paper.duplicate_of = dup
-                            
-                            # 2. Create full audit trail in screening model
-                            paper.screening.deduplication = DeduplicationResult(
-                                is_duplicate=True,
-                                duplicate_of=dup,
-                                similarity_score=similarity_score,
-                                method=method,
-                                confidence=_get_confidence(method, similarity_score),
-                                metadata=ProcessingMetadata(
-                                    timestamp=datetime.now(timezone.utc),
-                                    success=True
-                                )
-                            )
-                            paper.screening.current_stage = "deduplication_complete"
-                            
-                            # Update the paper in the database
-                            papers_db.update(paper)
-                        
-                        results["duplicates_found"] += 1
-                        results["duplicates"].append({
-                            "paper_id": paper.id,
-                            "paper_title": paper.title,
-                            "duplicate_of_id": duplicate_id,
-                            "duplicate_of_title": dup.title,
-                            "method": method,
-                            "similarity_score": round(similarity_score, 3),
-                            "confidence": round(_get_confidence(method, similarity_score), 3)
-                        })
-                        
-                        duplicate_found = True
-                        break
+                if not dry_run:
+                    # 1. Set simple duplicate_of field
+                    paper.duplicate_of = matching_paper
+                    
+                    # 2. Create full audit trail in screening model
+                    paper.screening.deduplication = DeduplicationResult(
+                        is_duplicate=True,
+                        duplicate_of=matching_paper,
+                        similarity_score=similarity_score,
+                        method=method,
+                        confidence=_get_confidence(method, similarity_score),
+                        metadata=ProcessingMetadata(
+                            timestamp=datetime.now(timezone.utc),
+                            success=True
+                        )
+                    )
+                    paper.screening.current_stage = "deduplication_complete"
+                    
+                    # Update the paper in the database
+                    papers_db.update(paper)
+                
+                results["duplicates_found"] += 1
+                results["duplicates"].append({
+                    "paper_id": paper.id,
+                    "paper_title": paper.title,
+                    "duplicate_of_id": duplicate_id,
+                    "duplicate_of_title": matching_paper.title,
+                    "method": method,
+                    "similarity_score": round(similarity_score, 3),
+                    "confidence": round(_get_confidence(method, similarity_score), 3)
+                })
+                
+                duplicate_found = True
+                break
             
             if duplicate_found:
                 break
         
-        # If not a duplicate, add to unique papers
+        # If not a duplicate, mark as non-duplicate in screening model
         if not duplicate_found:
             if not dry_run:
                 # Mark as non-duplicate in screening model
@@ -314,7 +341,8 @@ def execute(
                 # Update the paper in the database
                 papers_db.update(paper)
             
-            unique_papers.append(paper)
+            # Note: We don't maintain a separate unique_papers list anymore
+            # Duplicates are tracked via the duplicate_of field in the database
     
     # Record processing time
     duration = time.time() - step_start_time
@@ -328,6 +356,7 @@ def execute(
         import sys
         sys.stdout.write("\r" + " " * 80 + "\r")  # Clear the line
         sys.stdout.flush()
-        console.print(f"    [green]✓ Deduplication complete[/green] - Found [cyan]{results['duplicates_found']}[/cyan] duplicates, [cyan]{len(unique_papers)}[/cyan] unique papers")
+        unique_count = papers_db.count(primary_only=True)  # Count primary papers (non-duplicates)
+        console.print(f"    [green]✓ Deduplication complete[/green] - Found [cyan]{results['duplicates_found']}[/cyan] duplicates, [cyan]{unique_count}[/cyan] unique papers")
     
     return results
