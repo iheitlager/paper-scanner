@@ -3,13 +3,15 @@
 This directory contains exploratory tests for future features and experimental work. Spikes help us evaluate new technologies, approaches, or ideas before committing to implementation.
 
 ## Spike Index
-
 | Spike | Description | Addition Date | Status |
 |-------|-------------|--------------|--------|
-| [001_first_tests](001_first_tests/README.md) | Initial batch processing, flush, JSON, and parser experiments | 2025-07-19 | Complete |
-| [002_browser](002_browser/README.md) | Flask + React frontend with PostgreSQL and Docker for file browser | 2025-12-02 | Integrated |
-| [003_local_llm](003_local_llm/README.md) | Ollama integration and Small Language Model (SLM) support | 2025-12-03 | Integrated |
-| [004_embedding](004_embedding/README.md) | Vector embeddings exploration for semantic search | 2025-12-04 | In Progress |
+| [001_first_tests](001_first_tests/) | Initial batch processing, flush, JSON, and parser experiments | 2024-07-19 | Complete |
+| [002_browser](002_browser/) | Flask + React frontend with PostgreSQL and Docker for file browser | 2024-12-02 | Integrated |
+| [003_local_llm](003_local_llm/) | Ollama integration and Small Language Model (SLM) support | 2024-12-03 | Integrated |
+| [004_embedding](004_embedding/) | Vector embeddings exploration for semantic search | 2024-12-04 | In Progress |
+| [005_references](005_references/) | Reference extraction and citation management exploration | 2024-12-05 | Not Started |
+| [006_bibtex](006_bibtex/) | BibTeX import/export, PDF processing, and Crossref reference fetching | 2024-12-06 | In Progress |
+| [007_new_approach](007_new_approach/) | Pythonic definition API exploration as alternative to YAML | 2024-12-11 | In Progress |
 
 ## Purpose
 
