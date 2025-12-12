@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - New `input` step for importing JSON Lines data from files or stdin with minimal processing (no enrichment)
+- New `patch` step for updating existing paper records by DOI with replace and append field operations
+
+### Fixed
+
+- **Screening summary duplicate awareness**: Screening results table now separates duplicate records from primary papers in the display, preventing double-counting of duplicates in screening statistics. Duplicates are shown as a separate row with "-" for screening stages. Summary statistics (inclusion rate, exclusion counts) now only count primary papers.
+- **Deduplication matching**: Enhanced deduplication to properly track and identify duplicate papers across multiple matching methods (DOI exact, title-author fuzzy, title fuzzy)
 
 ## [2.1.0] - 2025-12-11
 

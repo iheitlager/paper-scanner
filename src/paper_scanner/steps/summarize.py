@@ -361,10 +361,14 @@ def _display_screening_results(papers_db: List[Paper]) -> None:
         console.print("\n  [red]No papers to display screening results[/red]")
         return
     
-    # Group papers by paper_type and track through screening stages
+    # Separate primary papers from duplicates
+    primary_papers = [p for p in papers_db if p.duplicate_of is None]
+    duplicate_papers = [p for p in papers_db if p.duplicate_of is not None]
+    
+    # Group primary papers by paper_type and track through screening stages
     papers_by_type = {}
     
-    for paper in papers_db:
+    for paper in primary_papers:
         paper_type = paper.paper_type or "Unknown"
         
         if paper_type not in papers_by_type:
@@ -409,7 +413,7 @@ def _display_screening_results(papers_db: List[Paper]) -> None:
     table.add_column("Included", justify="right", style="green")
     
     # Totals tracking
-    total_all = 0
+    total_primary = 0
     total_cat_excl = 0
     total_kw_excl = 0
     total_sem_excl = 0
@@ -420,7 +424,7 @@ def _display_screening_results(papers_db: List[Paper]) -> None:
     for paper_type in sorted(papers_by_type.keys()):
         counts = papers_by_type[paper_type]
         
-        total_all += counts["total"]
+        total_primary += counts["total"]
         total_cat_excl += counts["categorization_excluded"]
         total_kw_excl += counts["keyword_excluded"]
         total_sem_excl += counts["semantic_excluded"]
@@ -437,7 +441,20 @@ def _display_screening_results(papers_db: List[Paper]) -> None:
             str(counts["included"]),
         )
     
-    # Add total row
+    # Add duplicates row if any exist
+    if duplicate_papers:
+        table.add_row(
+            "[dim]Duplicates[/dim]",
+            f"[dim]{len(duplicate_papers)}[/dim]",
+            "[dim]-[/dim]",
+            "[dim]-[/dim]",
+            "[dim]-[/dim]",
+            "[dim]-[/dim]",
+            "[dim]-[/dim]",
+        )
+    
+    # Add total row (only counting primary papers in screening totals)
+    total_all = total_primary + len(duplicate_papers)
     table.add_row(
         "[bold]Total[/bold]",
         f"[bold]{total_all}[/bold]",
@@ -452,7 +469,9 @@ def _display_screening_results(papers_db: List[Paper]) -> None:
     
     # Print summary statistics
     total_excluded = total_cat_excl + total_kw_excl + total_sem_excl
-    inclusion_rate = (total_included / total_all * 100) if total_all > 0 else 0
+    inclusion_rate = (total_included / total_primary * 100) if total_primary > 0 else 0
     
-    console.print(f"\n  [dim]Total excluded: {total_excluded} ({total_excluded/total_all*100:.1f}%)[/dim]")
-    console.print(f"  [dim]Inclusion rate: {total_included}/{total_all} ({inclusion_rate:.1f}%)[/dim]")
+    console.print(f"\n  [dim]Total excluded: {total_excluded} ({total_excluded/total_primary*100:.1f}%)[/dim]" if total_primary > 0 else f"\n  [dim]Total excluded: {total_excluded}[/dim]")
+    console.print(f"  [dim]Inclusion rate: {total_included}/{total_primary} ({inclusion_rate:.1f}%)[/dim]" if total_primary > 0 else f"  [dim]Inclusion rate: {total_included}/0[/dim]")
+    if duplicate_papers:
+        console.print(f"  [dim]Duplicate records: {len(duplicate_papers)}[/dim]")

@@ -20,15 +20,16 @@ The paper scanner processes papers through a configurable pipeline of steps. Eac
 | 1 | `bibtex_import.md` | Multi-source BibTeX import step | 130+ |
 | 2 | `input.md` | JSON Lines file or stdin import step | 130+ |
 | 3 | `load_files.md` | PDF folder scanning and Crossref metadata fetching | 140+ |
-| 4 | `deduplication.md` | Duplicate detection step | 120+ |
-| 5 | `categorization.md` | Publication type filtering step | 120+ |
-| 6 | `keyword_screening.md` | Keyword-based screening step | 140+ |
-| 7 | `semantic_screening.md` | Embedding-based screening step | 144+ |
-| 8 | `checkpoint.md` | State saving step | 100+ |
-| 9 | `echo.md` | Messaging step | 90+ |
-| 10 | `halt.md` | Conditional halt step | 100+ |
-| 11 | `summarize.md` | Statistics/reporting step | 140+ |
-| 12 | `export.md` | Multi-format export step | 150+ |
+| 4 | `patch.md` | Update existing papers by DOI with replace/append operations | 190+ |
+| 5 | `deduplication.md` | Duplicate detection step | 120+ |
+| 6 | `categorization.md` | Publication type filtering step | 120+ |
+| 7 | `keyword_screening.md` | Keyword-based screening step | 140+ |
+| 8 | `semantic_screening.md` | Embedding-based screening step | 144+ |
+| 9 | `checkpoint.md` | State saving step | 100+ |
+| 10 | `echo.md` | Messaging step | 90+ |
+| 11 | `halt.md` | Conditional halt step | 100+ |
+| 12 | `summarize.md` | Statistics/reporting step | 140+ |
+| 13 | `export.md` | Multi-format export step | 150+ |
 
 ### Step Categories
 
@@ -36,6 +37,9 @@ The paper scanner processes papers through a configurable pipeline of steps. Eac
 - [**BibTeX Import**](./steps/bibtex_import.md) - Load papers from BibTeX files with batch tracking
 - [**Input**](./steps/input.md) - Import papers from JSON Lines files or stdin
 - [**Load Files**](./steps/load_files.md) - Extract metadata from PDF files and fetch from Crossref
+
+#### **Data Maintenance**
+- [**Patch**](./steps/patch.md) - Update existing papers by DOI with field replacements and appends
 
 #### **Data Quality**
 - [**Deduplication**](./steps/deduplication.md) - Remove duplicate papers using multi-method matching

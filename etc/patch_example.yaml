@@ -1,0 +1,7 @@
+patches:
+  - doi: "10.1080/10864415.2024.2332047"
+    replace_fields:
+      abstract: "blabla"
+    append_fields:
+      keywords:
+        - "new-keyword"

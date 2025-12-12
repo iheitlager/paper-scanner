@@ -9,6 +9,7 @@ import sys
 import importlib
 import os
 import shutil
+import signal
 from pathlib import Path
 from typing import List, Dict, Any, Callable, Optional, Tuple
 import yaml
@@ -24,6 +25,9 @@ from rich.panel import Panel
 from paper_scanner.core.models import Paper
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.halt import HaltException
+
+# Handle broken pipe gracefully (when piping to head, wc, etc.)
+signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 # Initialize rich console for colored output
 console = Console(file=sys.stderr)
@@ -56,11 +60,21 @@ def _discover_steps() -> Dict[str, str]:
     return available_steps
 
 
-class StepExecutor:
-    """Executor for definition file steps"""
+class _StepExecutorMeta(type):
+    """Metaclass for lazy loading BUILTIN_STEPS on first access"""
+    
+    _cache: Optional[Dict[str, str]] = None
+    
+    @property
+    def BUILTIN_STEPS(cls) -> Dict[str, str]:
+        """Lazy load steps on first access"""
+        if cls._cache is None:
+            cls._cache = _discover_steps()
+        return cls._cache
 
-    # Discover steps on class load
-    BUILTIN_STEPS = _discover_steps()
+
+class StepExecutor(metaclass=_StepExecutorMeta):
+    """Executor for definition file steps"""
 
     @staticmethod
     def get_step(step_name: str) -> Callable:
@@ -73,11 +87,12 @@ class StepExecutor:
         Returns:
             Step execute function
         """
+        builtin_steps = StepExecutor.BUILTIN_STEPS
 
-        if step_name not in StepExecutor.BUILTIN_STEPS:
-            raise ValueError(f"Unknown step: {step_name}. Available: {list(StepExecutor.BUILTIN_STEPS.keys())}")
+        if step_name not in builtin_steps:
+            raise ValueError(f"Unknown step: {step_name}. Available: {list(builtin_steps.keys())}")
 
-        module_name = StepExecutor.BUILTIN_STEPS[step_name]
+        module_name = builtin_steps[step_name]
         try:
             module = importlib.import_module(f".{module_name}", package="paper_scanner.steps")
             return module.execute
@@ -359,12 +374,13 @@ def validate_definition_file(definition_file: Path, verbose: bool = False) -> Tu
             step_name, step_params, description = StepExecutor.parse_step_config(step_config)
             
             # Check if step exists
-            if step_name not in StepExecutor.BUILTIN_STEPS:
-                errors.append(f"Step {i}: Unknown step '{step_name}'. Available: {list(StepExecutor.BUILTIN_STEPS.keys())}")
+            builtin_steps = StepExecutor.BUILTIN_STEPS
+            if step_name not in builtin_steps:
+                errors.append(f"Step {i}: Unknown step '{step_name}'. Available: {list(builtin_steps.keys())}")
                 continue
             
             # Get the step module and run validation
-            step_module_name = StepExecutor.BUILTIN_STEPS[step_name]
+            step_module_name = builtin_steps[step_name]
             step_func_module = __import__(
                 f"paper_scanner.steps.{step_module_name}",
                 fromlist=["validate"]

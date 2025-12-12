@@ -21,32 +21,22 @@ def test_wos_loader():
     
     bib_file = '/Users/iheitlager/wc/innovation-review/raw/search 2025-04-19 - 690 - no review - excluded.bib'
     
-    if not Path(bib_file).exists():
-        print(f"✗ WOS BibTeX file not found: {bib_file}")
-        return False
+    assert Path(bib_file).exists(), f"WOS BibTeX file not found: {bib_file}"
     
-    try:
-        reader = BibtexReader(bib_file)
-        papers = reader.parse()
-        print(f"✓ Successfully parsed {len(papers)} papers from WOS BibTeX file")
-        
-        # Show sample paper
-        if papers:
-            p = papers[0]
-            print(f"\nSample WOS paper:")
-            print(f"  Citekey: {p.citekey}")
-            print(f"  Title: {p.title[:80] if p.title else 'N/A'}")
-            print(f"  Authors: {len(p.authors) if p.authors else 0} authors")
-            print(f"  Keywords: {len(p.keywords) if p.keywords else 0} keywords")
-            print(f"  Keywords Extra: {len(p.keywords_extra) if p.keywords_extra else 0} keywords")
-            print(f"  Source Details keys: {list(p.source_details.keys()) if p.source_details else []}")
-        
-        return True
-    except Exception as e:
-        print(f"✗ Failed to load WOS BibTeX: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+    reader = BibtexReader(bib_file)
+    papers = reader.parse()
+    print(f"✓ Successfully parsed {len(papers)} papers from WOS BibTeX file")
+    
+    # Show sample paper
+    if papers:
+        p = papers[0]
+        print(f"\nSample WOS paper:")
+        print(f"  Citekey: {p.citekey}")
+        print(f"  Title: {p.title[:80] if p.title else 'N/A'}")
+        print(f"  Authors: {len(p.authors) if p.authors else 0} authors")
+        print(f"  Keywords: {len(p.keywords) if p.keywords else 0} keywords")
+        print(f"  Keywords Extra: {len(p.keywords_extra) if p.keywords_extra else 0} keywords")
+        print(f"  Source Details keys: {list(p.source_details.keys()) if p.source_details else []}")
 
 
 def test_scopus_loader():
@@ -57,32 +47,22 @@ def test_scopus_loader():
     
     bib_file = '/Users/iheitlager/wc/scopus_export_Dec 5-2025_4146c5e5-b8ab-42a4-b0a5-e7f5e035fd82.bib'
     
-    if not Path(bib_file).exists():
-        print(f"✗ Scopus BibTeX file not found: {bib_file}")
-        return False
+    assert Path(bib_file).exists(), f"Scopus BibTeX file not found: {bib_file}"
     
-    try:
-        reader = BibtexReader(bib_file)
-        papers = reader.parse()
-        print(f"✓ Successfully parsed {len(papers)} papers from Scopus BibTeX file")
-        
-        # Show sample paper
-        if papers:
-            p = papers[0]
-            print(f"\nSample Scopus paper:")
-            print(f"  Citekey: {p.citekey}")
-            print(f"  Title: {p.title[:80] if p.title else 'N/A'}")
-            print(f"  Authors: {len(p.authors) if p.authors else 0} authors")
-            print(f"  Keywords: {len(p.keywords) if p.keywords else 0} keywords")
-            print(f"  Keywords Extra: {len(p.keywords_extra) if p.keywords_extra else 0} keywords")
-            print(f"  Source Details keys: {list(p.source_details.keys()) if p.source_details else []}")
-        
-        return True
-    except Exception as e:
-        print(f"✗ Failed to load Scopus BibTeX: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+    reader = BibtexReader(bib_file)
+    papers = reader.parse()
+    print(f"✓ Successfully parsed {len(papers)} papers from Scopus BibTeX file")
+    
+    # Show sample paper
+    if papers:
+        p = papers[0]
+        print(f"\nSample Scopus paper:")
+        print(f"  Citekey: {p.citekey}")
+        print(f"  Title: {p.title[:80] if p.title else 'N/A'}")
+        print(f"  Authors: {len(p.authors) if p.authors else 0} authors")
+        print(f"  Keywords: {len(p.keywords) if p.keywords else 0} keywords")
+        print(f"  Keywords Extra: {len(p.keywords_extra) if p.keywords_extra else 0} keywords")
+        print(f"  Source Details keys: {list(p.source_details.keys()) if p.source_details else []}")
 
 
 def test_source_detection():
@@ -130,40 +110,22 @@ def test_json_serialization():
         {'first_name': 'Jane', 'last_name': 'Smith', 'initials': 'J'},
     ]
     
-    try:
-        # This is what happens in the _insert_paper method
-        json_data = Json(authors)
-        print(f"✓ Successfully serialized authors to JSON: {type(json_data)}")
-        return True
-    except Exception as e:
-        print(f"✗ Failed to serialize authors: {e}")
-        return False
+    # This is what happens in the _insert_paper method
+    json_data = Json(authors)
+    print(f"✓ Successfully serialized authors to JSON: {type(json_data)}")
 
 
 if __name__ == '__main__':
-    results = []
-    
     print("\n" + "="*100)
     print("DUAL-SOURCE BibTeX LOADER TEST SUITE")
     print("="*100)
     
     # Run tests
-    results.append(("WOS Loader", test_wos_loader()))
-    results.append(("Scopus Loader", test_scopus_loader()))
-    results.append(("Source Detection", test_source_detection()))
-    results.append(("JSON Serialization", test_json_serialization()))
+    test_wos_loader()
+    test_scopus_loader()
+    test_source_detection()
+    test_json_serialization()
     
-    # Summary
     print("\n" + "="*80)
-    print("TEST SUMMARY")
+    print("TEST SUITE COMPLETE")
     print("="*80)
-    
-    for test_name, result in results:
-        status = "✓ PASS" if result else "✗ FAIL"
-        print(f"{test_name}: {status}")
-    
-    passed = sum(1 for _, r in results if r)
-    total = len(results)
-    print(f"\nTotal: {passed}/{total} tests passed")
-    
-    sys.exit(0 if passed == total else 1)
