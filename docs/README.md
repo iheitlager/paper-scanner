@@ -18,21 +18,23 @@ The paper scanner processes papers through a configurable pipeline of steps. Eac
 | # | File | Purpose | Lines |
 |---|------|---------|-------|
 | 1 | `bibtex_import.md` | Multi-source BibTeX import step | 130+ |
-| 2 | `load_files.md` | PDF folder scanning and Crossref metadata fetching | 140+ |
-| 3 | `deduplication.md` | Duplicate detection step | 120+ |
-| 4 | `categorization.md` | Publication type filtering step | 120+ |
-| 5 | `keyword_screening.md` | Keyword-based screening step | 140+ |
-| 6 | `semantic_screening.md` | Embedding-based screening step | 144+ |
-| 7 | `checkpoint.md` | State saving step | 100+ |
-| 8 | `echo.md` | Messaging step | 90+ |
-| 9 | `halt.md` | Conditional halt step | 100+ |
-| 10 | `summarize.md` | Statistics/reporting step | 140+ |
-| 11 | `export.md` | Multi-format export step | 150+ |
+| 2 | `input.md` | JSON Lines file or stdin import step | 130+ |
+| 3 | `load_files.md` | PDF folder scanning and Crossref metadata fetching | 140+ |
+| 4 | `deduplication.md` | Duplicate detection step | 120+ |
+| 5 | `categorization.md` | Publication type filtering step | 120+ |
+| 6 | `keyword_screening.md` | Keyword-based screening step | 140+ |
+| 7 | `semantic_screening.md` | Embedding-based screening step | 144+ |
+| 8 | `checkpoint.md` | State saving step | 100+ |
+| 9 | `echo.md` | Messaging step | 90+ |
+| 10 | `halt.md` | Conditional halt step | 100+ |
+| 11 | `summarize.md` | Statistics/reporting step | 140+ |
+| 12 | `export.md` | Multi-format export step | 150+ |
 
 ### Step Categories
 
 #### **Data Import**
 - [**BibTeX Import**](./steps/bibtex_import.md) - Load papers from BibTeX files with batch tracking
+- [**Input**](./steps/input.md) - Import papers from JSON Lines files or stdin
 - [**Load Files**](./steps/load_files.md) - Extract metadata from PDF files and fetch from Crossref
 
 #### **Data Quality**
