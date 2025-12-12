@@ -48,39 +48,38 @@ uv sync
 uv sync --all-groups
 ```
 
-### Basic Usage - CLI Pipeline
+### Basic Usage - Pipeline YAML
 
 ```bash
-# Scan a folder for PDFs
-$ file-scanner /path/to/pdfs -o pdfs_found.jsonl
+# Create a definition file
+cat > definition.yml << 'EOF'
+project:
+  name: "Literature Review"
 
-# Process PDFs with Claude using the generic paper-processor
-$ paper-processor \
-  -i pdfs_found.jsonl \
-  -o analyzed.jsonl \
-  --config config.yml \
-  -v
+pipeline:
+  - step: Import papers
+    builtin.bibtex_import:
+      batch_id: "batch_001"
+      imports:
+        - name: "Papers"
+          file_path: "data/papers.bib"
+          source_type: "scopus"
 
-# Or use it in a pipeline with file-scanner
-$ file-scanner /path/to/pdfs | paper-processor --config config.yml -q >| analyzed.jsonl
+  - step: Remove duplicates
+    builtin.deduplication:
+      method: "all"
 
-# Extract limited text from large PDFs (first 25000 chars)
-$ paper-processor \
-  -i pdfs_found.jsonl \
-  -o analyzed.jsonl \
-  --config config.yml \
-  -c 25000 \
-  --add-metadata
+  - step: Export results
+    builtin.export:
+      format: "jsonl"
+      output: "results.jsonl"
+EOF
 
-# Parse the analysis results
-$ uv run python -m paper_scanner.tools.file_parser \
-  -i analyzed.jsonl \
-  -o parsed.jsonl
+# Validate the definition
+python -m paper_scanner.cli validate definition.yml
 
-# Convert to CSV for review
-$ uv run python -m paper_scanner.tools.file_reader \
-  -i parsed.jsonl \
-  -o results.csv
+# Run the pipeline
+python -m paper_scanner.cli run definition.yml
 ```
 
 ### Web Interface
@@ -93,80 +92,63 @@ $ uv run python -m paper_scanner.tools.file_reader \
 - **📖 References Tab**: View extracted references from the paper's bibliography with structured metadata
 - **🏷️ Tags Tab**: Manage paper tags for organization and filtering
 - **🔗 Share**: Generate deeplinks to share specific papers via URL
-- **📄 PDF Tab**: View full paper PDFs with embedded viewer
-- **🔬 Analysis Tab**: Read structured paper analysis (summary, research questions, methodology, results, concepts)
-- **📋 Details Tab**: Browse bibliographic information (title, authors, DOI, citation, file metadata)
-- **🏷️ Tags Tab**: Manage paper tags for organization and filtering
-- **🔗 Share**: Generate deeplinks to share specific papers via URL
 
 ## Core Tools
 
-- **file-scanner**: PDF discovery and metadata extraction with recursive directory scanning
-- **paper-processor**: Generic LLM processor for enriching JSONLines records (replaces legacy file-processor)
-  - Multiple Claude model support with configurable token limits
-  - Native PDF documents (base64-encoded) or text extraction mode with character limits
-  - YAML configuration with CLI override precedence
-  - Flexible data sources: PDF files, record content, custom fields
-  - Metadata enrichment: timing, actual token usage, model used, prompt file
-  - Skip already-processed records, verbose/quiet logging modes
-  - Statistics output with token tracking and averages
-  - Rate limit retry logic with automatic backoff
-- **paper-details**: Bibliographic metadata extraction from PDFs using Claude
-- **file-parser**: Structured data extraction from Claude responses
-- **file-merge**: JSONLines data merging and filtering with set operations
-- **file-reader**: JSON to CSV conversion for report generation
-- **file-timer**: Rate limiting utility for API throttling
-- **output-viewer**: Web server for browsing analyzed papers
-
-## Paper-Processor Configuration
-
-The generic `paper-processor` tool is highly configurable via YAML files:
-
-```yaml
-# config.yml - Example configuration
-model: claude-sonnet-4-5-20250929           # Claude model to use
-max_tokens: 2048                             # Output token limit
-text_source: pdf                             # 'pdf', 'content', or field name
-max_chars: null                              # Limit PDF text extraction (null for native PDF)
-prompt_file: src/prompts/paper-metadata.md   # Custom system prompt
-output_key: processed                        # Key to store results
-add_metadata: true                           # Include timing/token metadata
-skip_existing: false                         # Skip already-processed records
-verbose: false                               # Detailed logging
-```
-
-**Usage Examples:**
+The paper-scanner now uses a unified **YAML-based pipeline** approach. All processing is configured through definition files and executed via a single CLI command:
 
 ```bash
-# Basic processing with YAML config
-paper-processor -i input.jsonl -o output.jsonl --config config.yml
-
-# Verbose mode showing per-record details and token usage
-paper-processor -i input.jsonl -o output.jsonl --config config.yml -v
-
-# Quiet mode (no statistics output)
-paper-processor -i input.jsonl -o output.jsonl --config config.yml -q
-
-# Extract first 10000 chars from PDFs instead of sending native documents
-paper-processor -i input.jsonl -o output.jsonl --config config.yml -c 10000
-
-# Skip already-processed records
-paper-processor -i input.jsonl -o output.jsonl --config config.yml --skip-existing
-
-# Generate YAML definition from current config
-paper-processor --config config.yml -x template.yml
-
-# Override config with CLI flags
-paper-processor -i input.jsonl -o output.jsonl --config config.yml --model claude-opus-4-20250514 --max-tokens 4096
+python -m paper_scanner.cli run definition.yml
 ```
 
-**Available Models:**
-- `claude-opus-4-20250514` (16k output tokens) - Most capable
-- `claude-sonnet-4-5-20250929` (16k output tokens) - Best balance (default)
-- `claude-haiku-4-5-20251001` (16k output tokens) - Most economical
-- `claude-3-5-sonnet-20241022` (8k output tokens) - Previous generation
-- `claude-3-5-haiku-20241022` (8k output tokens) - Previous generation
-- `claude-3-opus-20240229` (4k output tokens) - Legacy
+No separate CLI tools are needed - everything is configured declaratively in your YAML definition file.
+
+## YAML Pipeline Configuration
+
+All processing is configured through YAML definition files. See the [docs/steps](docs/steps/) directory for detailed documentation on each available pipeline step.
+
+**Quick Example:**
+
+```yaml
+project:
+  name: "My Literature Review"
+
+pipeline:
+  # Import papers from BibTeX
+  - step: Import papers
+    builtin.bibtex_import:
+      batch_id: "batch_001"
+      imports:
+        - name: "Scopus Results"
+          file_path: "data/scopus.bib"
+          source_type: "scopus"
+
+  # Remove duplicates
+  - step: Deduplication
+    builtin.deduplication:
+      method: "all"
+
+  # Export results
+  - step: Export
+    builtin.export:
+      format: "jsonl"
+      output: "results.jsonl"
+```
+
+**Running the Pipeline:**
+
+```bash
+# Run with validation
+python -m paper_scanner.cli run definition.yml --validate
+
+# Run and save checkpoint
+python -m paper_scanner.cli run definition.yml
+
+# Resume from checkpoint
+python -m paper_scanner.cli run definition.yml --checkpoint last
+```
+
+For complete documentation on all available steps, see [Step Documentation](docs/README.md).
 
 ## Database
 
