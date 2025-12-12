@@ -18,6 +18,7 @@ Outputs comprehensive categorization results to screening.categorization with:
 """
 
 import time
+import sys
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime, timezone
 from rich.console import Console
@@ -27,7 +28,7 @@ from ..core.database import PapersDatabase
 from ..core.enum import PaperType, StudyType, QualityTier, ScreeningDecision
 
 # Initialize rich console for colored output
-console = Console()
+console = Console(file=sys.stderr)
 
 
 def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:

@@ -6,6 +6,7 @@ Records audit trail in screening.deduplication for full traceability
 """
 
 import time
+import sys
 from typing import Dict, Any, List, Optional, Tuple
 from difflib import SequenceMatcher
 from datetime import datetime, timezone
@@ -15,7 +16,7 @@ from ..core.models import Paper, DeduplicationResult, ProcessingMetadata
 from ..core.database import PapersDatabase
 
 # Initialize rich console
-console = Console()
+console = Console(file=sys.stderr)
 
 # Valid deduplication methods
 VALID_METHODS = {"doi_exact", "title_author_fuzzy", "title_fuzzy"}

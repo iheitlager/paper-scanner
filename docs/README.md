@@ -18,37 +18,39 @@ The paper scanner processes papers through a configurable pipeline of steps. Eac
 | # | File | Purpose | Lines |
 |---|------|---------|-------|
 | 1 | `bibtex_import.md` | Multi-source BibTeX import step | 130+ |
-| 2 | `deduplication.md` | Duplicate detection step | 120+ |
-| 3 | `categorization.md` | Publication type filtering step | 120+ |
-| 4 | `keyword_screening.md` | Keyword-based screening step | 140+ |
-| 5 | `semantic_screening.md` | Embedding-based screening step | 144+ |
-| 6 | `checkpoint.md` | State saving step | 100+ |
-| 7 | `echo.md` | Messaging step | 90+ |
-| 8 | `halt.md` | Conditional halt step | 100+ |
-| 9 | `summarize.md` | Statistics/reporting step | 140+ |
-| 10 | `export.md` | Multi-format export step | 150+ |
+| 2 | `load_files.md` | PDF folder scanning and Crossref metadata fetching | 140+ |
+| 3 | `deduplication.md` | Duplicate detection step | 120+ |
+| 4 | `categorization.md` | Publication type filtering step | 120+ |
+| 5 | `keyword_screening.md` | Keyword-based screening step | 140+ |
+| 6 | `semantic_screening.md` | Embedding-based screening step | 144+ |
+| 7 | `checkpoint.md` | State saving step | 100+ |
+| 8 | `echo.md` | Messaging step | 90+ |
+| 9 | `halt.md` | Conditional halt step | 100+ |
+| 10 | `summarize.md` | Statistics/reporting step | 140+ |
+| 11 | `export.md` | Multi-format export step | 150+ |
 
 ### Step Categories
 
 #### **Data Import**
-- [**BibTeX Import**](./bibtex_import.md) - Load papers from BibTeX files with batch tracking
+- [**BibTeX Import**](./steps/bibtex_import.md) - Load papers from BibTeX files with batch tracking
+- [**Load Files**](./steps/load_files.md) - Extract metadata from PDF files and fetch from Crossref
 
 #### **Data Quality**
-- [**Deduplication**](./deduplication.md) - Remove duplicate papers using multi-method matching
-- [**Categorization**](./categorization.md) - Filter by publication type and quality
+- [**Deduplication**](./steps/deduplication.md) - Remove duplicate papers using multi-method matching
+- [**Categorization**](./steps/categorization.md) - Filter by publication type and quality
 
 #### **Screening & Filtering**
-- [**Keyword Screening**](./keyword_screening.md) - Filter using inclusion/exclusion keywords
-- [**Semantic Screening**](./semantic_screening.md) - Filter using embedding-based relevance
+- [**Keyword Screening**](./steps/keyword_screening.md) - Filter using inclusion/exclusion keywords
+- [**Semantic Screening**](./steps/semantic_screening.md) - Filter using embedding-based relevance
 
 #### **Checkpoints & Control Flow**
-- [**Checkpoint**](./checkpoint.md) - Save pipeline state for resuming
-- [**Echo**](./echo.md) - Display informational messages
-- [**Halt**](./halt.md) - Conditionally stop pipeline execution
+- [**Checkpoint**](./steps/checkpoint.md) - Save pipeline state for resuming
+- [**Echo**](./steps/echo.md) - Display informational messages
+- [**Halt**](./steps/halt.md) - Conditionally stop pipeline execution
 
 #### **Output & Reporting**
-- [**Summarize**](./summarize.md) - Display statistics and screening results
-- [**Export**](./export.md) - Export papers in multiple formats (JSONL, BibTeX, CSV)
+- [**Summarize**](./steps/summarize.md) - Display statistics and screening results
+- [**Export**](./steps/export.md) - Export papers in multiple formats (JSONL, BibTeX, CSV)
 
 #### **CLI Tools**
 - [**Validate Command**](./cli_validate_command.md) - Validate definition YAML before running

@@ -7,6 +7,7 @@ allowing the pipeline to resume from this checkpoint on subsequent runs.
 """
 
 import json
+import sys
 import hashlib
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
@@ -18,7 +19,7 @@ from paper_scanner.core.models import Paper
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.io.json import paper_to_dict
 
-console = Console()
+console = Console(file=sys.stderr)
 
 
 def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:

@@ -15,7 +15,6 @@ Indexes maintained:
 
 from typing import List, Dict, Optional, Set, Any
 from collections import defaultdict
-import uuid
 
 from paper_scanner.core.models import Paper
 

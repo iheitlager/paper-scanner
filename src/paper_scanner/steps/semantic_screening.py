@@ -16,6 +16,7 @@ Outputs semantic screening results to screening.semantic_screening with:
 """
 
 import logging
+import sys
 import os
 import time
 from datetime import datetime, timezone
@@ -42,7 +43,7 @@ except ImportError:
     SentenceTransformer = None
 
 # Initialize rich console for colored output
-console = Console()
+console = Console(file=sys.stderr)
 
 
 def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:

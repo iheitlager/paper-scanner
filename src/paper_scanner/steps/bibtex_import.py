@@ -4,6 +4,7 @@ BibTeX import step for paper scanner
 Sequentially imports BibTeX files and adds papers to the database
 """
 
+import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
@@ -16,7 +17,7 @@ from ..core.database import PapersDatabase
 from ..core.enum import DiscoveryMethod
 
 # Initialize rich console
-console = Console()
+console = Console(file=sys.stderr)
 
 # Valid source types
 VALID_SOURCE_TYPES = {"scopus", "web_of_science", "ieee_xplore", "other"}

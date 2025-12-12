@@ -3,7 +3,7 @@ Database summary step for paper scanner
 
 Outputs database statistics and relevant facts
 """
-
+import sys
 from typing import Dict, Any, List, Tuple
 from collections import Counter
 from rich.console import Console
@@ -14,7 +14,7 @@ from ..core.database import PapersDatabase
 from ..core.enum import ScreeningDecision
 
 # Initialize rich console
-console = Console()
+console = Console(file=sys.stderr)
 
 
 def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:

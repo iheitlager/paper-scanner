@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extracted JSON file caching mechanism into reusable `paper_scanner.tools.cache` module with full test suite (21 tests, 95% coverage)
 - Implemented `load_files` step for processing PDF files: extracts DOI, fetches Crossref metadata, creates Paper models, stores in database, and copies files with DOI-based naming
 - Created `FileReader` utility for PDF file processing with multi-method DOI extraction fallback chain (metadata, content regex, Crossref title lookup)
-- Added `AbstractParser` tool to clean JATS/HTML markup from scientific abstracts with full unit test suite (17 tests)
+- Added `AbstractParser` tool to clean [JATS/HTML](https://jats.nlm.nih.gov/) markup from scientific abstracts with full unit test suite
 
 ### Changed
 

@@ -7,7 +7,6 @@ Processes YAML definition files and executes sequential steps
 import argparse
 import sys
 import importlib
-import inspect
 import os
 import shutil
 from pathlib import Path
@@ -27,7 +26,7 @@ from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.halt import HaltException
 
 # Initialize rich console for colored output
-console = Console()
+console = Console(file=sys.stderr)
 
 
 def _discover_steps() -> Dict[str, str]:

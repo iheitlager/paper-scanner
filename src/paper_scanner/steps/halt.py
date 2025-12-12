@@ -4,6 +4,7 @@ Halt step for paper scanner
 Stops the pipeline execution at this step without error
 """
 
+import sys
 from typing import Dict, Any, List
 from rich.console import Console
 
@@ -12,7 +13,7 @@ from ..core.database import PapersDatabase
 from ..core.database import PapersDatabase
 
 # Initialize rich console
-console = Console()
+console = Console(file=sys.stderr)
 
 
 class HaltException(Exception):

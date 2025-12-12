@@ -11,6 +11,7 @@ Processes PDF files:
 7. Updates PDFInfo with file details
 """
 
+import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
@@ -25,9 +26,7 @@ from ..tools.documents import FileReader, AbstractParser, PaperTypeTranslator
 from ..tools.fetchers.crossref_fetcher import PoliteCrossrefClient
 from ..io.json import dict_to_paper
 
-# Initialize rich console and logger
-console = Console()
-logger = logging.getLogger(__name__)
+console = Console(file=sys.stderr)
 
 # Valid source types
 VALID_SOURCE_TYPES = {"crossref", "other"}
@@ -121,7 +120,7 @@ def _crossref_work_to_paper(
             title = work["title"]
 
         if not title:
-            logger.warning(f"No title found for DOI {doi}")
+            console.print(f"[yellow]⚠️  No title found for DOI {doi}[/yellow]")
             return None
 
         # Create cite_key from DOI
@@ -219,7 +218,7 @@ def _crossref_work_to_paper(
         return paper
 
     except Exception as e:
-        logger.error(f"Failed to convert Crossref work to Paper for {doi}: {e}")
+        console.print(f"[red]✗ Failed to convert Crossref work to Paper for {doi}: {e}[/red]")
         return None
 
 
@@ -430,7 +429,7 @@ def execute(
             file_result["success"] = False
             console.print(f"[red]✗ {i}/{len(pdf_files)}[/red] {pdf_path.name}: {str(e)[:50]}")
             results["papers_failed"] += 1
-            logger.exception(f"Error processing {pdf_path}")
+            console.print(f"[red]Exception while processing {pdf_path}: {e}[/red]")
 
         results["details"].append(file_result)
 

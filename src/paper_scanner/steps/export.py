@@ -4,6 +4,7 @@ Database output step for paper scanner
 Exports papers database to various formats (JSONL, BibTeX)
 """
 
+import sys
 from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import json
@@ -15,7 +16,7 @@ from ..core.models import Paper
 from ..core.database import PapersDatabase
 
 # Initialize rich console
-console = Console()
+console = Console(file=sys.stderr)
 
 VALID_FORMATS = {"jsonl", "bibtex"}
 VALID_DUPLICATES = {False, True, "only"}
@@ -39,11 +40,20 @@ def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         if fmt.lower() not in VALID_FORMATS:
             errors.append(f"'format' must be one of {VALID_FORMATS}, got '{fmt}'")
     
-    # Check output_path
-    if "output_path" not in config:
-        errors.append("'output_path' is required")
-    elif not isinstance(config["output_path"], str):
-        errors.append("'output_path' must be a string")
+    # Check output (new parameter) or output_path (legacy)
+    has_output = "output" in config
+    has_output_path = "output_path" in config
+    
+    if not has_output and not has_output_path:
+        errors.append("Either 'output' or 'output_path' is required")
+    elif has_output:
+        if not isinstance(config["output"], str):
+            errors.append("'output' must be a string")
+        elif config["output"] != "stdout" and not config["output"]:
+            errors.append("'output' must be either 'stdout' or a file path")
+    elif has_output_path:
+        if not isinstance(config["output_path"], str):
+            errors.append("'output_path' must be a string")
     
     # Check boolean fields
     if "exclude_none" in config and not isinstance(config["exclude_none"], bool):
@@ -71,7 +81,7 @@ def execute(
     Execute database output step
     
     Args:
-        config: Step configuration (includes format and output_path)
+        config: Step configuration (includes format and output/output_path)
         papers_db: Current papers database (PapersDatabase instance)
         verbose: Enable verbose output
         dry_run: Don't actually write files
@@ -81,14 +91,19 @@ def execute(
     """
     
     output_format = config.get("format", "jsonl").lower()
-    output_path = config.get("output_path")
+    
+    # Support both 'output' (new) and 'output_path' (legacy)
+    output_target = config.get("output") or config.get("output_path")
+    is_stdout = output_target == "stdout"
+    
     exclude_none = config.get("exclude_none", True)
     duplicates_option = config.get("duplicates", False)  # false, true, or "only"
     overwrite = config.get("overwrite", False)  # Default to False - fail on existing files
     
-    # Expand tilde and resolve the path
-    if output_path:
-        output_path = str(Path(output_path).expanduser().resolve())
+    # Expand tilde and resolve the path (only if not stdout)
+    output_path = None
+    if output_target and not is_stdout:
+        output_path = str(Path(output_target).expanduser().resolve())
     
     # Filter papers based on duplicates option
     if duplicates_option == "only":
@@ -110,13 +125,13 @@ def execute(
         "papers_exported": len(papers_to_export),
         "papers_total": papers_db.count(primary_only=False),
         "duplicates_option": duplicates_option,
-        "output_path": output_path,
+        "output_path": output_path or "stdout",
         "status": "success",
         "error": None
     }
     
-    if not output_path:
-        error_msg = "output_path is required"
+    if not output_target:
+        error_msg = "Either 'output' or 'output_path' is required"
         results["status"] = "error"
         results["error"] = error_msg
         if verbose:
@@ -132,18 +147,21 @@ def execute(
         return results
     
     try:
-        # Create output directory if needed
-        path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Check if file exists and overwrite is False
-        if path.exists() and not overwrite:
-            error_msg = f"File already exists and overwrite=False: {output_path}"
-            results["status"] = "error"
-            results["error"] = error_msg
-            if verbose:
-                console.print(f"  [red]✗ Error: {error_msg}[/red]")
-            return results
+        # Create output directory if needed (only for file output)
+        if not is_stdout and output_path:
+            path = Path(output_path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Check if file exists and overwrite is False
+            if path.exists() and not overwrite:
+                error_msg = f"File already exists and overwrite=False: {output_path}"
+                results["status"] = "error"
+                results["error"] = error_msg
+                if verbose:
+                    console.print(f"  [red]✗ Error: {error_msg}[/red]")
+                return results
+        else:
+            path = None
         
         if verbose:
             # Build descriptive message based on duplicates option
@@ -163,8 +181,12 @@ def execute(
             if output_format == "jsonl":
                 # Export to JSONL format
                 jsonl_content = papers_to_jsonl(papers_to_export, exclude_none=exclude_none)
-                with open(path, 'w', encoding='utf-8') as f:
-                    f.write(jsonl_content)
+                
+                if is_stdout:
+                    sys.stdout.write(jsonl_content)
+                else:
+                    with open(path, 'w', encoding='utf-8') as f:
+                        f.write(jsonl_content)
                 
                 # Count lines
                 line_count = len(papers_to_export)
@@ -180,8 +202,11 @@ def execute(
                 papers_dicts = [p.model_dump(exclude_none=exclude_none) for p in papers_to_export]
                 json_content = json.dumps(papers_dicts, indent=2, default=str)
                 
-                with open(path, 'w', encoding='utf-8') as f:
-                    f.write(json_content)
+                if is_stdout:
+                    sys.stdout.write(json_content)
+                else:
+                    with open(path, 'w', encoding='utf-8') as f:
+                        f.write(json_content)
                 
                 results["output_format"] = "JSON (array of papers)"
                 results["file_size_bytes"] = len(json_content.encode('utf-8'))
@@ -193,8 +218,12 @@ def execute(
             elif output_format == "bibtex":
                 # Export to BibTeX format
                 bibtex_content = papers_to_bibtex(papers_to_export)
-                with open(path, 'w', encoding='utf-8') as f:
-                    f.write(bibtex_content)
+                
+                if is_stdout:
+                    sys.stdout.write(bibtex_content)
+                else:
+                    with open(path, 'w', encoding='utf-8') as f:
+                        f.write(bibtex_content)
                 
                 results["output_format"] = "BibTeX"
                 results["file_size_bytes"] = len(bibtex_content.encode('utf-8'))

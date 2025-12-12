@@ -48,10 +48,14 @@ class PoliteCrossrefClient:
         """
         self.session = requests.Session()
         
+        # Ensure app_name has a version component
+        if '/' not in app_name:
+            app_name = f'{app_name}/1.0'
+        
         # POLITE POOL: Include contact info in User-Agent
         # This gives us higher rate limits and better service
         self.session.headers.update({
-            'User-Agent': f'{CROSSREF_APP_NAME} (mailto:{email})'
+            'User-Agent': f'{app_name} (mailto:{email})'
         })
         
         self.email = email
@@ -60,7 +64,7 @@ class PoliteCrossrefClient:
         self.delay_between_requests = 1.0 / rate_limit  # Convert requests/sec to seconds
         self.cache = JSONFileCache(cache_dir)
         self.last_cache_hit = False  # Track if last request was from cache
-    
+
     def get_work(self, doi: str) -> Dict[str, Any]:
         """
         Get work metadata from Crossref.

@@ -4,13 +4,14 @@ Echo step - simply outputs the step description
 Useful for debugging and documenting definition file execution
 """
 
+import sys
 from typing import Dict, Any, List, Tuple
 from rich.console import Console
 from ..core.models import Paper
 from ..core.database import PapersDatabase
 
 # Initialize rich console
-console = Console()
+console = Console(file=sys.stderr)
 
 
 def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:

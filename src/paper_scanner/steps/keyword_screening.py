@@ -20,6 +20,7 @@ Outputs screening results to paper.screening.keyword_screening with:
 
 import re
 import time
+import sys
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timezone
 from rich.console import Console
@@ -29,7 +30,7 @@ from ..core.database import PapersDatabase
 from ..core.enum import ScreeningDecision
 
 # Initialize rich console for colored output
-console = Console()
+console = Console(file=sys.stderr)
 
 
 def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
