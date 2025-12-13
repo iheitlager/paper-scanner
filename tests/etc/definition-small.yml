@@ -1,0 +1,47 @@
+project:
+  name: "Supplier Digital Innovation Review"
+  description: "Systematic literature review on supplier involvement in digital innovation"
+  cache_dir: "~/.paper-scanner"
+  checkpoints:
+    enabled: true
+
+steps:
+  - step: "Load some files from folder"
+    builtin.load_files:
+      folder: "tests/data/sample_pdfs"
+      extract_text: false
+
+  - step: "Patch some records"
+    builtin.patch:
+      patches:
+        - doi: "10.1080/10864415.2024.2332047"
+          updates:
+            year: 2024
+
+  - step: "Snowball first selection"
+    builtin.expansion:
+      backward:
+        extraction_methods:
+          - crossref
+        continue_on_not_found: true
+
+  - step: "Dump database contents"
+    builtin.dump_db:
+      format: "table"
+      limit: 30
+
+  - step: "Display screening results"
+    builtin.keyword_screening:
+      keywords:
+        inclusion: []
+        exclusion: []
+
+  - step: "Export database to JSONL format"
+    builtin.export:
+      format: "jsonl"
+      output: "papers_export.jsonl"
+
+  - step: "Export database to BibTeX format"
+    builtin.export:
+      format: "bibtex"
+      output: "papers_export.bib"

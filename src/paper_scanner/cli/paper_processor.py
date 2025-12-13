@@ -211,6 +211,12 @@ def main():
         help="Show timing information for each step"
     )
     
+    run_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug output for detailed step information"
+    )
+    
     # ===== VALIDATE COMMAND =====
     validate_parser = subparsers.add_parser(
         "validate",
@@ -298,6 +304,7 @@ def main():
                 skip_checkpoint=args.no_checkpoint,
                 clear_checkpoint=args.clear_checkpoint,
                 show_timings=args.timings,
+                debug=args.debug,
                 output_file=args.output,
                 get_step_func=StepExecutor.get_step,
                 builtin_steps=builtin_steps,

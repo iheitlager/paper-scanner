@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from paper_scanner.tools.fetchers.crossref_fetcher import (
+from paper_scanner.tools.fetcher_handlers.crossref_fetcher import (
     PoliteCrossrefClient,
     CrossrefReferenceFetcher,
     CROSSREF_EMAIL,
@@ -100,13 +100,14 @@ class TestPoliteCrossrefClient:
         with pytest.raises(Exception):
             client.get_work('10.1234/nonexistent')
 
-    def test_rate_limiting(self, client):
+    def test_rate_limiting(self, client, tmp_path):
         """Test that rate limiting delay is calculated correctly."""
         assert client.delay_between_requests == 0.01
         
         client_slow = PoliteCrossrefClient(
             email="test@example.com",
-            rate_limit=10.0
+            rate_limit=10.0,
+            cache_dir=tmp_path
         )
         assert client_slow.delay_between_requests == 0.1
 
@@ -450,7 +451,7 @@ class TestCrossrefIntegration:
         assert client.cache.cache_dir == temp_cache_dir / "crossref"
 
     @patch('paper_scanner.tools.fetchers.crossref_fetcher.requests.Session.get')
-    def test_full_fetch_and_parse_flow(self, mock_get):
+    def test_full_fetch_and_parse_flow(self, mock_get, tmp_path):
         """Test complete flow from fetch to parse."""
         # Mock the API response
         mock_response = Mock()
@@ -472,7 +473,7 @@ class TestCrossrefIntegration:
         }
         mock_get.return_value = mock_response
 
-        fetcher = CrossrefReferenceFetcher()
+        fetcher = CrossrefReferenceFetcher(cache_dir=tmp_path)
         result = fetcher.fetch_references_for_doi('10.1234/test')
 
         assert result['title'] == 'Integration Test Paper'

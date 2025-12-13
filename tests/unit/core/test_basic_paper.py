@@ -374,14 +374,13 @@ class TestPaperClass:
         assert any(e['loc'] == ('cite_key',) for e in errors)
 
     def test_paper_title_required(self):
-        """Verify title is required"""
+        """Verify title is optional"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
-        with pytest.raises(ValidationError) as exc_info:
-            Paper(
-                cite_key="test2020"
-            )
-        errors = exc_info.value.errors()
-        assert any(e['loc'] == ('title',) for e in errors)
+        # Title is optional - should not raise
+        paper = Paper(
+            cite_key="test2020"
+        )
+        assert paper.title is None
 
     def test_paper_with_all_identifiers(self):
         """Verify Paper can have all identifier fields"""

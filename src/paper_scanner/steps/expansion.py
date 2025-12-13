@@ -15,15 +15,18 @@ Features:
 import time
 import sys
 import logging
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, timezone
 from rich.console import Console
+from rich.progress import Progress
 from collections import defaultdict
 
 from ..core.models import Paper, Citation, Discovery, ProcessingMetadata
 from ..core.database import PapersDatabase, CitationsDatabase
 from ..core.enum import DiscoveryMethod
-from ..tools.fetchers.crossref_fetcher import CrossrefReferenceFetcher
+from ..tools.fetcher_handlers.crossref_fetcher import CrossrefReferenceFetcher
+from ..tools.documents.paper_type_translator import PaperTypeTranslator
 
 logger = logging.getLogger(__name__)
 console = Console(file=sys.stderr)
@@ -81,6 +84,12 @@ def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         elif "crossref" not in methods:
             errors.append("'crossref' must be in 'backward.extraction_methods'")
     
+    # Validate continue_on_not_found (optional, defaults to False)
+    if "continue_on_not_found" in backward:
+        continue_on_not_found = backward["continue_on_not_found"]
+        if not isinstance(continue_on_not_found, bool):
+            errors.append("'backward.continue_on_not_found' must be a boolean")
+    
     return len(errors) == 0, errors
 
 
@@ -99,16 +108,21 @@ def _extract_citations_from_paper(paper: Paper, crossref_fetcher: CrossrefRefere
     
     if not paper.doi:
         logger.debug(f"Paper {paper.cite_key} has no DOI, skipping citation extraction")
+        console.print(f"[dim]  Skipped: no DOI[/dim]")
         return citations
     
     # Fetch references from Crossref
+    console.print(f"[dim]  Fetching from Crossref for DOI: {paper.doi}[/dim]")
     result = crossref_fetcher.fetch_references_for_doi(paper.doi)
     if not result:
         logger.warning(f"Failed to fetch references for DOI {paper.doi}")
+        console.print(f"[dim]  Failed to fetch from Crossref[/dim]")
         return citations
     
     references = result.get("references", [])
-    logger.info(f"Extracted {len(references)} references from {paper.cite_key}")
+    console.print(f"[dim]  Got {len(references)} references from Crossref[/dim]")
+    logger.debug(f"Extracted {len(references)} raw references from Crossref for {paper.cite_key} ({paper.doi})")
+    logger.debug(f"  Result keys: {list(result.keys())}")
     
     # Convert Crossref references to Citation objects
     for ref in references:
@@ -135,7 +149,8 @@ def _fetch_and_add_paper(
     papers_db: PapersDatabase,
     citations_db: CitationsDatabase,
     crossref_fetcher: CrossrefReferenceFetcher,
-    stats: ExpansionStatistics
+    stats: ExpansionStatistics,
+    continue_on_not_found: bool = False
 ) -> Optional[Paper]:
     """
     Fetch paper metadata from Crossref and add to database.
@@ -146,6 +161,7 @@ def _fetch_and_add_paper(
         citations_db: Citations database
         crossref_fetcher: Crossref API client
         stats: Statistics tracker
+        continue_on_not_found: If True, continue on 404 errors instead of counting as failed
         
     Returns:
         Added Paper or None if failed
@@ -164,16 +180,29 @@ def _fetch_and_add_paper(
         return None
     
     # Fetch full paper metadata from Crossref
-    crossref_work = crossref_fetcher.polite_client.get_work(citation.doi)
+    try:
+        crossref_work = crossref_fetcher.polite_client.get_work(citation.doi)
+    except Exception as e:
+        # Handle 404s and other HTTP errors
+        logger.warning(f"Failed to fetch metadata for DOI {citation.doi}: {e}")
+        if not continue_on_not_found:
+            stats.new_papers_failed += 1
+        return None
+    
     if not crossref_work or "message" not in crossref_work:
         logger.warning(f"Failed to fetch metadata for DOI {citation.doi}")
-        stats.new_papers_failed += 1
+        if not continue_on_not_found:
+            stats.new_papers_failed += 1
         return None
     
     message = crossref_work["message"]
     
     # Create Paper object from Crossref metadata
     try:
+        # Get paper type from Crossref and translate to standardized format
+        crossref_type = message.get("type", "article")
+        paper_type = PaperTypeTranslator.from_crossref(crossref_type).value
+        
         paper = Paper(
             cite_key=f"crossref_{citation.doi.replace('/', '_')}",
             doi=citation.doi,
@@ -184,9 +213,10 @@ def _fetch_and_add_paper(
             volume=message.get("volume"),
             number=message.get("issue"),
             pages=message.get("page"),
+            paper_type=paper_type,  # Use translated paper type
             authors=[],  # Will be populated from Crossref author list
             discovery=Discovery(
-                method=DiscoveryMethod.BACKWARD_SNOWBALLING,
+                method=DiscoveryMethod.BACKWARD_CITATION,
             ),
         )
         
@@ -239,7 +269,8 @@ def _extract_year(message: Dict[str, Any]) -> Optional[int]:
 def execute_backward_snowballing(
     papers_db: PapersDatabase,
     citations_db: CitationsDatabase,
-    config: Dict[str, Any]
+    config: Dict[str, Any],
+    cache_dir: Optional[Path] = None
 ) -> Dict[str, Any]:
     """
     Execute backward snowballing on papers in database.
@@ -260,8 +291,8 @@ def execute_backward_snowballing(
     Returns:
         Dict with results including statistics
     """
-    # Initialize Crossref fetcher
-    crossref_fetcher = CrossrefReferenceFetcher()
+    # Initialize Crossref fetcher with cache_dir
+    crossref_fetcher = CrossrefReferenceFetcher(cache_dir=cache_dir)
     
     stats = ExpansionStatistics()
     
@@ -269,7 +300,11 @@ def execute_backward_snowballing(
     papers_to_expand = [p for p in papers_db.all(primary_only=True) if p.doi]
     
     if not papers_to_expand:
-        console.print("[yellow]No papers to expand[/yellow]")
+        # Debug output to show why no papers to expand
+        all_papers = list(papers_db.all(primary_only=True))
+        console.print(f"[yellow]No papers to expand - {len(all_papers)} papers in DB, none have DOI[/yellow]")
+        if all_papers:
+            logger.debug(f"Papers without DOI: {[(p.cite_key, p.title[:30] if p.title else 'N/A') for p in all_papers[:3]]}")
         return {
             "success": True,
             "statistics": stats.to_dict(),
@@ -277,8 +312,13 @@ def execute_backward_snowballing(
             "citations_database_count": citations_db.count(),
         }
     
+    # Debug: show which papers we're expanding
+    logger.debug(f"Papers to expand: {len(papers_to_expand)} (DOI: {[p.doi for p in papers_to_expand[:3]]}...)")
+    console.print(f"[dim]DEBUG: {len(papers_to_expand)} papers with DOI to expand[/dim]")
+    
     # Extract citations from papers
     for paper in papers_to_expand:
+        console.print(f"[dim]DEBUG: Extracting citations from {paper.cite_key} ({paper.doi})[/dim]")
         citations = _extract_citations_from_paper(paper, crossref_fetcher)
         
         if citations:
@@ -287,26 +327,34 @@ def execute_backward_snowballing(
             stats.citations_found += len(citations)
             stats.citations_with_doi += len([c for c in citations if c.doi])
             console.print(f"Extracting citations from {paper.cite_key}... Found {len(citations)} references")
-        
-        # Rate limiting
-        time.sleep(0.1)
     
     # Now fetch and add new papers from citations with DOI
     citations_with_doi = [c for c in citations_db.all() if c.doi and not c.resolved_paper]
     
-    console.print(f"Fetching metadata for {len(citations_with_doi)} unresolved citations...")
+    # Get continue_on_not_found option (defaults to False)
+    backward_config = config.get("backward", {})
+    continue_on_not_found = backward_config.get("continue_on_not_found", False)
     
-    for citation in citations_with_doi:
-        _fetch_and_add_paper(
-            citation,
-            papers_db,
-            citations_db,
-            crossref_fetcher,
-            stats=stats
-        )
+    # Show gross/net overview
+    total_citations = stats.citations_found
+    unique_citations = len([c for c in citations_db.all() if c.doi])
+    console.print(f"\n[cyan]Citation Summary:[/cyan] {total_citations} gross references → {unique_citations} unique with DOI → {len(citations_with_doi)} unresolved to fetch")
+    
+    # Fetch with progress bar
+    with Progress(console=console) as progress:
+        task = progress.add_task("[cyan]Fetching metadata...", total=len(citations_with_doi))
         
-        # Rate limiting
-        time.sleep(0.1)
+        for citation in citations_with_doi:
+            _fetch_and_add_paper(
+                citation,
+                papers_db,
+                citations_db,
+                crossref_fetcher,
+                stats=stats,
+                continue_on_not_found=continue_on_not_found
+            )
+            
+            progress.update(task, advance=1)
     
     return {
         "success": True,
@@ -316,7 +364,7 @@ def execute_backward_snowballing(
     }
 
 
-def execute(config: Dict[str, Any], papers_db: PapersDatabase, verbose: bool = False, dry_run: bool = False, **kwargs) -> Dict[str, Any]:
+def execute(config: Dict[str, Any], papers_db: PapersDatabase, verbose: bool = False, dry_run: bool = False, debug: bool = False, cache_dir: Optional[Path] = None, **kwargs) -> Dict[str, Any]:
     """
     Execute expansion step.
     
@@ -325,6 +373,8 @@ def execute(config: Dict[str, Any], papers_db: PapersDatabase, verbose: bool = F
         papers_db: Papers database to expand
         verbose: Enable verbose output
         dry_run: Don't modify papers (not used for expansion, but kept for consistency)
+        debug: Enable debug output for detailed information
+        cache_dir: Cache directory for storing API responses
         **kwargs: Additional arguments (e.g., step_name, step_index, etc.)
         
     Returns:
@@ -344,10 +394,20 @@ def execute(config: Dict[str, Any], papers_db: PapersDatabase, verbose: bool = F
     # Create citations database
     citations_db = CitationsDatabase()
     
+    # Debug output
+    if debug:
+        console.print(f"[dim]DEBUG: Starting expansion step[/dim]")
+        console.print(f"[dim]  Papers in database: {len(papers_db.papers)}[/dim]")
+        console.print(f"[dim]  Configuration: {expansion_config}[/dim]")
+    
     # Execute backward snowballing if configured
     backward_config = expansion_config.get("backward")
     if backward_config is not None:
-        result = execute_backward_snowballing(papers_db, citations_db, expansion_config)
+        if debug:
+            console.print(f"[dim]DEBUG: Executing backward snowballing[/dim]")
+        result = execute_backward_snowballing(papers_db, citations_db, expansion_config, cache_dir=cache_dir)
+        if debug:
+            console.print(f"[dim]DEBUG: Backward snowballing completed[/dim]")
         return result
     
     return {

@@ -329,14 +329,30 @@ class Discovery(BaseModel):
     method: DiscoveryMethod
     iteration: int = 0  # 0 = initial, 1+ = snowballing iterations
     discovered_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    discovered_by: Optional[str] = None  # Script/user name
-    
+    record_update: Optional[datetime] = None # When source record was last updated at database
+
     # Source details
     source_database: Optional[str] = None  # "scopus", "wos", "crossref"
-    source_query: Optional[str] = None
     
     # Import details
     import_batch_id: Optional[str] = None
+
+
+# ============================================================================
+# OPEN ACCESS STATUS MODEL
+# ============================================================================
+
+class OpenAccessStatus(BaseModel):
+    """Open access availability details"""
+    
+    is_oa: bool  # Main flag: paper is openly accessible
+    oa_status: Optional[str] = None  # "gold", "green", "bronze", "closed" (Unpaywall standard)
+    oa_url: Optional[str] = None  # Direct link to free version
+    version: Optional[str] = None  # "submittedVersion", "acceptedVersion", "publishedVersion"
+    license: Optional[str] = None  # License type (CC-BY, etc.)
+    host_type: Optional[str] = None  # "publisher", "repository"
+    source: Optional[str] = None  # Which service found it (unpaywall, openalex, etc.)
+    verified_at: Optional[datetime] = None
 
 
 # ============================================================================
@@ -383,6 +399,8 @@ class Paper(BaseModel):
     issn: Optional[str] = None
     url: Optional[str] = None
 
+    # Open access
+    oa_status: Optional[OpenAccessStatus] = None
 
     # ========================================
     # DEDUPLICATION
@@ -395,9 +413,10 @@ class Paper(BaseModel):
     # ========================================
 
     # Core fields
-    title: str
+    title: Optional[str] = None
     abstract: Optional[str] = None
     keywords: List[str] = Field(default_factory=list)
+    topics: List[str] = Field(default_factory=list)
     authors: List[Author] = Field(default_factory=list)
     year: Optional[int] = None
 
@@ -408,7 +427,7 @@ class Paper(BaseModel):
     publisher: Optional[str] = None
     
     # Paper type from source (e.g., BibTeX entry type)
-    paper_type: Optional[str] = None  # "journal_article", "conference_paper", "book", etc.
+    paper_type: Optional[PaperType] = None  # "journal_article", "conference_paper", "book", etc.
 
     # Volume/issue
     volume: Optional[str] = None

@@ -9,11 +9,7 @@ Implemented backward snowballing expansion feature for Paper Scanner to automati
 - Updated version from 2.2.0 to 2.3.0 in `src/paper_scanner/__init__.py`
 
 ### Core Models & Enums
-1. **Added to `core/enum.py`:**
-   - `BACKWARD_SNOWBALLING` discovery method
-   - `FORWARD_SNOWBALLING` discovery method (prepared for future)
-
-2. **Citation Model (`core/models.py`):**
+1. **Citation Model (`core/models.py`):**
    - Already had `resolved_paper` field for linking citations to papers
    - Used for tracking resolved references
 

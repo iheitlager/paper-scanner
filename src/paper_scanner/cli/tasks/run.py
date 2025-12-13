@@ -90,6 +90,7 @@ class StepExecutor:
         step_index: Optional[int] = None,
         project_name: str = "Unknown",
         project_config: Optional[Dict[str, Any]] = None,
+        debug: bool = False,
         builtin_steps: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """
@@ -105,6 +106,7 @@ class StepExecutor:
             step_index: Step index in definition
             project_name: Project name
             project_config: Project configuration
+            debug: Enable debug output
             builtin_steps: Available builtin steps
 
         Returns:
@@ -138,6 +140,10 @@ class StepExecutor:
         # Pass project_config if the step accepts it
         if "project_config" in sig.parameters:
             kwargs["project_config"] = project_config
+
+        # Pass debug if the step accepts it
+        if "debug" in sig.parameters:
+            kwargs["debug"] = debug
 
         result = step_func(step_params, papers_db, **kwargs)
 
@@ -203,6 +209,7 @@ def execute_run(
     skip_checkpoint: bool = False,
     clear_checkpoint: bool = False,
     show_timings: bool = False,
+    debug: bool = False,
     output_file: Optional[Path] = None,
     get_step_func=None,
     builtin_steps: Optional[Dict[str, str]] = None,
@@ -218,6 +225,7 @@ def execute_run(
         skip_checkpoint: Skip loading from checkpoints
         clear_checkpoint: Clear all checkpoints before processing
         show_timings: Show timing information
+        debug: Enable debug output for detailed step information
         output_file: Optional output file for results
         get_step_func: Function to get step by name
         builtin_steps: Available builtin steps
@@ -395,6 +403,7 @@ def execute_run(
                 step_index=i - 1,
                 project_name=project_name,
                 project_config=definition.get("project"),
+                debug=debug,
                 builtin_steps=builtin_steps,
             )
 

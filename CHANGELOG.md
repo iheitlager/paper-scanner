@@ -10,15 +10,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - CLI `--version` flag to display application version from `__version__`
+- CLI `--debug` flag for run command to enable detailed step debug output
 - Comprehensive checkpoint step test suite (`test_checkpoint.py`) with 23 tests covering serialization, deserialization, and duplicate handling
+- **Expansion step improvements**:
+  - Progress bar for metadata fetching with real-time progress updates
+  - Gross/net citation summary showing total references → unique with DOI → unresolved to fetch
+  - Cache-aware fetching that checks cache first before making API calls
+  - `continue_on_not_found` configuration option for backward snowballing to gracefully handle 404 errors from Crossref (when true, continues without counting as failures; when false/default, counts as failures for strict error tracking)
 
 ### Changed
 
 - Refactored CLI into modular task architecture (`tasks/run.py`, `tasks/validate.py`, `tasks/cache.py`) for better separation of concerns
+- **Unified Crossref API client**: Refactored `CrossrefReferenceFetcher` to use a single `PoliteCrossrefClient` instance for all operations (both reference fetching and individual work metadata), eliminating duplicate HTTP clients and ensuring consistent rate limiting and caching across all API calls
 
 ### Fixed
 
-- **Crossref cache directory structure**: Fixed cache handling so that when a custom `cache_dir` is provided, Crossref API responses are stored in `cache_dir/crossref/` subdirectory instead of the root. This allows proper organization of different service caches (e.g., crossref, grobid) within a single cache directory.
+- **Expansion step error handling**: Now properly catches HTTP 404 exceptions from Crossref API when fetching paper metadata, allowing `continue_on_not_found=true` to work correctly for graceful handling of unfound papers
+- **Expansion step caching**: Fixed cache consistency by:
+  - Normalizing DOIs (lowercase, remove URL prefixes) in `PoliteCrossrefClient.get_work()` to match normalization in `fetch_references_for_doi()`
+  - Using a shared cache instance between `CrossrefReferenceFetcher` and `PoliteCrossrefClient` so all fetches benefit from the same cache
+  - Ensuring all fetched papers are properly cached for reuse across runs
+- **Paper type standardization**: Papers created during backward snowballing now use `PaperTypeTranslator` to convert Crossref paper types (e.g., "journal-article", "proceedings-article") to standardized format, ensuring consistent paper type representation across all data sources (Crossref, BibTeX, etc.)
+- **Crossref cache directory enforcement**: Made `cache_dir` parameter REQUIRED (not optional) in both `PoliteCrossrefClient` and `CrossrefReferenceFetcher` to eliminate fallback to `~/.crossref` directory. Now raises `ValueError` if `cache_dir` is None, ensuring all Crossref API responses are ONLY cached in `$CACHE_DIR/crossref` with no exceptions or fallbacks. This prevents accidental cache fragmentation and ensures consistent caching behavior across all environments.
+- **Expansion step cache_dir parameter**: Added explicit `cache_dir` parameter to `expansion.execute()` function signature so that the step executor properly detects and passes the cache directory to the step. This ensures cache_dir is always propagated from the task runner to the expansion step, fixing "cache_dir is required" errors when executing expansion via the task runner.
+- **Expansion step debugging**: Enhanced debug output to show:
+  - Papers in database without DOIs (when no papers can be expanded)
+  - Which papers have DOIs and will be expanded
+  - Console output for each paper being processed showing DOI and reference count from Crossref
+  - Detailed logging of Crossref response structure for troubleshooting
 
 ## [2.2.0] - 2025-12-12
 

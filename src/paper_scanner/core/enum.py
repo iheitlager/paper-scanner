@@ -6,6 +6,7 @@ from enum import Enum
 
 class PaperType(str, Enum):
     """Types of publications"""
+    JOURNAL_ARTICLE = "journal_article"
     ARTICLE = "article"
     CONFERENCE = "conference_paper"
     BOOK = "book"
@@ -15,6 +16,8 @@ class PaperType(str, Enum):
     WORKING_PAPER = "working_paper"
     PREPRINT = "preprint"
     PATENT = "patent"
+    REPORT = "report"
+    DATASET = "dataset"
     OTHER = "other"
 
 
@@ -45,14 +48,14 @@ class QualityTier(str, Enum):
 
 class DiscoveryMethod(str, Enum):
     """How paper was discovered"""
+    FILE_PATH = "file_path"
     KEYWORD_SEARCH = "keyword_search"
     BACKWARD_CITATION = "backward_citation"
-    BACKWARD_SNOWBALLING = "backward_snowballing"
     FORWARD_CITATION = "forward_citation"
-    FORWARD_SNOWBALLING = "forward_snowballing"
-    MANUAL = "manual"
     LITERATURE_REVIEW_MINING = "literature_review_mining"
     RECOMMENDATION = "recommendation"
+    MANUAL = "manual"
+    API = "api"
 
 
 class ScreeningDecision(str, Enum):

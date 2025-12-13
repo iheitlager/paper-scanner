@@ -28,6 +28,7 @@ class TestPaperType:
     def test_paper_type_all_members(self):
         """Verify all expected PaperType members exist"""
         expected_members = [
+            "JOURNAL_ARTICLE",
             "ARTICLE",
             "CONFERENCE",
             "BOOK",
@@ -37,11 +38,13 @@ class TestPaperType:
             "WORKING_PAPER",
             "PREPRINT",
             "PATENT",
+            "REPORT",
+            "DATASET",
             "OTHER",
         ]
         actual_members = [member.name for member in PaperType]
         assert set(actual_members) == set(expected_members)
-        assert len(actual_members) == 10
+        assert len(actual_members) == 13
 
     def test_paper_type_values(self):
         """Verify PaperType values are correctly defined"""
@@ -179,14 +182,14 @@ class TestDiscoveryMethod:
     def test_discovery_method_all_members(self):
         """Verify all expected DiscoveryMethod members exist"""
         expected_members = [
+            "FILE_PATH",
             "KEYWORD_SEARCH",
             "BACKWARD_CITATION",
-            "BACKWARD_SNOWBALLING",
             "FORWARD_CITATION",
-            "FORWARD_SNOWBALLING",
             "MANUAL",
             "LITERATURE_REVIEW_MINING",
             "RECOMMENDATION",
+            "API",
         ]
         actual_members = [member.name for member in DiscoveryMethod]
         assert set(actual_members) == set(expected_members)
@@ -196,9 +199,7 @@ class TestDiscoveryMethod:
         """Verify DiscoveryMethod values are correctly defined"""
         assert DiscoveryMethod.KEYWORD_SEARCH.value == "keyword_search"
         assert DiscoveryMethod.BACKWARD_CITATION.value == "backward_citation"
-        assert DiscoveryMethod.BACKWARD_SNOWBALLING.value == "backward_snowballing"
         assert DiscoveryMethod.FORWARD_CITATION.value == "forward_citation"
-        assert DiscoveryMethod.FORWARD_SNOWBALLING.value == "forward_snowballing"
         assert DiscoveryMethod.MANUAL.value == "manual"
         assert (
             DiscoveryMethod.LITERATURE_REVIEW_MINING.value

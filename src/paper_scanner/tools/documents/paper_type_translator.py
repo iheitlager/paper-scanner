@@ -60,6 +60,8 @@ class PaperTypeTranslator:
         
         "patent": PaperType.PATENT,
         
+        "dataset": PaperType.DATASET,
+        
         "misc": PaperType.OTHER,
         "other": PaperType.OTHER,
         "unknown": PaperType.OTHER,
@@ -68,6 +70,7 @@ class PaperTypeTranslator:
     # Mapping from BibTeX types to PaperType
     BIBTEX_TO_PAPER_TYPE = {
         "article": PaperType.ARTICLE,
+        "journal_article": PaperType.JOURNAL_ARTICLE,
         
         "inproceedings": PaperType.CONFERENCE,
         "conference": PaperType.CONFERENCE,
@@ -82,6 +85,11 @@ class PaperTypeTranslator:
         "thesis": PaperType.THESIS,
         
         "techreport": PaperType.TECHNICAL_REPORT,
+        "report": PaperType.REPORT,
+        
+        "dataset": PaperType.DATASET,
+        
+        "preprint": PaperType.PREPRINT,
         
         "misc": PaperType.OTHER,
     }

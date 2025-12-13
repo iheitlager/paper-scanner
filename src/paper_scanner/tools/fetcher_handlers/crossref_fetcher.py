@@ -44,9 +44,14 @@ class PoliteCrossrefClient:
             email: Your email for polite pool access
             app_name: Your application name for User-Agent header
             rate_limit: Requests per second limit (default: 50)
-            cache_dir: Directory for caching API responses. Crossref cache goes in cache_dir/crossref/
-                      If not provided, defaults to ~/.crossref/
+            cache_dir: REQUIRED. Directory for caching API responses. Crossref cache goes in cache_dir/crossref/
+        
+        Raises:
+            ValueError: If cache_dir is None
         """
+        if cache_dir is None:
+            raise ValueError("cache_dir is required for PoliteCrossrefClient. Crossref responses must be cached in $CACHE_DIR/crossref")
+        
         self.session = requests.Session()
         
         # Ensure app_name has a version component
@@ -64,11 +69,8 @@ class PoliteCrossrefClient:
         self.rate_limit = rate_limit
         self.delay_between_requests = 1.0 / rate_limit  # Convert requests/sec to seconds
         
-        # Set cache directory: if cache_dir provided, use cache_dir/crossref, otherwise use ~/.crossref
-        if cache_dir is None:
-            crossref_cache_dir = Path.home() / ".crossref"
-        else:
-            crossref_cache_dir = Path(cache_dir).expanduser() / "crossref"
+        # Set cache directory to cache_dir/crossref
+        crossref_cache_dir = Path(cache_dir).expanduser() / "crossref"
         
         self.cache = JSONFileCache(crossref_cache_dir)
         self.last_cache_hit = False  # Track if last request was from cache
@@ -83,8 +85,15 @@ class PoliteCrossrefClient:
         Returns:
             JSON response from Crossref API
         """
+        # Normalize DOI for cache consistency (lowercase, remove URL prefix)
+        normalized_doi = doi.strip().lower()
+        if normalized_doi.startswith('doi:'):
+            normalized_doi = normalized_doi[4:]
+        if normalized_doi.startswith('https://doi.org/'):
+            normalized_doi = normalized_doi[16:]
+        
         # Check cache first
-        cached = self.cache.get(doi)
+        cached = self.cache.get(normalized_doi)
         if cached:
             self.last_cache_hit = True
             return cached
@@ -94,13 +103,15 @@ class PoliteCrossrefClient:
         # Rate limiting: sleep before making the request
         time.sleep(self.delay_between_requests)
         
-        url = f'{self.base_url}/{doi}'
+        url = f'{self.base_url}/{normalized_doi}'
         response = self.session.get(url)
         response.raise_for_status()
         data = response.json()
         
-        # Save to cache
-        self.cache.set(doi, data)
+        # Save to cache with normalized DOI
+        cache_saved = self.cache.set(normalized_doi, data)
+        if not cache_saved:
+            logger.warning(f"Failed to cache response for DOI {normalized_doi}")
         
         return data
 
@@ -116,31 +127,30 @@ class CrossrefReferenceFetcher:
         Args:
             email: Email for Crossref API user-agent
             rate_limit_delay: Delay in seconds between API calls
-            cache_dir: Directory for caching API responses. Crossref cache goes in cache_dir/crossref/
-                      If not provided, defaults to ~/.crossref/
+            cache_dir: REQUIRED. Directory for caching API responses. Crossref cache goes in cache_dir/crossref/
+        
+        Raises:
+            ValueError: If cache_dir is None
         """
+        if cache_dir is None:
+            raise ValueError("cache_dir is required for CrossrefReferenceFetcher. Crossref responses must be cached in $CACHE_DIR/crossref")
+        
         self.email = email
         self.rate_limit_delay = rate_limit_delay
         self.api_base = CROSSREF_API_BASE
         self.verbose = False
-        
-        # Set cache directory: if cache_dir provided, use cache_dir/crossref, otherwise use ~/.crossref
-        if cache_dir is None:
-            crossref_cache_dir = Path.home() / ".crossref"
-        else:
-            crossref_cache_dir = Path(cache_dir).expanduser() / "crossref"
-        
-        self.cache = JSONFileCache(crossref_cache_dir)
 
         try:
-            self.session = requests.Session()
-            self.session.headers.update({
-                'User-Agent': f'{CROSSREF_APP_NAME} (mailto:{self.email})'
-            })
-            
-            # Create a polite Crossref client for fetching individual works
+            # Create a polite Crossref client for ALL operations
+            # This handles both caching and rate limiting consistently
+            # cache_dir is required and will be used as-is (not made optional)
             self.polite_client = PoliteCrossrefClient(email=email, rate_limit=1/rate_limit_delay,
                                                      cache_dir=cache_dir)
+            
+            # Use the polite client's cache and session for all operations
+            self.cache = self.polite_client.cache
+            self.session = self.polite_client.session
+            
         except ImportError:
             logger.error("requests library not found. Install with: pip install requests")
             raise
@@ -157,39 +167,30 @@ class CrossrefReferenceFetcher:
         """
         try:
             # Clean DOI
-            doi = doi.strip().lower()
-            if doi.startswith('doi:'):
-                doi = doi[4:]
-            if doi.startswith('https://doi.org/'):
-                doi = doi[16:]
+            normalized_doi = doi.strip().lower()
+            if normalized_doi.startswith('doi:'):
+                normalized_doi = normalized_doi[4:]
+            if normalized_doi.startswith('https://doi.org/'):
+                normalized_doi = normalized_doi[16:]
 
-            # Check cache first
-            cached = self.cache.get(doi)
+            # Check cache first (use normalized DOI)
+            cached = self.cache.get(normalized_doi)
             if cached:
                 return cached
 
-            # Query Crossref
-            # Rate limiting: sleep before making the request
-            time.sleep(self.rate_limit_delay)
+            # Use the polite client to fetch the work
+            # This ensures consistent caching and rate limiting
+            work_data = self.polite_client.get_work(normalized_doi)
             
-            url = f"{self.api_base}/{doi}"
-            response = self.session.get(url, timeout=10)
-
-            if response.status_code != 200:
-                logger.debug(f"Crossref returned {response.status_code} for DOI {doi}")
+            if not work_data or "message" not in work_data:
+                logger.debug(f"No message in Crossref response for {normalized_doi}")
                 return None
 
-            data = response.json()
-
-            if 'message' not in data:
-                logger.debug(f"No message in Crossref response for {doi}")
-                return None
-
-            message = data['message']
+            message = work_data["message"]
             references = message.get('reference', [])
 
             result = {
-                'doi': doi,
+                'doi': normalized_doi,
                 'title': message.get('title', [''])[0] if isinstance(message.get('title'), list) else message.get('title', ''),
                 'year': self._extract_year(message),
                 'references': references,
@@ -197,8 +198,8 @@ class CrossrefReferenceFetcher:
                 'fetched_at': time.time()
             }
             
-            # Save to cache
-            self.cache.set(doi, result)
+            # Save to cache with normalized DOI
+            self.cache.set(normalized_doi, result)
             
             return result
 

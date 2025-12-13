@@ -451,7 +451,7 @@ class TestFetchAndAddPaper:
         assert len(result.authors) == 1
         assert result.authors[0].family_name == "Doe"
         assert result.discovery.iteration == 0  # Default iteration value
-        assert result.discovery.method == DiscoveryMethod.BACKWARD_SNOWBALLING
+        assert result.discovery.method == DiscoveryMethod.BACKWARD_CITATION
         
         # Check statistics
         assert stats.new_papers_added == 1
