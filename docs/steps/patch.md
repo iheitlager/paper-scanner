@@ -26,13 +26,13 @@ Either `file` or `patches` must be specified.
 Each patch object contains:
 
 ```yaml
-doi: "10.1234/example.doi"          # Required: DOI to match
+doi: "10.1234/example.doi"           # Required: DOI to match
 replace_fields:                      # Optional: fields to replace
   abstract: "new abstract text"
   title: "new title"
 append_fields:                       # Optional: fields to append
   keywords: ["new", "keywords"]      # For list fields
-  abstract: " more text"              # For string fields
+  abstract: " more text"             # For string fields
 ```
 
 ## Examples
