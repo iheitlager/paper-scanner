@@ -39,9 +39,9 @@ class TestJSONFileCache:
         assert cache.cache_dir == new_dir
 
     def test_init_default_directory(self):
-        """Test that __init__ uses default ~/.crossref if not specified."""
+        """Test that __init__ uses default ~/.cache_files if not specified."""
         cache = JSONFileCache()
-        expected_dir = Path.home() / ".crossref"
+        expected_dir = Path.home() / ".cache_files"
 
         assert cache.cache_dir == expected_dir
 

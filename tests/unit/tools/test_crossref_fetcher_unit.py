@@ -447,7 +447,7 @@ class TestCrossrefIntegration:
         fetcher = CrossrefReferenceFetcher(cache_dir=temp_cache_dir)
 
         assert client.cache.cache_dir == fetcher.cache.cache_dir
-        assert client.cache.cache_dir == temp_cache_dir
+        assert client.cache.cache_dir == temp_cache_dir / "crossref"
 
     @patch('paper_scanner.tools.fetchers.crossref_fetcher.requests.Session.get')
     def test_full_fetch_and_parse_flow(self, mock_get):

@@ -44,7 +44,8 @@ class PoliteCrossrefClient:
             email: Your email for polite pool access
             app_name: Your application name for User-Agent header
             rate_limit: Requests per second limit (default: 50)
-            cache_dir: Directory for caching API responses (optional)
+            cache_dir: Directory for caching API responses. Crossref cache goes in cache_dir/crossref/
+                      If not provided, defaults to ~/.crossref/
         """
         self.session = requests.Session()
         
@@ -62,7 +63,14 @@ class PoliteCrossrefClient:
         self.base_url = CROSSREF_API_BASE
         self.rate_limit = rate_limit
         self.delay_between_requests = 1.0 / rate_limit  # Convert requests/sec to seconds
-        self.cache = JSONFileCache(cache_dir)
+        
+        # Set cache directory: if cache_dir provided, use cache_dir/crossref, otherwise use ~/.crossref
+        if cache_dir is None:
+            crossref_cache_dir = Path.home() / ".crossref"
+        else:
+            crossref_cache_dir = Path(cache_dir).expanduser() / "crossref"
+        
+        self.cache = JSONFileCache(crossref_cache_dir)
         self.last_cache_hit = False  # Track if last request was from cache
 
     def get_work(self, doi: str) -> Dict[str, Any]:
@@ -108,13 +116,21 @@ class CrossrefReferenceFetcher:
         Args:
             email: Email for Crossref API user-agent
             rate_limit_delay: Delay in seconds between API calls
-            cache_dir: Directory for caching API responses (optional)
+            cache_dir: Directory for caching API responses. Crossref cache goes in cache_dir/crossref/
+                      If not provided, defaults to ~/.crossref/
         """
         self.email = email
         self.rate_limit_delay = rate_limit_delay
         self.api_base = CROSSREF_API_BASE
         self.verbose = False
-        self.cache = JSONFileCache(cache_dir)
+        
+        # Set cache directory: if cache_dir provided, use cache_dir/crossref, otherwise use ~/.crossref
+        if cache_dir is None:
+            crossref_cache_dir = Path.home() / ".crossref"
+        else:
+            crossref_cache_dir = Path(cache_dir).expanduser() / "crossref"
+        
+        self.cache = JSONFileCache(crossref_cache_dir)
 
         try:
             self.session = requests.Session()

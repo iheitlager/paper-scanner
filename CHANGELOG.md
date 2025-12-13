@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Refactored CLI into modular task architecture (`tasks/run.py`, `tasks/validate.py`, `tasks/cache.py`) for better separation of concerns
 
+### Fixed
+
+- **Crossref cache directory structure**: Fixed cache handling so that when a custom `cache_dir` is provided, Crossref API responses are stored in `cache_dir/crossref/` subdirectory instead of the root. This allows proper organization of different service caches (e.g., crossref, grobid) within a single cache directory.
+
 ## [2.2.0] - 2025-12-12
 
 ### Added

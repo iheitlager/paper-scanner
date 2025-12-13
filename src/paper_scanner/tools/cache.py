@@ -28,10 +28,10 @@ class JSONFileCache:
         
         Args:
             cache_dir: Directory to store cache files.
-                      Defaults to ~/.crossref if not provided.
+                      Defaults to ~/.cache_files if not provided.
         """
         if cache_dir is None:
-            cache_dir = Path.home() / ".crossref"
+            cache_dir = Path.home() / ".cache_files"
         
         self.cache_dir = Path(cache_dir).expanduser()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
