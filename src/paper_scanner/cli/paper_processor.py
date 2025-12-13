@@ -14,7 +14,7 @@ from typing import Dict, Any, Callable, Optional
 from rich.console import Console
 
 from paper_scanner import __version__
-from paper_scanner.cli.tasks import execute_run, execute_validate, execute_cache_clear
+from paper_scanner.cli.tasks import execute_run, execute_validate, execute_cache_clear, execute_cache_info
 
 # Handle broken pipe gracefully (when piping to head, wc, etc.)
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
@@ -237,6 +237,24 @@ def main():
     
     cache_subparsers = cache_parser.add_subparsers(dest="cache_command", help="Cache operations")
     
+    info_parser = cache_subparsers.add_parser(
+        "info",
+        help="Show cache information"
+    )
+    
+    info_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+    )
+    
+    info_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output"
+    )
+    
     clear_parser = cache_subparsers.add_parser(
         "clear",
         help="Clear cache contents"
@@ -306,7 +324,14 @@ def main():
                 cache_parser.print_help()
                 sys.exit(1)
             
-            if args.cache_command == "clear":
+            if args.cache_command == "info":
+                exit_code = execute_cache_info(
+                    cache_dir=args.cache_dir,
+                    verbose=args.verbose,
+                )
+                sys.exit(exit_code)
+            
+            elif args.cache_command == "clear":
                 exit_code = execute_cache_clear(
                     args.target,
                     cache_dir=args.cache_dir,

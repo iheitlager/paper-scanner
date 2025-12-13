@@ -181,20 +181,24 @@ class TestDiscoveryMethod:
         expected_members = [
             "KEYWORD_SEARCH",
             "BACKWARD_CITATION",
+            "BACKWARD_SNOWBALLING",
             "FORWARD_CITATION",
+            "FORWARD_SNOWBALLING",
             "MANUAL",
             "LITERATURE_REVIEW_MINING",
             "RECOMMENDATION",
         ]
         actual_members = [member.name for member in DiscoveryMethod]
         assert set(actual_members) == set(expected_members)
-        assert len(actual_members) == 6
+        assert len(actual_members) == 8
 
     def test_discovery_method_values(self):
         """Verify DiscoveryMethod values are correctly defined"""
         assert DiscoveryMethod.KEYWORD_SEARCH.value == "keyword_search"
         assert DiscoveryMethod.BACKWARD_CITATION.value == "backward_citation"
+        assert DiscoveryMethod.BACKWARD_SNOWBALLING.value == "backward_snowballing"
         assert DiscoveryMethod.FORWARD_CITATION.value == "forward_citation"
+        assert DiscoveryMethod.FORWARD_SNOWBALLING.value == "forward_snowballing"
         assert DiscoveryMethod.MANUAL.value == "manual"
         assert (
             DiscoveryMethod.LITERATURE_REVIEW_MINING.value

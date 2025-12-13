@@ -19,7 +19,8 @@ def test_wos_loader():
     print("Testing WOS BibTeX Loader")
     print("="*80)
     
-    bib_file = '/Users/iheitlager/wc/innovation-review/raw/search 2025-04-19 - 690 - no review - excluded.bib'
+        # Use test data file from tests/data directory
+    bib_file = Path(__file__).parent.parent.parent / 'data' / 'wos_sample_20.bib'
     
     assert Path(bib_file).exists(), f"WOS BibTeX file not found: {bib_file}"
     
@@ -45,11 +46,12 @@ def test_scopus_loader():
     print("Testing Scopus BibTeX Loader")
     print("="*80)
     
-    bib_file = '/Users/iheitlager/wc/scopus_export_Dec 5-2025_4146c5e5-b8ab-42a4-b0a5-e7f5e035fd82.bib'
+    # Use test data file from tests/data directory
+    bib_file = Path(__file__).parent.parent.parent / 'data' / 'scopus_sample_20.bib'
     
-    assert Path(bib_file).exists(), f"Scopus BibTeX file not found: {bib_file}"
+    assert bib_file.exists(), f"Scopus BibTeX file not found: {bib_file}"
     
-    reader = BibtexReader(bib_file)
+    reader = BibtexReader(str(bib_file))
     papers = reader.parse()
     print(f"✓ Successfully parsed {len(papers)} papers from Scopus BibTeX file")
     
@@ -71,7 +73,9 @@ def test_source_detection():
     print("Testing Source Detection")
     print("="*80)
     
-    reader = BibtexReader('/Users/iheitlager/wc/scopus_export_Dec 5-2025_4146c5e5-b8ab-42a4-b0a5-e7f5e035fd82.bib')
+    # Use test data file from tests/data directory
+    bib_file = Path(__file__).parent.parent.parent / 'data' / 'scopus_sample_20.bib'
+    reader = BibtexReader(str(bib_file))
     
     # Test WOS detection
     wos_fields = {

@@ -107,6 +107,11 @@ def validate_definition_file(
                 )
                 continue
 
+            # Print step info if verbose
+            if verbose:
+                step_desc = f" - {description}" if description else ""
+                console.print(f"  [blue]→[/blue] Step {i}: [cyan]{step_name}[/cyan]{step_desc}")
+
             # Get the step params
             step_params = step_config.get(builtin_key, {})
 
@@ -128,6 +133,8 @@ def validate_definition_file(
                 if not is_valid:
                     for error in validation_errors:
                         errors.append(f"Step {i} ({step_name}): {error}")
+                elif verbose:
+                    console.print(f"    [green]✓[/green] Valid configuration")
 
         except Exception as e:
             errors.append(f"Step {i}: {str(e)}")
@@ -151,6 +158,9 @@ def execute_validate(
     Returns:
         Exit code (0 for success, 1 for failure)
     """
+    if verbose:
+        console.print(f"[cyan]Validating definition file: {definition_file}[/cyan]")
+
     is_valid, errors = validate_definition_file(definition_file, verbose=verbose, builtin_steps=builtin_steps)
 
     if not is_valid:

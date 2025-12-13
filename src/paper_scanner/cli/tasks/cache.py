@@ -11,8 +11,109 @@ from pathlib import Path
 from typing import Optional
 
 from rich.console import Console
+from rich.table import Table
 
 console = Console(file=sys.stderr)
+
+
+def _get_dir_size(path: Path) -> int:
+    """Get total size of directory in bytes"""
+    if not path.exists():
+        return 0
+    total_size = 0
+    for item in path.rglob("*"):
+        if item.is_file():
+            total_size += item.stat().st_size
+    return total_size
+
+
+def _format_size(size_bytes: int) -> str:
+    """Format bytes to human-readable size"""
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f}{unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f}TB"
+
+
+def _count_files(path: Path) -> int:
+    """Count number of files in directory"""
+    if not path.exists():
+        return 0
+    return len(list(path.rglob("*")))
+
+
+def execute_cache_info(
+    cache_dir: Optional[Path] = None,
+    verbose: bool = False,
+) -> int:
+    """
+    Display cache information.
+
+    Args:
+        cache_dir: Cache directory (default: ~/.paper-scanner)
+        verbose: Enable verbose output
+
+    Returns:
+        Exit code (0 for success)
+    """
+    import os
+
+    # Determine cache_dir
+    if cache_dir is None:
+        cache_dir = Path(os.getenv("CACHE_DIR", ""))
+        if not cache_dir or str(cache_dir) == ".":
+            cache_dir = None
+
+    if cache_dir is None:
+        cache_dir = Path("~/.paper-scanner").expanduser()
+    else:
+        cache_dir = cache_dir.expanduser()
+
+    if verbose:
+        console.print(f"Cache directory: [cyan]{cache_dir}[/cyan]\n")
+
+    # Create table for cache info
+    table = Table(title="Cache Contents", show_header=True, header_style="bold magenta")
+    table.add_column("Component", style="cyan")
+    table.add_column("Location", style="dim")
+    table.add_column("Files", justify="right")
+    table.add_column("Size", justify="right")
+
+    # Checkpoints
+    checkpoints_dir = cache_dir / "checkpoints"
+    checkpoint_files = _count_files(checkpoints_dir)
+    checkpoint_size = _get_dir_size(checkpoints_dir)
+    table.add_row(
+        "Checkpoints",
+        "checkpoints/",
+        str(checkpoint_files),
+        _format_size(checkpoint_size),
+    )
+
+    # Crossref
+    crossref_dir = cache_dir / "crossref"
+    crossref_files = _count_files(crossref_dir)
+    crossref_size = _get_dir_size(crossref_dir)
+    table.add_row(
+        "Crossref Cache",
+        "crossref/",
+        str(crossref_files),
+        _format_size(crossref_size),
+    )
+
+    # Total
+    total_files = checkpoint_files + crossref_files
+    total_size = checkpoint_size + crossref_size
+    table.add_row(
+        "[bold]Total[/bold]",
+        "",
+        f"[bold]{total_files}[/bold]",
+        f"[bold]{_format_size(total_size)}[/bold]",
+    )
+
+    console.print(table)
+    return 0
 
 
 def execute_cache_clear(
