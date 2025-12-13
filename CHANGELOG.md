@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-12-13
+
+### Added
+
+- CLI `--version` flag to display application version from `__version__`
+- Comprehensive checkpoint step test suite (`test_checkpoint.py`) with 23 tests covering serialization, deserialization, and duplicate handling
+
+### Changed
+
+- Refactored CLI into modular task architecture (`tasks/run.py`, `tasks/validate.py`, `tasks/cache.py`) for better separation of concerns
+
 ## [2.2.0] - 2025-12-12
 
 ### Added
