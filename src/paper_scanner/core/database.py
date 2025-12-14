@@ -13,10 +13,11 @@ Indexes maintained:
 - _id_index: Dict[str, Paper] - Unique paper IDs
 """
 
-from typing import List, Dict, Optional, Set, Any
+from typing import List, Dict, Optional, Any
 from collections import defaultdict
 
-from paper_scanner.core.models import Paper, Citation
+from paper_scanner.core.models import Paper
+from paper_scanner.tools.doi import DOI
 
 
 class PapersDatabase:
@@ -62,7 +63,7 @@ class PapersDatabase:
         
         # Index by DOI (may have duplicates)
         if paper.doi:
-            doi_key = paper.doi.lower().strip()
+            doi_key = DOI(paper.doi).stem
             if paper not in self._doi_index[doi_key]:
                 self._doi_index[doi_key].append(paper)
     
@@ -85,7 +86,7 @@ class PapersDatabase:
         
         # Unindex from DOI
         if paper.doi:
-            doi_key = paper.doi.lower().strip()
+            doi_key = DOI(paper.doi).stem
             if doi_key in self._doi_index:
                 self._doi_index[doi_key] = [
                     p for p in self._doi_index[doi_key] if p is not paper
@@ -105,7 +106,7 @@ class PapersDatabase:
         """
         # Remove old paper from old DOI index
         if old_doi:
-            old_doi_key = old_doi.lower().strip()
+            old_doi_key = DOI(old_doi).stem
             if old_doi_key in self._doi_index:
                 # Filter out papers with matching ID (not the same object reference)
                 self._doi_index[old_doi_key] = [
@@ -116,7 +117,7 @@ class PapersDatabase:
         
         # Add to new DOI index
         if paper.doi:
-            doi_key = paper.doi.lower().strip()
+            doi_key = DOI(paper.doi).stem
             # Check if already exists by ID, if so remove it first
             if doi_key in self._doi_index:
                 self._doi_index[doi_key] = [p for p in self._doi_index[doi_key] if p.id != paper.id]
@@ -218,7 +219,7 @@ class PapersDatabase:
         Returns:
             List of papers with matching DOI
         """
-        doi_key = doi.lower().strip()
+        doi_key = DOI(doi).stem
         papers = self._doi_index.get(doi_key, [])
         
         if not primary_only:

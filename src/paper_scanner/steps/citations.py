@@ -32,6 +32,7 @@ import logging
 from paper_scanner.core.models import Paper, Citation, Discovery, DiscoveryMethod, PaperType
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.tools.fetchers.fetcher import Fetcher
+from paper_scanner.tools.doi import DOI
 from .base import BaseStep
 
 console = Console(file=sys.stderr)
@@ -58,20 +59,13 @@ class CitationsStep(BaseStep):
         """
         errors = []
 
-        # Check for both underscore and hyphen versions
-        paper_types_key = None
-        if "paper_types" in config:
-            paper_types_key = "paper_types"
-        elif "paper-type" in config:
-            paper_types_key = "paper-type"
-
         # Validate paper_types
-        if paper_types_key:
-            if not isinstance(config[paper_types_key], list):
-                errors.append(f"'{paper_types_key}' must be a list")
+        if "paper-type" in config:
+            if not isinstance(config["paper-type"], list):
+                errors.append("'paper-types' must be a list")
             else:
                 valid_types = [pt.value for pt in PaperType]
-                for pt in config[paper_types_key]:
+                for pt in config["paper-type"]:
                     if pt not in valid_types:
                         errors.append(f"'{pt}' is not a valid PaperType. Valid: {valid_types}")
 
@@ -114,23 +108,11 @@ class CitationsStep(BaseStep):
         Returns:
             Results dict with statistics
         """
-        # Normalize hyphenated keys to underscore (YAML convention)
-        if "paper-type" in config and "paper_types" not in config:
-            config["paper_types"] = config["paper-type"]
-
         # Extract configuration
         paper_types = config.get("paper-types", ["journal_article"])
         backward_config = config.get("backward", {})
-        source = backward_config.get("source", ["crossref"])
+        sources = backward_config.get("source", ["crossref"])
         continue_on_not_found = backward_config.get("continue_on_not_found", True)
-
-        # Normalize source to list if it's a string
-        if isinstance(source, str):
-            sources = [source]
-        elif isinstance(source, list):
-            sources = source
-        else:
-            sources = ["crossref"]
 
         if verbose:
             console.print(f"[blue]Paper types to process:[/blue] {paper_types}")
@@ -145,8 +127,6 @@ class CitationsStep(BaseStep):
             debug=debug
         )
 
-        if debug:
-            console.print(f"[blue]Fetcher initialized:[/blue]\n{pformat(fetcher.handlers, indent=2)}")
 
         # Get papers to process (filter by paper_type)
         papers = self.db.all(primary_only=True)
@@ -154,6 +134,11 @@ class CitationsStep(BaseStep):
             p for p in papers
             if p.paper_type and p.paper_type.value in paper_types and p.doi
         ]
+
+        if debug:
+            console.print(f"[blue]Fetcher initialized:[/blue]\n{pformat(fetcher.handlers, indent=2)}")
+            console.print(f"[blue]Total papers in DB:[/blue] {len(papers)}")
+            console.print(f"[blue]Target papers to process:[/blue] {len(target_papers)}")
 
         results = {
             "total_papers": len(papers),
@@ -197,6 +182,9 @@ class CitationsStep(BaseStep):
                         f"citations for {paper.doi}[/cyan]"
                     )
 
+                # Load all candidate papers ONCE for this batch of citations
+                all_papers = self.db.all(primary_only=True)
+
                 # Resolve each citation
                 for citation in citations:
                     resolved_id, created_new = self._resolve_citation(
@@ -204,7 +192,8 @@ class CitationsStep(BaseStep):
                         citing_paper=paper,
                         continue_on_not_found=continue_on_not_found,
                         dry_run=dry_run,
-                        verbose=verbose
+                        verbose=verbose,
+                        all_papers=all_papers
                     )
 
                     if resolved_id:
@@ -244,7 +233,8 @@ class CitationsStep(BaseStep):
         citing_paper: Paper,
         continue_on_not_found: bool = True,
         dry_run: bool = False,
-        verbose: bool = False
+        verbose: bool = False,
+        all_papers: Optional[List[Paper]] = None
     ) -> Tuple[Optional[str], bool]:
         """
         Resolve citation to existing Paper or create new Paper if necessary.
@@ -255,13 +245,14 @@ class CitationsStep(BaseStep):
             continue_on_not_found: If True, create new Paper; if False, leave unresolved
             dry_run: Don't write to database if True
             verbose: Enable verbose output
+            all_papers: Pre-fetched list of all papers (optional). If None, will be fetched as needed.
 
         Returns:
             Tuple of (resolved_paper_id, created_new_paper: bool)
         """
         # Try to resolve by DOI first
         if citation.doi:
-            normalized_doi = self._normalize_doi(citation.doi)
+            normalized_doi = DOI(citation.doi).stem
             if normalized_doi:
                 paper = self._find_paper_by_doi(normalized_doi)
                 if paper:
@@ -279,7 +270,11 @@ class CitationsStep(BaseStep):
 
         # If not found by DOI, try title + year matching
         if not citation.doi and citation.title and citation.year:
-            paper = self._find_paper_by_title_year(citation.title, citation.year)
+            paper = self._find_paper_by_title_year(
+                citation.title,
+                citation.year,
+                all_papers=all_papers
+            )
             if paper:
                 while paper.duplicate_of:
                     paper = paper.duplicate_of
@@ -299,8 +294,15 @@ class CitationsStep(BaseStep):
         try:
             iteration = (citing_paper.discovery.iteration + 1) if citing_paper.discovery else 1
             
-            # Generate cite_key from title and year
-            cite_key = self._generate_cite_key(citation.title, citation.year)
+            # Generate cite_key using MD5 hash of title+year for reproducibility
+            import hashlib
+            import uuid
+            if citation.title and citation.year:
+                hash_input = f"{citation.title}_{citation.year}".lower()
+                cite_key = hashlib.md5(hash_input.encode()).hexdigest()[:8]
+            else:
+                # Fallback to random UUID
+                cite_key = str(uuid.uuid4())[:8]
             
             new_paper = Paper(
                 cite_key=cite_key,
@@ -324,7 +326,7 @@ class CitationsStep(BaseStep):
             
             # Save to database
             if not dry_run:
-                self.db.save(new_paper)
+                self.db.add(new_paper)
             
             # Update citing paper's cited_by
             if citing_paper.id not in new_paper.cited_by:
@@ -341,46 +343,19 @@ class CitationsStep(BaseStep):
             logger.error(f"Error creating new Paper from citation: {e}")
             return None, False
 
-    def _normalize_doi(self, doi: str) -> Optional[str]:
-        """
-        Normalize DOI for comparison.
-
-        Removes URL prefixes and converts to lowercase.
-
-        Args:
-            doi: Raw DOI string
-
-        Returns:
-            Normalized DOI or None if invalid
-        """
-        if not doi:
-            return None
-
-        # Remove URL prefixes
-        doi = re.sub(r"^https?://doi\.org/", "", doi, flags=re.IGNORECASE)
-        doi = re.sub(r"^https?://dx\.doi\.org/", "", doi, flags=re.IGNORECASE)
-        doi = re.sub(r"^doi:", "", doi, flags=re.IGNORECASE)
-        
-        # Normalize to lowercase
-        doi = doi.strip().lower()
-        
-        # Validate basic DOI format (starts with 10.)
-        if not doi.startswith("10."):
-            return None
-        
-        return doi
-
     def _generate_cite_key(self, title: Optional[str], year: Optional[int]) -> str:
         """
-        Generate a cite key from title and year.
+        Generate a unique cite key from title and year.
 
         Args:
             title: Paper title
             year: Publication year
 
         Returns:
-            Generated cite key
+            Generated cite key (guaranteed unique via UUID suffix)
         """
+        import uuid
+        
         if not title:
             title = "unknown"
         
@@ -391,7 +366,10 @@ class CitationsStep(BaseStep):
         # Use year or default to current year
         year_str = str(year) if year else str(datetime.now().year)
         
-        return f"{prefix}{year_str}"
+        # Add UUID suffix to guarantee uniqueness (use first 8 chars)
+        unique_suffix = str(uuid.uuid4())[:8]
+        
+        return f"{prefix}{year_str}_{unique_suffix}"
 
     def _find_paper_by_doi(self, normalized_doi: str) -> Optional[Paper]:
         """
@@ -404,14 +382,12 @@ class CitationsStep(BaseStep):
             Paper if found, None otherwise
         """
         try:
-            # Query database for paper with this DOI
-            query = f"SELECT * FROM papers WHERE LOWER(doi) = LOWER(%s)"
-            results = self.db.connection.execute(query, (normalized_doi,))
-            row = results.fetchone()
+            # Use database's DOI index for fast lookup
+            papers = self.db.get_by_doi(normalized_doi, primary_only=True)
             
-            if row:
-                # Convert database row to Paper object
-                return self.db._row_to_paper(row)
+            if papers:
+                # Return first match (should be canonical if duplicate chain exists)
+                return papers[0]
             
             return None
         except Exception as e:
@@ -422,7 +398,8 @@ class CitationsStep(BaseStep):
         self,
         title: str,
         year: int,
-        tolerance: float = 0.8
+        tolerance: float = 0.8,
+        all_papers: Optional[List[Paper]] = None
     ) -> Optional[Paper]:
         """
         Find paper by title and year with fuzzy matching.
@@ -431,6 +408,7 @@ class CitationsStep(BaseStep):
             title: Paper title
             year: Publication year
             tolerance: Fuzzy match threshold (0-1)
+            all_papers: Pre-fetched list of papers to search (optional). If None, fetches from DB.
 
         Returns:
             Paper if found with high confidence, None otherwise
@@ -439,10 +417,15 @@ class CitationsStep(BaseStep):
             return None
 
         try:
-            # Query papers from same year
-            query = f"SELECT * FROM papers WHERE EXTRACT(YEAR FROM publication_date) = %s OR year = %s"
-            results = self.db.connection.execute(query, (year, year))
-            candidates = [self.db._row_to_paper(row) for row in results.fetchall()]
+            # Use provided papers or fetch from DB
+            if all_papers is None:
+                all_papers = self.db.all(primary_only=True)
+            
+            # Get candidates from around the same year
+            candidates = [
+                p for p in all_papers 
+                if p.year and abs(p.year - year) <= 1
+            ]
 
             if not candidates:
                 return None

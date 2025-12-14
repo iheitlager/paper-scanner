@@ -238,6 +238,6 @@ class TestCrossrefBackwardCompatibility:
         }
         
         # Old API should work
-        citations, cache_hit = handler.fetch_and_parse_citations(doi)
+        citations, cache_hit = handler.fetch_citations(doi)
         assert len(citations) >= 0
         assert cache_hit is False

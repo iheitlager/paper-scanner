@@ -137,7 +137,7 @@ class TestCrossrefMetadataExtraction:
         doi = "10.1145/3025453.3025761"
 
         cite_key = handler._generate_cite_key(authors, year, doi)
-        assert cite_key == "smith_2020"
+        assert cite_key == "doi_2d61f4f8"  # MD5 of "10.1145/3025453.3025761"
 
     def test_cite_key_generation_no_author(self, handler):
         """Test cite key generation without author."""

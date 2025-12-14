@@ -62,7 +62,7 @@ class TestCrossrefCitationExtraction:
             ]
         }
         
-        citations, cache_hit = handler.fetch_and_parse_citations(doi)
+        citations, cache_hit = handler.fetch_citations(doi)
         
         assert citations is not None
         assert len(citations) == 2
@@ -81,7 +81,7 @@ class TestCrossrefCitationExtraction:
             "reference": []
         }
         
-        citations, cache_hit = handler.fetch_and_parse_citations(doi)
+        citations, cache_hit = handler.fetch_citations(doi)
         
         assert citations is not None
         assert len(citations) == 0
@@ -94,7 +94,7 @@ class TestCrossrefCitationExtraction:
         
         mock_fetch.return_value = None
         
-        citations, cache_hit = handler.fetch_and_parse_citations(doi)
+        citations, cache_hit = handler.fetch_citations(doi)
         
         assert citations == []
         assert not cache_hit
@@ -105,7 +105,7 @@ class TestCrossrefCitationExtraction:
             "reference": [
                 {
                     "DOI": "10.1234/test1",
-                    "article-title": "Reference 1",
+                    "article-title": "Reference 1: Complete Metadata",
                     "author": "Smith, J.",
                     "year": "2020",
                     "journal-title": "Test Journal",
@@ -116,21 +116,30 @@ class TestCrossrefCitationExtraction:
                     "publisher": "Test Publisher",
                 },
                 {
-                    "unstructured": "Reference without structure",
+                    "unstructured": "Reference without structure but with author and year",
                     "author": "Doe, J.",
                     "year": "2021",
+                },
+                {
+                    "article-title": "Reference 3: Minimal Metadata",
+                    "year": "2019",
+                    "journal-title": "Another Journal",
                 }
             ]
         }
         
         citations = handler._extract_citations(api_data)
         
-        assert len(citations) == 2
+        assert len(citations) == 3
         assert isinstance(citations[0], Citation)
         assert isinstance(citations[1], Citation)
+        assert isinstance(citations[2], Citation)
         assert citations[0].doi == "10.1234/test1"
-        assert citations[0].title == "Reference 1"
+        assert citations[0].title == "Reference 1: Complete Metadata"
         assert citations[0].extraction_method == "crossref"
+        assert citations[1].raw_text == "Reference without structure but with author and year"
+        assert citations[2].journal == "Another Journal"
+        assert citations[2].doi is None
 
     def test_parse_reference_complete(self, handler):
         """Test parsing reference with all fields."""
@@ -309,7 +318,7 @@ class TestCrossrefCitationExtraction:
             ]
         }
         
-        citations, cache_hit = handler.fetch_and_parse_citations(doi)
+        citations, cache_hit = handler.fetch_citations(doi)
         
         assert len(citations) == 2
         assert cache_hit is False  # First call, not cached
@@ -346,7 +355,7 @@ class TestCrossrefCitationExtraction:
             ]
         }
         
-        citations, cache_hit = handler.fetch_and_parse_citations(doi)
+        citations, cache_hit = handler.fetch_citations(doi)
         
         assert citations is not None
         assert len(citations) == 3
@@ -471,7 +480,7 @@ class TestCrossrefCitationIntegration:
         }
         
         # Test fetch with unified cache
-        citations, cache_hit = handler.fetch_and_parse_citations(doi)
+        citations, cache_hit = handler.fetch_citations(doi)
         
         assert len(citations) == 2
         assert not cache_hit  # First fetch should not be from cache

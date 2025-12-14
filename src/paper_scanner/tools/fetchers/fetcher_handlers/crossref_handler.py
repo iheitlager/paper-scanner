@@ -15,6 +15,7 @@ from paper_scanner.core.models import OpenAccessStatus, Citation
 from paper_scanner.core.enum import PaperType
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.documents.abstract_parser import AbstractParser
+from paper_scanner.tools.doi import DOI
 
 logger = logging.getLogger(__name__)
 
@@ -212,9 +213,9 @@ class CrossrefHandler(BaseFetcherHandler):
             Citation object or None if parsing fails
         """
         # Extract DOI
-        doi = ref.get("DOI")
+        doi = ref.get("DOI", None)
         if doi:
-            doi = doi.lower().strip()
+            doi = DOI(doi).stem
 
         # Extract title
         title = ref.get("unstructured", "").strip()
@@ -244,7 +245,7 @@ class CrossrefHandler(BaseFetcherHandler):
         issue = (ref.get("issue") or "").strip() or None
         first_page = (ref.get("first-page") or "").strip() or None
         last_page = (ref.get("last-page") or "").strip() or None
-        
+
         pages = None
         if first_page and last_page:
             pages = f"{first_page}-{last_page}"

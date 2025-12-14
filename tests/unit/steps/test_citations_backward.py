@@ -22,7 +22,7 @@ class TestValidate:
         """Test validation of minimal valid configuration"""
         config = {
             "backward": {
-                "source": "crossref"
+                "source": ["crossref"]
             }
         }
         
@@ -32,11 +32,11 @@ class TestValidate:
         assert len(errors) == 0
 
     def test_validate_valid_config_with_paper_types(self):
-        """Test validation with explicit paper_types"""
+        """Test validation with explicit paper-types"""
         config = {
-            "paper_types": ["journal_article", "conference_paper"],
+            "paper-types": ["journal_article", "conference_paper"],
             "backward": {
-                "source": "crossref",
+                "source": ["crossref"],
                 "continue_on_not_found": True
             }
         }
@@ -49,9 +49,9 @@ class TestValidate:
     def test_validate_invalid_paper_type(self):
         """Test validation fails with invalid paper_type"""
         config = {
-            "paper_types": ["invalid_type"],
+            "paper-type": ["invalid_type"],
             "backward": {
-                "source": "crossref"
+                "source": ["crossref"]
             }
         }
         
@@ -61,9 +61,9 @@ class TestValidate:
         assert any("not a valid PaperType" in err for err in errors)
 
     def test_validate_paper_types_not_list(self):
-        """Test validation fails when paper_types is not a list"""
+        """Test validation fails when paper-types is not a list"""
         config = {
-            "paper_types": "journal_article",
+            "paper-type": "journal_article",
             "backward": {
                 "source": "crossref"
             }
@@ -72,7 +72,7 @@ class TestValidate:
         is_valid, errors = CitationsStep.validate(config)
         
         assert is_valid is False
-        assert any("'paper_types' must be a list" in err for err in errors)
+        assert any("'paper-types' must be a list" in err for err in errors)
 
     def test_validate_backward_not_dict(self):
         """Test validation fails when backward is not a dict"""
@@ -112,7 +112,7 @@ class TestValidate:
         assert any("'backward.continue_on_not_found' must be a boolean" in err for err in errors)
 
     def test_validate_paper_type_hyphen_key(self):
-        """Test validation accepts paper-type (hyphenated) as alias for paper_types"""
+        """Test validation accepts paper-type (hyphenated) as alias for paper-types"""
         config = {
             "paper-type": ["journal_article"],
             "backward": {
@@ -174,7 +174,7 @@ class TestExecute:
     def test_execute_with_no_papers(self, step):
         """Test execution when no papers in database"""
         config = {
-            "paper_types": ["journal_article"],
+            "paper-types": ["journal_article"],
             "backward": {
                 "source": "crossref",
                 "continue_on_not_found": True
@@ -207,7 +207,7 @@ class TestExecute:
         mock_fetcher_class.return_value = mock_fetcher
 
         config = {
-            "paper_types": ["journal_article"],
+            "paper-types": ["journal_article"],
             "backward": {
                 "source": "crossref",
                 "continue_on_not_found": True
@@ -255,14 +255,14 @@ class TestExecute:
         mock_fetcher_class.return_value = mock_fetcher
 
         config = {
-            "paper_types": ["journal_article"],
+            "paper-types": ["journal_article"],
             "backward": {
-                "source": "crossref",
+                "source": ["crossref"],
                 "continue_on_not_found": False
             }
         }
         
-        results = step.execute(config, verbose=False, dry_run=True)
+        results = step.execute(config, verbose=False, dry_run=True, debug=False)
         
         assert results["total_papers"] == 1
         assert results["target_papers"] == 1
@@ -298,7 +298,7 @@ class TestExecute:
         mock_fetcher_class.return_value = mock_fetcher
 
         config = {
-            "paper_types": ["journal_article"],
+            "paper-types": ["journal_article"],
             "backward": {"source": "crossref"}
         }
         
@@ -419,7 +419,7 @@ class TestResolveCitation:
 
         step._find_paper_by_doi = MagicMock(return_value=None)
         step._find_paper_by_title_year = MagicMock(return_value=None)
-        step.db.save = MagicMock()
+        step.db.add = MagicMock()
 
         resolved_id, created_new = step._resolve_citation(
             citation,
@@ -430,7 +430,7 @@ class TestResolveCitation:
 
         assert resolved_id is not None
         assert created_new is True
-        step.db.save.assert_called_once()
+        step.db.add.assert_called_once()
 
     def test_resolve_citation_follow_duplicate_chain(self, step):
         """Test following duplicate_of chain to canonical paper"""
@@ -501,72 +501,9 @@ class TestResolveCitation:
             dry_run=False
         )
 
-        # Verify save was called
-        step.db.save.assert_called_once()
-        saved_paper = step.db.save.call_args[0][0]
+        # Verify add was called
+        step.db.add.assert_called_once()
+        saved_paper = step.db.add.call_args[0][0]
 
         # New paper should be at iteration 2
         assert saved_paper.discovery.iteration == 2
-
-
-class TestNormalizeDOI:
-    """Test CitationsStep._normalize_doi() method"""
-
-    @pytest.fixture
-    def step(self, tmp_path):
-        """Create a CitationsStep instance"""
-        general_config = {}
-        step = CitationsStep(general_config=general_config, db=MagicMock(), cache_dir=tmp_path)
-        return step
-
-    def test_normalize_doi_plain(self, step):
-        """Test normalizing plain DOI"""
-        doi = "10.1234/test"
-        normalized = step._normalize_doi(doi)
-        assert normalized == "10.1234/test"
-
-    def test_normalize_doi_with_https_doi_org(self, step):
-        """Test normalizing DOI with https://doi.org/ prefix"""
-        doi = "https://doi.org/10.1234/test"
-        normalized = step._normalize_doi(doi)
-        assert normalized == "10.1234/test"
-
-    def test_normalize_doi_with_dx_doi_org(self, step):
-        """Test normalizing DOI with https://dx.doi.org/ prefix"""
-        doi = "https://dx.doi.org/10.1234/test"
-        normalized = step._normalize_doi(doi)
-        assert normalized == "10.1234/test"
-
-    def test_normalize_doi_with_doi_prefix(self, step):
-        """Test normalizing DOI with doi: prefix"""
-        doi = "doi:10.1234/test"
-        normalized = step._normalize_doi(doi)
-        assert normalized == "10.1234/test"
-
-    def test_normalize_doi_uppercase(self, step):
-        """Test normalizing uppercase DOI"""
-        doi = "10.1234/TEST"
-        normalized = step._normalize_doi(doi)
-        assert normalized == "10.1234/test"
-
-    def test_normalize_doi_with_spaces(self, step):
-        """Test normalizing DOI with leading/trailing spaces"""
-        doi = "  10.1234/test  "
-        normalized = step._normalize_doi(doi)
-        assert normalized == "10.1234/test"
-
-    def test_normalize_doi_invalid_no_10_prefix(self, step):
-        """Test normalizing invalid DOI without 10. prefix"""
-        doi = "1234/test"
-        normalized = step._normalize_doi(doi)
-        assert normalized is None
-
-    def test_normalize_doi_none(self, step):
-        """Test normalizing None"""
-        normalized = step._normalize_doi(None)
-        assert normalized is None
-
-    def test_normalize_doi_empty_string(self, step):
-        """Test normalizing empty string"""
-        normalized = step._normalize_doi("")
-        assert normalized is None

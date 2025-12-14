@@ -129,7 +129,7 @@ class TestBaseCacheIntegration:
         assert paper1 is not None
 
         # Old citations API should also work
-        citations, hit2 = dummy_handler.fetch_and_parse_citations(identifier)
+        citations, hit2 = dummy_handler.fetch_citations(identifier)
         assert hit2 is True, "Second call should hit cache"
 
     def test_cache_persists_across_handler_instances(self, tmp_path):
