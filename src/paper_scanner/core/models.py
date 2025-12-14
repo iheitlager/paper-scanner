@@ -325,7 +325,6 @@ class ConceptualAnalysis(BaseModel):
 
 class Discovery(BaseModel):
     """How paper was discovered"""
-    
     method: DiscoveryMethod
     iteration: int = 0  # 0 = initial, 1+ = snowballing iterations
     discovered_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -336,7 +335,6 @@ class Discovery(BaseModel):
     
     # Import details
     import_batch_id: Optional[str] = None
-
 
 # ============================================================================
 # OPEN ACCESS STATUS MODEL

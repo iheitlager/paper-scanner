@@ -233,7 +233,7 @@ def execute_run(
     Returns:
         Execution results
     """
-
+        
     # Load and validate
     if verbose:
         console.print(f"Loading definition file: [bold cyan]{definition_file}[/bold cyan]\n")

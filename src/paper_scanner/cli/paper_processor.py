@@ -29,23 +29,22 @@ def _discover_steps() -> Dict[str, str]:
 
     Returns:
         Dictionary of step_name -> module_name
+    
+    Note: This only checks for .py files without importing them.
+    Import errors will be caught when get_step() actually tries to load a module.
     """
     steps_dir = Path(__file__).parent.parent / "steps"
     available_steps = {}
 
     # Look for all .py files except __init__.py and those starting with _
+    # Don't import modules here - just enumerate files for fast discovery
     for module_file in steps_dir.glob("*.py"):
         if module_file.name.startswith("_") or module_file.name == "__init__.py":
             continue
 
         module_name = module_file.stem
-        # Verify the module has an execute function
-        try:
-            module = importlib.import_module(f".{module_name}", package="paper_scanner.steps")
-            if hasattr(module, "execute"):
-                available_steps[module_name] = module_name
-        except ImportError:
-            pass
+        # Add without verifying - verification happens at load time in get_step()
+        available_steps[module_name] = module_name
 
     return available_steps
 

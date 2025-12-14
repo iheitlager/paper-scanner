@@ -62,7 +62,8 @@ def execute(
     for paper in all_papers:
         doi_display = paper.doi if paper.doi else "—"
         type_display = paper.paper_type if paper.paper_type else "—"
-        title_display = paper.title[:60] + "..." if len(paper.title) > 60 else paper.title
+        title = paper.title if paper.title else "—"
+        title_display = title[:60] + "..." if len(title) > 60 else title
         duplicate = '+' if paper.duplicate_of is not None else ' '
         table.add_row(doi_display, type_display, title_display, duplicate)
     

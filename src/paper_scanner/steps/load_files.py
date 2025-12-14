@@ -228,8 +228,7 @@ def execute(
             # Success!
             file_result["success"] = True
             results["papers_loaded"] += 1
-            
-            # Add cache signal
+
             if verbose:
                 console.print(f"[green]✓ {i}/{len(pdf_files)}[/green] {pdf_path.name} → {new_filename}")
 
