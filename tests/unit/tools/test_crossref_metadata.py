@@ -1,25 +1,25 @@
 """
-Unit tests for Crossref metadata fetcher.
+Unit tests for Crossref metadata extraction.
 
-Tests the CrossrefMetadataFetcher class for correct API calls,
-caching, and field translation.
+Tests the CrossrefHandler class for correct metadata field extraction,
+Paper model translation, and cite key generation.
+Focus: Metadata -> Paper model transformation, NOT citations.
 """
 
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-import json
+from unittest.mock import patch, MagicMock
 import tempfile
 
 from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import (
-    CrossrefMetadataFetcher,
+    CrossrefHandler,
 )
 from paper_scanner.core.models import Paper
 from paper_scanner.core.enum import PaperType
 
 
-class TestCrossrefMetadataFetcher:
-    """Test suite for CrossrefMetadataFetcher."""
+class TestCrossrefMetadataExtraction:
+    """Test metadata extraction from Crossref API responses."""
 
     @pytest.fixture
     def cache_dir(self):
@@ -28,53 +28,25 @@ class TestCrossrefMetadataFetcher:
             yield Path(tmpdir)
 
     @pytest.fixture
-    def fetcher(self, cache_dir):
-        """Create a fetcher instance."""
-        return CrossrefMetadataFetcher(cache_dir=cache_dir)
+    def handler(self, cache_dir):
+        """Create a CrossrefHandler instance."""
+        return CrossrefHandler(cache_dir=cache_dir)
 
-    def test_fetcher_initialization(self, fetcher):
-        """Test fetcher initializes with cache directory."""
-        assert fetcher.cache_dir.exists()
-        assert fetcher.name == "crossref"
-
-    def test_cache_file_path_generation(self, fetcher):
-        """Test cache file path is generated correctly."""
-        doi = "10.1145/3025453.3025761"
-        cache_file = fetcher._cache._get_cache_path(doi)
-
-        # Should be MD5 hash of normalized DOI
-        assert cache_file.parent == fetcher._cache.cache_dir
-        assert cache_file.suffix == ".json"
-        assert len(cache_file.stem) == 32  # MD5 hex string length
-
-    def test_cache_file_normalization(self, fetcher):
-        """Test cache file path is same for different DOI formats."""
-        doi1 = "10.1145/3025453.3025761"
-        doi2 = "DOI:10.1145/3025453.3025761"
-        doi3 = "https://doi.org/10.1145/3025453.3025761"
-
-        file1 = fetcher._cache._get_cache_path(doi1)
-        file2 = fetcher._cache._get_cache_path(doi2)
-        file3 = fetcher._cache._get_cache_path(doi3)
-
-        # All should normalize to same file
-        assert file1 == file2 == file3
-
-    def test_abstract_extraction(self, fetcher):
+    def test_abstract_extraction(self, handler):
         """Test abstract extraction from API response."""
         api_data = {
             "abstract": "This is a test abstract about software engineering."
         }
-        abstract = fetcher._extract_abstract(api_data)
+        abstract = handler._extract_abstract(api_data)
         assert abstract == "This is a test abstract about software engineering."
 
-    def test_abstract_extraction_empty(self, fetcher):
+    def test_abstract_extraction_empty(self, handler):
         """Test abstract extraction returns None for missing abstract."""
         api_data = {"title": "Test"}
-        abstract = fetcher._extract_abstract(api_data)
+        abstract = handler._extract_abstract(api_data)
         assert abstract is None
 
-    def test_authors_extraction(self, fetcher):
+    def test_authors_extraction(self, handler):
         """Test author extraction from API response."""
         api_data = {
             "author": [
@@ -82,14 +54,14 @@ class TestCrossrefMetadataFetcher:
                 {"given": "Jane", "family": "Doe"},
             ]
         }
-        authors = fetcher._extract_authors(api_data)
+        authors = handler._extract_authors(api_data)
         assert len(authors) == 2
         assert authors[0].given_name == "John"
         assert authors[0].family_name == "Smith"
         assert authors[1].given_name == "Jane"
         assert authors[1].family_name == "Doe"
 
-    def test_authors_extraction_missing_family(self, fetcher):
+    def test_authors_extraction_missing_family(self, handler):
         """Test author extraction skips authors without family name."""
         api_data = {
             "author": [
@@ -97,24 +69,24 @@ class TestCrossrefMetadataFetcher:
                 {"given": "Jane"},  # Missing family name
             ]
         }
-        authors = fetcher._extract_authors(api_data)
+        authors = handler._extract_authors(api_data)
         assert len(authors) == 1
         assert authors[0].family_name == "Smith"
 
-    def test_keywords_extraction(self, fetcher):
+    def test_keywords_extraction(self, handler):
         """Test keywords extraction from subjects."""
         api_data = {"subject": ["machine learning", "software engineering", "AI"]}
-        keywords = fetcher._extract_keywords(api_data)
+        keywords = handler._extract_keywords(api_data)
         assert len(keywords) == 3
         assert "machine learning" in keywords
 
-    def test_topics_extraction(self, fetcher):
+    def test_topics_extraction(self, handler):
         """Test topics extraction (should be empty for Crossref)."""
         api_data = {"subject": ["topic1", "topic2"]}
-        topics = fetcher._extract_topics(api_data)
+        topics = handler._extract_topics(api_data)
         assert topics == []
 
-    def test_paper_type_extraction(self, fetcher):
+    def test_paper_type_extraction(self, handler):
         """Test paper type extraction and mapping."""
         test_cases = [
             ("journal-article", PaperType.JOURNAL_ARTICLE.value),
@@ -127,34 +99,34 @@ class TestCrossrefMetadataFetcher:
 
         for crossref_type, expected_paper_type in test_cases:
             api_data = {"type": crossref_type}
-            result = fetcher._extract_paper_type(api_data)
+            result = handler._extract_paper_type(api_data)
             assert result == expected_paper_type
 
-    def test_paper_type_extraction_unknown(self, fetcher):
+    def test_paper_type_extraction_unknown(self, handler):
         """Test paper type extraction returns None for unknown types."""
         api_data = {"type": "unknown-type"}
-        result = fetcher._extract_paper_type(api_data)
+        result = handler._extract_paper_type(api_data)
         assert result is None
 
-    def test_oa_status_extraction(self, fetcher):
+    def test_oa_status_extraction(self, handler):
         """Test OA status extraction (should be None for Crossref)."""
         api_data = {"is-referenced-by-count": 10}
-        oa_status = fetcher._extract_oa_status(api_data)
+        oa_status = handler._extract_oa_status(api_data)
         assert oa_status is None
 
-    def test_source_key_extraction(self, fetcher):
+    def test_source_key_extraction(self, handler):
         """Test source key extraction returns DOI."""
         api_data = {"DOI": "10.1145/3025453.3025761"}
-        source_key = fetcher._extract_source_key(api_data)
+        source_key = handler._extract_source_key(api_data)
         assert source_key == "10.1145/3025453.3025761"
 
-    def test_source_key_extraction_missing(self, fetcher):
+    def test_source_key_extraction_missing(self, handler):
         """Test source key extraction returns None if missing."""
         api_data = {"title": "Test"}
-        source_key = fetcher._extract_source_key(api_data)
+        source_key = handler._extract_source_key(api_data)
         assert source_key is None
 
-    def test_cite_key_generation(self, fetcher):
+    def test_cite_key_generation(self, handler):
         """Test cite key generation from authors and year."""
         from paper_scanner.core.models import Author
 
@@ -164,17 +136,17 @@ class TestCrossrefMetadataFetcher:
         year = 2020
         doi = "10.1145/3025453.3025761"
 
-        cite_key = fetcher._generate_cite_key(authors, year, doi)
+        cite_key = handler._generate_cite_key(authors, year, doi)
         assert cite_key == "smith_2020"
 
-    def test_cite_key_generation_no_author(self, fetcher):
+    def test_cite_key_generation_no_author(self, handler):
         """Test cite key generation without author."""
         doi = "10.1145/3025453.3025761"
-        cite_key = fetcher._generate_cite_key([], None, doi)
+        cite_key = handler._generate_cite_key([], None, doi)
         assert "doi_" in cite_key
 
     @patch("paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler.requests.Session.get")
-    def test_fetch_from_api_success(self, mock_get, fetcher):
+    def test_fetch_from_api_success(self, mock_get, handler):
         """Test successful API fetch."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -189,21 +161,21 @@ class TestCrossrefMetadataFetcher:
         }
         mock_get.return_value = mock_response
 
-        result = fetcher._fetch_from_api("10.1145/3025453.3025761")
+        result = handler._fetch_from_api("10.1145/3025453.3025761")
         assert result is not None
         assert result["title"] == "Test Article"
 
     @patch("paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler.requests.Session.get")
-    def test_fetch_from_api_not_found(self, mock_get, fetcher):
+    def test_fetch_from_api_not_found(self, mock_get, handler):
         """Test API fetch for non-existent DOI."""
         mock_response = MagicMock()
         mock_response.status_code = 404
         mock_get.return_value = mock_response
 
-        result = fetcher._fetch_from_api("10.1145/invalid")
+        result = handler._fetch_from_api("10.1145/invalid")
         assert result is None
 
-    def test_translate_to_paper(self, fetcher):
+    def test_translate_to_paper(self, handler):
         """Test translation of API response to Paper model."""
         api_data = {
             "title": "Test Article",
@@ -218,7 +190,7 @@ class TestCrossrefMetadataFetcher:
             "page": "100-110",
         }
 
-        paper = fetcher._translate_to_paper("10.1145/3025453.3025761", api_data)
+        paper = handler._translate_to_paper("10.1145/3025453.3025761", api_data)
 
         assert isinstance(paper, Paper)
         assert paper.title == "Test Article"
@@ -228,7 +200,7 @@ class TestCrossrefMetadataFetcher:
         assert paper.abstract == "This is a test abstract."
         assert paper.discovery.source_database == "crossref"
 
-    def test_cache_save_and_load(self, fetcher):
+    def test_cache_save_and_load(self, handler):
         """Test caching of API response."""
         doi = "10.1145/3025453.3025761"
 
@@ -239,11 +211,11 @@ class TestCrossrefMetadataFetcher:
         }
 
         # Save to cache
-        success = fetcher._cache.set(doi, api_data)
+        success = handler._cache.set(doi, api_data)
         assert success
 
         # Load from cache
-        loaded = fetcher._cache.get(doi)
+        loaded = handler._cache.get(doi)
         assert loaded == api_data
 
 if __name__ == "__main__":

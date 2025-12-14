@@ -7,11 +7,11 @@ consistent metadata extraction and translation to Paper model.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any, List
 from datetime import datetime
 import logging
 
-from paper_scanner.core.models import Paper
+from paper_scanner.core.models import Paper, Citation
 from paper_scanner.tools.cache import JSONFileCache
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,20 @@ class BaseFetcherHandler(ABC):
         """Extract source-specific ID from API response"""
         pass
 
-    def fetch_and_parse(self, doi: str) -> Tuple[Optional[Paper], bool]:
+    @abstractmethod
+    def _extract_citations(self, api_data: Dict[str, Any]) -> List[Citation]:
+        """
+        Extract citations from API response and convert to Citation models.
+
+        Args:
+            api_data: API response dict (same as used for metadata extraction)
+
+        Returns:
+            List of Citation objects
+        """
+        pass
+
+    def fetch_metadata(self, doi: str) -> Tuple[Optional[Paper], bool]:
         """
         Fetch metadata and parse into Paper model.
 
@@ -118,6 +131,66 @@ class BaseFetcherHandler(ABC):
 
         paper = self._translate_to_paper(doi, api_data)
         return paper, False
+
+    def fetch_citations(self, doi: str) -> Tuple[List[Citation], bool]:
+        """
+        Fetch citations and parse into Citation models.
+
+        Reuses the same cache as fetch_metadata since citations are
+        part of the API response (e.g., Crossref includes references in work record).
+
+        Args:
+            doi: Digital Object Identifier
+
+        Returns:
+            Tuple of (List[Citation] models, cache_hit: bool)
+        """
+        # Check cache - same key as fetch_metadata
+        api_data = self._cache.get(doi)
+        
+        if api_data is not None:
+            citations = self._extract_citations(api_data)
+            return citations, True
+
+        # Fetch full API data (includes citations)
+        api_data = self._fetch_from_api(doi)
+        if api_data is None:
+            return [], False
+
+        # Cache the full API response
+        self._cache.set(doi, api_data)
+        citations = self._extract_citations(api_data)
+        
+        return citations, False
+
+    def fetch_and_parse(self, doi: str) -> Tuple[Optional[Paper], bool]:
+        """
+        Fetch metadata and parse into Paper model.
+
+        Deprecated: Use fetch_metadata() instead.
+        Checks cache first, then API, storing result in cache.
+
+        Args:
+            doi: Digital Object Identifier
+
+        Returns:
+            Tuple of (Paper model or None, cache_hit: bool)
+        """
+        return self.fetch_metadata(doi)
+
+    def fetch_and_parse_citations(self, doi: str) -> Tuple[List[Citation], bool]:
+        """
+        Fetch citations and parse into Citation models.
+
+        Deprecated: Use fetch_citations() instead.
+
+        Args:
+            doi: Digital Object Identifier
+
+        Returns:
+            Tuple of (List[Citation] models, cache_hit: bool)
+        """
+        return self.fetch_citations(doi)
 
     def _translate_to_paper(self, doi: str, api_data: Dict[str, Any]) -> Paper:
         """

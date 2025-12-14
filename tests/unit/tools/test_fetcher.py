@@ -67,7 +67,7 @@ class TestFetcherMetadataFetching:
         mock_paper = Paper(cite_key="test2024", title="Test", doi="10.1234/test")
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_and_parse",
+            "fetch_metadata",
             return_value=(mock_paper, False),
         ):
             result, cache_hit = fetcher.fetch_metadata("10.1234/test")
@@ -81,7 +81,7 @@ class TestFetcherMetadataFetching:
         mock_paper = Paper(cite_key="test2024", title="Test", doi="10.1234/test")
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_and_parse",
+            "fetch_metadata",
             return_value=(mock_paper, True),
         ):
             result, cache_hit = fetcher.fetch_metadata("10.1234/test")
@@ -93,7 +93,7 @@ class TestFetcherMetadataFetching:
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_and_parse",
+            "fetch_metadata",
             return_value=(None, False),
         ):
             result, cache_hit = fetcher.fetch_metadata("10.9999/nonexistent")
@@ -105,7 +105,7 @@ class TestFetcherMetadataFetching:
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_and_parse",
+            "fetch_metadata",
             side_effect=Exception("Test error"),
         ):
             result, cache_hit = fetcher.fetch_metadata("10.1234/test")
@@ -120,7 +120,7 @@ class TestFetcherFallbackLogic:
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_and_parse",
+            "fetch_metadata",
             side_effect=Exception("Fail"),
         ):
             result, cache_hit = fetcher.fetch_metadata("10.9999/all_fail")
@@ -143,7 +143,7 @@ class TestFetcherCaching:
         # First call: cache miss
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_and_parse",
+            "fetch_metadata",
             return_value=(mock_paper, False),
         ):
             result, cache_hit = fetcher.fetch_metadata("10.1234/test")
@@ -152,7 +152,7 @@ class TestFetcherCaching:
         # Second call: cache hit
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_and_parse",
+            "fetch_metadata",
             return_value=(mock_paper, True),
         ):
             result, cache_hit = fetcher.fetch_metadata("10.1234/test")
@@ -174,7 +174,7 @@ class TestFetcherErrorHandling:
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_and_parse",
+            "fetch_metadata",
             side_effect=RuntimeError("Connection error"),
         ):
             result, cache_hit = fetcher.fetch_metadata("10.1234/test")
@@ -191,12 +191,12 @@ class TestFetcherDOINormalization:
     """Test DOI format handling."""
 
     def test_fetch_with_different_doi_formats(self, tmp_path):
-        """Test fetcher handles different DOI formats."""
+        """Test fetcher with different DOI input formats."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         mock_paper = Paper(cite_key="test2024", title="Test", doi="10.1234/test")
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_and_parse",
+            "fetch_metadata",
             return_value=(mock_paper, False),
         ):
             # Test various DOI formats

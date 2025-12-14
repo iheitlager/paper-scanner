@@ -1,8 +1,6 @@
 """API-specific fetcher handler implementations."""
 
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
-from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import (
-    CrossrefMetadataFetcher,
-)
+from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
 
-__all__ = ["BaseFetcherHandler", "CrossrefMetadataFetcher"]
+__all__ = ["BaseFetcherHandler", "CrossrefHandler"]

@@ -33,6 +33,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "retrieve_metadata": "paper_scanner.steps.retrieve_metadata:RetrieveMetadataStep",
     "semantic_screening": "paper_scanner.steps.semantic_screening:SemanticScreeningStep",
     "summarize": "paper_scanner.steps.summarize:SummarizeStep",
+    "citations": "paper_scanner.steps.citations:CitationsStep",
 }
 
 # Handle broken pipe gracefully (when piping to head, wc, etc.)

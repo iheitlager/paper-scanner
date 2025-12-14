@@ -107,7 +107,8 @@ class Citation(BaseModel):
     raw_text: Optional[str] = None
 
     # Linking
-    resolved_paper: Optional[Paper] = None  # If citation matches known paper
+    resolved_paper_id: Optional[str] = None  # UUID of linked Paper if resolved
+    resolved_paper: Optional[Paper] = None  # If citation matches known paper (computed)
 
 
 # ============================================================================

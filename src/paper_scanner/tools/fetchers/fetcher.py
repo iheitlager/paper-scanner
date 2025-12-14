@@ -1,28 +1,26 @@
 """
-Fetcher orchestrator - manages multiple handler implementations and caching.
+Fetcher orchestrator - manages handler implementations and caching.
 
-Coordinates metadata fetching from multiple sources with fallback logic and
-unified caching across all APIs.
+Coordinates metadata and citations fetching from multiple sources with fallback logic
+and unified caching across all APIs.
 """
 
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 from rich.console import Console
 
-from paper_scanner.core.models import Paper
+from paper_scanner.core.models import Paper, Citation
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
-from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import (
-    CrossrefMetadataFetcher,
-)
+from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
 
 console = Console(file=sys.stderr)
 
 # Mapping of method names to handler classes
 handler_classes = {
-    "crossref": CrossrefMetadataFetcher,
-    # "openalex": OpenAlexMetadataFetcher,
-    # "core": COREMetadataFetcher,
+    "crossref": CrossrefHandler,
+    # "openalex": OpenAlexHandler,
+    # "core": COREHandler,
     # Add others as implemented
 }
 
@@ -82,7 +80,7 @@ class Fetcher:
         """
         for handler_name, handler in self.handlers.items():
             try:
-                paper, cache_hit = handler.fetch_and_parse(doi)
+                paper, cache_hit = handler.fetch_metadata(doi)
                 if paper:
                     console.print(f"[green]Fetched {doi} from {handler_name}[/green]")
                     return paper, cache_hit
@@ -91,3 +89,32 @@ class Fetcher:
                 continue
 
         return None, False
+
+    def fetch_citations(self, doi: str) -> Tuple[List[Citation], bool]:
+        """
+        Fetch and parse backward citations for a given DOI.
+
+        Tries handlers in order until one succeeds.
+
+        Args:
+            doi: Digital Object Identifier
+
+        Returns:
+            Tuple of (citations list, cache_hit: bool)
+        """
+        for handler_name, handler in self.handlers.items():
+            try:
+                citations, cache_hit = handler.fetch_citations(doi)
+                if citations:
+                    console.print(
+                        f"[green]Fetched {len(citations)} citations for {doi} "
+                        f"from {handler_name}[/green]"
+                    )
+                    return citations, cache_hit
+            except Exception as e:
+                console.print(
+                    f"[yellow]Handler {handler_name} failed for {doi}: {e}[/yellow]"
+                )
+                continue
+
+        return [], False
