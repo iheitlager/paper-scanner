@@ -5,10 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+
+## [2.4.0] - 2025-12-14
+
+### Added
+
+- **Rebuilt API fetching architecture**: Complete restructuring of metadata fetching system with pluggable API handler design
+  - New `BaseFetcherHandler` abstract interface for implementing API-specific metadata extraction
+  - Support for multiple API sources (starting with Crossref for metadata)
+  - Consistent field translation from API responses to Paper model
+  - Automatic caching layer for all API responses
+  - Extensible design for adding OpenAlex, PubMed, and other metadata providers
+- **New `retrieve_metadata` pipeline step**: Fetch and enrich paper metadata from external APIs
+  - Supports DOI-based metadata retrieval from Crossref
+  - Configurable fallback behavior for papers without DOI
+  - Progress tracking for batch metadata fetching
+  - Cache-aware retrieval to avoid redundant API calls
+  - Cite key generation with author/year fallback strategy
 
 ### Changed
 
+- **Crossref integration refactored**: Migrated from direct API calls to new handler-based architecture with improved separation of concerns
 - **Test class naming standardization**: Unified all step test files to use consistent `TestValidate` and `TestExecute` class names instead of step-specific variants (e.g., `TestEchoValidation` → `TestValidate`, `TestStepExecution` → `TestExecute`) for improved clarity and consistency across the test suite
 
 ## [2.3.0] - 2025-12-13
