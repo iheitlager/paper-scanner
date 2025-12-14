@@ -99,7 +99,7 @@ class StepExecutor:
         Args:
             step_config: Step configuration
             papers_db: Current papers database
-            step_executor_func: Function to execute the step
+            step_executor_func: Function to execute the step (can be callable with just step_name, or step_executor class)
             verbose: Enable verbose output
             dry_run: Don't actually execute
             cache_dir: Cache directory
@@ -124,28 +124,20 @@ class StepExecutor:
             step_params["step_index"] = step_index
             step_params["project_name"] = project_name
 
-        # Get the step function
-        step_func = step_executor_func(step_name)
+        # Get the step instance
+        # step_executor_func can be either:
+        # 1. A callable that takes (step_name, general_config, db, cache_dir) -> step_instance
+        # 2. A callable that takes just (step_name) -> step_instance
+        sig = inspect.signature(step_executor_func)
+        if len(sig.parameters) > 1:
+            # Old-style: requires general_config, db, cache_dir
+            step_instance = step_executor_func(step_name, project_config or {}, papers_db, cache_dir)
+        else:
+            # New-style: just takes step_name
+            step_instance = step_executor_func(step_name)
 
-        # Check what parameters the step accepts
-        sig = inspect.signature(step_func)
-
-        # Build kwargs for step execution
-        kwargs = {"verbose": verbose, "dry_run": dry_run}
-
-        # Pass cache_dir if the step accepts it
-        if "cache_dir" in sig.parameters:
-            kwargs["cache_dir"] = cache_dir
-
-        # Pass project_config if the step accepts it
-        if "project_config" in sig.parameters:
-            kwargs["project_config"] = project_config
-
-        # Pass debug if the step accepts it
-        if "debug" in sig.parameters:
-            kwargs["debug"] = debug
-
-        result = step_func(step_params, papers_db, **kwargs)
+        # Execute the step
+        result = step_instance.execute(step_params, verbose=verbose, dry_run=dry_run)
 
         # Ensure step and description are in result
         result["step"] = step_name

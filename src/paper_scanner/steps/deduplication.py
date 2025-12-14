@@ -14,6 +14,7 @@ from rich.console import Console
 
 from ..core.models import Paper, DeduplicationResult, ProcessingMetadata
 from ..core.database import PapersDatabase
+from .base import BaseStep
 
 # Initialize rich console
 console = Console(file=sys.stderr)
@@ -373,3 +374,27 @@ def execute(
         console.print(f"    [green]✓ Deduplication complete[/green] - Found [cyan]{results['duplicates_found']}[/cyan] duplicates, [cyan]{unique_count}[/cyan] unique papers")
     
     return results
+
+
+# Class-based step interface (new architecture)
+class DeduplicationStep(BaseStep):
+    """Wrapper for deduplication step (legacy function-based)."""
+    
+    @staticmethod
+    def validate(config):
+        """Delegate to module validate function."""
+        import sys
+        # Get the module validate function through globals
+        validate_fn = globals().get('validate')
+        if validate_fn:
+            return validate_fn(config)
+        return True, []
+    
+    def execute(self, config, verbose=False, dry_run=False, debug=False):
+        """Delegate to module execute function."""
+        import sys
+        # Get the module execute function through globals
+        execute_fn = globals().get('execute')
+        if execute_fn:
+            return execute_fn(config, self.db, verbose, dry_run)
+        return {"status": "error", "message": "execute function not found"}

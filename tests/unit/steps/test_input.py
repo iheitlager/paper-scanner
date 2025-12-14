@@ -12,26 +12,59 @@ from io import StringIO
 
 import pytest
 
-from paper_scanner.steps.input import validate, execute
+from paper_scanner.steps.input import InputStep
 from paper_scanner.core.models import Paper, Author
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import DiscoveryMethod
 
 
-class TestInputValidation:
-    """Test input step validation"""
+# ============================================================================
+# FIXTURES
+# ============================================================================
+
+@pytest.fixture
+def temp_cache_dir(tmp_path):
+    """Create a temporary cache directory"""
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    return cache_dir
+
+
+@pytest.fixture
+def sample_papers_jsonl():
+    """Create a temporary JSON Lines file with sample papers"""
+    test_data = """{"cite_key": "Smith2024", "title": "Test Paper 1", "authors": [{"family_name": "Smith", "given_name": "John", "full_name": "John Smith"}], "year": 2024}
+{"cite_key": "Doe2024", "title": "Test Paper 2", "authors": [{"family_name": "Doe", "given_name": "Jane", "full_name": "Jane Doe"}], "year": 2024}
+{"cite_key": "Brown2023", "title": "Test Paper 3", "authors": [{"family_name": "Brown", "given_name": "Bob", "full_name": "Bob Brown"}], "year": 2023}
+"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+        f.write(test_data)
+        temp_file = f.name
+    
+    yield temp_file
+    
+    # Cleanup
+    Path(temp_file).unlink()
+
+
+# ============================================================================
+# VALIDATION TESTS
+# ============================================================================
+
+class TestValidate:
+    """Tests for input step validation"""
 
     def test_validate_with_file_path(self):
         """Test validation succeeds with file path"""
         config = {"file": "data/papers.jsonl"}
-        is_valid, errors = validate(config)
+        is_valid, errors = InputStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
 
     def test_validate_with_stdin(self):
         """Test validation succeeds with stdin"""
         config = {"input": "stdin"}
-        is_valid, errors = validate(config)
+        is_valid, errors = InputStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
 
@@ -41,35 +74,35 @@ class TestInputValidation:
             "file": "data/papers.jsonl",
             "input": "stdin"
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = InputStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
 
     def test_validate_missing_both_file_and_input(self):
         """Test validation fails when neither file nor input specified"""
         config = {}
-        is_valid, errors = validate(config)
+        is_valid, errors = InputStep.validate(config)
         assert is_valid is False
         assert any("Either 'file' or 'input' must be specified" in err for err in errors)
 
     def test_validate_invalid_file_type(self):
         """Test validation fails when file is not a string"""
         config = {"file": 123}
-        is_valid, errors = validate(config)
+        is_valid, errors = InputStep.validate(config)
         assert is_valid is False
         assert any("'file' must be a string" in err for err in errors)
 
     def test_validate_invalid_input_type(self):
         """Test validation fails when input is not a string"""
         config = {"input": 123}
-        is_valid, errors = validate(config)
+        is_valid, errors = InputStep.validate(config)
         assert is_valid is False
         assert any("'input' must be a string" in err for err in errors)
 
     def test_validate_invalid_input_source(self):
         """Test validation fails with invalid input source"""
         config = {"input": "file"}
-        is_valid, errors = validate(config)
+        is_valid, errors = InputStep.validate(config)
         assert is_valid is False
         assert any("'input' must be 'stdin'" in err for err in errors)
 
@@ -79,7 +112,7 @@ class TestInputValidation:
             "file": "data/papers.jsonl",
             "expected_count": 10
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = InputStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
 
@@ -89,7 +122,7 @@ class TestInputValidation:
             "file": "data/papers.jsonl",
             "expected_count": "10"
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = InputStep.validate(config)
         assert is_valid is False
         assert any("'expected_count' must be a non-negative integer" in err for err in errors)
 
@@ -99,31 +132,19 @@ class TestInputValidation:
             "file": "data/papers.jsonl",
             "expected_count": -5
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = InputStep.validate(config)
         assert is_valid is False
         assert any("'expected_count' must be a non-negative integer" in err for err in errors)
 
 
-class TestInputExecution:
-    """Test input step execution"""
+# ============================================================================
+# EXECUTION TESTS
+# ============================================================================
 
-    @pytest.fixture
-    def sample_papers_jsonl(self):
-        """Create a temporary JSON Lines file with sample papers"""
-        test_data = """{"cite_key": "Smith2024", "title": "Test Paper 1", "authors": [{"family_name": "Smith", "given_name": "John", "full_name": "John Smith"}], "year": 2024}
-{"cite_key": "Doe2024", "title": "Test Paper 2", "authors": [{"family_name": "Doe", "given_name": "Jane", "full_name": "Jane Doe"}], "year": 2024}
-{"cite_key": "Brown2023", "title": "Test Paper 3", "authors": [{"family_name": "Brown", "given_name": "Bob", "full_name": "Bob Brown"}], "year": 2023}
-"""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
-            f.write(test_data)
-            temp_file = f.name
-        
-        yield temp_file
-        
-        # Cleanup
-        Path(temp_file).unlink()
+class TestExecute:
+    """Tests for input step execution"""
 
-    def test_execute_with_file_input(self, sample_papers_jsonl):
+    def test_execute_with_file_input(self, sample_papers_jsonl, temp_cache_dir):
         """Test executing input step with file input"""
         papers_db = PapersDatabase()
         config = {
@@ -131,7 +152,8 @@ class TestInputExecution:
             "expected_count": 3
         }
         
-        result = execute(config, papers_db, verbose=False)
+        step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        result = step.execute(config, verbose=False)
         
         assert result["status"] == "ok"
         assert result["records_read"] == 3
@@ -140,19 +162,20 @@ class TestInputExecution:
         assert result["papers_added"] == 3
         assert result["papers_count"] == 3
 
-    def test_execute_with_file_not_found(self):
+    def test_execute_with_file_not_found(self, temp_cache_dir):
         """Test executing input step with non-existent file"""
         papers_db = PapersDatabase()
         config = {
             "file": "/nonexistent/path/papers.jsonl"
         }
         
-        result = execute(config, papers_db, verbose=False)
+        step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        result = step.execute(config, verbose=False)
         
         assert result["status"] == "error"
         assert "File not found" in result["error"]
 
-    def test_execute_with_expected_count_mismatch(self, sample_papers_jsonl):
+    def test_execute_with_expected_count_mismatch(self, sample_papers_jsonl, temp_cache_dir):
         """Test execution with expected_count that doesn't match"""
         papers_db = PapersDatabase()
         config = {
@@ -160,14 +183,15 @@ class TestInputExecution:
             "expected_count": 5
         }
         
-        result = execute(config, papers_db, verbose=False)
+        step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        result = step.execute(config, verbose=False)
         
         # Should still process successfully, just with warning
         assert result["status"] == "ok"
         assert result["records_read"] == 3
         assert result["papers_added"] == 3
 
-    def test_execute_with_invalid_json(self):
+    def test_execute_with_invalid_json(self, temp_cache_dir):
         """Test execution handles invalid JSON lines gracefully"""
         test_data = """{"cite_key": "Valid1", "title": "Valid Paper", "authors": [], "year": 2024}
 {invalid json here}
@@ -181,7 +205,8 @@ class TestInputExecution:
             papers_db = PapersDatabase()
             config = {"file": temp_file}
             
-            result = execute(config, papers_db, verbose=False)
+            step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+            result = step.execute(config, verbose=False)
             
             # Should skip the invalid line but still process valid ones
             assert result["status"] == "ok"
@@ -190,7 +215,7 @@ class TestInputExecution:
         finally:
             Path(temp_file).unlink()
 
-    def test_execute_with_empty_lines(self):
+    def test_execute_with_empty_lines(self, temp_cache_dir):
         """Test execution handles empty lines gracefully"""
         test_data = """{"cite_key": "Paper1", "title": "Paper 1", "authors": [], "year": 2024}
 
@@ -205,7 +230,8 @@ class TestInputExecution:
             papers_db = PapersDatabase()
             config = {"file": temp_file}
             
-            result = execute(config, papers_db, verbose=False)
+            step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+            result = step.execute(config, verbose=False)
             
             # Should skip empty lines and process only valid papers
             assert result["status"] == "ok"
@@ -213,7 +239,7 @@ class TestInputExecution:
         finally:
             Path(temp_file).unlink()
 
-    def test_execute_dry_run(self, sample_papers_jsonl):
+    def test_execute_dry_run(self, sample_papers_jsonl, temp_cache_dir):
         """Test execution with dry_run=True doesn't add papers"""
         papers_db = PapersDatabase()
         config = {
@@ -221,7 +247,8 @@ class TestInputExecution:
             "expected_count": 3
         }
         
-        result = execute(config, papers_db, verbose=False, dry_run=True)
+        step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        result = step.execute(config, verbose=False, dry_run=True)
         
         assert result["status"] == "ok"
         assert result["records_read"] == 3
@@ -229,7 +256,7 @@ class TestInputExecution:
         assert result["papers_added"] == 0  # Dry run doesn't add
         assert result["papers_count"] == 0  # No papers added to DB
 
-    def test_execute_with_stdin(self):
+    def test_execute_with_stdin(self, temp_cache_dir):
         """Test executing input step with stdin"""
         test_data = """{"cite_key": "Paper1", "title": "From stdin", "authors": [], "year": 2024}
 {"cite_key": "Paper2", "title": "Also stdin", "authors": [], "year": 2024}
@@ -239,13 +266,14 @@ class TestInputExecution:
         
         # Mock stdin
         with patch('sys.stdin', StringIO(test_data)):
-            result = execute(config, papers_db, verbose=False)
+            step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+            result = step.execute(config, verbose=False)
         
         assert result["status"] == "ok"
         assert result["records_read"] == 2
         assert result["papers_added"] == 2
 
-    def test_execute_verbose_output(self, sample_papers_jsonl):
+    def test_execute_verbose_output(self, sample_papers_jsonl, temp_cache_dir):
         """Test verbose output is produced"""
         papers_db = PapersDatabase()
         config = {
@@ -253,18 +281,20 @@ class TestInputExecution:
             "expected_count": 3
         }
         
-        result = execute(config, papers_db, verbose=True)
+        step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        result = step.execute(config, verbose=True)
         
         # Just verify that execution succeeds and returns verbose result
         assert result["status"] == "ok"
         assert result["records_read"] == 3
 
-    def test_execute_papers_have_discovery_method(self, sample_papers_jsonl):
+    def test_execute_papers_have_discovery_method(self, sample_papers_jsonl, temp_cache_dir):
         """Test that imported papers have MANUAL discovery method"""
         papers_db = PapersDatabase()
         config = {"file": sample_papers_jsonl}
         
-        result = execute(config, papers_db, verbose=False)
+        step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        result = step.execute(config, verbose=False)
         
         assert result["status"] == "ok"
         assert result["papers_added"] == 3
@@ -274,7 +304,7 @@ class TestInputExecution:
             assert paper.discovery is not None
             assert paper.discovery.method == DiscoveryMethod.MANUAL
 
-    def test_execute_path_expansion(self):
+    def test_execute_path_expansion(self, temp_cache_dir):
         """Test that ~ in file paths is expanded"""
         test_data = '{"cite_key": "Test", "title": "Test", "authors": [], "year": 2024}\n'
         
@@ -293,7 +323,8 @@ class TestInputExecution:
                 "file": str(temp_file).replace(str(home), "~")
             }
             
-            result = execute(config, papers_db, verbose=False)
+            step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+            result = step.execute(config, verbose=False)
             
             assert result["status"] == "ok"
             assert result["records_read"] == 1
@@ -301,7 +332,7 @@ class TestInputExecution:
             temp_file.unlink()
             temp_dir.rmdir()
 
-    def test_execute_file_precedence_over_stdin(self, sample_papers_jsonl):
+    def test_execute_file_precedence_over_stdin(self, sample_papers_jsonl, temp_cache_dir):
         """Test that file takes precedence when both file and input are specified"""
         papers_db = PapersDatabase()
         stdin_data = '{"cite_key": "StdinPaper", "title": "From stdin", "authors": [], "year": 2024}\n'
@@ -312,13 +343,14 @@ class TestInputExecution:
         }
         
         with patch('sys.stdin', StringIO(stdin_data)):
-            result = execute(config, papers_db, verbose=False)
+            step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+            result = step.execute(config, verbose=False)
         
         # Should read from file, not stdin
         assert result["status"] == "ok"
         assert result["records_read"] == 3  # From file, not stdin
 
-    def test_execute_with_incomplete_paper_data(self):
+    def test_execute_with_incomplete_paper_data(self, temp_cache_dir):
         """Test execution with papers missing some fields"""
         test_data = '{"cite_key": "Paper1", "title": "Minimal Paper"}\n'
         
@@ -330,7 +362,8 @@ class TestInputExecution:
             papers_db = PapersDatabase()
             config = {"file": temp_file}
             
-            result = execute(config, papers_db, verbose=False)
+            step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+            result = step.execute(config, verbose=False)
             
             # Should still work with minimal data
             assert result["status"] == "ok"
@@ -338,12 +371,13 @@ class TestInputExecution:
         finally:
             Path(temp_file).unlink()
 
-    def test_execute_result_structure(self, sample_papers_jsonl):
+    def test_execute_result_structure(self, sample_papers_jsonl, temp_cache_dir):
         """Test that execute result has all expected fields"""
         papers_db = PapersDatabase()
         config = {"file": sample_papers_jsonl}
         
-        result = execute(config, papers_db, verbose=False)
+        step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        result = step.execute(config, verbose=False)
         
         # Check all expected fields
         assert "status" in result
@@ -357,3 +391,7 @@ class TestInputExecution:
         assert isinstance(result["status"], str)
         assert isinstance(result["records_read"], int)
         assert isinstance(result["papers_count"], int)
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

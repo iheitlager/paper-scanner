@@ -18,18 +18,24 @@ from paper_scanner.core.models import Paper, Author, KeywordScreening, Processin
 from paper_scanner.core.enum import PaperType, ScreeningDecision
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.keyword_screening import (
+    KeywordScreeningStep,
     _normalize_text,
     _check_keyword_match,
     _get_field_matches,
     _parse_keyword_config,
-    _screen_paper,
-    execute
+    _screen_paper
 )
 
 
 # ============================================================================
 # FIXTURES
 # ============================================================================
+
+@pytest.fixture
+def temp_cache_dir(tmp_path):
+    """Create a temporary cache directory"""
+    return tmp_path / "cache"
+
 
 @pytest.fixture
 def sample_paper():
@@ -404,55 +410,62 @@ class TestScreeningLogic:
 # STEP EXECUTION TESTS
 # ============================================================================
 
-class TestStepExecution:
+class TestExecute:
     """Test step execution."""
 
-    def test_execute_disabled_step(self, sample_paper):
+    def test_execute_disabled_step(self, sample_paper, temp_cache_dir):
         """Test that disabled step is skipped."""
+        db = PapersDatabase()
+        db.add(sample_paper)
         config = {"enabled": False}
-        results = execute(config, [sample_paper])
-        
+        step = KeywordScreeningStep(general_config={}, db=db, cache_dir=temp_cache_dir)
+        results = step.execute(config)
+
         assert results["status"] == "skipped"
         assert results["step"] == "keyword_screening"
 
-    def test_execute_filters_papers(self, sample_paper, sample_paper_excluded, keyword_config):
+    def test_execute_filters_papers(self, sample_paper, sample_paper_excluded, keyword_config, temp_cache_dir):
         """Test that execute properly filters papers."""
         papers_db = PapersDatabase()
         papers_db.add(sample_paper)
         papers_db.add(sample_paper_excluded)
-        results = execute(keyword_config, papers_db)
-        
+        step = KeywordScreeningStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        results = step.execute(keyword_config)
+
         assert results["step"] == "keyword_screening"
         assert results["total_papers"] == 2
         assert results["passed"] >= 1
         assert results["failed"] >= 1
 
-    def test_execute_updates_screening_model(self, sample_paper, keyword_config):
+    def test_execute_updates_screening_model(self, sample_paper, keyword_config, temp_cache_dir):
         """Test that execute updates paper screening model."""
         papers_db = PapersDatabase()
         papers_db.add(sample_paper)
-        execute(keyword_config, papers_db, dry_run=False)
-        
+        step = KeywordScreeningStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        step.execute(keyword_config, dry_run=False)
+
         paper = papers_db.get_by_id(sample_paper.id)
         assert paper.screening.keyword_screening is not None
         assert isinstance(paper.screening.keyword_screening, KeywordScreening)
 
-    def test_execute_dry_run_no_updates(self, sample_paper, keyword_config):
+    def test_execute_dry_run_no_updates(self, sample_paper, keyword_config, temp_cache_dir):
         """Test that dry_run doesn't modify papers."""
         papers_db = PapersDatabase()
         papers_db.add(sample_paper)
         original_screening = papers_db.get_by_id(sample_paper.id).screening.keyword_screening
-        
-        execute(keyword_config, papers_db, dry_run=True)
-        
+
+        step = KeywordScreeningStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        step.execute(keyword_config, dry_run=True)
+
         assert papers_db.get_by_id(sample_paper.id).screening.keyword_screening == original_screening
 
-    def test_execute_returns_statistics(self, sample_paper, keyword_config):
+    def test_execute_returns_statistics(self, sample_paper, keyword_config, temp_cache_dir):
         """Test that execute returns proper statistics."""
         papers_db = PapersDatabase()
         papers_db.add(sample_paper)
-        results = execute(keyword_config, papers_db)
-        
+        step = KeywordScreeningStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        results = step.execute(keyword_config)
+
         assert "total_papers" in results
         assert "passed" in results
         assert "failed" in results
@@ -461,15 +474,16 @@ class TestStepExecution:
         assert "top_matched_keywords" in results
         assert "duration_seconds" in results
 
-    def test_execute_with_multiple_papers(self, sample_paper, sample_paper_no_keywords, 
-                                          sample_paper_excluded, keyword_config):
+    def test_execute_with_multiple_papers(self, sample_paper, sample_paper_no_keywords,
+                                          sample_paper_excluded, keyword_config, temp_cache_dir):
         """Test execute with multiple papers."""
         papers_db = PapersDatabase()
         papers_db.add(sample_paper)
         papers_db.add(sample_paper_no_keywords)
         papers_db.add(sample_paper_excluded)
-        results = execute(keyword_config, papers_db)
-        
+        step = KeywordScreeningStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        results = step.execute(keyword_config)
+
         assert results["total_papers"] == 3
         assert results["screened"] == 3
         assert results["passed"] + results["failed"] == 3
@@ -482,7 +496,7 @@ class TestStepExecution:
 class TestIntegration:
     """Test integration scenarios."""
 
-    def test_realistic_workflow(self):
+    def test_realistic_workflow(self, temp_cache_dir):
         """Test realistic screening workflow."""
         # Create papers with varying characteristics
         papers_db = PapersDatabase()
@@ -504,48 +518,51 @@ class TestIntegration:
             abstract="Crop management and farm technology.",
             authors=[], paper_type=PaperType.ARTICLE
         ))
-        
+
         config = {
             "enabled": True,
             "hard_exclusions": ["medical", "patient", "agriculture", "farming"],
             "inclusion_keywords": ["digital", "firm", "supplier", "innovation"],
             "threshold": 2
         }
-        
-        results = execute(config, papers_db)
-        
+
+        step = KeywordScreeningStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+        results = step.execute(config)
+
         # Should pass p1, fail p2 and p3
         assert results["failed"] >= 2
         p2 = papers_db.get_by_id("p2")
         assert p2.screening.keyword_screening is not None
         assert p2.screening.keyword_screening.passed is False
 
-    def test_configurable_threshold(self, sample_paper):
+    def test_configurable_threshold(self, sample_paper, temp_cache_dir):
         """Test different threshold values."""
-        papers_db = PapersDatabase()
-        papers_db.add(sample_paper)
-        
         config_low = {
             "enabled": True,
             "hard_exclusions": [],
             "inclusion_keywords": ["digital innovation"],
             "threshold": 1
         }
-        
+
         config_high = {
             "enabled": True,
             "hard_exclusions": [],
             "inclusion_keywords": ["digital innovation"],
             "threshold": 10
         }
-        
+
         papers_db_low = PapersDatabase()
         papers_db_low.add(sample_paper)
         papers_db_high = PapersDatabase()
         papers_db_high.add(sample_paper)
-        
-        results_low = execute(config_low, papers_db_low)
-        results_high = execute(config_high, papers_db_high)
-        
+
+        step_low = KeywordScreeningStep(general_config={}, db=papers_db_low, cache_dir=temp_cache_dir)
+        step_high = KeywordScreeningStep(general_config={}, db=papers_db_high, cache_dir=temp_cache_dir)
+        results_low = step_low.execute(config_low)
+        results_high = step_high.execute(config_high)
+
         # Low threshold should allow more papers
         assert results_low["passed"] >= results_high["passed"]
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

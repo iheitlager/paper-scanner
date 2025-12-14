@@ -17,45 +17,19 @@ Outputs comprehensive categorization results to screening.categorization with:
 - metadata: processing timestamp and duration
 """
 
-import time
 import sys
-from typing import Dict, Any, List, Tuple, Optional
+import time
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
+
 from rich.console import Console
 
-from ..core.models import Paper, Categorization, ProcessingMetadata
-from ..core.database import PapersDatabase
-from ..core.enum import PaperType, StudyType, QualityTier, ScreeningDecision
+from ..core.enum import PaperType, QualityTier, ScreeningDecision, StudyType
+from ..core.models import Categorization, Paper, ProcessingMetadata
+from .base import BaseStep
 
 # Initialize rich console for colored output
 console = Console(file=sys.stderr)
-
-
-def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    """
-    Validate categorization step configuration.
-    
-    Args:
-        config: Step configuration
-        
-    Returns:
-        Tuple of (is_valid, error_messages)
-    """
-    errors = []
-    
-    # Check enabled flag
-    if "enabled" in config and not isinstance(config["enabled"], bool):
-        errors.append("'enabled' must be a boolean")
-    
-    # Check exclude_types flag
-    if "exclude_types" in config and not isinstance(config["exclude_types"], bool):
-        errors.append("'exclude_types' must be a boolean")
-    
-    # Check exclude_reviews flag
-    if "exclude_reviews" in config and not isinstance(config["exclude_reviews"], bool):
-        errors.append("'exclude_reviews' must be a boolean")
-    
-    return len(errors) == 0, errors
 
 
 # ============================================================================
@@ -314,12 +288,12 @@ def _categorize_paper(
         exclusion_reason = "Review paper excluded (literature review detected)"
 
     # Reject purely conceptual papers
-    if is_conceptual and not (study_type in [
+    if is_conceptual and study_type not in [
         StudyType.EMPIRICAL_QUALITATIVE,
         StudyType.EMPIRICAL_QUANTITATIVE,
         StudyType.EMPIRICAL_MIXED,
         StudyType.CASE_STUDY
-    ]):
+    ]:
         should_include = False
         exclusion_reason = "Conceptual paper excluded (no empirical component)"
 
@@ -357,117 +331,143 @@ def _categorize_paper(
 
     return categorization, should_include, exclusion_reason
 
+class CategorizationStep(BaseStep):
+    """Paper categorization step for quality filtering and classification."""
 
-def execute(
-    config: Dict[str, Any],
-    papers_db: PapersDatabase,
-    verbose: bool = False,
-    dry_run: bool = False
-) -> Dict[str, Any]:
-    """
-    Execute categorization step.
-
-    Args:
-        config: Step configuration with options:
-            - enabled: bool (default: True) - Run categorization
-            - exclude_types: bool (default: True) - Exclude non-article types (conferences, books, etc.)
-            - exclude_reviews: bool (default: True) - Exclude literature reviews
-        papers_db: Current papers database (PapersDatabase instance)
-        verbose: Enable verbose output
-        dry_run: Don't actually modify papers
-
-    Returns:
-        Dictionary with execution results
-    """
-    step_start_time = time.time()
-    
-    # Get configuration options
-    exclude_types = config.get("exclude_types", True)
-    exclude_reviews = config.get("exclude_reviews", True)
-
-    results = {
-        "step": "categorization",
-        "total_papers": papers_db.count(primary_only=False),
-        "categorized": 0,
-        "included": 0,
-        "excluded": 0,
-        "exclusions": {
-            "wrong_type": 0,
-            "review_paper": 0,
-            "conceptual_paper": 0,
-        },
-        "study_types": {},
-        "quality_tiers": {},
-    }
-
-    if verbose:
-        console.print(f"\n  [bold cyan]Categorizing {papers_db.count(primary_only=False)} papers[/bold cyan]")
-
-    # Process each paper
-    all_papers = papers_db.to_list(primary_only=False)
-    for i, paper in enumerate(all_papers):
-        # Show progress every 100 papers
-        if verbose and (i + 1) % 100 == 0:
-            import sys
-            sys.stdout.write(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
-            sys.stdout.flush()
+    @staticmethod
+    def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        """
+        Validate categorization step configuration.
         
-        categorization, should_include, exclusion_reason = _categorize_paper(
-            paper,
-            verbose=verbose
-        )
-
-        if not dry_run:
-            # Set categorization in screening model
-            paper.screening.categorization = categorization
-
-            # Set current stage
-            paper.screening.current_stage = "categorization_complete"
-
-            # Apply exclude_types filter
-            if not should_include:
-                if exclude_types and ("Type" in exclusion_reason or "type" in exclusion_reason):
-                    paper.screening.final_decision = ScreeningDecision.EXCLUDED
-                    paper.screening.notes = exclusion_reason
-                elif exclude_reviews and "review" in exclusion_reason.lower():
-                    paper.screening.final_decision = ScreeningDecision.EXCLUDED
-                    paper.screening.notes = exclusion_reason
+        Args:
+            config: Step configuration
             
-            # Update paper in database
-            papers_db.update(paper)
+        Returns:
+            Tuple of (is_valid, error_messages)
+        """
+        errors = []
+        
+        # Check enabled flag
+        if "enabled" in config and not isinstance(config["enabled"], bool):
+            errors.append("'enabled' must be a boolean")
+        
+        # Check exclude_types flag
+        if "exclude_types" in config and not isinstance(config["exclude_types"], bool):
+            errors.append("'exclude_types' must be a boolean")
+        
+        # Check exclude_reviews flag
+        if "exclude_reviews" in config and not isinstance(config["exclude_reviews"], bool):
+            errors.append("'exclude_reviews' must be a boolean")
+        
+        return len(errors) == 0, errors
 
-        results["categorized"] += 1
+    def execute(
+        self,
+        config: Dict[str, Any],
+        verbose: bool = False,
+        dry_run: bool = False,
+        debug: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Execute categorization step.
 
-        # Track statistics
-        study_type_key = categorization.study_type.value
-        if study_type_key not in results["study_types"]:
-            results["study_types"][study_type_key] = 0
-        results["study_types"][study_type_key] += 1
+        Args:
+            config: Step configuration with options:
+                - enabled: bool (default: True) - Run categorization
+                - exclude_types: bool (default: True) - Exclude non-article types (conferences, books, etc.)
+                - exclude_reviews: bool (default: True) - Exclude literature reviews
+            verbose: Enable verbose output
+            dry_run: Don't actually modify papers
+            debug: Enable debug output
 
-        tier_key = categorization.quality_tier.value
-        if tier_key not in results["quality_tiers"]:
-            results["quality_tiers"][tier_key] = 0
-        results["quality_tiers"][tier_key] += 1
+        Returns:
+            Dictionary with execution results
+        """
+        # Get configuration options
+        exclude_types = config.get("exclude_types", True)
+        exclude_reviews = config.get("exclude_reviews", True)
 
-        if should_include:
-            results["included"] += 1
-        else:
-            results["excluded"] += 1
-            if exclusion_reason:
-                if "Type" in exclusion_reason or "type" in exclusion_reason:
-                    results["exclusions"]["wrong_type"] += 1
-                elif "review" in exclusion_reason.lower():
-                    results["exclusions"]["review_paper"] += 1
-                elif "conceptual" in exclusion_reason.lower():
-                    results["exclusions"]["conceptual_paper"] += 1
+        results = {
+            "step": "categorization",
+            "total_papers": self.db.count(primary_only=False),
+            "categorized": 0,
+            "included": 0,
+            "excluded": 0,
+            "exclusions": {
+                "wrong_type": 0,
+                "review_paper": 0,
+                "conceptual_paper": 0,
+            },
+            "study_types": {},
+            "quality_tiers": {},
+        }
 
-    duration = time.time() - step_start_time
+        if verbose:
+            console.print(f"\n  [bold cyan]Categorizing {self.db.count(primary_only=False)} papers[/bold cyan]")
 
-    if verbose:
-        # Clear the progress line and print final result
-        import sys
-        sys.stdout.write("\r" + " " * 100 + "\r")  # Clear the line
-        sys.stdout.flush()
-        console.print(f"    [green]✓ Categorization complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan]")
+        # Process each paper
+        all_papers = self.db.to_list(primary_only=False)
+        for i, paper in enumerate(all_papers):
+            # Show progress every 100 papers
+            if verbose and (i + 1) % 100 == 0:
+                import sys
+                sys.stdout.write(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
+                sys.stdout.flush()
+            
+            categorization, should_include, exclusion_reason = _categorize_paper(
+                paper,
+                verbose=verbose
+            )
 
-    return results
+            if not dry_run:
+                # Set categorization in screening model
+                paper.screening.categorization = categorization
+
+                # Set current stage
+                paper.screening.current_stage = "categorization_complete"
+
+                # Apply exclude_types filter
+                if not should_include:
+                    if exclude_types and ("Type" in exclusion_reason or "type" in exclusion_reason):
+                        paper.screening.final_decision = ScreeningDecision.EXCLUDED
+                        paper.screening.notes = exclusion_reason
+                    elif exclude_reviews and "review" in exclusion_reason.lower():
+                        paper.screening.final_decision = ScreeningDecision.EXCLUDED
+                        paper.screening.notes = exclusion_reason
+                
+                # Update paper in database
+                self.db.update(paper)
+
+            results["categorized"] += 1
+
+            # Track statistics
+            study_type_key = categorization.study_type.value
+            if study_type_key not in results["study_types"]:
+                results["study_types"][study_type_key] = 0
+            results["study_types"][study_type_key] += 1
+
+            tier_key = categorization.quality_tier.value
+            if tier_key not in results["quality_tiers"]:
+                results["quality_tiers"][tier_key] = 0
+            results["quality_tiers"][tier_key] += 1
+
+            if should_include:
+                results["included"] += 1
+            else:
+                results["excluded"] += 1
+                if exclusion_reason:
+                    if "Type" in exclusion_reason or "type" in exclusion_reason:
+                        results["exclusions"]["wrong_type"] += 1
+                    elif "review" in exclusion_reason.lower():
+                        results["exclusions"]["review_paper"] += 1
+                    elif "conceptual" in exclusion_reason.lower():
+                        results["exclusions"]["conceptual_paper"] += 1
+
+        if verbose:
+            # Clear the progress line and print final result
+            import sys
+            sys.stdout.write("\r" + " " * 100 + "\r")  # Clear the line
+            sys.stdout.flush()
+            console.print(f"    [green]✓ Categorization complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan]")
+
+        return results

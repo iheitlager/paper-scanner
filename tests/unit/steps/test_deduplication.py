@@ -349,8 +349,8 @@ class TestValidate:
 # STEP EXECUTION TESTS
 # ============================================================================
 
-class TestStepExecution:
-    """Test deduplication step execution"""
+class TestExecute:
+    """Test DeduplicationStep execution"""
 
     def test_execute_deduplication_disabled(self, sample_paper_1):
         """Test execution when deduplication is disabled."""

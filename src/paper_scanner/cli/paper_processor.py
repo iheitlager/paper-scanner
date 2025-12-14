@@ -6,15 +6,32 @@ Processes YAML definition files and executes sequential steps
 
 import argparse
 import sys
-import importlib
 import signal
 from pathlib import Path
-from typing import Dict, Any, Callable, Optional
+from typing import Dict, Any, Type, Optional
 
 from rich.console import Console
 
 from paper_scanner import __version__
 from paper_scanner.cli.tasks import execute_run, execute_validate, execute_cache_clear, execute_cache_info
+from paper_scanner.steps.base import BaseStep
+
+# Import all step classes
+from paper_scanner.steps.bibtex_import import BibtexImportStep
+from paper_scanner.steps.categorization import CategorizationStep
+from paper_scanner.steps.checkpoint import CheckpointStep
+from paper_scanner.steps.deduplication import DeduplicationStep
+from paper_scanner.steps.dump_db import DumpDbStep
+from paper_scanner.steps.echo import EchoStep
+from paper_scanner.steps.export import ExportStep
+from paper_scanner.steps.halt import HaltStep
+from paper_scanner.steps.input import InputStep
+from paper_scanner.steps.keyword_screening import KeywordScreeningStep
+from paper_scanner.steps.load_files import LoadFilesStep
+from paper_scanner.steps.patch import PatchStep
+from paper_scanner.steps.retrieve_metadata import RetrieveMetadataStep
+from paper_scanner.steps.semantic_screening import SemanticScreeningStep
+from paper_scanner.steps.summarize import SummarizeStep
 
 # Handle broken pipe gracefully (when piping to head, wc, etc.)
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
@@ -22,40 +39,46 @@ signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 # Initialize rich console for colored output
 console = Console(file=sys.stderr)
 
+# Hardcoded step registry mapping step names to their classes
+STEP_REGISTRY: Dict[str, Type[BaseStep]] = {
+    "bibtex_import": BibtexImportStep,
+    "categorization": CategorizationStep,
+    "checkpoint": CheckpointStep,
+    "deduplication": DeduplicationStep,
+    "dump_db": DumpDbStep,
+    "echo": EchoStep,
+    "export": ExportStep,
+    "halt": HaltStep,
+    "input": InputStep,
+    "keyword_screening": KeywordScreeningStep,
+    "load_files": LoadFilesStep,
+    "patch": PatchStep,
+    "retrieve_metadata": RetrieveMetadataStep,
+    "semantic_screening": SemanticScreeningStep,
+    "summarize": SummarizeStep,
+}
 
-def _discover_steps() -> Dict[str, str]:
+
+def _discover_steps() -> Dict[str, Type[BaseStep]]:
     """
-    Dynamically discover available step modules from the steps folder
+    Return the hardcoded step registry.
+    
+    This replaces filesystem-based discovery with an explicit registry
+    for better performance and clarity.
 
     Returns:
-        Dictionary of step_name -> module_name
-    
-    Note: This only checks for .py files without importing them.
-    Import errors will be caught when get_step() actually tries to load a module.
+        Dictionary of step_name -> step_class
     """
-    steps_dir = Path(__file__).parent.parent / "steps"
-    available_steps = {}
-
-    # Look for all .py files except __init__.py and those starting with _
-    # Don't import modules here - just enumerate files for fast discovery
-    for module_file in steps_dir.glob("*.py"):
-        if module_file.name.startswith("_") or module_file.name == "__init__.py":
-            continue
-
-        module_name = module_file.stem
-        # Add without verifying - verification happens at load time in get_step()
-        available_steps[module_name] = module_name
-
-    return available_steps
+    return STEP_REGISTRY
 
 
 class _StepExecutorMeta(type):
     """Metaclass for lazy loading BUILTIN_STEPS on first access"""
     
-    _cache: Optional[Dict[str, str]] = None
+    _cache: Optional[Dict[str, Type[BaseStep]]] = None
     
     @property
-    def BUILTIN_STEPS(cls) -> Dict[str, str]:
+    def BUILTIN_STEPS(cls) -> Dict[str, Type[BaseStep]]:
         """Lazy load steps on first access"""
         if cls._cache is None:
             cls._cache = _discover_steps()
@@ -66,27 +89,34 @@ class StepExecutor(metaclass=_StepExecutorMeta):
     """Executor for definition file steps"""
 
     @staticmethod
-    def get_step(step_name: str) -> Callable:
+    def get_step(step_name: str, general_config: Dict[str, Any], db, cache_dir: Path) -> BaseStep:
         """
-        Load a step module by name
+        Get a step instance by name.
 
         Args:
             step_name: Name of the step (e.g., "bibtex_import")
+            general_config: Project-level configuration
+            db: PapersDatabase instance
+            cache_dir: Cache directory path
 
         Returns:
-            Step execute function
+            Instantiated step object (BaseStep subclass instance)
         """
         builtin_steps = StepExecutor.BUILTIN_STEPS
 
         if step_name not in builtin_steps:
             raise ValueError(f"Unknown step: {step_name}. Available: {list(builtin_steps.keys())}")
 
-        module_name = builtin_steps[step_name]
+        step_class = builtin_steps[step_name]
         try:
-            module = importlib.import_module(f".{module_name}", package="paper_scanner.steps")
-            return module.execute
-        except ImportError as e:
-            raise ValueError(f"Failed to load step {step_name}: {e}")
+            # Instantiate the step with required dependencies
+            return step_class(
+                general_config=general_config,
+                db=db,
+                cache_dir=cache_dir
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to instantiate step {step_name}: {e}")
 
     @staticmethod
     def parse_step_config(step_config: Dict[str, Any]) -> tuple[str, Dict[str, Any], Optional[str]]:
@@ -119,7 +149,8 @@ class StepExecutor(metaclass=_StepExecutorMeta):
         step_name = builtin_key.replace("builtin.", "")
 
         # If step_value contains spaces or is not a valid step name, use it as description
-        if " " in step_value or step_value not in StepExecutor.BUILTIN_STEPS:
+        builtin_steps = StepExecutor.BUILTIN_STEPS
+        if " " in step_value or step_value not in builtin_steps:
             if not description:
                 description = step_value
         else:

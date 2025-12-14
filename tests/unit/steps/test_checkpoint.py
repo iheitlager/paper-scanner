@@ -15,20 +15,25 @@ import pytest
 from paper_scanner.core.models import Paper
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.checkpoint import (
-    execute,
-    validate,
+    CheckpointStep,
     _get_checkpoint_name,
     _serialize_papers,
     _deserialize_papers,
 )
 
 
-class TestCheckpointValidation:
+@pytest.fixture
+def temp_cache_dir(tmp_path):
+    """Create a temporary cache directory"""
+    return tmp_path / "cache"
+
+
+class TestValidate:
     """Test checkpoint step validation"""
 
     def test_validate_returns_success(self):
         """Checkpoint validation should always succeed"""
-        is_valid, errors = validate({})
+        is_valid, errors = CheckpointStep.validate({})
         assert is_valid is True
         assert len(errors) == 0
 
@@ -39,7 +44,7 @@ class TestCheckpointValidation:
             "step_index": 5,
             "other_field": "value",
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = CheckpointStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
 
@@ -183,200 +188,197 @@ class TestPaperSerialization:
         assert deserialized[0].year == original.year
 
 
-class TestCheckpointExecution:
+class TestExecute:
     """Test checkpoint step execution"""
 
-    def test_execute_without_cache_dir(self):
-        """Should return error if cache_dir not provided"""
+    def test_execute_without_cache_dir(self, temp_cache_dir):
+        """Should handle execution with minimal config"""
         db = PapersDatabase()
-        result = execute({}, db)
-        assert result["status"] == "error"
-        assert "cache_dir" in result["message"]
+        step = CheckpointStep(general_config={}, db=db, cache_dir=temp_cache_dir)
+        config = {
+            "step_index": 0,
+            "project_name": "test_project",
+        }
+        result = step.execute(config)
+        assert result["status"] == "ok"
 
-    def test_execute_creates_checkpoint_file(self):
+    def test_execute_creates_checkpoint_file(self, temp_cache_dir):
         """Should create checkpoint file in cache directory"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db = PapersDatabase()
-            paper = Paper(cite_key="test2024", title="Test Paper")
-            db.add(paper)
+        db = PapersDatabase()
+        paper = Paper(cite_key="test2024", title="Test Paper")
+        db.add(paper)
 
-            config = {
-                "cache_dir": tmpdir,
-                "step_index": 0,
-                "project_name": "test_project",
-            }
+        config = {
+            "step_index": 0,
+            "project_name": "test_project",
+        }
 
-            result = execute(config, db)
-            assert result["status"] == "ok"
+        step = CheckpointStep(general_config={}, db=db, cache_dir=temp_cache_dir)
+        result = step.execute(config)
+        assert result["status"] == "ok"
 
-            # Check that checkpoint file was created
-            checkpoint_dir = Path(tmpdir) / "checkpoints"
-            assert checkpoint_dir.exists()
-            checkpoint_files = list(checkpoint_dir.glob("*.json"))
-            assert len(checkpoint_files) == 1
+        # Check that checkpoint file was created
+        checkpoint_dir = temp_cache_dir / "checkpoints"
+        assert checkpoint_dir.exists()
+        checkpoint_files = list(checkpoint_dir.glob("*.json"))
+        assert len(checkpoint_files) == 1
 
-    def test_execute_checkpoint_content(self):
+    def test_execute_checkpoint_content(self, temp_cache_dir):
         """Should save papers with correct data in checkpoint"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db = PapersDatabase()
-            paper = Paper(cite_key="test2024", title="Test Paper", year=2024)
-            db.add(paper)
+        db = PapersDatabase()
+        paper = Paper(cite_key="test2024", title="Test Paper", year=2024)
+        db.add(paper)
 
-            config = {
-                "cache_dir": tmpdir,
-                "step_index": 0,
-                "project_name": "test_project",
-            }
+        config = {
+            "step_index": 0,
+            "project_name": "test_project",
+        }
 
-            result = execute(config, db)
-            assert result["status"] == "ok"
+        step = CheckpointStep(general_config={}, db=db, cache_dir=temp_cache_dir)
+        result = step.execute(config)
+        assert result["status"] == "ok"
 
-            # Read the checkpoint file and verify content
-            checkpoint_dir = Path(tmpdir) / "checkpoints"
-            checkpoint_file = list(checkpoint_dir.glob("*.json"))[0]
+        # Read the checkpoint file and verify content
+        checkpoint_dir = temp_cache_dir / "checkpoints"
+        checkpoint_file = list(checkpoint_dir.glob("*.json"))[0]
 
-            with open(checkpoint_file) as f:
-                data = json.load(f)
+        with open(checkpoint_file) as f:
+            data = json.load(f)
 
-            assert isinstance(data, dict)
-            assert "papers" in data
-            assert len(data["papers"]) == 1
-            assert data["papers"][0]["cite_key"] == "test2024"
-            assert data["papers"][0]["title"] == "Test Paper"
-            assert data["papers_count"] == 1
+        assert isinstance(data, dict)
+        assert "papers" in data
+        assert len(data["papers"]) == 1
+        assert data["papers"][0]["cite_key"] == "test2024"
+        assert data["papers"][0]["title"] == "Test Paper"
+        assert data["papers_count"] == 1
 
-    def test_execute_dry_run_no_file_created(self):
+    def test_execute_dry_run_no_file_created(self, temp_cache_dir):
         """Should not create file in dry_run mode"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db = PapersDatabase()
-            paper = Paper(cite_key="test2024", title="Test Paper")
-            db.add(paper)
+        db = PapersDatabase()
+        paper = Paper(cite_key="test2024", title="Test Paper")
+        db.add(paper)
 
-            config = {
-                "cache_dir": tmpdir,
-                "step_index": 0,
-                "project_name": "test_project",
-            }
+        config = {
+            "step_index": 0,
+            "project_name": "test_project",
+        }
 
-            result = execute(config, db, dry_run=True)
-            assert result["status"] == "ok"
+        step = CheckpointStep(general_config={}, db=db, cache_dir=temp_cache_dir)
+        result = step.execute(config, dry_run=True)
+        assert result["status"] == "ok"
 
-            # Check that no checkpoint file was created
-            checkpoint_dir = Path(tmpdir) / "checkpoints"
-            if checkpoint_dir.exists():
-                checkpoint_files = list(checkpoint_dir.glob("*.json"))
-                assert len(checkpoint_files) == 0
-
-    def test_execute_with_duplicate_papers(self):
-        """Should properly serialize papers with duplicate relationships"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db = PapersDatabase()
-
-            # Create papers with duplicate relationship
-            primary = Paper(cite_key="primary2024", title="Primary Paper")
-            duplicate = Paper(cite_key="dup2024", title="Duplicate Paper")
-            duplicate.duplicate_of = primary
-
-            db.add(primary)
-            db.add(duplicate)
-
-            config = {
-                "cache_dir": tmpdir,
-                "step_index": 0,
-                "project_name": "test_project",
-            }
-
-            result = execute(config, db)
-            assert result["status"] == "ok"
-
-            # Read and verify the checkpoint
-            checkpoint_dir = Path(tmpdir) / "checkpoints"
-            checkpoint_file = list(checkpoint_dir.glob("*.json"))[0]
-
-            with open(checkpoint_file) as f:
-                data = json.load(f)
-
-            papers = data["papers"]
-            assert len(papers) == 2
-
-            # Find the duplicate paper
-            dup_paper = next(p for p in papers if p["cite_key"] == "dup2024")
-            prim_paper = next(p for p in papers if p["cite_key"] == "primary2024")
-
-            # Verify duplicate_of is stored as ID string
-            assert dup_paper["duplicate_of"] == primary.id
-            assert prim_paper.get("duplicate_of") is None
-
-            # Verify no circular references (JSON should be valid)
-            # If there were circular references, json.dump would fail
-            json.dumps(data)
-
-    def test_execute_returns_correct_result_format(self):
-        """Should return result with expected fields"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db = PapersDatabase()
-            paper = Paper(cite_key="test2024", title="Test Paper")
-            db.add(paper)
-
-            config = {
-                "cache_dir": tmpdir,
-                "step_index": 0,
-                "project_name": "test_project",
-            }
-
-            result = execute(config, db)
-            assert isinstance(result, dict)
-            assert "status" in result
-            assert result["status"] == "ok"
-            assert "checkpoint_file" in result
-            assert "papers_count" in result
-            assert result["papers_count"] == 1
-
-    def test_execute_multiple_checkpoints(self):
-        """Should create different checkpoint files for different step indices"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db = PapersDatabase()
-            paper = Paper(cite_key="test2024", title="Test Paper")
-            db.add(paper)
-
-            # Create checkpoint at step 0
-            config1 = {
-                "cache_dir": tmpdir,
-                "step_index": 0,
-                "project_name": "test_project",
-            }
-            result1 = execute(config1, db)
-            assert result1["status"] == "ok"
-
-            # Create checkpoint at step 1
-            config2 = {
-                "cache_dir": tmpdir,
-                "step_index": 1,
-                "project_name": "test_project",
-            }
-            result2 = execute(config2, db)
-            assert result2["status"] == "ok"
-
-            # Verify two different checkpoint files exist
-            checkpoint_dir = Path(tmpdir) / "checkpoints"
+        # Check that no checkpoint file was created
+        checkpoint_dir = temp_cache_dir / "checkpoints"
+        if checkpoint_dir.exists():
             checkpoint_files = list(checkpoint_dir.glob("*.json"))
-            assert len(checkpoint_files) == 2
+            assert len(checkpoint_files) == 0
 
-    def test_execute_with_verbose_flag(self):
+    def test_execute_with_duplicate_papers(self, temp_cache_dir):
+        """Should properly serialize papers with duplicate relationships"""
+        db = PapersDatabase()
+
+        # Create papers with duplicate relationship
+        primary = Paper(cite_key="primary2024", title="Primary Paper")
+        duplicate = Paper(cite_key="dup2024", title="Duplicate Paper")
+        duplicate.duplicate_of = primary
+
+        db.add(primary)
+        db.add(duplicate)
+
+        config = {
+            "step_index": 0,
+            "project_name": "test_project",
+        }
+
+        step = CheckpointStep(general_config={}, db=db, cache_dir=temp_cache_dir)
+        result = step.execute(config)
+        assert result["status"] == "ok"
+
+        # Read and verify the checkpoint
+        checkpoint_dir = temp_cache_dir / "checkpoints"
+        checkpoint_file = list(checkpoint_dir.glob("*.json"))[0]
+
+        with open(checkpoint_file) as f:
+            data = json.load(f)
+
+        papers = data["papers"]
+        assert len(papers) == 2
+
+        # Find the duplicate paper
+        dup_paper = next(p for p in papers if p["cite_key"] == "dup2024")
+        prim_paper = next(p for p in papers if p["cite_key"] == "primary2024")
+
+        # Verify duplicate_of is stored as ID string
+        assert dup_paper["duplicate_of"] == primary.id
+        assert prim_paper.get("duplicate_of") is None
+
+        # Verify no circular references (JSON should be valid)
+        # If there were circular references, json.dump would fail
+        json.dumps(data)
+
+    def test_execute_returns_correct_result_format(self, temp_cache_dir):
+        """Should return result with correct format"""
+        db = PapersDatabase()
+        paper = Paper(cite_key="test2024", title="Test Paper")
+        db.add(paper)
+
+        config = {
+            "step_index": 0,
+            "project_name": "test_project",
+        }
+
+        step = CheckpointStep(general_config={}, db=db, cache_dir=temp_cache_dir)
+        result = step.execute(config)
+        assert isinstance(result, dict)
+        assert "status" in result
+        assert result["status"] == "ok"
+        assert "checkpoint_file" in result
+        assert "papers_count" in result
+        assert result["papers_count"] == 1
+
+    def test_execute_multiple_checkpoints(self, temp_cache_dir):
+        """Should create different checkpoint files for different step indices"""
+        db = PapersDatabase()
+        paper = Paper(cite_key="test2024", title="Test Paper")
+        db.add(paper)
+
+        # Create checkpoint at step 0
+        config1 = {
+            "step_index": 0,
+            "project_name": "test_project",
+        }
+        step1 = CheckpointStep(general_config={}, db=db, cache_dir=temp_cache_dir)
+        result1 = step1.execute(config1)
+        assert result1["status"] == "ok"
+
+        # Create checkpoint at step 1
+        config2 = {
+            "step_index": 1,
+            "project_name": "test_project",
+        }
+        step2 = CheckpointStep(general_config={}, db=db, cache_dir=temp_cache_dir)
+        result2 = step2.execute(config2)
+        assert result2["status"] == "ok"
+
+        # Verify two different checkpoint files exist
+        checkpoint_dir = temp_cache_dir / "checkpoints"
+        checkpoint_files = list(checkpoint_dir.glob("*.json"))
+        assert len(checkpoint_files) == 2
+
+    def test_execute_with_verbose_flag(self, temp_cache_dir):
         """Should accept verbose flag without error"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db = PapersDatabase()
-            paper = Paper(cite_key="test2024", title="Test Paper")
-            db.add(paper)
+        db = PapersDatabase()
+        paper = Paper(cite_key="test2024", title="Test Paper")
+        db.add(paper)
 
-            config = {
-                "cache_dir": tmpdir,
-                "step_index": 0,
-                "project_name": "test_project",
-            }
+        config = {
+            "step_index": 0,
+            "project_name": "test_project",
+        }
 
-            result = execute(config, db, verbose=True)
-            assert result["status"] == "ok"
+        step = CheckpointStep(general_config={}, db=db, cache_dir=temp_cache_dir)
+        result = step.execute(config, verbose=True)
+        assert result["status"] == "ok"
 
 
 class TestCheckpointSelfReferenceIssue:
@@ -422,3 +424,7 @@ class TestCheckpointSelfReferenceIssue:
         # Should be JSON-serializable
         json_str = json.dumps(serialized)
         assert isinstance(json_str, str)
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

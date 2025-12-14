@@ -122,14 +122,22 @@ def validate_definition_file(
                     if k not in ["step", "description"] and not k.startswith("builtin.")
                 }
 
-            # Get the step module and run validation
-            step_module_name = builtin_steps[step_name]
-            step_func_module = __import__(
-                f"paper_scanner.steps.{step_module_name}", fromlist=["validate"]
-            )
+            # Print parameters if verbose
+            if verbose and step_params:
+                for param_key, param_value in step_params.items():
+                    if isinstance(param_value, (dict, list)):
+                        # For complex types, just show type
+                        console.print(f"      [dim]{param_key}[/dim]: [cyan]({type(param_value).__name__})[/cyan]")
+                    else:
+                        # For simple types, show the value
+                        console.print(f"      [dim]{param_key}[/dim]: [yellow]{param_value}[/yellow]")
 
-            if hasattr(step_func_module, "validate"):
-                is_valid, validation_errors = step_func_module.validate(step_params)
+            # Get the step class and run validation
+            step_class = builtin_steps[step_name]
+            
+            # Call the validate static method on the step class
+            if hasattr(step_class, "validate"):
+                is_valid, validation_errors = step_class.validate(step_params)
                 if not is_valid:
                     for error in validation_errors:
                         errors.append(f"Step {i} ({step_name}): {error}")

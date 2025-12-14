@@ -29,6 +29,7 @@ from scipy.spatial.distance import cosine
 from ..core.enum import ScreeningDecision
 from ..core.models import Paper, ProcessingMetadata, SemanticScreening
 from ..core.database import PapersDatabase
+from .base import BaseStep
 
 # Suppress verbose logging from transformers/sentence-transformers
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -45,39 +46,166 @@ except ImportError:
 # Initialize rich console for colored output
 console = Console(file=sys.stderr)
 
-
-def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    """
-    Validate semantic_screening step configuration.
+# Class-based step interface (new architecture)
+class SemanticScreeningStep(BaseStep):
+    """Wrapper for semantic_screening step (legacy function-based)."""
     
-    Args:
-        config: Step configuration
+    @staticmethod
+    def validate(config):
+        """
+        Validate semantic_screening step configuration.
         
-    Returns:
-        Tuple of (is_valid, error_messages)
-    """
-    errors = []
-    
-    # Check model
-    if "model" in config and not isinstance(config["model"], str):
-        errors.append("'model' must be a string")
-    
-    # Check thresholds
-    if "thresholds" in config:
-        thresholds = config["thresholds"]
-        if not isinstance(thresholds, dict):
-            errors.append("'thresholds' must be a dictionary")
-        else:
-            # Validate threshold values
-            for threshold_name in ["auto_include", "manual_review", "auto_exclude"]:
-                if threshold_name in thresholds:
-                    val = thresholds[threshold_name]
-                    if not isinstance(val, (int, float)):
-                        errors.append(f"'thresholds.{threshold_name}' must be a number")
-                    elif not (0 <= val <= 1):
-                        errors.append(f"'thresholds.{threshold_name}' must be between 0 and 1")
-    
-    return len(errors) == 0, errors
+        Args:
+            config: Step configuration
+            
+        Returns:
+            Tuple of (is_valid, error_messages)
+        """
+        errors = []
+        
+        # Check model
+        if "model" in config and not isinstance(config["model"], str):
+            errors.append("'model' must be a string")
+        
+        # Check thresholds
+        if "thresholds" in config:
+            thresholds = config["thresholds"]
+            if not isinstance(thresholds, dict):
+                errors.append("'thresholds' must be a dictionary")
+            else:
+                # Validate threshold values
+                for threshold_name in ["auto_include", "manual_review", "auto_exclude"]:
+                    if threshold_name in thresholds:
+                        val = thresholds[threshold_name]
+                        if not isinstance(val, (int, float)):
+                            errors.append(f"'thresholds.{threshold_name}' must be a number")
+                        elif not (0 <= val <= 1):
+                            errors.append(f"'thresholds.{threshold_name}' must be between 0 and 1")
+        
+        return len(errors) == 0, errors
+
+    def execute(self, config, verbose=False, dry_run=False, debug=False):
+        """
+        Execute semantic screening step.
+
+        Args:
+            config: Step configuration with options:
+                - model: str (default: "all-mpnet-base-v2") - Sentence transformer model
+                - thresholds: dict with keys:
+                    - auto_include: float (default: 0.65) - Score >= this → INCLUDED
+                    - manual_review: float (default: 0.55) - Threshold for manual review
+                    - auto_exclude: float (default: 0.55) - Score < this → EXCLUDED
+            verbose: Enable verbose output
+            dry_run: Don't actually modify papers
+            debug: Enable debug output
+
+        Returns:
+            Dictionary with execution results
+        """
+        step_start_time = time.time()
+      
+        research_question = self.general_config.get("research_question", "")
+        if not research_question:
+            return {
+                "step": "semantic_screening",
+                "error": "research_question not found in project configuration",
+                "total_papers": self.db.count(primary_only=False),
+                "screened": 0,
+                "included": 0,
+                "excluded": 0,
+            }
+        
+        # Get model and thresholds
+        model_name = config.get("model", "all-mpnet-base-v2")
+        thresholds = config.get("thresholds", {})
+        auto_include = thresholds.get("auto_include", 0.65)
+        manual_review = thresholds.get("manual_review", 0.55)
+        auto_exclude = thresholds.get("auto_exclude", 0.55)
+        
+        results = {
+            "step": "semantic_screening",
+            "total_papers": self.db.count(primary_only=False),
+            "screened": 0,
+            "included": 0,
+            "excluded": 0,
+            "manual_review": 0,
+            "model": model_name,
+            "thresholds": {
+                "auto_include": auto_include,
+                "manual_review": manual_review,
+                "auto_exclude": auto_exclude,
+            },
+        }
+        
+        if verbose:
+            console.print(f"\n  [bold cyan]Semantic screening {self.db.count(primary_only=False)} papers[/bold cyan]")
+            console.print(f"    Model: [dim]{model_name}[/dim]")
+            console.print(f"    Research question: [dim]{research_question[:80]}...[/dim]")
+        
+        # Initialize screener
+        try:
+            screener = _SemanticScreener(
+                research_question=research_question,
+                model_name=model_name,
+                auto_include_threshold=auto_include,
+                manual_review_threshold=manual_review,
+                auto_exclude_threshold=auto_exclude,
+            )
+        except ImportError as e:
+            return {
+                "step": "semantic_screening",
+                "error": f"Required package not installed: {e}",
+                "total_papers": self.db.count(primary_only=False),
+                "screened": 0,
+            }
+
+        # Screen each paper
+        all_papers = self.db.to_list(primary_only=False)
+        for i, paper in enumerate(all_papers):
+            # Show progress every 100 papers
+            if verbose and (i + 1) % 100 == 0:
+                import sys
+                sys.stdout.write(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
+                sys.stdout.flush()
+
+            try:
+                semantic_screening, should_include, exclusion_reason = screener.screen_paper(paper)
+
+                if not dry_run:
+                    # Set semantic screening in screening model
+                    paper.screening.semantic_screening = semantic_screening
+                    
+                    # Update final decision if not already decided
+                    if paper.screening.final_decision == ScreeningDecision.PENDING:
+                        paper.screening.final_decision = semantic_screening.llm_decision
+                    
+                    # Update paper in database
+                    self.db.update(paper)
+                
+                results["screened"] += 1
+                
+                if semantic_screening.llm_decision == ScreeningDecision.INCLUDED:
+                    results["included"] += 1
+                elif semantic_screening.llm_decision == ScreeningDecision.EXCLUDED:
+                    results["excluded"] += 1
+                elif semantic_screening.llm_decision == ScreeningDecision.MANUAL_REVIEW:
+                    results["manual_review"] += 1
+            
+            except Exception as e:
+                if verbose:
+                    console.print(f"\n    [red]✗ Error screening paper {paper.cite_key}: {e}[/red]")
+        
+        duration = time.time() - step_start_time
+        results["duration_seconds"] = duration
+        
+        if verbose:
+            # Clear the progress line and print final result
+            import sys
+            sys.stdout.write("\r" + " " * 100 + "\r")  # Clear the line
+            sys.stdout.flush()
+            console.print(f"    [green]✓ Semantic screening complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan], Manual Review: [cyan]{results['manual_review']}[/cyan]")
+        
+        return results
 
 
 class _SemanticScreener:
@@ -220,136 +348,3 @@ class _SemanticScreener:
         return semantic_screening, should_include, exclusion_reason
 
 
-def execute(
-    config: Dict[str, Any],
-    papers_db: PapersDatabase,
-    verbose: bool = False,
-    dry_run: bool = False,
-    project_config: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
-    """
-    Execute semantic screening step.
-
-    Args:
-        config: Step configuration with options:
-            - model: str (default: "all-mpnet-base-v2") - Sentence transformer model
-            - thresholds: dict with keys:
-                - auto_include: float (default: 0.65) - Score >= this → INCLUDED
-                - manual_review: float (default: 0.55) - Threshold for manual review
-                - auto_exclude: float (default: 0.55) - Score < this → EXCLUDED
-        papers_db: Current papers database (PapersDatabase instance)
-        verbose: Enable verbose output
-        dry_run: Don't actually modify papers
-        project_config: Project configuration containing research_question
-
-    Returns:
-        Dictionary with execution results
-    """
-    step_start_time = time.time()
-    
-    # Get research question from project config
-    if not project_config:
-        project_config = {}
-    
-    research_question = project_config.get("research_question", "")
-    if not research_question:
-        return {
-            "step": "semantic_screening",
-            "error": "research_question not found in project configuration",
-            "total_papers": papers_db.count(primary_only=False),
-            "screened": 0,
-            "included": 0,
-            "excluded": 0,
-        }
-    
-    # Get model and thresholds
-    model_name = config.get("model", "all-mpnet-base-v2")
-    thresholds = config.get("thresholds", {})
-    auto_include = thresholds.get("auto_include", 0.65)
-    manual_review = thresholds.get("manual_review", 0.55)
-    auto_exclude = thresholds.get("auto_exclude", 0.55)
-    
-    results = {
-        "step": "semantic_screening",
-        "total_papers": papers_db.count(primary_only=False),
-        "screened": 0,
-        "included": 0,
-        "excluded": 0,
-        "manual_review": 0,
-        "model": model_name,
-        "thresholds": {
-            "auto_include": auto_include,
-            "manual_review": manual_review,
-            "auto_exclude": auto_exclude,
-        },
-    }
-    
-    if verbose:
-        console.print(f"\n  [bold cyan]Semantic screening {papers_db.count(primary_only=False)} papers[/bold cyan]")
-        console.print(f"    Model: [dim]{model_name}[/dim]")
-        console.print(f"    Research question: [dim]{research_question[:80]}...[/dim]")
-    
-    # Initialize screener
-    try:
-        screener = _SemanticScreener(
-            research_question=research_question,
-            model_name=model_name,
-            auto_include_threshold=auto_include,
-            manual_review_threshold=manual_review,
-            auto_exclude_threshold=auto_exclude,
-        )
-    except ImportError as e:
-        return {
-            "step": "semantic_screening",
-            "error": f"Required package not installed: {e}",
-            "total_papers": papers_db.count(primary_only=False),
-            "screened": 0,
-        }
-    
-    # Screen each paper
-    all_papers = papers_db.to_list(primary_only=False)
-    for i, paper in enumerate(all_papers):
-        # Show progress every 100 papers
-        if verbose and (i + 1) % 100 == 0:
-            import sys
-            sys.stdout.write(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
-            sys.stdout.flush()
-        
-        try:
-            semantic_screening, should_include, exclusion_reason = screener.screen_paper(paper)
-            
-            if not dry_run:
-                # Set semantic screening in screening model
-                paper.screening.semantic_screening = semantic_screening
-                
-                # Update final decision if not already decided
-                if paper.screening.final_decision == ScreeningDecision.PENDING:
-                    paper.screening.final_decision = semantic_screening.llm_decision
-                
-                # Update paper in database
-                papers_db.update(paper)
-            
-            results["screened"] += 1
-            
-            if semantic_screening.llm_decision == ScreeningDecision.INCLUDED:
-                results["included"] += 1
-            elif semantic_screening.llm_decision == ScreeningDecision.EXCLUDED:
-                results["excluded"] += 1
-            elif semantic_screening.llm_decision == ScreeningDecision.MANUAL_REVIEW:
-                results["manual_review"] += 1
-        
-        except Exception as e:
-            if verbose:
-                console.print(f"\n    [red]✗ Error screening paper {paper.cite_key}: {e}[/red]")
-    
-    duration = time.time() - step_start_time
-    results["duration_seconds"] = duration
-    
-    if verbose:
-        # Clear the progress line and print final result
-        import sys
-        sys.stdout.write("\r" + " " * 100 + "\r")  # Clear the line
-        sys.stdout.flush()
-        console.print(f"    [green]✓ Semantic screening complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan], Manual Review: [cyan]{results['manual_review']}[/cyan]")
-    
-    return results

@@ -2,19 +2,20 @@
 Unit tests for bibtex_import step
 """
 
-import pytest
-from pathlib import Path
 import tempfile
-from unittest.mock import patch, MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from paper_scanner.steps.bibtex_import import validate, execute, _fix_cite_key_collisions
-from paper_scanner.core.models import Paper, Author, PaperType
+import pytest
+
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.models import Author, Paper, PaperType
+from paper_scanner.steps.bibtex_import import BibtexImportStep, _fix_cite_key_collisions
 
 
 class TestValidate:
-    """Tests for validate function"""
-    
+    """Tests for BibtexImportStep.validate method"""
+
     def test_validate_valid_basic_config(self):
         """Test validation of minimal valid config"""
         config = {
@@ -22,10 +23,10 @@ class TestValidate:
                 {"file_path": "test.bib"}
             ]
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
-    
+
     def test_validate_valid_full_config(self):
         """Test validation of full config with all fields"""
         config = {
@@ -41,19 +42,19 @@ class TestValidate:
             ],
             "type_mapping_config_path": "/path/to/config.yaml"
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
-    
+
     def test_validate_missing_file_path(self):
         """Test validation fails without file_path"""
         config = {
             "imports": [{"source_type": "scopus"}]
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
         assert any("file_path" in err for err in errors)
-    
+
     def test_validate_invalid_source_type(self):
         """Test validation fails with invalid source_type"""
         config = {
@@ -61,10 +62,10 @@ class TestValidate:
                 {"file_path": "test.bib", "source_type": "invalid"}
             ]
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
         assert any("source_type" in err for err in errors)
-    
+
     def test_validate_invalid_expected_count(self):
         """Test validation fails with invalid expected_count"""
         config = {
@@ -72,10 +73,10 @@ class TestValidate:
                 {"file_path": "test.bib", "expected_count": "not_a_number"}
             ]
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
         assert any("expected_count" in err for err in errors)
-    
+
     def test_validate_invalid_fix_cite_key(self):
         """Test validation fails with non-boolean fix_cite_key"""
         config = {
@@ -83,17 +84,17 @@ class TestValidate:
                 {"file_path": "test.bib", "fix_cite_key": "true"}
             ]
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
         assert any("fix_cite_key" in err for err in errors)
-    
+
     def test_validate_invalid_batch_id_type(self):
         """Test validation fails with non-string batch_id"""
         config = {
             "batch_id": 123,
             "imports": [{"file_path": "test.bib"}]
         }
-        is_valid, errors = validate(config)
+        is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
         assert any("batch_id" in err for err in errors)
 
@@ -260,10 +261,18 @@ class TestFixCiteKeyCollisions:
         assert fixed_count == 1
 
 
+@pytest.fixture
+def temp_cache_dir(tmp_path):
+    """Create a temporary cache directory"""
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    return cache_dir
+
+
 class TestExecute:
-    """Tests for execute function"""
-    
-    def test_execute_file_not_found(self):
+    """Tests for BibtexImportStep.execute method"""
+
+    def test_execute_file_not_found(self, temp_cache_dir):
         """Test execute with non-existent file"""
         config = {
             "imports": [
@@ -271,60 +280,65 @@ class TestExecute:
             ]
         }
         papers_db = PapersDatabase()
-        
-        result = execute(config, papers_db, verbose=False, dry_run=False)
-        
+        step = BibtexImportStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+
+        result = step.execute(config, verbose=False, dry_run=False)
+
         assert result["step"] == "bibtex_import"
         assert result["files_processed"] == 0
         assert len(result["errors"]) > 0
         assert any("File not found" in err for err in result["errors"])
     
-    @patch('paper_scanner.steps.bibtex_import.bibtex_file_to_papers')
-    def test_execute_dry_run(self, mock_bibtex_parser):
+    @patch("paper_scanner.steps.bibtex_import.bibtex_file_to_papers")
+    def test_execute_dry_run(self, mock_bibtex_parser, temp_cache_dir):
         """Test execute in dry run mode"""
         mock_bibtex_parser.return_value = [
             Paper(
-                id="p1", cite_key="test",
+                id="p1",
+                cite_key="test",
                 title="Test Paper",
                 authors=[Author(family_name="T", given_name="T", full_name="T T")],
                 paper_type=PaperType.ARTICLE
             )
         ]
-        
+
         config = {
             "imports": [
                 {"name": "Test", "file_path": "test.bib", "expected_count": 1}
             ]
         }
         papers_db = PapersDatabase()
-        
+        step = BibtexImportStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+
         with tempfile.NamedTemporaryFile(suffix=".bib") as tmp:
             config["imports"][0]["file_path"] = tmp.name
-            result = execute(config, papers_db, verbose=False, dry_run=True)
-        
+            result = step.execute(config, verbose=False, dry_run=True)
+
         assert result["step"] == "bibtex_import"
         assert result["papers_imported"] == 0  # Dry run doesn't import
         assert result["files_processed"] == 1
     
-    @patch('paper_scanner.steps.bibtex_import.bibtex_file_to_papers')
-    def test_execute_with_fix_cite_key(self, mock_bibtex_parser):
+    @patch("paper_scanner.steps.bibtex_import.bibtex_file_to_papers")
+    def test_execute_with_fix_cite_key(self, mock_bibtex_parser, temp_cache_dir):
         """Test execute with fix_cite_key enabled"""
         papers_list = [
             Paper(
-                id="p1", cite_key="dup",
+                id="p1",
+                cite_key="dup",
                 title="Paper 1",
                 authors=[Author(family_name="A", given_name="A", full_name="A A")],
                 paper_type=PaperType.ARTICLE
             ),
             Paper(
-                id="p2", cite_key="dup",
+                id="p2",
+                cite_key="dup",
                 title="Paper 2",
                 authors=[Author(family_name="B", given_name="B", full_name="B B")],
                 paper_type=PaperType.ARTICLE
             )
         ]
         mock_bibtex_parser.return_value = papers_list
-        
+
         config = {
             "imports": [
                 {
@@ -336,16 +350,20 @@ class TestExecute:
             ]
         }
         papers_db = PapersDatabase()
-        
+        step = BibtexImportStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
+
         with tempfile.NamedTemporaryFile(suffix=".bib") as tmp:
             config["imports"][0]["file_path"] = tmp.name
-            result = execute(config, papers_db, verbose=False, dry_run=False)
-        
+            result = step.execute(config, verbose=False, dry_run=False)
+
         assert result["step"] == "bibtex_import"
         assert result["papers_imported"] == 2
         assert result["files_processed"] == 1
-        
+
         # Verify papers in database have unique cite_keys
         db_papers = papers_db.to_list()
         cite_keys = [p.cite_key for p in db_papers]
         assert len(cite_keys) == len(set(cite_keys))  # All unique
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
