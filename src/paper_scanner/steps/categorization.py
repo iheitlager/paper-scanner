@@ -8,7 +8,7 @@ Performs Stage 1 screening:
 4. Makes include/exclude decision for downstream processing
 
 Outputs comprehensive categorization results to screening.categorization with:
-- paper_type: JOURNAL_ARTICLE, CONFERENCE, BOOK, etc.
+- paper_type: JOURNAL_ARTICLE, CONFERENCE_PAPER, BOOK, etc.
 - study_type: EMPIRICAL, REVIEW, CONCEPTUAL
 - quality_tier: TIER_1, TIER_2, TIER_3
 - is_empirical: boolean flag for empirical papers
@@ -148,14 +148,14 @@ def _check_paper_type(paper_type: Optional[str]) -> Tuple[PaperType, bool, Optio
     """
     if not paper_type:
         # No type specified - be lenient, assume journal article
-        return PaperType.ARTICLE, True, None
+        return PaperType.JOURNAL_ARTICLE, True, None
 
     normalized_type = _normalize_paper_type(paper_type)
 
     # Check if explicitly rejected
     if normalized_type in REJECT_PAPER_TYPES:
         if 'conference' in normalized_type or 'proceeding' in normalized_type:
-            return PaperType.CONFERENCE, False, "Conference papers excluded"
+            return PaperType.CONFERENCE_PAPER, False, "Conference papers excluded"
         elif 'book' in normalized_type:
             return PaperType.BOOK, False, "Books excluded"
         elif 'review' in normalized_type:
@@ -165,10 +165,10 @@ def _check_paper_type(paper_type: Optional[str]) -> Tuple[PaperType, bool, Optio
 
     # Check if acceptable
     if normalized_type in ACCEPTABLE_PAPER_TYPES:
-        return PaperType.ARTICLE, True, None
+        return PaperType.JOURNAL_ARTICLE, True, None
 
     # Unknown type - be lenient and assume journal article
-    return PaperType.ARTICLE, True, None
+    return PaperType.JOURNAL_ARTICLE, True, None
 
 
 def _is_review_paper(title: Optional[str], abstract: Optional[str]) -> bool:

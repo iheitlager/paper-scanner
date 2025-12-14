@@ -175,3 +175,7 @@ class TestAbstractParser:
         second_clean = AbstractParser.clean(first_clean)
 
         assert first_clean == second_clean
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

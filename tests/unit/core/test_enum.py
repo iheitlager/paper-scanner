@@ -29,8 +29,7 @@ class TestPaperType:
         """Verify all expected PaperType members exist"""
         expected_members = [
             "JOURNAL_ARTICLE",
-            "ARTICLE",
-            "CONFERENCE",
+            "CONFERENCE_PAPER",
             "BOOK",
             "BOOK_CHAPTER",
             "THESIS",
@@ -44,12 +43,12 @@ class TestPaperType:
         ]
         actual_members = [member.name for member in PaperType]
         assert set(actual_members) == set(expected_members)
-        assert len(actual_members) == 13
+        assert len(actual_members) == 12
 
     def test_paper_type_values(self):
         """Verify PaperType values are correctly defined"""
-        assert PaperType.ARTICLE.value == "article"
-        assert PaperType.CONFERENCE.value == "conference_paper"
+        assert PaperType.JOURNAL_ARTICLE.value == "journal_article"
+        assert PaperType.CONFERENCE_PAPER.value == "conference_paper"
         assert PaperType.BOOK.value == "book"
         assert PaperType.BOOK_CHAPTER.value == "book_chapter"
         assert PaperType.THESIS.value == "thesis"
@@ -61,16 +60,16 @@ class TestPaperType:
 
     def test_paper_type_from_string(self):
         """Verify PaperType can be instantiated from string values"""
-        assert PaperType("article") == PaperType.ARTICLE
-        assert PaperType("conference_paper") == PaperType.CONFERENCE
+        assert PaperType("journal_article") == PaperType.JOURNAL_ARTICLE
+        assert PaperType("conference_paper") == PaperType.CONFERENCE_PAPER
         assert PaperType("book") == PaperType.BOOK
 
     def test_paper_type_string_operations(self):
         """Verify PaperType works as string"""
-        paper_type = PaperType.ARTICLE
-        assert str(paper_type) == "PaperType.ARTICLE"
-        assert paper_type == "article"
-        assert paper_type.value == "article"
+        paper_type = PaperType.JOURNAL_ARTICLE
+        assert str(paper_type) == "PaperType.JOURNAL_ARTICLE"
+        assert paper_type == "journal_article"
+        assert paper_type.value == "journal_article"
 
 
 class TestStudyType:
@@ -288,7 +287,7 @@ class TestEnumIntegration:
     def test_enum_string_equality(self):
         """Verify enums work correctly with string comparisons"""
         # Direct string comparison
-        assert PaperType.ARTICLE == "article"
+        assert PaperType.JOURNAL_ARTICLE == "journal_article"
         assert StudyType.EMPIRICAL_QUALITATIVE == "empirical_qualitative"
         assert QualityTier.PEER_REVIEWED_JOURNAL == "peer_reviewed_journal"
         assert DiscoveryMethod.KEYWORD_SEARCH == "keyword_search"

@@ -175,13 +175,13 @@ class TestCheckpointFunctions:
 
 class MockStep:
     """Simple mock step that returns ok status"""
-    def execute(self, config, verbose=False, dry_run=False):
+    def execute(self, config, verbose=False, dry_run=False, debug=False):
         return {"status": "ok"}
 
 
 class ErrorStep:
     """Mock step that returns error status"""
-    def execute(self, config, verbose=False, dry_run=False):
+    def execute(self, config, verbose=False, dry_run=False, debug=False):
         return {"status": "error", "error": "Test error"}
 
 

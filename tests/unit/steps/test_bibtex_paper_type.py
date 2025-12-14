@@ -53,7 +53,7 @@ class TestPaperTypeEvaluation:
         
         paper_type, confidence = evaluate_paper_type(entry, type_mapping_config=config)
         
-        assert paper_type == 'article'
+        assert paper_type == 'journal_article'
         assert confidence == 0.95
     
     def test_evaluate_inproceedings_type(self):
@@ -142,7 +142,7 @@ class TestPaperTypeEvaluation:
         entry = {'ENTRYTYPE': 'ArTiClE', 'ID': 'test123'}
         paper_type, confidence = evaluate_paper_type(entry, type_mapping_config=config)
         
-        assert paper_type == 'article'
+        assert paper_type == 'journal_article'
 
 
 class TestBibTeXFileImport:
@@ -234,7 +234,7 @@ class TestTypeEvaluationWithRealData:
         return Path(__file__).parent.parent.parent / "data"
     
     def test_scopus_articles_identified(self, test_data_dir):
-        """Test that Scopus articles are correctly identified as 'article' type"""
+        """Test that Scopus articles are correctly identified as 'journal_article' type"""
         scopus_file = test_data_dir / "scopus_sample_20.bib"
         
         if not scopus_file.exists():
@@ -246,7 +246,7 @@ class TestTypeEvaluationWithRealData:
         )
         
         # Scopus file should have articles (based on the sample data)
-        articles = [p for p in papers if p.paper_type == 'article']
+        articles = [p for p in papers if p.paper_type == 'journal_article']
         assert len(articles) > 0, "No articles found in Scopus sample"
     
     def test_ieee_conferences_identified(self, test_data_dir):
@@ -264,3 +264,6 @@ class TestTypeEvaluationWithRealData:
         # IEEE file should have conference papers (based on the sample data)
         conferences = [p for p in papers if p.paper_type == 'conference_paper']
         assert len(conferences) > 0, "No conference papers found in IEEE sample"
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

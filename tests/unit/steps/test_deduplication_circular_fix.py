@@ -35,7 +35,7 @@ class TestDeduplicationCircularFix:
                 title=f"Paper {i}: Research Topic {i}",
                 authors=[Author(family_name=f"Author{i}", given_name="A", full_name=f"A Author{i}")],
                 doi=f"10.1234/paper.2024.{i:03d}",
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
             papers_db.add(paper)
         
@@ -47,7 +47,7 @@ class TestDeduplicationCircularFix:
                 title=f"Paper {i}: Research Topic {i}",
                 authors=[Author(family_name=f"Author{i}", given_name="A", full_name=f"A Author{i}")],
                 doi=f"10.1234/paper.2024.{i:03d}",  # SAME DOIs
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
             papers_db.add(paper)
         
@@ -81,17 +81,17 @@ class TestDeduplicationCircularFix:
         papers_db.add(Paper(
             id="z-paper", cite_key="z", title="Test Paper",
             authors=[Author(family_name="Test", given_name="T", full_name="T Test")],
-            doi="10.1111/test", paper_type=PaperType.ARTICLE
+            doi="10.1111/test", paper_type=PaperType.JOURNAL_ARTICLE
         ))
         papers_db.add(Paper(
             id="a-paper", cite_key="a", title="Test Paper",
             authors=[Author(family_name="Test", given_name="T", full_name="T Test")],
-            doi="10.1111/test", paper_type=PaperType.ARTICLE
+            doi="10.1111/test", paper_type=PaperType.JOURNAL_ARTICLE
         ))
         papers_db.add(Paper(
             id="m-paper", cite_key="m", title="Test Paper",
             authors=[Author(family_name="Test", given_name="T", full_name="T Test")],
-            doi="10.1111/test", paper_type=PaperType.ARTICLE
+            doi="10.1111/test", paper_type=PaperType.JOURNAL_ARTICLE
         ))
         
         config = {
@@ -129,12 +129,12 @@ class TestDeduplicationCircularFix:
         papers_db.add(Paper(
             id="paper-1", cite_key="p1", title="Paper One",
             authors=[Author(family_name="Smith", given_name="J", full_name="J Smith")],
-            doi="10.9999/dup", paper_type=PaperType.ARTICLE
+            doi="10.9999/dup", paper_type=PaperType.JOURNAL_ARTICLE
         ))
         papers_db.add(Paper(
             id="paper-2", cite_key="p2", title="Paper One",
             authors=[Author(family_name="Smith", given_name="J", full_name="J Smith")],
-            doi="10.9999/dup", paper_type=PaperType.ARTICLE
+            doi="10.9999/dup", paper_type=PaperType.JOURNAL_ARTICLE
         ))
         
         config = {
@@ -174,7 +174,7 @@ class TestDeduplicationCircularFix:
             papers_db.add(Paper(
                 id=f"group1-{i}", cite_key=f"g1p{i}", title="Group 1 Paper",
                 authors=[Author(family_name="Author1", given_name="A", full_name="A Author1")],
-                doi="10.1111/group1", paper_type=PaperType.ARTICLE
+                doi="10.1111/group1", paper_type=PaperType.JOURNAL_ARTICLE
             ))
         
         # Group 2: 2 papers with same DOI
@@ -182,7 +182,7 @@ class TestDeduplicationCircularFix:
             papers_db.add(Paper(
                 id=f"group2-{i}", cite_key=f"g2p{i}", title="Group 2 Paper",
                 authors=[Author(family_name="Author2", given_name="A", full_name="A Author2")],
-                doi="10.2222/group2", paper_type=PaperType.ARTICLE
+                doi="10.2222/group2", paper_type=PaperType.JOURNAL_ARTICLE
             ))
         
         # Group 3: 4 papers with same DOI
@@ -190,7 +190,7 @@ class TestDeduplicationCircularFix:
             papers_db.add(Paper(
                 id=f"group3-{i}", cite_key=f"g3p{i}", title="Group 3 Paper",
                 authors=[Author(family_name="Author3", given_name="A", full_name="A Author3")],
-                doi="10.3333/group3", paper_type=PaperType.ARTICLE
+                doi="10.3333/group3", paper_type=PaperType.JOURNAL_ARTICLE
             ))
         
         config = {

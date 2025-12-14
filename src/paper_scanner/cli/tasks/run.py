@@ -137,7 +137,7 @@ class StepExecutor:
             step_instance = step_executor_func(step_name)
 
         # Execute the step
-        result = step_instance.execute(step_params, verbose=verbose, dry_run=dry_run)
+        result = step_instance.execute(step_params, verbose=verbose, dry_run=dry_run, debug=debug)
 
         # Ensure step and description are in result
         result["step"] = step_name
@@ -264,7 +264,6 @@ def execute_run(
 
     if verbose:
         console.print(f"Cache directory: [cyan]{cache_dir}[/cyan]")
-        console.print(f"  [dim]├─ Crossref cache: {cache_dir}/crossref[/dim]\n")
 
     # Print project info if available
     if "project" in definition and verbose:
@@ -426,10 +425,7 @@ def execute_run(
                 else:
                     console.print(f"[red]fatal[/red]: [{step_name}]")
             else:
-                if verbose:
-                    console.print(f"[green]ok[/green]: [{step_name}]")
-                else:
-                    console.print(f"[green]ok[/green]: [{step_name}]")
+                console.print(f"[green]ok[/green]: [{step_name}]")
 
         except HaltException as e:
             halt_msg = f"Pipeline halted: {str(e)}"

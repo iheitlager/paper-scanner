@@ -5,7 +5,7 @@
 type_mappings:
   # Journal articles
   article:
-    paper_type: "article"
+    paper_type: "journal_article"
     description: "Journal article"
     confidence: 0.95
 
@@ -129,18 +129,18 @@ source_overrides:
     article_type_field: "type"
     # Map Scopus type values to paper_type
     type_value_mappings:
-      "Article": "article"
+      "Article": "journal_article"
       "Conference Paper": "conference_paper"
       "Book": "book"
       "Book Chapter": "book_chapter"
-      "Review": "article"
-      "Short Survey": "article"
+      "Review": "journal_article"
+      "Short Survey": "journal_article"
 
   ieee:
     # IEEE uses specific fields for publication type
     article_type_field: "type"
     type_value_mappings:
-      "Journals & Magazines": "article"
+      "Journals & Magazines": "journal_article"
       "Conferences": "conference_paper"
       "Books": "book"
       "Early Access": "preprint"
@@ -150,10 +150,10 @@ source_overrides:
     # Web of Science document types
     article_type_field: "document_type"
     type_value_mappings:
-      "Journal Article": "article"
+      "Journal Article": "journal_article"
       "Proceedings Paper": "conference_paper"
       "Book Chapter": "book_chapter"
-      "Book Review": "article"
+      "Book Review": "journal_article"
 
 # Field preference order for inferring paper type
 # Some sources include rich metadata that can help disambiguate

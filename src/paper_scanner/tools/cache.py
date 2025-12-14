@@ -36,11 +36,42 @@ class JSONFileCache:
         self.cache_dir = Path(cache_dir).expanduser()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
     
+    def _normalize_doi(self, key: str) -> str:
+        """
+        Normalize DOI format for consistent caching.
+        
+        Handles multiple DOI formats:
+        - "10.1234/test"
+        - "doi:10.1234/test"
+        - "DOI:10.1234/test"
+        - "https://doi.org/10.1234/test"
+        
+        Args:
+            key: The key to normalize
+            
+        Returns:
+            Normalized key (lowercase, with prefixes removed)
+        """
+        normalized = key.lower().strip()
+        
+        # Remove URL prefix
+        if normalized.startswith("https://doi.org/"):
+            normalized = normalized[16:]
+        elif normalized.startswith("http://doi.org/"):
+            normalized = normalized[15:]
+        # Remove doi: or doi. prefix
+        elif normalized.startswith("doi:"):
+            normalized = normalized[4:]
+        elif normalized.startswith("doi."):
+            normalized = normalized[4:]
+        
+        return normalized
+
     def _get_cache_path(self, key: str) -> Path:
         """
         Get cache file path for a key.
         
-        Uses MD5 hash of the key to avoid filesystem restrictions
+        Uses MD5 hash of the normalized key to avoid filesystem restrictions
         on special characters (e.g., slashes in DOIs).
         
         Args:
@@ -49,7 +80,8 @@ class JSONFileCache:
         Returns:
             Path object for the cache file
         """
-        key_hash = hashlib.md5(key.encode()).hexdigest()
+        normalized_key = self._normalize_doi(key)
+        key_hash = hashlib.md5(normalized_key.encode()).hexdigest()
         return self.cache_dir / f"{key_hash}.json"
     
     def get(self, key: str) -> Optional[Dict[str, Any]]:

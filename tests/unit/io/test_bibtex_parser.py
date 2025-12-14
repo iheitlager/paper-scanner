@@ -176,13 +176,13 @@ class TestInferPaperType:
         """Verify article type inference"""
         entry = {"ENTRYTYPE": "article"}
         paper_type = infer_paper_type(entry)
-        assert paper_type == PaperType.ARTICLE
+        assert paper_type == PaperType.JOURNAL_ARTICLE
 
     def test_infer_paper_type_inproceedings(self):
         """Verify conference type inference"""
         entry = {"ENTRYTYPE": "inproceedings"}
         paper_type = infer_paper_type(entry)
-        assert paper_type == PaperType.CONFERENCE
+        assert paper_type == PaperType.CONFERENCE_PAPER
 
     def test_infer_paper_type_book(self):
         """Verify book type inference"""
@@ -216,9 +216,9 @@ class TestInferPaperType:
 
     def test_infer_paper_type_case_insensitive(self):
         """Verify type inference is case-insensitive"""
-        entry = {"ENTRYTYPE": "ARTICLE"}
+        entry = {"ENTRYTYPE": "Article"}
         paper_type = infer_paper_type(entry)
-        assert paper_type == PaperType.ARTICLE
+        assert paper_type == PaperType.JOURNAL_ARTICLE
 
     def test_infer_paper_type_missing_entrytype(self):
         """Verify missing entry type defaults to OTHER"""

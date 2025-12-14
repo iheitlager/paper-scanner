@@ -40,10 +40,10 @@ class TestCrossrefMetadataFetcher:
     def test_cache_file_path_generation(self, fetcher):
         """Test cache file path is generated correctly."""
         doi = "10.1145/3025453.3025761"
-        cache_file = fetcher._get_cache_file(doi)
+        cache_file = fetcher._cache._get_cache_path(doi)
 
         # Should be MD5 hash of normalized DOI
-        assert cache_file.parent == fetcher.cache_dir
+        assert cache_file.parent == fetcher._cache.cache_dir
         assert cache_file.suffix == ".json"
         assert len(cache_file.stem) == 32  # MD5 hex string length
 
@@ -53,9 +53,9 @@ class TestCrossrefMetadataFetcher:
         doi2 = "DOI:10.1145/3025453.3025761"
         doi3 = "https://doi.org/10.1145/3025453.3025761"
 
-        file1 = fetcher._get_cache_file(doi1)
-        file2 = fetcher._get_cache_file(doi2)
-        file3 = fetcher._get_cache_file(doi3)
+        file1 = fetcher._cache._get_cache_path(doi1)
+        file2 = fetcher._cache._get_cache_path(doi2)
+        file3 = fetcher._cache._get_cache_path(doi3)
 
         # All should normalize to same file
         assert file1 == file2 == file3
@@ -117,8 +117,8 @@ class TestCrossrefMetadataFetcher:
     def test_paper_type_extraction(self, fetcher):
         """Test paper type extraction and mapping."""
         test_cases = [
-            ("journal-article", PaperType.ARTICLE.value),
-            ("proceedings-article", PaperType.CONFERENCE.value),
+            ("journal-article", PaperType.JOURNAL_ARTICLE.value),
+            ("proceedings-article", PaperType.CONFERENCE_PAPER.value),
             ("book", PaperType.BOOK.value),
             ("book-chapter", PaperType.BOOK_CHAPTER.value),
             ("report", PaperType.TECHNICAL_REPORT.value),
@@ -231,7 +231,6 @@ class TestCrossrefMetadataFetcher:
     def test_cache_save_and_load(self, fetcher):
         """Test caching of API response."""
         doi = "10.1145/3025453.3025761"
-        cache_file = fetcher._get_cache_file(doi)
 
         api_data = {
             "title": "Test Article",
@@ -240,9 +239,12 @@ class TestCrossrefMetadataFetcher:
         }
 
         # Save to cache
-        fetcher._save_to_cache(cache_file, api_data)
-        assert cache_file.exists()
+        success = fetcher._cache.set(doi, api_data)
+        assert success
 
         # Load from cache
-        loaded = fetcher._load_from_cache(cache_file)
+        loaded = fetcher._cache.get(doi)
         assert loaded == api_data
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

@@ -158,21 +158,21 @@ class TestCheckPaperType:
     def test_check_acceptable_journal_article(self):
         """Should accept journal articles"""
         paper_type, is_peer_reviewed, rejection = _check_paper_type("journal_article")
-        assert paper_type == PaperType.ARTICLE
+        assert paper_type == PaperType.JOURNAL_ARTICLE
         assert is_peer_reviewed is True
         assert rejection is None
 
     def test_check_acceptable_article(self):
         """Should accept 'article' type"""
         paper_type, is_peer_reviewed, rejection = _check_paper_type("article")
-        assert paper_type == PaperType.ARTICLE
+        assert paper_type == PaperType.JOURNAL_ARTICLE
         assert is_peer_reviewed is True
         assert rejection is None
 
     def test_check_reject_conference(self):
         """Should reject conference papers"""
         paper_type, is_peer_reviewed, rejection = _check_paper_type("conference_paper")
-        assert paper_type == PaperType.CONFERENCE
+        assert paper_type == PaperType.CONFERENCE_PAPER
         assert is_peer_reviewed is False
         assert rejection is not None
         assert "Conference" in rejection
@@ -187,14 +187,14 @@ class TestCheckPaperType:
     def test_check_none_type_lenient(self):
         """Should be lenient with None type"""
         paper_type, is_peer_reviewed, rejection = _check_paper_type(None)
-        assert paper_type == PaperType.ARTICLE
+        assert paper_type == PaperType.JOURNAL_ARTICLE
         assert is_peer_reviewed is True
         assert rejection is None
 
     def test_check_unknown_type_lenient(self):
         """Should be lenient with unknown type"""
         paper_type, is_peer_reviewed, rejection = _check_paper_type("unknown_type")
-        assert paper_type == PaperType.ARTICLE
+        assert paper_type == PaperType.JOURNAL_ARTICLE
         assert is_peer_reviewed is True
         assert rejection is None
 

@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
+from pprint import pformat
 from rich.console import Console
 import logging
 
@@ -28,8 +29,6 @@ from paper_scanner.tools.fetchers.fetcher import Fetcher
 from .base import BaseStep
 
 console = Console(file=sys.stderr)
-logger = logging.getLogger(__name__)
-
 
 class RetrieveMetadataStep(BaseStep):
     """Retrieve and enrich metadata for papers from external sources."""
@@ -54,6 +53,14 @@ class RetrieveMetadataStep(BaseStep):
             errors.append("'methods' is required (e.g., ['crossref', 'openalex'])")
         elif not isinstance(config["methods"], list) or len(config["methods"]) == 0:
             errors.append("'methods' must be a non-empty list of fetcher names")
+        if "continue_on_not_found" in config:
+            continue_on_not_found = config["continue_on_not_found"]
+            if not isinstance(continue_on_not_found, bool):
+                errors.append("'continue_on_not_found' must be a boolean")
+        if "overwrite" in config:
+            overwrite = config["overwrite"]
+            if not isinstance(overwrite, bool):
+                errors.append("'overwrite' must be a boolean")
 
         return len(errors) == 0, errors
 
@@ -78,9 +85,16 @@ class RetrieveMetadataStep(BaseStep):
         """
         methods = config.get("methods", ["crossref"])
         continue_on_not_found = config.get("continue_on_not_found", True)
+        overwrite = config.get("overwrite", True)
+
+        if verbose:
+            console.print(f"[blue]Using methods:[/blue] {methods}")
 
         # Initialize fetcher with specified methods
-        fetcher = Fetcher(cache_dir=self.cache_dir, methods=methods)
+        fetcher = Fetcher(cache_dir=self.cache_dir, methods=methods, verbose=verbose, debug=debug)
+
+        if debug:
+            console.print(f"[blue]Fetcher initialized with methods:[/blue]\n{pformat(fetcher.handlers, indent=2)}")
 
         # Get all papers
         papers = self.db.all(primary_only=True)
@@ -102,13 +116,16 @@ class RetrieveMetadataStep(BaseStep):
                 continue
 
             try:
-                console.print(
-                    f"[cyan][{i}/{len(papers)}] Fetching metadata for[/cyan] [white]{paper.doi}...",
-                    end=" ",
-                )
+
 
                 # Fetch metadata
                 enriched_paper, cache_hit = fetcher.fetch_metadata(paper.doi)
+                cache = "💾" if cache_hit else "🌐"
+
+                if verbose:
+                    console.print(
+                        f"[cyan][{i}/{len(papers)}]{cache}Fetching metadata for[/cyan] [white]{paper.doi}...",
+                    )
 
                 if enriched_paper is None:
                     results["not_found"] += 1
@@ -116,9 +133,12 @@ class RetrieveMetadataStep(BaseStep):
                     if not continue_on_not_found:
                         results["errors"].append(f"{paper.doi}: Not found in any source")
                     continue
+                elif debug:
+                    console.print(f"[blue]Fetched metadata: {enriched_paper}[/blue]")
+
 
                 # Merge enriched metadata into existing paper
-                _merge_paper_metadata(paper, enriched_paper)
+                _merge_paper_metadata(paper, enriched_paper, overwrite=overwrite)
 
                 # Update database (unless in dry_run mode)
                 if not dry_run:
@@ -128,80 +148,79 @@ class RetrieveMetadataStep(BaseStep):
                 # Track cache hit/miss
                 if cache_hit:
                     results["cache_hits"] += 1
-                    console.print("[green]Updated (from cache)")
                 else:
                     results["cache_misses"] += 1
-                    console.print("[green]Updated (from API)")
+
 
             except Exception as e:
                 console.print(f"[red]Error: {str(e)}")
                 results["errors"].append(f"{paper.doi}: {str(e)}")
-                logger.exception(f"Error fetching metadata for {paper.doi}")
 
         # Print summary
-        console.print("\n" + "=" * 60)
-        console.print(f"[bold]Metadata Retrieval Summary[/bold]")
-        console.print(f"  Total papers: {results['total_papers']}")
-        console.print(f"  Updated: {results['updated_papers']}")
-        console.print(f"  Skipped (no DOI): {results['skipped_no_doi']}")
-        console.print(f"  Not found: {results['not_found']}")
-        console.print(f"  Cache hits: {results['cache_hits']}")
-        console.print(f"  Cache misses: {results['cache_misses']}")
+        if verbose:
+            console.print(f"[bold]Metadata Retrieval Summary[/bold]")
+            console.print(f"  Total papers: {results['total_papers']}")
+            console.print(f"  Updated: {results['updated_papers']}")
+            console.print(f"  Skipped (no DOI): {results['skipped_no_doi']}")
+            console.print(f"  Not found: {results['not_found']}")
+            console.print(f"  Cache hits: {results['cache_hits']}")
+            console.print(f"  Cache misses: {results['cache_misses']}")
+        
         if results["errors"]:
             console.print(f"[red]  Errors: {len(results['errors'])}[/red]")
 
         return results
 
 
-def _merge_paper_metadata(target: Paper, source: Paper) -> None:
+def _merge_paper_metadata(target: Paper, source: Paper, overwrite: bool = False) -> None:
     """
     Merge metadata from enriched Paper into target Paper.
 
     Only updates fields that are empty in the target.
     """
-    if not target.abstract and source.abstract:
+    if (overwrite or not target.abstract) and source.abstract:
         target.abstract = source.abstract
 
-    if not target.keywords and source.keywords:
+    if (overwrite or not target.title) and source.title:
+        target.title = source.title
+
+    if (overwrite or not target.keywords) and source.keywords:
         target.keywords = source.keywords
 
-    if not target.topics and source.topics:
+    if (overwrite or not target.topics) and source.topics:
         target.topics = source.topics
 
-    if not target.authors and source.authors:
+    if (overwrite or not target.authors) and source.authors:
         target.authors = source.authors
 
-    if not target.year and source.year:
+    if (overwrite or not target.year) and source.year:
         target.year = source.year
 
-    if not target.journal and source.journal:
+    if (overwrite or not target.journal) and source.journal:
         target.journal = source.journal
 
-    if not target.publisher and source.publisher:
+    if (overwrite or not target.publisher) and source.publisher:
         target.publisher = source.publisher
 
-    if not target.volume and source.volume:
+    if (overwrite or not target.volume) and source.volume:
         target.volume = source.volume
 
-    if not target.number and source.number:
+    if (overwrite or not target.number) and source.number:
         target.number = source.number
 
-    if not target.pages and source.pages:
+    if (overwrite or not target.pages) and source.pages:
         target.pages = source.pages
 
-    if not target.publication_date and source.publication_date:
+    if (overwrite or not target.publication_date) and source.publication_date:
         target.publication_date = source.publication_date
 
-    if not target.paper_type and source.paper_type:
+    if (overwrite or not target.paper_type) and source.paper_type:
         target.paper_type = source.paper_type
 
-    if not target.language and source.language:
-        target.language = source.language
-
-    if not target.oa_status and source.oa_status:
+    if (overwrite or not target.oa_status) and source.oa_status:
         target.oa_status = source.oa_status
 
-    if source.raw_json and not target.raw_json:
+    if (overwrite or not target.raw_json) and source.raw_json:
         target.raw_json = source.raw_json
 
     # Update timestamps

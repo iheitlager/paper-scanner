@@ -110,13 +110,13 @@ class TestFixCiteKeyCollisions:
                 id="p1", cite_key="paper1",
                 title="Paper 1",
                 authors=[Author(family_name="A", given_name="A", full_name="A A")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             ),
             Paper(
                 id="p2", cite_key="paper2",
                 title="Paper 2",
                 authors=[Author(family_name="B", given_name="B", full_name="B B")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
         ]
         
@@ -134,7 +134,7 @@ class TestFixCiteKeyCollisions:
             id="p_existing", cite_key="duplicate",
             title="Existing Paper",
             authors=[Author(family_name="E", given_name="E", full_name="E E")],
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         papers_db.add(existing_paper)
         
@@ -143,7 +143,7 @@ class TestFixCiteKeyCollisions:
                 id="p1", cite_key="duplicate",
                 title="New Paper",
                 authors=[Author(family_name="N", given_name="N", full_name="N N")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
         ]
         
@@ -164,7 +164,7 @@ class TestFixCiteKeyCollisions:
                 id=f"p_existing_{i}", cite_key=key,
                 title=f"Existing Paper {i}",
                 authors=[Author(family_name="E", given_name="E", full_name="E E")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
             papers_db.add(existing_paper)
         
@@ -173,13 +173,13 @@ class TestFixCiteKeyCollisions:
                 id="p1", cite_key="paper",
                 title="New Paper 1",
                 authors=[Author(family_name="N", given_name="N", full_name="N N")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             ),
             Paper(
                 id="p2", cite_key="paper",
                 title="New Paper 2",
                 authors=[Author(family_name="N", given_name="N", full_name="N N")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
         ]
         
@@ -199,19 +199,19 @@ class TestFixCiteKeyCollisions:
                 id="p1", cite_key="samefile",
                 title="Paper 1",
                 authors=[Author(family_name="A", given_name="A", full_name="A A")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             ),
             Paper(
                 id="p2", cite_key="samefile",
                 title="Paper 2",
                 authors=[Author(family_name="B", given_name="B", full_name="B B")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             ),
             Paper(
                 id="p3", cite_key="samefile",
                 title="Paper 3",
                 authors=[Author(family_name="C", given_name="C", full_name="C C")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
         ]
         
@@ -232,7 +232,7 @@ class TestFixCiteKeyCollisions:
             id="p_existing_0", cite_key="paper",
             title="Original Paper",
             authors=[Author(family_name="E", given_name="E", full_name="E E")],
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         papers_db.add(existing_paper)
         
@@ -241,7 +241,7 @@ class TestFixCiteKeyCollisions:
                 id=f"p_existing_{i}", cite_key=f"paper_{i:02d}",
                 title=f"Existing Paper {i}",
                 authors=[Author(family_name="E", given_name="E", full_name="E E")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
             papers_db.add(existing_paper)
         
@@ -250,7 +250,7 @@ class TestFixCiteKeyCollisions:
                 id="p1", cite_key="paper",
                 title="New Paper",
                 authors=[Author(family_name="N", given_name="N", full_name="N N")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
         ]
         
@@ -298,7 +298,7 @@ class TestExecute:
                 cite_key="test",
                 title="Test Paper",
                 authors=[Author(family_name="T", given_name="T", full_name="T T")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
         ]
 
@@ -327,14 +327,14 @@ class TestExecute:
                 cite_key="dup",
                 title="Paper 1",
                 authors=[Author(family_name="A", given_name="A", full_name="A A")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             ),
             Paper(
                 id="p2",
                 cite_key="dup",
                 title="Paper 2",
                 authors=[Author(family_name="B", given_name="B", full_name="B B")],
-                paper_type=PaperType.ARTICLE
+                paper_type=PaperType.JOURNAL_ARTICLE
             )
         ]
         mock_bibtex_parser.return_value = papers_list

@@ -7,8 +7,7 @@ from enum import Enum
 class PaperType(str, Enum):
     """Types of publications"""
     JOURNAL_ARTICLE = "journal_article"
-    ARTICLE = "article"
-    CONFERENCE = "conference_paper"
+    CONFERENCE_PAPER = "conference_paper"
     BOOK = "book"
     BOOK_CHAPTER = "book_chapter"
     THESIS = "thesis"

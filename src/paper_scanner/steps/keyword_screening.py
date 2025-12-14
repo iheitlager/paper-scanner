@@ -35,8 +35,7 @@ console = Console(file=sys.stderr)
 
 
 class KeywordScreeningStep(BaseStep):
-    """Read JSON Lines from file or stdin and add papers to the database."""
-
+    """Keyword-based screening step for filtering papers by inclusion/exclusion keywords."""
 
     @staticmethod
     def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:

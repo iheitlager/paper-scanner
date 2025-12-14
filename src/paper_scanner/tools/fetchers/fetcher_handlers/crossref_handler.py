@@ -14,6 +14,7 @@ import requests
 from paper_scanner.core.models import OpenAccessStatus
 from paper_scanner.core.enum import PaperType
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
+from paper_scanner.tools.documents.abstract_parser import AbstractParser
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +85,9 @@ class CrossrefMetadataFetcher(BaseFetcherHandler):
     def _extract_abstract(self, api_data: Dict[str, Any]) -> Optional[str]:
         """Extract abstract - Crossref provides in 'abstract' field."""
         abstract = api_data.get("abstract")
-        if abstract and isinstance(abstract, str) and len(abstract.strip()) > 0:
-            return abstract.strip()
+        if abstract and isinstance(abstract, str):
+            # Use AbstractParser to clean up any markup
+            return AbstractParser.clean(abstract)
         return None
 
     def _extract_authors(self, api_data: Dict[str, Any]) -> list:
@@ -143,8 +145,8 @@ class CrossrefMetadataFetcher(BaseFetcherHandler):
 
         # Mapping Crossref types to our PaperType enum
         type_mapping = {
-            "journal-article": PaperType.ARTICLE,
-            "proceedings-article": PaperType.CONFERENCE,
+            "journal-article": PaperType.JOURNAL_ARTICLE,
+            "proceedings-article": PaperType.CONFERENCE_PAPER,
             "book": PaperType.BOOK,
             "book-chapter": PaperType.BOOK_CHAPTER,
             "report": PaperType.TECHNICAL_REPORT,

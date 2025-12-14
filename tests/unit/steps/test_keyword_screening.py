@@ -47,7 +47,7 @@ def sample_paper():
         abstract="This paper examines how firms leverage digital technologies to transform supplier relationships and create innovation ecosystems.",
         year=2024,
         authors=[Author(family_name="Doe", full_name="John Doe")],
-        paper_type=PaperType.ARTICLE,
+        paper_type=PaperType.JOURNAL_ARTICLE,
         url="https://example.com/paper.pdf"
     )
 
@@ -62,7 +62,7 @@ def sample_paper_no_keywords():
         abstract="A comprehensive review of agricultural technologies and farming practices.",
         year=2024,
         authors=[Author(family_name="Smith", full_name="Jane Smith")],
-        paper_type=PaperType.ARTICLE,
+        paper_type=PaperType.JOURNAL_ARTICLE,
         url="https://example.com/paper2.pdf"
     )
 
@@ -77,7 +77,7 @@ def sample_paper_excluded():
         abstract="Clinical outcomes and patient management in hospital settings.",
         year=2024,
         authors=[Author(family_name="Medical", full_name="Dr. Medical")],
-        paper_type=PaperType.ARTICLE,
+        paper_type=PaperType.JOURNAL_ARTICLE,
         url="https://example.com/paper3.pdf"
     )
 
@@ -255,7 +255,7 @@ class TestFieldMatching:
             abstract="Simple text",
             year=2024,
             authors=[],
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         keywords = ["digital", "innovation"]
         title_matches, abstract_matches, kw_matches, all_matched = _get_field_matches(
@@ -271,7 +271,7 @@ class TestFieldMatching:
             title="Digital Innovation Framework",
             year=2024,
             authors=[],
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         keywords = ["digital innovation"]
         title_matches, abstract_matches, kw_matches, all_matched = _get_field_matches(
@@ -504,19 +504,19 @@ class TestIntegration:
             id="p1", cite_key="p1", year=2024,
             title="Digital Innovation in Supply Chain",
             abstract="Firms leverage digital technologies with suppliers.",
-            authors=[], paper_type=PaperType.ARTICLE
+            authors=[], paper_type=PaperType.JOURNAL_ARTICLE
         ))
         papers_db.add(Paper(
             id="p2", cite_key="p2", year=2024,
             title="Medical Device Technology",
             abstract="Patient outcomes in clinical settings.",
-            authors=[], paper_type=PaperType.ARTICLE
+            authors=[], paper_type=PaperType.JOURNAL_ARTICLE
         ))
         papers_db.add(Paper(
             id="p3", cite_key="p3", year=2024,
             title="Agricultural Farming Practices",
             abstract="Crop management and farm technology.",
-            authors=[], paper_type=PaperType.ARTICLE
+            authors=[], paper_type=PaperType.JOURNAL_ARTICLE
         ))
 
         config = {

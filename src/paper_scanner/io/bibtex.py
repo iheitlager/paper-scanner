@@ -53,7 +53,7 @@ def load_type_mapping_config(config_path: Optional[str] = None) -> Dict[str, Any
         # Return minimal default mappings if config file not found
         return {
             'type_mappings': {
-                'article': {'paper_type': 'article', 'confidence': 0.95},
+                'article': {'paper_type': 'journal_article', 'confidence': 0.95},
                 'inproceedings': {'paper_type': 'conference_paper', 'confidence': 0.95},
                 'book': {'paper_type': 'book', 'confidence': 0.95},
                 'incollection': {'paper_type': 'book_chapter', 'confidence': 0.90},
@@ -140,7 +140,7 @@ def evaluate_paper_type(
             field_value = entry[field_name].strip().lower()
             # Try to match against known types
             if 'article' in field_value:
-                return 'article', 0.6
+                return 'journal_article', 0.6
             elif 'conference' in field_value or 'proceedings' in field_value:
                 return 'conference_paper', 0.6
             elif 'book' in field_value:
@@ -250,9 +250,9 @@ def infer_paper_type(entry: Dict) -> PaperType:
     entry_type = entry.get('ENTRYTYPE', '').lower()
     
     type_mapping = {
-        'article': PaperType.ARTICLE,
-        'inproceedings': PaperType.CONFERENCE,
-        'conference': PaperType.CONFERENCE,
+        'article': PaperType.JOURNAL_ARTICLE,
+        'inproceedings': PaperType.CONFERENCE_PAPER,
+        'conference': PaperType.CONFERENCE_PAPER,
         'book': PaperType.BOOK,
         'incollection': PaperType.BOOK_CHAPTER,
         'inbook': PaperType.BOOK_CHAPTER,
@@ -539,8 +539,8 @@ def infer_bibtex_type(paper: Paper) -> str:
         paper_type = paper.screening.categorization.paper_type
         
         type_mapping = {
-            PaperType.ARTICLE: 'article',
-            PaperType.CONFERENCE: 'inproceedings',
+            PaperType.JOURNAL_ARTICLE: 'article',
+            PaperType.CONFERENCE_PAPER: 'inproceedings',
             PaperType.BOOK: 'book',
             PaperType.BOOK_CHAPTER: 'incollection',
             PaperType.THESIS: 'phdthesis',

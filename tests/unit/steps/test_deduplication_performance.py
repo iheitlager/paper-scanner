@@ -23,7 +23,7 @@ def test_doi_matching_performance():
             title=f"Paper {i}",
             authors=[Author(family_name="Author", given_name="A", full_name="A Author")],
             doi=f"10.{i}/test.2024" if i < 500 else None,  # First 500 have DOI
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         papers_db.add(paper)
     
@@ -34,7 +34,7 @@ def test_doi_matching_performance():
         title="Test Paper",
         authors=[Author(family_name="Test", given_name="T", full_name="T Test")],
         doi="10.100/test.2024",  # Matches paper 100
-        paper_type=PaperType.ARTICLE
+        paper_type=PaperType.JOURNAL_ARTICLE
     )
     
     # Time the lookup
@@ -63,7 +63,7 @@ def test_deduplication_with_large_dataset():
             title=f"Paper {i}",
             authors=[Author(family_name="Author", given_name="A", full_name="A Author")],
             doi=f"10.{i%50}/test.2024",  # Create 50 DOI pairs for duplicates
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         papers_db.add(paper)
     
@@ -104,7 +104,7 @@ def test_indexed_lookup_vs_linear_search():
             title=f"Paper {i}",
             authors=[Author(family_name="Author", given_name="A", full_name="A Author")],
             doi=f"10.{i}/test.2024",
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         papers_db.add(paper)
     
@@ -116,7 +116,7 @@ def test_indexed_lookup_vs_linear_search():
             title="Test",
             authors=[Author(family_name="T", given_name="T", full_name="T T")],
             doi=f"10.{target_idx}/test.2024",
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         
         start = time.time()

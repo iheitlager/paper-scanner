@@ -13,25 +13,27 @@ from typing import Dict, Any, Type, Optional
 from rich.console import Console
 
 from paper_scanner import __version__
-from paper_scanner.cli.tasks import execute_run, execute_validate, execute_cache_clear, execute_cache_info
+from paper_scanner.cli.tasks import execute_run, execute_validate, execute_cache_clear, execute_cache_info, execute_info_steps
 from paper_scanner.steps.base import BaseStep
 
-# Import all step classes
-from paper_scanner.steps.bibtex_import import BibtexImportStep
-from paper_scanner.steps.categorization import CategorizationStep
-from paper_scanner.steps.checkpoint import CheckpointStep
-from paper_scanner.steps.deduplication import DeduplicationStep
-from paper_scanner.steps.dump_db import DumpDbStep
-from paper_scanner.steps.echo import EchoStep
-from paper_scanner.steps.export import ExportStep
-from paper_scanner.steps.halt import HaltStep
-from paper_scanner.steps.input import InputStep
-from paper_scanner.steps.keyword_screening import KeywordScreeningStep
-from paper_scanner.steps.load_files import LoadFilesStep
-from paper_scanner.steps.patch import PatchStep
-from paper_scanner.steps.retrieve_metadata import RetrieveMetadataStep
-from paper_scanner.steps.semantic_screening import SemanticScreeningStep
-from paper_scanner.steps.summarize import SummarizeStep
+# Map step names to module paths for lazy loading
+STEP_REGISTRY_PATHS: Dict[str, str] = {
+    "bibtex_import": "paper_scanner.steps.bibtex_import:BibtexImportStep",
+    "categorization": "paper_scanner.steps.categorization:CategorizationStep",
+    "checkpoint": "paper_scanner.steps.checkpoint:CheckpointStep",
+    "deduplication": "paper_scanner.steps.deduplication:DeduplicationStep",
+    "dump_db": "paper_scanner.steps.dump_db:DumpDbStep",
+    "echo": "paper_scanner.steps.echo:EchoStep",
+    "export": "paper_scanner.steps.export:ExportStep",
+    "halt": "paper_scanner.steps.halt:HaltStep",
+    "input": "paper_scanner.steps.input:InputStep",
+    "keyword_screening": "paper_scanner.steps.keyword_screening:KeywordScreeningStep",
+    "load_files": "paper_scanner.steps.load_files:LoadFilesStep",
+    "patch": "paper_scanner.steps.patch:PatchStep",
+    "retrieve_metadata": "paper_scanner.steps.retrieve_metadata:RetrieveMetadataStep",
+    "semantic_screening": "paper_scanner.steps.semantic_screening:SemanticScreeningStep",
+    "summarize": "paper_scanner.steps.summarize:SummarizeStep",
+}
 
 # Handle broken pipe gracefully (when piping to head, wc, etc.)
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
@@ -39,37 +41,85 @@ signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 # Initialize rich console for colored output
 console = Console(file=sys.stderr)
 
-# Hardcoded step registry mapping step names to their classes
-STEP_REGISTRY: Dict[str, Type[BaseStep]] = {
-    "bibtex_import": BibtexImportStep,
-    "categorization": CategorizationStep,
-    "checkpoint": CheckpointStep,
-    "deduplication": DeduplicationStep,
-    "dump_db": DumpDbStep,
-    "echo": EchoStep,
-    "export": ExportStep,
-    "halt": HaltStep,
-    "input": InputStep,
-    "keyword_screening": KeywordScreeningStep,
-    "load_files": LoadFilesStep,
-    "patch": PatchStep,
-    "retrieve_metadata": RetrieveMetadataStep,
-    "semantic_screening": SemanticScreeningStep,
-    "summarize": SummarizeStep,
-}
 
-
-def _discover_steps() -> Dict[str, Type[BaseStep]]:
+def _lazy_load_step(module_path: str, class_name: str) -> Type[BaseStep]:
     """
-    Return the hardcoded step registry.
+    Lazy load a step class from a module path.
     
-    This replaces filesystem-based discovery with an explicit registry
-    for better performance and clarity.
+    Args:
+        module_path: Full module path (e.g., "paper_scanner.steps.echo")
+        class_name: Class name to import
+        
+    Returns:
+        The step class
+    """
+    import importlib
+    module = importlib.import_module(module_path)
+    return getattr(module, class_name)
+
+
+class LazyStepRegistry(dict):
+    """Dictionary that lazy-loads step classes on access"""
+    
+    def __init__(self, paths: Dict[str, str]):
+        """
+        Initialize registry with module paths.
+        
+        Args:
+            paths: Dict mapping step_name -> "module_path:ClassName"
+        """
+        self._paths = paths
+        self._loaded = {}
+        # Initialize dict with keys from paths (but don't load values yet)
+        super().__init__({key: None for key in paths.keys()})
+    
+    def __getitem__(self, key: str) -> Type[BaseStep]:
+        """Get a step class, lazy-loading if necessary"""
+        if key not in self._paths:
+            raise KeyError(f"Unknown step: {key}")
+        
+        # Return cached version if already loaded
+        if key in self._loaded:
+            return self._loaded[key]
+        
+        # Load and cache the step class
+        path_str = self._paths[key]
+        module_path, class_name = path_str.split(":")
+        step_class = _lazy_load_step(module_path, class_name)
+        self._loaded[key] = step_class
+        # Update the dict value too
+        super().__setitem__(key, step_class)
+        return step_class
+    
+    def get(self, key: str, default=None):
+        """Get with default value, lazy-loading if necessary"""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+    
+    def items(self):
+        """Return items, lazy-loading all values first"""
+        for key in self._paths.keys():
+            yield key, self[key]
+    
+    def values(self):
+        """Return values, lazy-loading all values first"""
+        for key in self._paths.keys():
+            yield self[key]
+
+
+def _discover_steps() -> LazyStepRegistry:
+    """
+    Return a lazy-loading step registry.
+    
+    Steps are only imported when actually accessed, not at startup.
+    This significantly speeds up CLI commands that don't use all steps.
 
     Returns:
-        Dictionary of step_name -> step_class
+        LazyStepRegistry that loads steps on demand
     """
-    return STEP_REGISTRY
+    return LazyStepRegistry(STEP_REGISTRY_PATHS)
 
 
 class _StepExecutorMeta(type):
@@ -265,6 +315,19 @@ def main():
         help="Enable verbose output"
     )
     
+    # ===== INFO COMMAND =====
+    info_parser = subparsers.add_parser(
+        "info",
+        help="Show information about steps and configuration"
+    )
+    
+    info_subparsers = info_parser.add_subparsers(dest="info_command", help="Info commands")
+    
+    steps_parser = info_subparsers.add_parser(
+        "steps",
+        help="Show available steps and their documentation"
+    )
+    
     # ===== CACHE COMMAND =====
     cache_parser = subparsers.add_parser(
         "cache",
@@ -355,6 +418,16 @@ def main():
                 builtin_steps=builtin_steps,
             )
             sys.exit(exit_code)
+        
+        elif args.command == "info":
+            if not args.info_command:
+                info_parser.print_help()
+                sys.exit(1)
+            
+            if args.info_command == "steps":
+                builtin_steps = StepExecutor.BUILTIN_STEPS
+                exit_code = execute_info_steps(builtin_steps=builtin_steps)
+                sys.exit(exit_code)
         
         elif args.command == "cache":
             if not args.cache_command:

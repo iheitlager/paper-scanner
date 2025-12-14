@@ -288,3 +288,6 @@ class TestJSONFileCache:
 
         count = cache.clear()
         assert count == 5
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

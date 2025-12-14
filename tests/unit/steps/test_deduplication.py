@@ -47,7 +47,7 @@ def sample_paper_1():
             Author(family_name="Smith", given_name="John", full_name="John Smith"),
             Author(family_name="Johnson", given_name="Jane", full_name="Jane Johnson")
         ],
-        paper_type=PaperType.ARTICLE,
+        paper_type=PaperType.JOURNAL_ARTICLE,
         doi="10.1234/example.2024.001"
     )
 
@@ -62,7 +62,7 @@ def sample_paper_2():
         abstract="A comprehensive review of quantum computing",
         year=2024,
         authors=[Author(family_name="Doe", given_name="Jane", full_name="Jane Doe")],
-        paper_type=PaperType.ARTICLE,
+        paper_type=PaperType.JOURNAL_ARTICLE,
         doi="10.5678/example.2024.002"
     )
 
@@ -80,7 +80,7 @@ def sample_paper_duplicate_doi():
             Author(family_name="Smith", given_name="John", full_name="John Smith"),
             Author(family_name="Johnson", given_name="Jane", full_name="Jane Johnson")
         ],
-        paper_type=PaperType.ARTICLE,
+        paper_type=PaperType.JOURNAL_ARTICLE,
         doi="10.1234/example.2024.001"  # Same DOI as paper_1
     )
 
@@ -97,7 +97,7 @@ def sample_paper_similar_title():
         authors=[
             Author(family_name="Smith", given_name="John", full_name="John Smith"),
         ],
-        paper_type=PaperType.ARTICLE,
+        paper_type=PaperType.JOURNAL_ARTICLE,
         doi="10.9999/example.2024.003"
     )
 
@@ -114,7 +114,7 @@ def sample_paper_same_author_similar_title():
         authors=[
             Author(family_name="Smith", given_name="John", full_name="John Smith"),
         ],
-        paper_type=PaperType.ARTICLE,
+        paper_type=PaperType.JOURNAL_ARTICLE,
         doi="10.7777/example.2023.001"
     )
 
@@ -221,7 +221,7 @@ class TestTitleAuthorFuzzyMatch:
             cite_key="p-diff",
             title="Machine Learning Applications in Healthcare Systems",
             authors=[Author(family_name="Brown", given_name="Bob", full_name="Bob Brown")],
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         existing = [sample_paper_1]
         result = _title_author_fuzzy_match(different_author_paper, existing)
@@ -235,7 +235,7 @@ class TestTitleAuthorFuzzyMatch:
             cite_key="p-diff",
             title="Quantum Computing",
             authors=[Author(family_name="Smith", given_name="John", full_name="John Smith")],
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         existing = [sample_paper_1]
         result = _title_author_fuzzy_match(very_different_paper, existing, threshold=0.95)
@@ -262,7 +262,7 @@ class TestTitleFuzzyMatch:
             id="p-sim",
             cite_key="p-sim",
             title="Machine Learning in Healthcare",
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         )
         existing = [sample_paper_1]
         result = _title_fuzzy_match(similar_paper, existing, threshold=0.99)
@@ -505,19 +505,19 @@ class TestIntegration:
         paper1 = Paper(
             id="p1", cite_key="smith2024", title="ML in Healthcare",
             authors=[Author(family_name="Smith", given_name="J", full_name="J Smith")],
-            doi="10.1234/ml.2024", paper_type=PaperType.ARTICLE
+            doi="10.1234/ml.2024", paper_type=PaperType.JOURNAL_ARTICLE
         )
         paper2 = Paper(
             id="p2", cite_key="doe2024", title="AI in Finance",
             authors=[Author(family_name="Doe", given_name="J", full_name="J Doe")],
-            doi="10.5678/ai.2024", paper_type=PaperType.ARTICLE
+            doi="10.5678/ai.2024", paper_type=PaperType.JOURNAL_ARTICLE
         )
         
         # Add duplicates
         paper1_dup = Paper(
             id="p3", cite_key="smith2024b", title="ML in Healthcare",
             authors=[Author(family_name="Smith", given_name="J", full_name="J Smith")],
-            doi="10.1234/ml.2024", paper_type=PaperType.ARTICLE  # Exact duplicate
+            doi="10.1234/ml.2024", paper_type=PaperType.JOURNAL_ARTICLE  # Exact duplicate
         )
         
         papers_db.add(paper1)
@@ -555,13 +555,13 @@ class TestIntegration:
         papers_db.add(Paper(
             id="p1", cite_key="p1", title="Machine Learning Applications",
             authors=[Author(family_name="Smith", given_name="John", full_name="John Smith")],
-            doi="10.1111/ml.2024", paper_type=PaperType.ARTICLE
+            doi="10.1111/ml.2024", paper_type=PaperType.JOURNAL_ARTICLE
         ))
         papers_db.add(Paper(
             id="p2", cite_key="p2", title="Machine Learning Applications",
             authors=[Author(family_name="Smith", given_name="John", full_name="John Smith")],
             doi="10.1111/ml.2024",  # Same DOI - exact match
-            paper_type=PaperType.ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE
         ))
         
         config = {
@@ -589,7 +589,7 @@ class TestIntegration:
             abstract="Test abstract with specific content",
             year=2024,
             authors=[Author(family_name="Test", given_name="T", full_name="T Test")],
-            doi="10.1234/test.2024", paper_type=PaperType.ARTICLE
+            doi="10.1234/test.2024", paper_type=PaperType.JOURNAL_ARTICLE
         ))
         
         original_paper = papers_db.get_by_id("p1")
