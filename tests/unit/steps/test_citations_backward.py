@@ -176,7 +176,7 @@ class TestExecute:
         config = {
             "paper-types": ["journal_article"],
             "backward": {
-                "source": "crossref",
+                "source": ["crossref"],
                 "continue_on_not_found": True
             }
         }
@@ -187,8 +187,8 @@ class TestExecute:
         assert results["target_papers"] == 0
         assert results["citations_fetched"] == 0
 
-    @patch("paper_scanner.steps.citations.Fetcher")
-    def test_execute_with_papers_no_citations(self, mock_fetcher_class, step):
+    @patch("paper_scanner.steps.citations.Fetcher.fetch_citations")
+    def test_execute_with_papers_no_citations(self, mock_fetch_citations, step):
         """Test execution when papers have no citations"""
         # Setup mock database with papers
         paper1 = Paper(
@@ -201,15 +201,13 @@ class TestExecute:
         )
         step.db.all.return_value = [paper1]
 
-        # Setup mock fetcher
-        mock_fetcher = MagicMock()
-        mock_fetcher.fetch_citations.return_value = ([], False)
-        mock_fetcher_class.return_value = mock_fetcher
+        # Mock only the fetch_citations method
+        mock_fetch_citations.return_value = ([], False)
 
         config = {
             "paper-types": ["journal_article"],
             "backward": {
-                "source": "crossref",
+                "source": ["crossref"],
                 "continue_on_not_found": True
             }
         }
@@ -220,8 +218,8 @@ class TestExecute:
         assert results["target_papers"] == 1
         assert results["citations_fetched"] == 0
 
-    @patch("paper_scanner.steps.citations.Fetcher")
-    def test_execute_with_citations(self, mock_fetcher_class, step):
+    @patch("paper_scanner.steps.citations.Fetcher.fetch_citations")
+    def test_execute_with_citations(self, mock_fetch_citations, step):
         """Test execution with actual citations"""
         # Setup mock database with paper
         citing_paper = Paper(
@@ -249,10 +247,8 @@ class TestExecute:
             confidence=0.75
         )
 
-        # Setup mock fetcher
-        mock_fetcher = MagicMock()
-        mock_fetcher.fetch_citations.return_value = ([citation1, citation2], False)
-        mock_fetcher_class.return_value = mock_fetcher
+        # Mock only the fetch_citations method
+        mock_fetch_citations.return_value = ([citation1, citation2], False)
 
         config = {
             "paper-types": ["journal_article"],
@@ -269,8 +265,8 @@ class TestExecute:
         assert results["citations_fetched"] == 2
         assert results["papers_with_citations"] == 1
 
-    @patch("paper_scanner.steps.citations.Fetcher")
-    def test_execute_cache_hit_tracking(self, mock_fetcher_class, step):
+    @patch("paper_scanner.steps.citations.Fetcher.fetch_citations")
+    def test_execute_cache_hit_tracking(self, mock_fetch_citations, step):
         """Test cache hit/miss tracking"""
         paper = Paper(
             cite_key="test2020",
@@ -289,17 +285,15 @@ class TestExecute:
             confidence=0.9
         )
 
-        # Setup fetcher to return cache hits
-        mock_fetcher = MagicMock()
-        mock_fetcher.fetch_citations.side_effect = [
+        # Mock fetch_citations to return cache hits/misses in sequence
+        mock_fetch_citations.side_effect = [
             ([citation], True),   # First call: cache hit
             ([citation], False),  # Second call: cache miss
         ]
-        mock_fetcher_class.return_value = mock_fetcher
 
         config = {
             "paper-types": ["journal_article"],
-            "backward": {"source": "crossref"}
+            "backward": {"source": ["crossref"]}
         }
         
         # First execution
@@ -507,3 +501,6 @@ class TestResolveCitation:
 
         # New paper should be at iteration 2
         assert saved_paper.discovery.iteration == 2
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
