@@ -26,6 +26,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "echo": "paper_scanner.steps.echo:EchoStep",
     "export": "paper_scanner.steps.export:ExportStep",
     "halt": "paper_scanner.steps.halt:HaltStep",
+    "paper": "paper_scanner.steps.paper:PaperStep",
     "input": "paper_scanner.steps.input:InputStep",
     "keyword_screening": "paper_scanner.steps.keyword_screening:KeywordScreeningStep",
     "load_files": "paper_scanner.steps.load_files:LoadFilesStep",
