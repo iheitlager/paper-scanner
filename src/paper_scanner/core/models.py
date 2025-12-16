@@ -163,7 +163,7 @@ class DeduplicationResult(BaseModel):
 
 
 # ============================================================================
-# CATEGORIZATION MODEL
+# looZATION MODEL
 # ============================================================================
 
 class Categorization(BaseModel):
@@ -486,6 +486,16 @@ class Paper(BaseModel):
     citations: List[Citation] = Field(default_factory=list)
     cited_papers: List['Paper'] = Field(default_factory=list)
     cited_by_papers: List['Paper'] = Field(default_factory=list)
+
+    @field_serializer('cited_papers', when_used='json')
+    def serialize_cited_papers(self, value: List['Paper']) -> List[str]:
+        """Convert Paper references to ID strings during JSON serialization"""
+        return [paper.id for paper in value] if value else []
+
+    @field_serializer('cited_by_papers', when_used='json')
+    def serialize_cited_by_papers(self, value: List['Paper']) -> List[str]:
+        """Convert Paper references to ID strings during JSON serialization"""
+        return [paper.id for paper in value] if value else []
 
     # ========================================
     # PDF & FULL TEXT

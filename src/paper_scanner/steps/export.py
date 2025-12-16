@@ -204,7 +204,7 @@ class ExportStep(BaseStep):
                 
                 elif output_format == "json":
                     # Export to JSON format (array of papers)
-                    papers_dicts = [p.model_dump(exclude_none=exclude_none) for p in papers_to_export]
+                    papers_dicts = [p.model_dump(mode='json', exclude_none=exclude_none) for p in papers_to_export]
                     json_content = json.dumps(papers_dicts, indent=2, default=str)
                     
                     if is_stdout:
