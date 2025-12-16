@@ -278,8 +278,8 @@ class BaseFetcherHandler(ABC):
         
         if doi:
             # Hash the normalized DOI for reproducibility
-            hash_input = doi.lower().strip()
-            return "doi_" + hashlib.md5(hash_input.encode()).hexdigest()[:8]
+            hash_input = DOI(doi).md5
+            return "doi_" + hash_input[:8]
         
         # Fallback: random UUID if no DOI
         return str(uuid.uuid4())[:8]

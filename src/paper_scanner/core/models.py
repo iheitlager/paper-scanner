@@ -419,6 +419,11 @@ class Paper(BaseModel):
     authors: List[Author] = Field(default_factory=list)
     year: Optional[int] = None
 
+    # Precomputed title normalization for faster fuzzy matching
+    # Updated automatically via field_validator when title changes
+    title_normalized: Optional[str] = None  # lowercase, stripped version of title
+    title_length: int = 0  # cached length for quick filtering
+
     # Publication venue
     journal: Optional[str] = None
     journal_abbreviation: Optional[str] = None
@@ -511,6 +516,23 @@ class Paper(BaseModel):
     # ========================================
     # COMPUTED PROPERTIES
     # ========================================
+
+    @field_validator('title')
+    @classmethod
+    def compute_title_normalized(cls, v):
+        """Auto-compute normalized title fields when title changes"""
+        # This validator is called when title is set/updated
+        # We'll use model_post_init to actually set the computed fields
+        return v
+
+    def model_post_init(self, __context):
+        """Compute normalized fields after model initialization"""
+        if self.title:
+            self.title_normalized = self.title.lower().strip()
+            self.title_length = len(self.title)
+        else:
+            self.title_normalized = None
+            self.title_length = 0
 
     @property
     def author_string(self) -> str:

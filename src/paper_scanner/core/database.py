@@ -3,6 +3,8 @@ Indexed Paper Database for efficient CRUD and search operations.
 
 Provides PapersDatabase class with:
 - DOI indexing for fast duplicate detection
+- Year indexing for efficient temporal filtering (for fuzzy finding)
+- Normalized title indexing for efficient text search
 - Full CRUD operations
 - Filtering by primary papers (excluding duplicates)
 - Hook-based DOI updates to maintain index consistency
@@ -11,6 +13,8 @@ Indexes maintained:
 - _doi_index: Dict[str, List[Paper]] - DOI to papers (supports duplicates)
 - _cite_key_index: Dict[str, Paper] - Unique citation keys
 - _id_index: Dict[str, Paper] - Unique paper IDs
+- _year_index: Dict[int, List[Paper]] - Year to papers (for fuzzy finding by year)
+- _title_index: Dict[str, List[Paper]] - Normalized title prefixes to papers (for text search)
 """
 
 from typing import List, Dict, Optional, Any
@@ -32,9 +36,13 @@ class PapersDatabase:
                                              (multiple papers can share same DOI if duplicates)
         _cite_key_index: Dict[str, Paper] - Maps citation key to paper (unique constraint)
         _id_index: Dict[str, Paper] - Maps paper ID to paper (unique constraint)
+        _year_index: Dict[int, List[Paper]] - Maps publication year to papers
+                                               Enables efficient filtering by year for fuzzy finding
+        _title_index: Dict[str, List[Paper]] - Maps normalized title (first 50 chars) to papers
+                                                Enables efficient text-based searching
     
     All indexes are automatically updated during add, update, and delete operations
-    to maintain consistency and enable O(1) lookups.
+    to maintain consistency and enable O(1) or O(log n) lookups.
     """
     
     def __init__(self):
@@ -43,6 +51,8 @@ class PapersDatabase:
         self._doi_index: Dict[str, List[Paper]] = defaultdict(list)
         self._cite_key_index: Dict[str, Paper] = {}
         self._id_index: Dict[str, Paper] = {}
+        self._year_index: Dict[int, List[Paper]] = defaultdict(list)
+        self._title_index: Dict[str, List[Paper]] = defaultdict(list)
     
     # ========================================================================
     # INDEX MANAGEMENT
@@ -66,6 +76,17 @@ class PapersDatabase:
             doi_key = DOI(paper.doi).stem
             if paper not in self._doi_index[doi_key]:
                 self._doi_index[doi_key].append(paper)
+        
+        # Index by year (for efficient fuzzy finding by year)
+        if paper.year:
+            if paper not in self._year_index[paper.year]:
+                self._year_index[paper.year].append(paper)
+        
+        # Index by normalized title prefix (first 50 chars for fuzzy finding)
+        if paper.title:
+            title_key = paper.title[:50].lower().strip()
+            if paper not in self._title_index[title_key]:
+                self._title_index[title_key].append(paper)
     
     def _unindex_paper(self, paper: Paper) -> None:
         """
@@ -93,6 +114,24 @@ class PapersDatabase:
                 ]
                 if not self._doi_index[doi_key]:
                     del self._doi_index[doi_key]
+        
+        # Unindex from year
+        if paper.year in self._year_index:
+            self._year_index[paper.year] = [
+                p for p in self._year_index[paper.year] if p is not paper
+            ]
+            if not self._year_index[paper.year]:
+                del self._year_index[paper.year]
+        
+        # Unindex from title
+        if paper.title:
+            title_key = paper.title[:50].lower().strip()
+            if title_key in self._title_index:
+                self._title_index[title_key] = [
+                    p for p in self._title_index[title_key] if p is not paper
+                ]
+                if not self._title_index[title_key]:
+                    del self._title_index[title_key]
     
     def _update_doi_index(self, paper: Paper, old_doi: Optional[str]) -> None:
         """
@@ -366,6 +405,8 @@ class PapersDatabase:
         self._doi_index.clear()
         self._cite_key_index.clear()
         self._id_index.clear()
+        self._year_index.clear()
+        self._title_index.clear()
     
     # ========================================================================
     # QUERY OPERATIONS
@@ -448,9 +489,64 @@ class PapersDatabase:
         doi_key = doi.lower().strip()
         return doi_key in self._doi_index
     
-    # ========================================================================
-    # BATCH OPERATIONS
-    # ========================================================================
+    def get_candidates_by_year_range(
+        self,
+        year: int,
+        tolerance: int = 1,
+        primary_only: bool = True
+    ) -> List[Paper]:
+        """
+        Get papers from a year range for efficient fuzzy matching.
+        
+        This uses the year index to quickly retrieve candidate papers
+        without fetching all papers in the database.
+        
+        Args:
+            year: Target publication year
+            tolerance: Year range tolerance (default 1 = ±1 year)
+            primary_only: If True, only return primary papers
+            
+        Returns:
+            List of papers within the year range
+        """
+        candidates = []
+        for y in range(year - tolerance, year + tolerance + 1):
+            if y in self._year_index:
+                candidates.extend(self._year_index[y])
+        
+        if not primary_only:
+            return candidates
+        
+        return [p for p in candidates if p.duplicate_of is None]
+    
+    def get_candidates_by_title_prefix(
+        self,
+        title: str,
+        primary_only: bool = True
+    ) -> List[Paper]:
+        """
+        Get papers with matching title prefix for efficient text search.
+        
+        Uses the title index to retrieve candidate papers without
+        scanning all papers.
+        
+        Args:
+            title: Paper title to search for (uses first 50 chars)
+            primary_only: If True, only return primary papers
+            
+        Returns:
+            List of papers with matching title prefix
+        """
+        if not title:
+            return []
+        
+        title_key = title[:50].lower().strip()
+        candidates = self._title_index.get(title_key, [])
+        
+        if not primary_only:
+            return list(candidates)
+        
+        return [p for p in candidates if p.duplicate_of is None]
     
     def to_list(self, primary_only: bool = False) -> List[Paper]:
         """

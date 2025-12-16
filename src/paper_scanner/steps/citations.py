@@ -97,7 +97,10 @@ class CitationsStep(BaseStep):
         debug: bool = False
     ) -> Dict[str, Any]:
         """
-        Execute backward citations extraction for papers.
+        Execute backward citations extraction for papers in two passes.
+
+        Pass 1: Fetch citations from external sources and store in papers
+        Pass 2: Resolve citations to existing papers or create new papers
 
         Args:
             config: Step configuration
@@ -127,7 +130,6 @@ class CitationsStep(BaseStep):
             debug=debug
         )
 
-
         # Get papers to process (filter by paper_type)
         papers = self.db.all(primary_only=True)
         target_papers = [
@@ -153,12 +155,54 @@ class CitationsStep(BaseStep):
             "cache_misses": 0,
         }
 
+        # PASS 1: Fetch citations from external sources
+        self._fetch_citations_for_papers(
+            target_papers=target_papers,
+            fetcher=fetcher,
+            results=results,
+            verbose=verbose,
+            debug=debug
+        )
+
+        # PASS 2: Resolve citations and expand database
+        self._resolve_and_create_citations(
+            papers=target_papers,
+            continue_on_not_found=continue_on_not_found,
+            dry_run=dry_run,
+            results=results,
+            verbose=verbose,
+            debug=debug
+        )
+
+        return results
+
+    def _fetch_citations_for_papers(
+        self,
+        target_papers: List[Paper],
+        fetcher: "Fetcher",
+        results: Dict[str, Any],
+        verbose: bool = False,
+        debug: bool = False
+    ) -> None:
+        """
+        PASS 1: Fetch citations from external sources and store in papers.
+
+        Iterates over target papers, fetches citations from configured sources,
+        and stores them in each paper's citations list.
+
+        Args:
+            target_papers: List of papers to fetch citations for
+            fetcher: Fetcher instance to use for citation retrieval
+            results: Results dict to update with statistics
+            verbose: Enable verbose output
+            debug: Enable debug output
+        """
         for i, paper in enumerate(target_papers, 1):
             if not paper.doi:
                 continue
 
             try:
-                # Fetch citations
+                # Fetch citations from external source
                 citations, cache_hit = fetcher.fetch_citations(paper.doi)
 
                 if cache_hit:
@@ -178,74 +222,116 @@ class CitationsStep(BaseStep):
 
                 if verbose:
                     console.print(
-                        f"[cyan][{i}/{len(target_papers)}] Processing {len(citations)} "
+                        f"[cyan][{i}/{len(target_papers)}] Fetched {len(citations)} "
                         f"citations for {paper.doi}[/cyan]"
                     )
 
-                # Load all candidate papers ONCE for this batch of citations
-                all_papers = self.db.all(primary_only=True)
+                # Store citations in paper
+                paper.citations.extend(citations)
+                paper.citation_count = len(paper.citations)
 
+                if debug:
+                    console.print(
+                        f"[blue]Paper {paper.doi} now has {len(paper.citations)} citations[/blue]"
+                    )
+
+            except Exception as e:
+                results["errors"].append(f"Fetch error for {paper.doi}: {str(e)}")
+                console.print(f"[red]Error fetching citations for {paper.doi}: {e}[/red]")
+                if debug:
+                    logger.exception(f"Exception while fetching citations for {paper.doi}")
+
+    def _resolve_and_create_citations(
+        self,
+        papers: List[Paper],
+        continue_on_not_found: bool = True,
+        dry_run: bool = False,
+        results: Optional[Dict[str, Any]] = None,
+        verbose: bool = False,
+        debug: bool = False
+    ) -> None:
+        """
+        PASS 2: Resolve citations to existing papers or create new papers.
+
+        Iterates over all papers with citations, resolves each citation to
+        existing papers or creates new Paper records, and updates the database.
+
+        Args:
+            papers: List of all papers (including those with citations)
+            continue_on_not_found: If True, create new Paper for unresolved citations
+            dry_run: Don't write to database if True
+            results: Results dict to update with statistics (optional)
+            verbose: Enable verbose output
+            debug: Enable debug output
+        """
+        if results is None:
+            results = {}
+
+        for paper in papers:
+            if not paper.citations:
+                continue
+
+            if verbose:
+                console.print(f"[cyan]Resolving {len(paper.citations)} citations for {paper.doi}[/cyan]")
+
+            try:
                 # Resolve each citation
-                for citation in citations:
-                    resolved_id, created_new = self._resolve_citation(
-                        citation,
+                for citation in paper.citations:
+                    resolved_id, created_new = self._link_citation(
+                        citation=citation,
                         citing_paper=paper,
                         continue_on_not_found=continue_on_not_found,
                         dry_run=dry_run,
                         verbose=verbose,
-                        all_papers=all_papers
+                        debug=debug
                     )
 
                     if resolved_id:
                         citation.resolved_paper = None  # Don't store full Paper object
-                        # Store the ID by modifying Citation model if needed
-                        # For now, we'll add it as metadata
                         if not hasattr(citation, "resolved_paper_id"):
                             citation.resolved_paper_id = resolved_id
-                        results["citations_resolved"] += 1
+                        results["citations_resolved"] = results.get("citations_resolved", 0) + 1
                         if created_new:
-                            results["citations_created_new_paper"] += 1
+                            results["citations_created_new_paper"] = results.get("citations_created_new_paper", 0) + 1
                     else:
-                        results["citations_unresolved"] += 1
+                        results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
 
                     if debug:
                         console.print(f"[blue]Citation resolved: {resolved_id}[/blue]")
 
-                # Add citations to paper
-                paper.citations.extend(citations)
-                paper.citation_count = len(paper.citations)
-
-                # Update database (unless in dry_run mode)
+                # Update paper in database (unless in dry_run mode)
                 if not dry_run:
                     self.db.update(paper)
 
             except Exception as e:
-                results["errors"].append(f"{paper.doi}: {str(e)}")
-                console.print(f"[red]Error processing {paper.doi}: {e}[/red]")
+                results["errors"].append(f"Resolve error for {paper.doi}: {str(e)}")
+                console.print(f"[red]Error resolving citations for {paper.doi}: {e}[/red]")
                 if debug:
-                    logger.exception(f"Exception while processing {paper.doi}")
+                    logger.exception(f"Exception while resolving citations for {paper.doi}")
 
-        return results
-
-    def _resolve_citation(
+    def _link_citation(
         self,
         citation: Citation,
         citing_paper: Paper,
         continue_on_not_found: bool = True,
         dry_run: bool = False,
         verbose: bool = False,
-        all_papers: Optional[List[Paper]] = None
+        debug: bool = False
     ) -> Tuple[Optional[str], bool]:
         """
-        Resolve citation to existing Paper or create new Paper if necessary.
+        Link a citation to an existing paper or create a new paper.
+
+        Attempts to resolve the citation to an existing paper by DOI or title+year.
+        If not found and continue_on_not_found=True, creates a new Paper record.
+        Updates the cited_by links bidirectionally.
 
         Args:
-            citation: Citation object to resolve
+            citation: Citation object to link
             citing_paper: Paper that contains this citation
             continue_on_not_found: If True, create new Paper; if False, leave unresolved
             dry_run: Don't write to database if True
             verbose: Enable verbose output
-            all_papers: Pre-fetched list of all papers (optional). If None, will be fetched as needed.
+            debug: Enable debug output
 
         Returns:
             Tuple of (resolved_paper_id, created_new_paper: bool)
@@ -254,8 +340,9 @@ class CitationsStep(BaseStep):
         if citation.doi:
             normalized_doi = DOI(citation.doi).stem
             if normalized_doi:
-                paper = self._find_paper_by_doi(normalized_doi)
-                if paper:
+                papers = self.db.get_by_doi(normalized_doi, primary_only=True)
+                if papers:
+                    paper = papers[0]
                     # Follow duplicate chain to canonical paper
                     while paper.duplicate_of:
                         paper = paper.duplicate_of
@@ -272,8 +359,7 @@ class CitationsStep(BaseStep):
         if not citation.doi and citation.title and citation.year:
             paper = self._find_paper_by_title_year(
                 citation.title,
-                citation.year,
-                all_papers=all_papers
+                citation.year
             )
             if paper:
                 while paper.duplicate_of:
@@ -294,15 +380,8 @@ class CitationsStep(BaseStep):
         try:
             iteration = (citing_paper.discovery.iteration + 1) if citing_paper.discovery else 1
             
-            # Generate cite_key using MD5 hash of title+year for reproducibility
-            import hashlib
-            import uuid
-            if citation.title and citation.year:
-                hash_input = f"{citation.title}_{citation.year}".lower()
-                cite_key = hashlib.md5(hash_input.encode()).hexdigest()[:8]
-            else:
-                # Fallback to random UUID
-                cite_key = str(uuid.uuid4())[:8]
+            # Generate cite_key: prioritize DOI, fall back to title+year, then UUID
+            cite_key = self._generate_cite_key_for_citation(citation)
             
             new_paper = Paper(
                 cite_key=cite_key,
@@ -343,6 +422,33 @@ class CitationsStep(BaseStep):
             logger.error(f"Error creating new Paper from citation: {e}")
             return None, False
 
+    def _generate_cite_key_for_citation(self, citation: Citation) -> str:
+        """
+        Generate cite_key for a citation using DOI > title+year > UUID fallback.
+
+        Args:
+            citation: Citation object
+
+        Returns:
+            Generated cite key string
+        """
+        import hashlib
+        import uuid
+        
+        # Priority 1: Use DOI if available
+        if citation.doi:
+            normalized_doi = DOI(citation.doi).stem
+            if normalized_doi:
+                return "doi_" + hashlib.md5(normalized_doi.encode()).hexdigest()[:8]
+        
+        # Priority 2: Use title + year hash
+        if citation.title and citation.year:
+            hash_input = f"{citation.title}_{citation.year}".lower()
+            return hashlib.md5(hash_input.encode()).hexdigest()[:8]
+        
+        # Priority 3: Fall back to random UUID
+        return str(uuid.uuid4())[:8]
+
     def _generate_cite_key(self, title: Optional[str], year: Optional[int]) -> str:
         """
         Generate a unique cite key from title and year.
@@ -371,44 +477,22 @@ class CitationsStep(BaseStep):
         
         return f"{prefix}{year_str}_{unique_suffix}"
 
-    def _find_paper_by_doi(self, normalized_doi: str) -> Optional[Paper]:
-        """
-        Find paper by DOI.
-
-        Args:
-            normalized_doi: Normalized DOI string
-
-        Returns:
-            Paper if found, None otherwise
-        """
-        try:
-            # Use database's DOI index for fast lookup
-            papers = self.db.get_by_doi(normalized_doi, primary_only=True)
-            
-            if papers:
-                # Return first match (should be canonical if duplicate chain exists)
-                return papers[0]
-            
-            return None
-        except Exception as e:
-            logger.error(f"Error querying database for DOI {normalized_doi}: {e}")
-            return None
-
     def _find_paper_by_title_year(
         self,
         title: str,
         year: int,
-        tolerance: float = 0.8,
-        all_papers: Optional[List[Paper]] = None
+        tolerance: float = 0.8
     ) -> Optional[Paper]:
         """
-        Find paper by title and year with fuzzy matching.
+        Find paper by title and year with fuzzy matching using indexed candidates.
+
+        Uses database indexes to efficiently retrieve candidate papers by year,
+        then performs fuzzy matching only on relevant candidates (not all papers).
 
         Args:
             title: Paper title
             year: Publication year
             tolerance: Fuzzy match threshold (0-1)
-            all_papers: Pre-fetched list of papers to search (optional). If None, fetches from DB.
 
         Returns:
             Paper if found with high confidence, None otherwise
@@ -417,15 +501,13 @@ class CitationsStep(BaseStep):
             return None
 
         try:
-            # Use provided papers or fetch from DB
-            if all_papers is None:
-                all_papers = self.db.all(primary_only=True)
-            
-            # Get candidates from around the same year
-            candidates = [
-                p for p in all_papers 
-                if p.year and abs(p.year - year) <= 1
-            ]
+            # Get candidates efficiently using year index (O(1) lookup)
+            # This avoids scanning all papers in the database
+            candidates = self.db.get_candidates_by_year_range(
+                year=year,
+                tolerance=1,  # ±1 year window
+                primary_only=True
+            )
 
             if not candidates:
                 return None
@@ -435,10 +517,14 @@ class CitationsStep(BaseStep):
 
             best_match = None
             best_ratio = 0
+            
+            # Precompute normalized query title (avoid repeated lowercase calls)
+            query_normalized = title.lower()
 
             for candidate in candidates:
-                if candidate.title:
-                    ratio = SequenceMatcher(None, title.lower(), candidate.title.lower()).ratio()
+                if candidate.title_normalized:
+                    # Use precomputed normalized title to avoid redundant .lower() calls
+                    ratio = SequenceMatcher(None, query_normalized, candidate.title_normalized).ratio()
                     if ratio > best_ratio:
                         best_ratio = ratio
                         best_match = candidate
