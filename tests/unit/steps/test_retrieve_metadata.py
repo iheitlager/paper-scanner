@@ -183,7 +183,7 @@ class TestExecute:
                 year=2023,
                 journal="Test Journal"
             )
-            mock_fetcher.fetch_metadata.return_value = (enriched_paper, True)
+            mock_fetcher.fetch_paper.return_value = (enriched_paper, True)
             
             result = step.execute(config, verbose=False, dry_run=False)
         
@@ -222,7 +222,7 @@ class TestExecute:
                 doi="10.1234/test",
                 abstract="Fetched abstract"
             )
-            mock_fetcher.fetch_metadata.return_value = (enriched_paper, False)
+            mock_fetcher.fetch_paper.return_value = (enriched_paper, False)
             
             result = step.execute(config, verbose=False, dry_run=False)
         
@@ -255,7 +255,7 @@ class TestExecute:
             mock_fetcher_class.return_value = mock_fetcher
             
             # Fetch returns None for metadata not found
-            mock_fetcher.fetch_metadata.return_value = (None, False)
+            mock_fetcher.fetch_paper.return_value = (None, False)
             
             result = step.execute(config, verbose=False, dry_run=False)
         
@@ -288,7 +288,7 @@ class TestExecute:
             mock_fetcher = MagicMock()
             mock_fetcher_class.return_value = mock_fetcher
             
-            mock_fetcher.fetch_metadata.return_value = (None, False)
+            mock_fetcher.fetch_paper.return_value = (None, False)
             
             result = step.execute(config, verbose=False, dry_run=False)
         
@@ -321,7 +321,7 @@ class TestExecute:
             mock_fetcher_class.return_value = mock_fetcher
             
             # Mock fetcher raises exception
-            mock_fetcher.fetch_metadata.side_effect = Exception("API Error")
+            mock_fetcher.fetch_paper.side_effect = Exception("API Error")
             
             result = step.execute(config, verbose=False, dry_run=False)
         
@@ -360,7 +360,7 @@ class TestExecute:
                 doi="10.1234/test",
                 abstract="New abstract"
             )
-            mock_fetcher.fetch_metadata.return_value = (enriched_paper, False)
+            mock_fetcher.fetch_paper.return_value = (enriched_paper, False)
             
             result = step.execute(config, verbose=False, dry_run=True)
         
@@ -405,7 +405,7 @@ class TestExecute:
                     abstract=f"Abstract for {doi}"
                 ), False)
             
-            mock_fetcher.fetch_metadata.side_effect = fetch_side_effect
+            mock_fetcher.fetch_paper.side_effect = fetch_side_effect
             
             result = step.execute(config, verbose=False, dry_run=False)
         
@@ -451,7 +451,7 @@ class TestExecute:
                 else:
                     raise Exception("Fetch error")
             
-            mock_fetcher.fetch_metadata.side_effect = fetch_side_effect
+            mock_fetcher.fetch_paper.side_effect = fetch_side_effect
             
             result = step.execute(config, verbose=False, dry_run=False)
         
@@ -489,7 +489,7 @@ class TestExecute:
                 doi="10.1234/test",
                 abstract="Test abstract"
             )
-            mock_fetcher.fetch_metadata.return_value = (enriched_paper, False)
+            mock_fetcher.fetch_paper.return_value = (enriched_paper, False)
             
             result = step.execute(config, verbose=False, dry_run=False)
             

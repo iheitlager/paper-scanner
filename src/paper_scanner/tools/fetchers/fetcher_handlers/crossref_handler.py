@@ -15,7 +15,7 @@ from paper_scanner.core.models import OpenAccessStatus, Citation
 from paper_scanner.core.enum import PaperType
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.documents.abstract_parser import AbstractParser
-from paper_scanner.tools.doi import DOI
+from paper_scanner.core.doi import DOI
 
 logger = logging.getLogger(__name__)
 
@@ -53,12 +53,8 @@ class CrossrefHandler(BaseFetcherHandler):
             Works object from Crossref, or None if not found
         """
         try:
-            # Normalize DOI
-            normalized = doi.lower().strip()
-            if normalized.startswith("doi:"):
-                normalized = normalized[4:]
-            if normalized.startswith("https://doi.org/"):
-                normalized = normalized[16:]
+            # Normalize DOI, just in case
+            normalized = DOI(doi).stem
 
             # Call API
             url = f"{CROSSREF_API_URL}/works/{normalized}"
@@ -76,6 +72,7 @@ class CrossrefHandler(BaseFetcherHandler):
 
             return None
 
+        # TODO: remove this broad exception handling and just fail
         except requests.exceptions.RequestException as e:
             logger.warning(f"Crossref API error for {doi}: {e}")
             return None
@@ -212,15 +209,18 @@ class CrossrefHandler(BaseFetcherHandler):
         Returns:
             Citation object or None if parsing fails
         """
-        # Extract DOI
+        # Extract DOI and normalize, just in case
         doi = ref.get("DOI", None)
         if doi:
             doi = DOI(doi).stem
 
         # Extract title
-        title = ref.get("unstructured", "").strip()
-        if not title and "article-title" in ref:
+        if "article-title" in ref:
             title = ref.get("article-title", "").strip()
+        elif "title" in ref:
+            title = ref.get("title", "").strip()
+        else:
+            title = ref.get("unstructured", "").strip()
 
         # Extract first author
         authors = []
@@ -256,7 +256,10 @@ class CrossrefHandler(BaseFetcherHandler):
         publisher = (ref.get("publisher") or "").strip() or None
 
         # Calculate confidence
-        confidence = self._calculate_confidence(doi, title, year, authors)
+        if ref.get("doi-asserted-by") == "publisher":
+            confidence = 1.0
+        else:
+            confidence = self._calculate_confidence(doi, title, year, authors)
 
         # Build Citation
         citation = Citation(

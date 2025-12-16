@@ -21,7 +21,7 @@ from typing import List, Dict, Optional, Any
 from collections import defaultdict
 
 from paper_scanner.core.models import Paper
-from paper_scanner.tools.doi import DOI
+from paper_scanner.core.doi import DOI
 
 
 class PapersDatabase:

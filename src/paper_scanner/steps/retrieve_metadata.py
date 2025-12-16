@@ -119,7 +119,7 @@ class RetrieveMetadataStep(BaseStep):
 
 
                 # Fetch metadata
-                enriched_paper, cache_hit = fetcher.fetch_metadata(paper.doi)
+                enriched_paper, cache_hit = fetcher.fetch_paper(paper.doi)
                 cache = "💾" if cache_hit else "🌐"
 
                 if verbose:

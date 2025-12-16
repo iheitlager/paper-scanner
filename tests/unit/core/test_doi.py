@@ -5,7 +5,7 @@ Tests DOI normalization, validation, and multiple representation formats.
 """
 
 import pytest
-from paper_scanner.tools.doi import DOI
+from paper_scanner.core.doi import DOI
 
 
 class TestDOIInitialization:

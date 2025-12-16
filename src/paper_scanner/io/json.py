@@ -45,38 +45,25 @@ def paper_to_dict(paper: Paper, exclude_none: bool = False) -> Dict[str, Any]:
     """
     Convert Paper Pydantic model to dictionary (100% complete)
     
+    Self-references (duplicate_of, resolved_paper) are handled by @field_serializer
+    decorators on the models, which convert Paper objects to ID strings during
+    JSON serialization.
+    
     Args:
         paper: Paper Pydantic model
         exclude_none: If True, exclude None values from output
     
     Returns:
-        Complete dictionary representation
+        Complete dictionary representation with self-references as IDs
     """
     
-    # Use Pydantic's built-in serialization with custom mode
-    result = paper.model_dump(
+    # Pydantic's field_serializer decorators handle self-reference conversion
+    # No manual post-processing needed
+    return paper.model_dump(
         mode='json',
         exclude_none=exclude_none,
         by_alias=False
     )
-    
-    # Convert duplicate_of Paper object to just the ID
-    if result.get('duplicate_of') is not None:
-        if isinstance(result['duplicate_of'], dict):
-            result['duplicate_of'] = result['duplicate_of'].get('id')
-        elif isinstance(result['duplicate_of'], Paper):
-            result['duplicate_of'] = result['duplicate_of'].id
-    
-    # Convert duplicate_of reference in screening.deduplication to just the ID
-    if result.get('screening') and result['screening'].get('deduplication'):
-        dedup = result['screening']['deduplication']
-        if dedup.get('duplicate_of') is not None:
-            if isinstance(dedup['duplicate_of'], dict):
-                dedup['duplicate_of'] = dedup['duplicate_of'].get('id')
-            elif isinstance(dedup['duplicate_of'], Paper):
-                dedup['duplicate_of'] = dedup['duplicate_of'].id
-    
-    return result
 
 
 def paper_to_json(

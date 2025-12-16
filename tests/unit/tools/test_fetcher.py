@@ -61,54 +61,54 @@ class TestFetcherInitialization:
 class TestFetcherMetadataFetching:
     """Test metadata fetching."""
 
-    def test_fetch_metadata_success(self, tmp_path):
+    def test_fetch_paper_success(self, tmp_path):
         """Test successful metadata fetch with real Crossref handler."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         mock_paper = Paper(cite_key="test2024", title="Test", doi="10.1234/test")
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_metadata",
+            "fetch_paper",
             return_value=(mock_paper, False),
         ):
-            result, cache_hit = fetcher.fetch_metadata("10.1234/test")
+            result, cache_hit = fetcher.fetch_paper("10.1234/test")
             assert result is not None
             assert result.title == "Test"
             assert cache_hit is False
 
-    def test_fetch_metadata_cache_hit(self, tmp_path):
+    def test_fetch_paper_cache_hit(self, tmp_path):
         """Test cache hit detection."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         mock_paper = Paper(cite_key="test2024", title="Test", doi="10.1234/test")
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_metadata",
+            "fetch_paper",
             return_value=(mock_paper, True),
         ):
-            result, cache_hit = fetcher.fetch_metadata("10.1234/test")
+            result, cache_hit = fetcher.fetch_paper("10.1234/test")
             assert result is not None
             assert cache_hit is True
 
-    def test_fetch_metadata_not_found(self, tmp_path):
+    def test_fetch_paper_not_found(self, tmp_path):
         """Test metadata not found returns None."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_metadata",
+            "fetch_paper",
             return_value=(None, False),
         ):
-            result, cache_hit = fetcher.fetch_metadata("10.9999/nonexistent")
+            result, cache_hit = fetcher.fetch_paper("10.9999/nonexistent")
             assert result is None
             assert cache_hit is False
 
-    def test_fetch_metadata_handler_exception(self, tmp_path):
+    def test_fetch_paper_handler_exception(self, tmp_path):
         """Test handler exception is caught and logged."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_metadata",
+            "fetch_paper",
             side_effect=Exception("Test error"),
         ):
-            result, cache_hit = fetcher.fetch_metadata("10.1234/test")
+            result, cache_hit = fetcher.fetch_paper("10.1234/test")
             assert result is None
 
 
@@ -120,10 +120,10 @@ class TestFetcherFallbackLogic:
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_metadata",
+            "fetch_paper",
             side_effect=Exception("Fail"),
         ):
-            result, cache_hit = fetcher.fetch_metadata("10.9999/all_fail")
+            result, cache_hit = fetcher.fetch_paper("10.9999/all_fail")
             assert result is None
 
     def test_fetch_with_empty_methods_raises_error(self, tmp_path):
@@ -135,7 +135,7 @@ class TestFetcherFallbackLogic:
 class TestFetcherCaching:
     """Test caching behavior."""
 
-    def test_fetch_metadata_propagates_cache_hit_from_handler(self, tmp_path):
+    def test_fetch_paper_propagates_cache_hit_from_handler(self, tmp_path):
         """Test cache_hit status is propagated from handler."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         mock_paper = Paper(cite_key="test2024", title="Test", doi="10.1234/test")
@@ -143,19 +143,19 @@ class TestFetcherCaching:
         # First call: cache miss
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_metadata",
+            "fetch_paper",
             return_value=(mock_paper, False),
         ):
-            result, cache_hit = fetcher.fetch_metadata("10.1234/test")
+            result, cache_hit = fetcher.fetch_paper("10.1234/test")
             assert cache_hit is False
 
         # Second call: cache hit
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_metadata",
+            "fetch_paper",
             return_value=(mock_paper, True),
         ):
-            result, cache_hit = fetcher.fetch_metadata("10.1234/test")
+            result, cache_hit = fetcher.fetch_paper("10.1234/test")
             assert cache_hit is True
 
     def test_fetcher_with_real_crossref_handler(self, tmp_path):
@@ -174,10 +174,10 @@ class TestFetcherErrorHandling:
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_metadata",
+            "fetch_paper",
             side_effect=RuntimeError("Connection error"),
         ):
-            result, cache_hit = fetcher.fetch_metadata("10.1234/test")
+            result, cache_hit = fetcher.fetch_paper("10.1234/test")
             assert result is None
 
     def test_fetcher_initialization_with_non_existent_cache_dir(self):
@@ -196,12 +196,12 @@ class TestFetcherDOINormalization:
         mock_paper = Paper(cite_key="test2024", title="Test", doi="10.1234/test")
         with patch.object(
             fetcher.handlers["crossref"],
-            "fetch_metadata",
+            "fetch_paper",
             return_value=(mock_paper, False),
         ):
             # Test various DOI formats
             for doi in ["10.1234/test", "https://doi.org/10.1234/test", "doi.org/10.1234/test"]:
-                result, _ = fetcher.fetch_metadata(doi)
+                result, _ = fetcher.fetch_paper(doi)
                 assert result is not None
 
 

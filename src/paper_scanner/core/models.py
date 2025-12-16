@@ -4,7 +4,7 @@
 Core Pydantic models for Paper Scanner
 """
 
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, field_serializer, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import uuid
@@ -90,6 +90,9 @@ class Citation(BaseModel):
 
     # Identifiers
     doi: Optional[str] = None
+    url: Optional[str] = None
+
+    # Paper details
     title: Optional[str] = None
     authors: List[str] = Field(default_factory=list)
     year: Optional[int] = None
@@ -108,7 +111,12 @@ class Citation(BaseModel):
 
     # Linking
     resolved_paper_id: Optional[str] = None  # UUID of linked Paper if resolved
-    resolved_paper: Optional[Paper] = None  # If citation matches known paper (computed)
+    resolved_paper: Optional['Paper'] = None  # If citation matches known paper (computed)
+
+    @field_serializer('resolved_paper', when_used='json')
+    def serialize_resolved_paper(self, value: Optional['Paper']) -> Optional[str]:
+        """Convert Paper reference to ID string during JSON serialization"""
+        return value.id if value else None
 
 
 # ============================================================================
@@ -143,11 +151,16 @@ class DeduplicationResult(BaseModel):
     """Result of deduplication check"""
     
     is_duplicate: bool
-    duplicate_of: Optional[Paper] = None
+    duplicate_of: Optional['Paper'] = None
     similarity_score: Optional[float] = Field(ge=0, le=1, default=None)
     method: str  # "doi_exact", "title_author", "fuzzy_title", etc.
     confidence: float = Field(ge=0, le=1)
     metadata: ProcessingMetadata
+
+    @field_serializer('duplicate_of', when_used='json')
+    def serialize_duplicate_of(self, value: Optional['Paper']) -> Optional[str]:
+        """Convert Paper reference to ID string during JSON serialization"""
+        return value.id if value else None
 
 
 # ============================================================================
@@ -405,7 +418,12 @@ class Paper(BaseModel):
     # DEDUPLICATION
     # ========================================
 
-    duplicate_of: Optional[Paper] = None
+    duplicate_of: Optional['Paper'] = None
+
+    @field_serializer('duplicate_of', when_used='json')
+    def serialize_duplicate_of(self, value: Optional['Paper']) -> Optional[str]:
+        """Convert Paper reference to ID string during JSON serialization"""
+        return value.id if value else None
 
     # ========================================
     # BIBLIOGRAPHIC DATA
@@ -429,7 +447,7 @@ class Paper(BaseModel):
     journal_abbreviation: Optional[str] = None
     booktitle: Optional[str] = None  # For conference papers
     publisher: Optional[str] = None
-    
+
     # Paper type from source (e.g., BibTeX entry type)
     paper_type: Optional[PaperType] = None  # "journal_article", "conference_paper", "book", etc.
 

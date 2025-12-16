@@ -119,8 +119,8 @@ class TestCrossrefUnifiedCache:
         return CrossrefHandler(cache_dir=cache_dir)
 
     @patch("paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler.CrossrefHandler._fetch_from_api")
-    def test_fetch_metadata_then_citations_uses_cache(self, mock_fetch, handler):
-        """Test that fetch_citations uses cache populated by fetch_metadata."""
+    def test_fetch_paper_then_citations_uses_cache(self, mock_fetch, handler):
+        """Test that fetch_citations uses cache populated by fetch_paper."""
         doi = "10.1145/3025453.3025761"
         
         mock_fetch.return_value = {
@@ -135,7 +135,7 @@ class TestCrossrefUnifiedCache:
         }
         
         # First fetch metadata
-        paper, meta_hit = handler.fetch_metadata(doi)
+        paper, meta_hit = handler.fetch_paper(doi)
         assert meta_hit is False
         assert mock_fetch.call_count == 1
         
@@ -146,7 +146,7 @@ class TestCrossrefUnifiedCache:
 
     @patch("paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler.CrossrefHandler._fetch_from_api")
     def test_fetch_citations_then_metadata_uses_cache(self, mock_fetch, handler):
-        """Test that fetch_metadata uses cache populated by fetch_citations."""
+        """Test that fetch_paper uses cache populated by fetch_citations."""
         doi = "10.1145/3025453.3025761"
         
         mock_fetch.return_value = {
@@ -164,7 +164,7 @@ class TestCrossrefUnifiedCache:
         assert mock_fetch.call_count == 1
         
         # Then fetch metadata - should reuse cache
-        paper, meta_hit = handler.fetch_metadata(doi)
+        paper, meta_hit = handler.fetch_paper(doi)
         assert meta_hit is True
         assert mock_fetch.call_count == 1  # No additional call
 
@@ -186,7 +186,7 @@ class TestCrossrefUnifiedCache:
         with patch.object(
             handler2, "_fetch_from_api", return_value=None
         ) as mock_api:
-            paper, hit = handler2.fetch_metadata(doi)
+            paper, hit = handler2.fetch_paper(doi)
             assert hit is True  # Should hit cache from handler1
             assert mock_api.call_count == 0  # API not called
             assert paper.title == "Test Paper"
@@ -205,25 +205,6 @@ class TestCrossrefBackwardCompatibility:
     def handler(self, cache_dir):
         """Create a CrossrefHandler instance."""
         return CrossrefHandler(cache_dir=cache_dir)
-
-    @patch("paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler.CrossrefHandler._fetch_from_api")
-    def test_fetch_and_parse_delegates_to_fetch_metadata(self, mock_fetch, handler):
-        """Test fetch_and_parse delegates to fetch_metadata."""
-        doi = "10.1145/3025453.3025761"
-        
-        mock_fetch.return_value = {
-            "DOI": doi,
-            "title": "Test Paper",
-            "author": [{"given": "John", "family": "Smith"}],
-            "abstract": "Abstract",
-            "type": "journal-article",
-        }
-        
-        # Old API should work
-        paper, cache_hit = handler.fetch_and_parse(doi)
-        assert paper is not None
-        assert paper.title == "Test Paper"
-        assert cache_hit is False
 
     @patch("paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler.CrossrefHandler._fetch_from_api")
     def test_fetch_and_parse_citations_delegates_to_fetch_citations(self, mock_fetch, handler):

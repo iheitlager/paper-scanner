@@ -66,7 +66,7 @@ class Fetcher:
             if self.debug:
                 console.print(f"  [dim]{method} - {method_cache_dir}[/dim]")
 
-    def fetch_metadata(self, doi: str) -> Tuple[Optional[Paper], bool]:
+    def fetch_paper(self, doi: str) -> Tuple[Optional[Paper], bool]:
         """
         Fetch metadata for a DOI from registered handlers.
 
@@ -80,7 +80,7 @@ class Fetcher:
         """
         for handler_name, handler in self.handlers.items():
             try:
-                paper, cache_hit = handler.fetch_metadata(doi)
+                paper, cache_hit = handler.fetch_paper(doi)
                 if paper:
                     console.print(f"[green]Fetched {doi} from {handler_name}[/green]")
                     return paper, cache_hit

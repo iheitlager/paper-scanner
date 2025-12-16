@@ -32,7 +32,7 @@ import logging
 from paper_scanner.core.models import Paper, Citation, Discovery, DiscoveryMethod, PaperType
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.tools.fetchers.fetcher import Fetcher
-from paper_scanner.tools.doi import DOI
+from paper_scanner.core.doi import DOI
 from .base import BaseStep
 
 console = Console(file=sys.stderr)
@@ -238,8 +238,7 @@ class CitationsStep(BaseStep):
             except Exception as e:
                 results["errors"].append(f"Fetch error for {paper.doi}: {str(e)}")
                 console.print(f"[red]Error fetching citations for {paper.doi}: {e}[/red]")
-                if debug:
-                    logger.exception(f"Exception while fetching citations for {paper.doi}")
+
 
     def _resolve_and_create_citations(
         self,

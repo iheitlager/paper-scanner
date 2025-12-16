@@ -312,7 +312,7 @@ traceability:
 ```python
 def test_crossref_fetcher_metadata():
     fetcher = CrossrefMetadataFetcher()
-    paper = fetcher.fetch_metadata("10.1287/isre.1100.0322")
+    paper = fetcher.fetch_paper("10.1287/isre.1100.0322")
     assert paper.doi == "10.1287/isre.1100.0322"
     assert paper.title is not None
     assert len(paper.authors) > 0
@@ -325,7 +325,7 @@ def test_metadata_retrieval_with_fallback():
     config.add_metadata_fetcher(BrokenFetcher(), priority=100)  # Will fail
     config.add_metadata_fetcher(CrossrefFetcher(), priority=90)  # Will succeed
     
-    paper, source = FallbackFetcher.fetch_metadata_with_fallback(...)
+    paper, source = FallbackFetcher.fetch_paper_with_fallback(...)
     assert source == "crossref"  # Fallback worked
 ```
 
@@ -335,11 +335,11 @@ def test_cache_hit_tracking():
     fetcher = CrossrefMetadataFetcher(cache_dir=tmpdir)
     
     # First call - cache miss
-    paper1 = fetcher.fetch_metadata("10.1287/isre.1100.0322")
+    paper1 = fetcher.fetch_paper("10.1287/isre.1100.0322")
     assert not fetcher.last_cache_hit
     
     # Second call - cache hit
-    paper2 = fetcher.fetch_metadata("10.1287/isre.1100.0322")
+    paper2 = fetcher.fetch_paper("10.1287/isre.1100.0322")
     assert fetcher.last_cache_hit
     assert paper1 == paper2
 ```

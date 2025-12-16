@@ -13,6 +13,7 @@ import logging
 
 from paper_scanner.core.models import Paper, Citation
 from paper_scanner.tools.cache import JSONFileCache
+from paper_scanner.core.doi import DOI
 
 logger = logging.getLogger(__name__)
 
@@ -123,9 +124,9 @@ class BaseFetcherHandler(ABC):
         return "unknown_cite_key"
 
 
-    def fetch_metadata(self, doi: str) -> Tuple[Optional[Paper], bool]:
+    def fetch_paper(self, doi: str) -> Tuple[Optional[Paper], bool]:
         """
-        Fetch metadata and parse into Paper model.
+        Fetch Paper from doi.
 
         Checks cache first, then API, storing result in cache.
 
@@ -154,7 +155,7 @@ class BaseFetcherHandler(ABC):
         """
         Fetch citations and parse into Citation models.
 
-        Reuses the same cache as fetch_metadata since citations are
+        Reuses the same cache as fetch_paper since citations are
         part of the API response (e.g., Crossref includes references in work record).
 
         Args:
@@ -163,7 +164,7 @@ class BaseFetcherHandler(ABC):
         Returns:
             Tuple of (List[Citation] models, cache_hit: bool)
         """
-        # Check cache - same key as fetch_metadata
+        # Check cache - same key as fetch_paper
         api_data = self._cache.get(doi)
 
         if api_data is not None:
@@ -180,21 +181,6 @@ class BaseFetcherHandler(ABC):
         citations = self._extract_citations(api_data)
 
         return citations, False
-
-    def fetch_and_parse(self, doi: str) -> Tuple[Optional[Paper], bool]:
-        """
-        Fetch metadata and parse into Paper model.
-
-        Deprecated: Use fetch_metadata() instead.
-        Checks cache first, then API, storing result in cache.
-
-        Args:
-            doi: Digital Object Identifier
-
-        Returns:
-            Tuple of (Paper model or None, cache_hit: bool)
-        """
-        return self.fetch_metadata(doi)
 
     def _translate_to_paper(self, doi: str, api_data: Dict[str, Any]) -> Paper:
         """

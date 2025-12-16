@@ -81,64 +81,51 @@ class TestBaseCacheIntegration:
         """Create a dummy handler with temp cache directory."""
         return DummyHandler(cache_dir=tmp_path)
 
-    def test_fetch_metadata_cache_miss_then_hit(self, dummy_handler):
-        """Test cache miss on first fetch_metadata, then cache hit on second."""
-        identifier = "test-id-1"
+    def test_fetch_paper_cache_miss_then_hit(self, dummy_handler):
+        """Test cache miss on first fetch_paper, then cache hit on second."""
+        identifier = "10.1000/test-id-1"
 
         with patch.object(
             dummy_handler, "_fetch_from_api", wraps=dummy_handler._fetch_from_api
         ) as mock_api:
             # First call - cache miss
-            paper1, hit1 = dummy_handler.fetch_metadata(identifier)
+            paper1, hit1 = dummy_handler.fetch_paper(identifier)
             assert hit1 is False, "First call should be cache miss"
             assert mock_api.call_count == 1
             assert paper1 is not None
             assert paper1.source_key == identifier
 
             # Second call - cache hit
-            paper2, hit2 = dummy_handler.fetch_metadata(identifier)
+            paper2, hit2 = dummy_handler.fetch_paper(identifier)
             assert hit2 is True, "Second call should be cache hit"
             assert mock_api.call_count == 1, "API should not be called again"
             assert paper2.source_key == paper1.source_key
             assert paper2.title == paper1.title
 
     def test_fetch_citations_shares_cache_with_metadata(self, dummy_handler):
-        """Test that fetch_citations uses same cache as fetch_metadata."""
-        identifier = "test-id-2"
+        """Test that fetch_citations uses same cache as fetch_paper."""
+        identifier = "10.1000/test-id-2"
 
         with patch.object(
             dummy_handler, "_fetch_from_api", wraps=dummy_handler._fetch_from_api
         ) as mock_api:
             # First call - fetch metadata (populates cache)
-            paper, hit1 = dummy_handler.fetch_metadata(identifier)
+            paper, hit1 = dummy_handler.fetch_paper(identifier)
             assert hit1 is False
             assert mock_api.call_count == 1
 
             # Second call - fetch citations (should reuse cached data)
             citations, hit2 = dummy_handler.fetch_citations(identifier)
-            assert hit2 is True, "fetch_citations should hit cache from fetch_metadata"
+            assert hit2 is True, "fetch_citations should hit cache from fetch_paper"
             assert mock_api.call_count == 1, "No additional API call should occur"
-
-    def test_backward_compat_fetch_and_parse_methods(self, dummy_handler):
-        """Test that old fetch_and_parse methods still work (backward compat)."""
-        identifier = "test-id-3"
-
-        # Old API should still work
-        paper1, hit1 = dummy_handler.fetch_and_parse(identifier)
-        assert hit1 is False
-        assert paper1 is not None
-
-        # Old citations API should also work
-        citations, hit2 = dummy_handler.fetch_citations(identifier)
-        assert hit2 is True, "Second call should hit cache"
 
     def test_cache_persists_across_handler_instances(self, tmp_path):
         """Test that cache is shared across different handler instances."""
-        identifier = "test-id-4"
+        identifier = "10.1000/test-id-3"
 
         # Create first handler and populate cache
         handler1 = DummyHandler(cache_dir=tmp_path)
-        paper1, hit1 = handler1.fetch_metadata(identifier)
+        paper1, hit1 = handler1.fetch_paper(identifier)
         assert hit1 is False
 
         # Create second handler with same cache dir
@@ -146,45 +133,45 @@ class TestBaseCacheIntegration:
         with patch.object(
             handler2, "_fetch_from_api", return_value=None
         ) as mock_api:
-            paper2, hit2 = handler2.fetch_metadata(identifier)
+            paper2, hit2 = handler2.fetch_paper(identifier)
             assert hit2 is True, "Should hit cache from handler1"
             assert mock_api.call_count == 0, "API should not be called"
             assert paper2.source_key == paper1.source_key
 
     def test_cache_handles_none_response(self, dummy_handler):
         """Test cache behavior when API returns None."""
-        identifier = "test-id-5"
+        identifier = "10.1000/test-id-14"
 
         with patch.object(dummy_handler, "_fetch_from_api", return_value=None):
-            paper1, hit1 = dummy_handler.fetch_metadata(identifier)
+            paper1, hit1 = dummy_handler.fetch_paper(identifier)
             assert hit1 is False
             assert paper1 is None
 
             # Second call - API returns None again (not cached, None is not cached)
-            paper2, hit2 = dummy_handler.fetch_metadata(identifier)
+            paper2, hit2 = dummy_handler.fetch_paper(identifier)
             assert hit2 is False, "None responses are not cached"
             assert paper2 is None
 
     def test_different_identifiers_use_different_cache_entries(self, dummy_handler):
         """Test that different identifiers produce different cache entries."""
-        id1 = "test-id-1"
-        id2 = "test-id-2"
+        id1 = "10.1000/test-id-1"
+        id2 = "10.1000/test-id-2"
 
         with patch.object(
             dummy_handler, "_fetch_from_api", wraps=dummy_handler._fetch_from_api
         ) as mock_api:
-            paper1, _ = dummy_handler.fetch_metadata(id1)
+            paper1, _ = dummy_handler.fetch_paper(id1)
             assert mock_api.call_count == 1
             assert paper1.source_key == id1
 
-            paper2, _ = dummy_handler.fetch_metadata(id2)
+            paper2, _ = dummy_handler.fetch_paper(id2)
             assert mock_api.call_count == 2, "Different ID should trigger new API call"
             assert paper2.source_key == id2
             assert paper2.source_key != paper1.source_key
 
     def test_cache_file_path_consistency(self, dummy_handler):
         """Test that same identifier always produces same cache file path."""
-        identifier = "test-id-6"
+        identifier = "10.1000/test-id-6"
 
         path1 = dummy_handler._cache._get_cache_path(identifier)
         path2 = dummy_handler._cache._get_cache_path(identifier)
@@ -192,10 +179,10 @@ class TestBaseCacheIntegration:
         assert path1 == path2, "Same identifier should always map to same cache path"
 
     def test_cache_returns_tuple_with_hit_flag(self, dummy_handler):
-        """Test that fetch_metadata returns tuple of (Paper, cache_hit_bool)."""
-        identifier = "test-id-7"
+        """Test that fetch_paper returns tuple of (Paper, cache_hit_bool)."""
+        identifier = "10.1000/test-id-7"
 
-        result1 = dummy_handler.fetch_metadata(identifier)
+        result1 = dummy_handler.fetch_paper(identifier)
         assert isinstance(result1, tuple), "Should return tuple"
         assert len(result1) == 2, "Tuple should have 2 elements"
         paper1, hit1 = result1
@@ -203,13 +190,13 @@ class TestBaseCacheIntegration:
         assert hit1 is False, "First call should be cache miss"
         assert paper1 is not None
 
-        result2 = dummy_handler.fetch_metadata(identifier)
+        result2 = dummy_handler.fetch_paper(identifier)
         paper2, hit2 = result2
         assert hit2 is True, "Second call should be cache hit"
 
     def test_fetch_citations_returns_tuple(self, dummy_handler):
         """Test that fetch_citations also returns tuple with hit flag."""
-        identifier = "test-id-8"
+        identifier = "10.1000/test-id-8"
 
         result = dummy_handler.fetch_citations(identifier)
         assert isinstance(result, tuple), "Should return tuple"
