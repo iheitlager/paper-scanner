@@ -110,7 +110,6 @@ class Citation(BaseModel):
     raw_text: Optional[str] = None
 
     # Linking
-    resolved_paper_id: Optional[str] = None  # UUID of linked Paper if resolved
     resolved_paper: Optional['Paper'] = None  # If citation matches known paper (computed)
 
     @field_serializer('resolved_paper', when_used='json')
@@ -485,10 +484,8 @@ class Paper(BaseModel):
     # ========================================
 
     citations: List[Citation] = Field(default_factory=list)
-    cited_by: List[str] = Field(default_factory=list)  # Paper IDs
-
-    reference_count: int = 0
-    citation_count: int = 0
+    cited_papers: List['Paper'] = Field(default_factory=list)
+    cited_by_papers: List['Paper'] = Field(default_factory=list)
 
     # ========================================
     # PDF & FULL TEXT

@@ -153,49 +153,6 @@ GROUP BY p1.id
 ORDER BY COUNT(ce.id) DESC;
 ```
 
-### API Reference
-
-#### CrossrefReferenceFetcher
-
-```python
-from paper_scanner.cli.fetch_crossref_references import CrossrefReferenceFetcher
-
-fetcher = CrossrefReferenceFetcher(email="your@email.com")
-
-# Fetch references for a DOI
-result = fetcher.fetch_references_for_doi("10.1038/s41586-020-2012-7")
-# Returns: {doi, title, year, references, reference_count}
-
-# Parse a single reference
-parsed = fetcher.parse_reference(ref_dict, source_paper_id=1)
-# Returns: {title, year, authors, doi, journal, pages_range, ...}
-```
-
-#### CrossrefReferenceLoader
-
-```python
-from paper_scanner.cli.fetch_crossref_references import CrossrefReferenceLoader
-
-loader = CrossrefReferenceLoader(db_url)
-
-# Get papers to process
-papers = loader.get_papers_for_processing()
-
-# Run full pipeline
-stats = loader.run(max_papers=None)
-
-# stats contains:
-# {
-#   'papers_processed': N,
-#   'papers_with_references': N,
-#   'total_references_found': N,
-#   'new_papers_created': N,
-#   'citation_edges_created': N,
-#   'papers_skipped': N,
-#   'errors': N
-# }
-```
-
 ### Troubleshooting
 
 #### "No papers found to process"

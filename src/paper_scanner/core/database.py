@@ -486,7 +486,7 @@ class PapersDatabase:
         Returns:
             True if at least one paper with this DOI exists
         """
-        doi_key = doi.lower().strip()
+        doi_key = DOI(doi).stem
         return doi_key in self._doi_index
     
     def get_candidates_by_year_range(

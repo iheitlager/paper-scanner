@@ -82,7 +82,6 @@ class Fetcher:
             try:
                 paper, cache_hit = handler.fetch_paper(doi)
                 if paper:
-                    console.print(f"[green]Fetched {doi} from {handler_name}[/green]")
                     return paper, cache_hit
             except Exception as e:
                 console.print(f"[red]Handler {handler_name} failed for {doi}: {e}[/red]")

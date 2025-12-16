@@ -591,19 +591,6 @@ class TestPaperClass:
         )
         assert paper.duplicate_of.cite_key == "test2020"
 
-    def test_paper_citation_counts(self):
-        """Verify Paper citation count fields"""
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
-        paper = Paper(
-            cite_key="test2020",
-            title="Test Paper",
-            reference_count=15,
-            citation_count=42,
-            discovery=discovery
-        )
-        assert paper.reference_count == 15
-        assert paper.citation_count == 42
-
     def test_paper_raw_data_fields(self):
         """Verify Paper can store raw data"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)

@@ -538,7 +538,6 @@ CREATE OR REPLACE VIEW papers_with_citations AS
 SELECT 
     p.*,
     COUNT(DISTINCT ce.id) as citation_count,
-    COUNT(DISTINCT ref.id) as reference_count
 FROM papers p
 LEFT JOIN citation_edges ce ON p.id = ce.cited_paper_id
 LEFT JOIN papers ref ON ref.id = ce.citing_paper_id

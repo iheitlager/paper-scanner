@@ -376,7 +376,6 @@ class TestFetchCitationsForPapers:
 
         assert len(paper.citations) == 1
         assert paper.citations[0].doi == "10.1234/cited"
-        assert paper.citation_count == 1
         assert results["citations_fetched"] == 1
         assert results["cache_misses"] == 1
 

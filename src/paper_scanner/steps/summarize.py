@@ -234,7 +234,6 @@ class SummarizeStep(BaseStep):
         
         # Display screening results if requested
         if verbose and show_screening:
-            console.print("\n  [bold yellow]Screening Results by Paper Type:[/bold yellow]")
             _display_screening_results(self.db.to_list(primary_only=False))
         
         return results
