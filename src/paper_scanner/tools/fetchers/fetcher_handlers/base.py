@@ -93,6 +93,15 @@ class BaseFetcherHandler(ABC):
         """Extract journal name from API response"""
         pass
 
+    def _extract_url(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract URL from API response.
+        
+        Default implementation returns None.
+        Subclasses can override for API-specific handling.
+        """
+        return None
+
     @abstractmethod
     def _extract_oa_status(self, api_data: Dict[str, Any]) -> Optional[Any]:
         """Extract OpenAccessStatus from API response"""
@@ -222,6 +231,7 @@ class BaseFetcherHandler(ABC):
         # Extract other fields using new extraction methods
         year = self._extract_year(api_data)
         journal = self._extract_journal(api_data)
+        url = self._extract_url(api_data)
         publisher = api_data.get("publisher")
         volume = api_data.get("volume")
         number = api_data.get("issue")
@@ -244,6 +254,7 @@ class BaseFetcherHandler(ABC):
             topics=topics,
             year=year,
             journal=journal,
+            url=url,
             publisher=publisher,
             volume=volume,
             number=number,

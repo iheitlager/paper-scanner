@@ -237,6 +237,30 @@ class CrossrefHandler(BaseFetcherHandler):
         
         return None
 
+    def _extract_url(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract URL from Crossref API data.
+        
+        Crossref provides URL in:
+        - resource.primary.URL: Primary/preferred URL to the resource
+        - URL: Alternative location for URL field
+        """
+        # Try resource.primary.URL first (preferred)
+        resource = api_data.get("resource")
+        if resource and isinstance(resource, dict):
+            primary = resource.get("primary")
+            if primary and isinstance(primary, dict):
+                url = primary.get("URL")
+                if url and isinstance(url, str):
+                    return url.strip() if url else None
+        
+        # Try top-level URL field as fallback
+        url = api_data.get("URL")
+        if url and isinstance(url, str):
+            return url.strip() if url else None
+        
+        return None
+
     def _extract_oa_status(self, api_data: Dict[str, Any]) -> Optional[OpenAccessStatus]:
 
         """

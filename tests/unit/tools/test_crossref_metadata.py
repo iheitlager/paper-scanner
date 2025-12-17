@@ -205,6 +205,61 @@ class TestCrossrefMetadataExtraction:
         journal = handler._extract_journal(api_data)
         assert journal is None
 
+    def test_url_extraction_from_resource_primary(self, handler):
+        """Test URL extraction from resource.primary.URL (Crossref format)."""
+        api_data = {
+            "resource": {
+                "primary": {
+                    "URL": "https://linkinghub.elsevier.com/retrieve/pii/S0166497225002287"
+                }
+            }
+        }
+        url = handler._extract_url(api_data)
+        assert url == "https://linkinghub.elsevier.com/retrieve/pii/S0166497225002287"
+
+    def test_url_extraction_from_top_level_url(self, handler):
+        """Test URL extraction from top-level URL field."""
+        api_data = {
+            "URL": "https://example.com/paper"
+        }
+        url = handler._extract_url(api_data)
+        assert url == "https://example.com/paper"
+
+    def test_url_extraction_priority(self, handler):
+        """Test that resource.primary.URL takes priority over top-level URL."""
+        api_data = {
+            "resource": {
+                "primary": {
+                    "URL": "https://preferred.url/paper"
+                }
+            },
+            "URL": "https://fallback.url/paper"
+        }
+        url = handler._extract_url(api_data)
+        assert url == "https://preferred.url/paper"
+
+    def test_url_extraction_missing(self, handler):
+        """Test URL extraction returns None when not found."""
+        api_data = {"title": "Test"}
+        url = handler._extract_url(api_data)
+        assert url is None
+
+    def test_translate_to_paper_with_url(self, handler):
+        """Test translation includes URL extraction."""
+        api_data = {
+            "title": "Test Article",
+            "DOI": "10.1016/j.example.2025.123456",
+            "author": [{"given": "Jane", "family": "Doe"}],
+            "type": "journal-article",
+            "resource": {
+                "primary": {
+                    "URL": "https://example.com/paper"
+                }
+            }
+        }
+        paper = handler._translate_to_paper("10.1016/j.example.2025.123456", api_data)
+        assert paper.url == "https://example.com/paper"
+
     def test_translate_to_paper_with_crossref_formats(self, handler):
         """Test translation with actual Crossref date and journal formats."""
         api_data = {
