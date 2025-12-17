@@ -60,6 +60,14 @@ class DummyHandler(BaseFetcherHandler):
         """Extract paper type."""
         return "journal_article"
 
+    def _extract_year(self, api_data: Dict[str, Any]) -> Optional[int]:
+        """Extract year."""
+        return 2025
+
+    def _extract_journal(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """Extract journal."""
+        return "Test Journal"
+
     def _extract_oa_status(self, api_data: Dict[str, Any]) -> Optional[Any]:
         """Extract OA status."""
         return None

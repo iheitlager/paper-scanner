@@ -201,6 +201,15 @@ def _merge_paper_metadata(target: Paper, source: Paper, overwrite: bool = False)
     if (overwrite or not target.url) and source.url:
         target.url = source.url
 
+    if (overwrite or not target.isbn) and source.isbn:
+        target.isbn = source.isbn
+
+    if (overwrite or not target.issn) and source.issn:
+        target.issn = source.issn
+
+    if (overwrite or not target.pmid) and source.pmid:
+        target.pmid = source.pmid
+
     if (overwrite or not target.publisher) and source.publisher:
         target.publisher = source.publisher
 

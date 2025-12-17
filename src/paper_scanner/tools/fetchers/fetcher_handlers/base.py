@@ -102,6 +102,33 @@ class BaseFetcherHandler(ABC):
         """
         return None
 
+    def _extract_isbn(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract ISBN from API response.
+        
+        Default implementation returns None.
+        Subclasses can override for API-specific handling.
+        """
+        return None
+
+    def _extract_issn(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract ISSN from API response.
+        
+        Default implementation returns None.
+        Subclasses can override for API-specific handling.
+        """
+        return None
+
+    def _extract_pmid(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract PubMed ID from API response.
+        
+        Default implementation returns None.
+        Subclasses can override for API-specific handling.
+        """
+        return None
+
     @abstractmethod
     def _extract_oa_status(self, api_data: Dict[str, Any]) -> Optional[Any]:
         """Extract OpenAccessStatus from API response"""
@@ -232,6 +259,9 @@ class BaseFetcherHandler(ABC):
         year = self._extract_year(api_data)
         journal = self._extract_journal(api_data)
         url = self._extract_url(api_data)
+        isbn = self._extract_isbn(api_data)
+        issn = self._extract_issn(api_data)
+        pmid = self._extract_pmid(api_data)
         publisher = api_data.get("publisher")
         volume = api_data.get("volume")
         number = api_data.get("issue")
@@ -255,6 +285,9 @@ class BaseFetcherHandler(ABC):
             year=year,
             journal=journal,
             url=url,
+            isbn=isbn,
+            issn=issn,
+            pmid=pmid,
             publisher=publisher,
             volume=volume,
             number=number,

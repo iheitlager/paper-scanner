@@ -276,10 +276,52 @@ class CrossrefHandler(BaseFetcherHandler):
         """
         Extract source-specific key from Crossref.
 
-        Use DOI as source key since Crossref's primary identifier is DOI.
+        Tries alternative-id first (publisher-specific identifier like PII),
+        falls back to DOI. Normalizes DOI using stem.
         """
+        # Try alternative-id first (e.g., Elsevier PII)
+        alternative_ids = api_data.get("alternative-id")
+        if alternative_ids and isinstance(alternative_ids, list) and len(alternative_ids) > 0:
+            return alternative_ids[0]
+        
+        # Fall back to DOI (normalized)
         doi = api_data.get("DOI")
-        return doi if doi else None
+        if doi:
+            return DOI(doi).stem
+        
+        return None
+
+    def _extract_isbn(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract ISBN from Crossref API data.
+        
+        Crossref provides ISBNs in 'isbn' field (array of strings).
+        """
+        isbns = api_data.get("isbn")
+        if isbns and isinstance(isbns, list) and len(isbns) > 0:
+            return isbns[0]
+        return None
+
+    def _extract_issn(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract ISSN from Crossref API data.
+        
+        Crossref provides ISSNs in 'issn' field (array of strings).
+        """
+        issns = api_data.get("issn")
+        if issns and isinstance(issns, list) and len(issns) > 0:
+            return issns[0]
+        return None
+
+    def _extract_pmid(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract PubMed ID from Crossref API data.
+        
+        Crossref doesn't directly provide PMID. Check alternative identifiers.
+        """
+        # Crossref doesn't reliably provide PMID
+        # Would need to check Crossref's alternative-id or look up via PubMed separately
+        return None
 
     def _extract_citations(self, api_data: Dict[str, Any]) -> List[Citation]:
         """
