@@ -155,7 +155,90 @@ class CrossrefHandler(BaseFetcherHandler):
         mapped_type = type_mapping.get(crossref_type)
         return mapped_type.value if mapped_type else None
 
+    def _extract_year(self, api_data: Dict[str, Any]) -> Optional[int]:
+        """
+        Extract publication year from Crossref API data.
+        
+        Crossref provides year in multiple places with different formats:
+        - published-print.date-parts: [[2026, 3]] (preferred)
+        - published-online.date-parts: [[2026, 3]]
+        - created.date-parts: [[2025, 10, 25]]
+        - issued.date-parts: [[2026, 3]]
+        """
+        # Try published-print first
+        if "published-print" in api_data:
+            date_parts = api_data["published-print"].get("date-parts")
+            if date_parts and isinstance(date_parts, list) and len(date_parts) > 0:
+                year_parts = date_parts[0]
+                if isinstance(year_parts, (list, tuple)) and len(year_parts) > 0:
+                    try:
+                        return int(year_parts[0])
+                    except (ValueError, TypeError):
+                        pass
+        
+        # Try published-online
+        if "published-online" in api_data:
+            date_parts = api_data["published-online"].get("date-parts")
+            if date_parts and isinstance(date_parts, list) and len(date_parts) > 0:
+                year_parts = date_parts[0]
+                if isinstance(year_parts, (list, tuple)) and len(year_parts) > 0:
+                    try:
+                        return int(year_parts[0])
+                    except (ValueError, TypeError):
+                        pass
+        
+        # Try issued
+        if "issued" in api_data:
+            date_parts = api_data["issued"].get("date-parts")
+            if date_parts and isinstance(date_parts, list) and len(date_parts) > 0:
+                year_parts = date_parts[0]
+                if isinstance(year_parts, (list, tuple)) and len(year_parts) > 0:
+                    try:
+                        return int(year_parts[0])
+                    except (ValueError, TypeError):
+                        pass
+        
+        # Try created
+        if "created" in api_data:
+            date_parts = api_data["created"].get("date-parts")
+            if date_parts and isinstance(date_parts, list) and len(date_parts) > 0:
+                year_parts = date_parts[0]
+                if isinstance(year_parts, (list, tuple)) and len(year_parts) > 0:
+                    try:
+                        return int(year_parts[0])
+                    except (ValueError, TypeError):
+                        pass
+        
+        return None
+
+    def _extract_journal(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract journal name from Crossref API data.
+        
+        Crossref provides journal in:
+        - container-title: ["Journal Name"] (preferred for journal articles)
+        - short-container-title: ["J. Name"]
+        """
+        # Try container-title first (standard BibTeX field for journals)
+        container_title = api_data.get("container-title")
+        if container_title:
+            if isinstance(container_title, list) and len(container_title) > 0:
+                return container_title[0].strip() if isinstance(container_title[0], str) else None
+            elif isinstance(container_title, str):
+                return container_title.strip() if container_title else None
+        
+        # Try short-container-title as fallback
+        short_title = api_data.get("short-container-title")
+        if short_title:
+            if isinstance(short_title, list) and len(short_title) > 0:
+                return short_title[0].strip() if isinstance(short_title[0], str) else None
+            elif isinstance(short_title, str):
+                return short_title.strip() if short_title else None
+        
+        return None
+
     def _extract_oa_status(self, api_data: Dict[str, Any]) -> Optional[OpenAccessStatus]:
+
         """
         Extract OA status from Crossref.
 

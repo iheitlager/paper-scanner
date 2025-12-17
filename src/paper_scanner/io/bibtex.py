@@ -530,26 +530,29 @@ def infer_bibtex_type(paper: Paper) -> str:
     """
     Infer BibTeX entry type from Paper
     
-    Uses paper_type if available in screening,
+    Uses paper_type if available (from screening or direct),
     otherwise infers from other fields
     """
     
+    type_mapping = {
+        PaperType.JOURNAL_ARTICLE: 'article',
+        PaperType.CONFERENCE_PAPER: 'inproceedings',
+        PaperType.BOOK: 'book',
+        PaperType.BOOK_CHAPTER: 'incollection',
+        PaperType.THESIS: 'phdthesis',
+        PaperType.TECHNICAL_REPORT: 'techreport',
+        PaperType.WORKING_PAPER: 'unpublished',
+        PaperType.PREPRINT: 'unpublished',
+        PaperType.OTHER: 'misc',
+    }
+    
+    # Try paper_type directly first
+    if paper.paper_type:
+        return type_mapping.get(paper.paper_type, 'misc')
+    
     # Try to get from screening categorization
-    if paper.screening.categorization:
+    if paper.screening.categorization and paper.screening.categorization.paper_type:
         paper_type = paper.screening.categorization.paper_type
-        
-        type_mapping = {
-            PaperType.JOURNAL_ARTICLE: 'article',
-            PaperType.CONFERENCE_PAPER: 'inproceedings',
-            PaperType.BOOK: 'book',
-            PaperType.BOOK_CHAPTER: 'incollection',
-            PaperType.THESIS: 'phdthesis',
-            PaperType.TECHNICAL_REPORT: 'techreport',
-            PaperType.WORKING_PAPER: 'unpublished',
-            PaperType.PREPRINT: 'unpublished',
-            PaperType.OTHER: 'misc',
-        }
-        
         return type_mapping.get(paper_type, 'misc')
     
     # Infer from fields

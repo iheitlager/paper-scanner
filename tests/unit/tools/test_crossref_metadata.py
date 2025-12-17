@@ -126,6 +126,110 @@ class TestCrossrefMetadataExtraction:
         source_key = handler._extract_source_key(api_data)
         assert source_key is None
 
+    def test_year_extraction_from_published_print(self, handler):
+        """Test year extraction from published-print field (Crossref format)."""
+        api_data = {
+            "published-print": {"date-parts": [[2026, 3]]}
+        }
+        year = handler._extract_year(api_data)
+        assert year == 2026
+
+    def test_year_extraction_from_published_online(self, handler):
+        """Test year extraction from published-online field."""
+        api_data = {
+            "published-online": {"date-parts": [[2025, 12, 7]]}
+        }
+        year = handler._extract_year(api_data)
+        assert year == 2025
+
+    def test_year_extraction_from_issued(self, handler):
+        """Test year extraction from issued field."""
+        api_data = {
+            "issued": {"date-parts": [[2024, 6, 15]]}
+        }
+        year = handler._extract_year(api_data)
+        assert year == 2024
+
+    def test_year_extraction_priority(self, handler):
+        """Test that published-print takes priority over other fields."""
+        api_data = {
+            "published-print": {"date-parts": [[2026, 3]]},
+            "published-online": {"date-parts": [[2025, 12, 7]]},
+            "issued": {"date-parts": [[2024, 6, 15]]}
+        }
+        year = handler._extract_year(api_data)
+        assert year == 2026  # published-print should win
+
+    def test_year_extraction_missing(self, handler):
+        """Test year extraction returns None when no date found."""
+        api_data = {"title": "Test"}
+        year = handler._extract_year(api_data)
+        assert year is None
+
+    def test_journal_extraction_from_container_title(self, handler):
+        """Test journal extraction from container-title field (Crossref format)."""
+        api_data = {
+            "container-title": ["Technovation"]
+        }
+        journal = handler._extract_journal(api_data)
+        assert journal == "Technovation"
+
+    def test_journal_extraction_from_container_title_string(self, handler):
+        """Test journal extraction when container-title is a string."""
+        api_data = {
+            "container-title": "Journal of Software Engineering"
+        }
+        journal = handler._extract_journal(api_data)
+        assert journal == "Journal of Software Engineering"
+
+    def test_journal_extraction_from_short_container_title(self, handler):
+        """Test journal extraction from short-container-title as fallback."""
+        api_data = {
+            "short-container-title": ["Technovation"]
+        }
+        journal = handler._extract_journal(api_data)
+        assert journal == "Technovation"
+
+    def test_journal_extraction_priority(self, handler):
+        """Test that container-title takes priority over short-container-title."""
+        api_data = {
+            "container-title": ["Full Journal Name"],
+            "short-container-title": ["Short Name"]
+        }
+        journal = handler._extract_journal(api_data)
+        assert journal == "Full Journal Name"
+
+    def test_journal_extraction_missing(self, handler):
+        """Test journal extraction returns None when not found."""
+        api_data = {"title": "Test"}
+        journal = handler._extract_journal(api_data)
+        assert journal is None
+
+    def test_translate_to_paper_with_crossref_formats(self, handler):
+        """Test translation with actual Crossref date and journal formats."""
+        api_data = {
+            "title": "Digital innovation and transformation",
+            "DOI": "10.1016/j.technovation.2025.103396",
+            "author": [
+                {"given": "Yunfei", "family": "Xing"},
+                {"given": "Justin Zuopeng", "family": "Zhang"},
+                {"given": "Xiwei", "family": "Wang"}
+            ],
+            "type": "journal-article",
+            "published-print": {"date-parts": [[2026, 3]]},
+            "container-title": ["Technovation"],
+            "volume": "151",
+            "publisher": "Elsevier BV"
+        }
+
+        paper = handler._translate_to_paper("10.1016/j.technovation.2025.103396", api_data)
+
+        assert paper.year == 2026
+        assert paper.journal == "Technovation"
+        assert paper.volume == "151"
+        assert paper.publisher == "Elsevier BV"
+        assert paper.paper_type == PaperType.JOURNAL_ARTICLE.value
+
     def test_cite_key_generation(self, handler):
         """Test cite key generation from authors and year."""
         from paper_scanner.core.models import Author

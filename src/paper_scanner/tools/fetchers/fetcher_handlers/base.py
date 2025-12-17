@@ -84,6 +84,16 @@ class BaseFetcherHandler(ABC):
         pass
 
     @abstractmethod
+    def _extract_year(self, api_data: Dict[str, Any]) -> Optional[int]:
+        """Extract publication year from API response"""
+        pass
+
+    @abstractmethod
+    def _extract_journal(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """Extract journal name from API response"""
+        pass
+
+    @abstractmethod
     def _extract_oa_status(self, api_data: Dict[str, Any]) -> Optional[Any]:
         """Extract OpenAccessStatus from API response"""
         pass
@@ -209,9 +219,9 @@ class BaseFetcherHandler(ABC):
         oa_status = self._extract_oa_status(api_data)
         source_key = self._extract_source_key(api_data)
 
-        # Extract other fields (implemented in subclasses or generically)
-        year = api_data.get("year")
-        journal = api_data.get("journal")
+        # Extract other fields using new extraction methods
+        year = self._extract_year(api_data)
+        journal = self._extract_journal(api_data)
         publisher = api_data.get("publisher")
         volume = api_data.get("volume")
         number = api_data.get("issue")

@@ -9,8 +9,12 @@ from paper_scanner.io.bibtex import (
     load_type_mapping_config,
     evaluate_paper_type,
     bibtex_file_to_papers,
-    bibtex_to_papers
+    bibtex_to_papers,
+    infer_bibtex_type,
+    paper_to_bibtex_entry
 )
+from paper_scanner.core.models import Paper, Discovery, DiscoveryMethod
+from paper_scanner.core.enum import PaperType
 
 
 class TestTypeMapping:
@@ -264,6 +268,135 @@ class TestTypeEvaluationWithRealData:
         # IEEE file should have conference papers (based on the sample data)
         conferences = [p for p in papers if p.paper_type == 'conference_paper']
         assert len(conferences) > 0, "No conference papers found in IEEE sample"
+
+
+class TestPaperToMontypInference:
+    """Test paper_type inference when exporting papers to BibTeX"""
+    
+    def test_infer_article_from_direct_paper_type(self):
+        """Test that journal_article paper_type is correctly inferred as 'article'"""
+        paper = Paper(
+            cite_key="test_doi_12345",
+            doi="10.1016/j.im.2015.12.005",
+            title="Test Article",
+            paper_type=PaperType.JOURNAL_ARTICLE,
+            discovery=Discovery(method=DiscoveryMethod.MANUAL)
+        )
+        
+        entry_type = infer_bibtex_type(paper)
+        assert entry_type == 'article', f"Expected 'article', got '{entry_type}'"
+    
+    def test_infer_conference_from_direct_paper_type(self):
+        """Test that conference_paper paper_type is correctly inferred as 'inproceedings'"""
+        paper = Paper(
+            cite_key="test_conf_12345",
+            title="Test Conference Paper",
+            paper_type=PaperType.CONFERENCE_PAPER,
+            discovery=Discovery(method=DiscoveryMethod.MANUAL)
+        )
+        
+        entry_type = infer_bibtex_type(paper)
+        assert entry_type == 'inproceedings', f"Expected 'inproceedings', got '{entry_type}'"
+    
+    def test_infer_book_from_direct_paper_type(self):
+        """Test that book paper_type is correctly inferred as 'book'"""
+        paper = Paper(
+            cite_key="test_book_12345",
+            title="Test Book",
+            paper_type=PaperType.BOOK,
+            discovery=Discovery(method=DiscoveryMethod.MANUAL)
+        )
+        
+        entry_type = infer_bibtex_type(paper)
+        assert entry_type == 'book', f"Expected 'book', got '{entry_type}'"
+    
+    def test_infer_book_chapter_from_direct_paper_type(self):
+        """Test that book_chapter paper_type is correctly inferred as 'incollection'"""
+        paper = Paper(
+            cite_key="test_chapter_12345",
+            title="Test Book Chapter",
+            paper_type=PaperType.BOOK_CHAPTER,
+            discovery=Discovery(method=DiscoveryMethod.MANUAL)
+        )
+        
+        entry_type = infer_bibtex_type(paper)
+        assert entry_type == 'incollection', f"Expected 'incollection', got '{entry_type}'"
+    
+    def test_infer_thesis_from_direct_paper_type(self):
+        """Test that thesis paper_type is correctly inferred as 'phdthesis'"""
+        paper = Paper(
+            cite_key="test_thesis_12345",
+            title="Test Thesis",
+            paper_type=PaperType.THESIS,
+            discovery=Discovery(method=DiscoveryMethod.MANUAL)
+        )
+        
+        entry_type = infer_bibtex_type(paper)
+        assert entry_type == 'phdthesis', f"Expected 'phdthesis', got '{entry_type}'"
+    
+    def test_infer_technical_report_from_direct_paper_type(self):
+        """Test that technical_report paper_type is correctly inferred as 'techreport'"""
+        paper = Paper(
+            cite_key="test_report_12345",
+            title="Test Report",
+            paper_type=PaperType.TECHNICAL_REPORT,
+            discovery=Discovery(method=DiscoveryMethod.MANUAL)
+        )
+        
+        entry_type = infer_bibtex_type(paper)
+        assert entry_type == 'techreport', f"Expected 'techreport', got '{entry_type}'"
+    
+    def test_infer_preprint_from_direct_paper_type(self):
+        """Test that preprint paper_type is correctly inferred as 'unpublished'"""
+        paper = Paper(
+            cite_key="test_preprint_12345",
+            title="Test Preprint",
+            paper_type=PaperType.PREPRINT,
+            discovery=Discovery(method=DiscoveryMethod.MANUAL)
+        )
+        
+        entry_type = infer_bibtex_type(paper)
+        assert entry_type == 'unpublished', f"Expected 'unpublished', got '{entry_type}'"
+    
+    def test_infer_working_paper_from_direct_paper_type(self):
+        """Test that working_paper paper_type is correctly inferred as 'unpublished'"""
+        paper = Paper(
+            cite_key="test_working_12345",
+            title="Test Working Paper",
+            paper_type=PaperType.WORKING_PAPER,
+            discovery=Discovery(method=DiscoveryMethod.MANUAL)
+        )
+        
+        entry_type = infer_bibtex_type(paper)
+        assert entry_type == 'unpublished', f"Expected 'unpublished', got '{entry_type}'"
+    
+    def test_infer_other_from_direct_paper_type(self):
+        """Test that other paper_type is correctly inferred as 'misc'"""
+        paper = Paper(
+            cite_key="test_other_12345",
+            title="Test Other",
+            paper_type=PaperType.OTHER,
+            discovery=Discovery(method=DiscoveryMethod.MANUAL)
+        )
+        
+        entry_type = infer_bibtex_type(paper)
+        assert entry_type == 'misc', f"Expected 'misc', got '{entry_type}'"
+    
+    def test_paper_to_bibtex_entry_uses_correct_type(self):
+        """Test that paper_to_bibtex_entry produces correct @article entry for journal articles"""
+        paper = Paper(
+            cite_key="test_doi_12345",
+            doi="10.1016/j.im.2015.12.005",
+            title="Test Article Journal",
+            paper_type=PaperType.JOURNAL_ARTICLE,
+            discovery=Discovery(method=DiscoveryMethod.MANUAL)
+        )
+        
+        entry = paper_to_bibtex_entry(paper)
+        assert entry['ENTRYTYPE'] == 'article', f"Expected @article, got @{entry['ENTRYTYPE']}"
+        assert entry['doi'] == "10.1016/j.im.2015.12.005"
+        assert entry['title'] == "Test Article Journal"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

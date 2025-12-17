@@ -2,18 +2,18 @@
 Citations step - Extract backward citations from papers using external APIs.
 
 Walks over Paper records in the database and fetches backward citations
-(references) from configured sources (Crossref by default), then resolves
+(references) from configured sourcess (Crossref by default), then resolves
 citations against the Paper database and creates new Paper records for
 unresolved citations.
 
 Three-pass architecture for improved testability:
-PASS 1: Fetch citations from external sources and store in papers
+PASS 1: Fetch citations from external sourcess and store in papers
 PASS 2: Resolve citations to existing papers or create new papers, fetch metadata
 PASS 3: Build citation graph (cited_papers, cited_by_papers) in memory
 
 Process:
 1. Filter papers by paper_type (default: journal_article)
-2. PASS 1: For each paper with a DOI, fetch citations from configured source
+2. PASS 1: For each paper with a DOI, fetch citations from configured sources
 3. PASS 2: For each citation, resolve to existing paper or create new Paper
    - Update Citation.resolved_paper with full Paper object
    - Fetch paper metadata via fetcher.fetch_paper() for enrichment
@@ -54,7 +54,7 @@ class CitationsStep(BaseStep):
             config: Step configuration with:
                 - paper_types or paper-type: List of PaperType values to process (default: ["journal_article"])
                 - backward:
-                    - source: Fetcher name(s) - string or list (default: "crossref")
+                    - sources: Fetcher name(s) - string or list (default: "crossref")
                     - continue_on_not_found: bool (default: True - create new Paper for unresolved citations)
 
         Returns:
@@ -78,17 +78,20 @@ class CitationsStep(BaseStep):
             if not isinstance(backward, dict):
                 errors.append("'backward' must be a dictionary")
             else:
-                if "source" in backward:
-                    source = backward["source"]
-                    if not isinstance(source, (str, list)):
-                        errors.append("'backward.source' must be a string or list of fetcher names")
-                    elif isinstance(source, list):
-                        for s in source:
-                            if not isinstance(s, str):
-                                errors.append(f"'backward.source' items must be strings, got {type(s).__name__}")
+                if "sources" in backward:
+                    sources = backward["sources"]
+                    if not isinstance(sources, (str, list)):
+                        errors.append("'backward.sources' must be a string or list of fetcher names")
+                    elif isinstance(sources, list):
+                        for src in sources:
+                            if not isinstance(src, str):
+                                errors.append(f"'backward.sources' items must be strings, got {type(src).__name__}")
                 if "continue_on_not_found" in backward:
                     if not isinstance(backward["continue_on_not_found"], bool):
                         errors.append("'backward.continue_on_not_found' must be a boolean")
+                if "limit" in backward:
+                    if not isinstance(backward["limit"], int) or backward["limit"] < 1:
+                        errors.append("'backward.limit' must be a positive integer")
 
         return len(errors) == 0, errors
 
@@ -102,7 +105,7 @@ class CitationsStep(BaseStep):
         """
         Execute backward citations extraction for papers in three passes.
 
-        Pass 1: Fetch citations from external sources and store in papers
+        Pass 1: Fetch citations from external sourcess and store in papers
         Pass 2: Resolve citations to existing papers or create new papers
         Pass 3: Build citation graph in memory (cited_papers, cited_by_papers)
 
@@ -116,20 +119,25 @@ class CitationsStep(BaseStep):
             Results dict with statistics
         """
         # Extract configuration
-        paper_types = config.get("paper-types", ["journal_article"])
         backward_config = config.get("backward", {})
-        sources = backward_config.get("source", ["crossref"])
-        continue_on_not_found = backward_config.get("continue_on_not_found", True)
+        if backward_config:
+            paper_types = backward_config.get("paper-types", ["journal_article"])
+            sourcess = backward_config.get("sources", ["crossref"])
+            continue_on_not_found = backward_config.get("continue_on_not_found", True)
+            limit = backward_config.get("limit", None)
 
-        if verbose:
-            console.print(f"[blue]Paper types to process:[/blue] {paper_types}")
-            console.print(f"[blue]Citation sources:[/blue] {sources}")
-            console.print(f"[blue]Continue on not found:[/blue] {continue_on_not_found}")
+            if verbose:
+                console.print(f"[blue]Citations backward processing[/blue]")
+                console.print(f"[blue]Paper types to process:[/blue] {paper_types}")
+                console.print(f"[blue]Citation sourcess:[/blue] {sourcess}")
+                console.print(f"[blue]Continue on not found:[/blue] {continue_on_not_found}")
+                if limit:
+                    console.print(f"[blue]Limit papers to process:[/blue] {limit}")
 
         # Initialize fetcher
         fetcher = Fetcher(
             cache_dir=self.cache_dir,
-            methods=sources,
+            methods=sourcess,
             verbose=verbose,
             debug=debug
         )
@@ -139,7 +147,6 @@ class CitationsStep(BaseStep):
             lambda p: p.paper_type and p.paper_type.value in paper_types,
             primary_only=True
         )
-
 
         if debug:
             console.print(f"[blue]Fetcher initialized:[/blue]\n{pformat(fetcher.handlers, indent=2)}")
@@ -161,13 +168,14 @@ class CitationsStep(BaseStep):
             "cache_misses": 0,
         }
 
-        # PASS 1: Fetch citations from external sources
+        # PASS 1: Fetch citations from external sourcess
         self._fetch_citations_for_papers(
             target_papers=target_papers,
             fetcher=fetcher,
             results=results,
             verbose=verbose,
-            debug=debug
+            debug=debug,
+            limit=limit,
         )
 
         # PASS 2: Resolve citations and expand database
@@ -217,17 +225,19 @@ class CitationsStep(BaseStep):
         fetcher: "Fetcher",
         results: Dict[str, Any],
         verbose: bool = False,
-        debug: bool = False
+        debug: bool = False,
+        limit: Optional[int] = None,
     ) -> None:
         """
-        PASS 1: Fetch citations from external sources and store in papers.
+        PASS 1: Fetch citations from external sourcess and store in papers.
 
-        Iterates over target papers, fetches citations from configured sources,
+        Iterates over target papers, fetches citations from configured sourcess,
         and stores them in each paper's citations list.
 
         Args:
             target_papers: List of papers to fetch citations for
             fetcher: Fetcher instance to use for citation retrieval
+            limit: Optional limit on number of citations to process
             results: Results dict to update with statistics
             verbose: Enable verbose output
             debug: Enable debug output
@@ -237,7 +247,7 @@ class CitationsStep(BaseStep):
                 continue
 
             try:
-                # Fetch citations from external source or cache
+                # Fetch citations from external sources or cache
                 citations, cache_hit = fetcher.fetch_citations(paper.doi)
 
                 if cache_hit:
@@ -252,6 +262,8 @@ class CitationsStep(BaseStep):
                         )
                     continue
 
+                if limit:
+                    citations = citations[:limit]
                 results["papers_with_citations"] += 1
                 results["citations_fetched"] += len(citations)
 

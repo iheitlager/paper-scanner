@@ -24,7 +24,6 @@ from rich.console import Console
 import logging
 
 from paper_scanner.core.models import Paper
-from paper_scanner.core.database import PapersDatabase
 from paper_scanner.tools.fetchers.fetcher import Fetcher
 from .base import BaseStep
 
