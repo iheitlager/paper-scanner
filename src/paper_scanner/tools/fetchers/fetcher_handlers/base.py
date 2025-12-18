@@ -9,14 +9,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any, List
 from datetime import datetime
-import logging
 
 from paper_scanner.core.models import Paper, Citation
 from paper_scanner.tools.cache import JSONFileCache
 from paper_scanner.core.doi import DOI
-
-logger = logging.getLogger(__name__)
-
 
 class BaseFetcherHandler(ABC):
     """
@@ -57,6 +53,10 @@ class BaseFetcherHandler(ABC):
             Exception: On API errors
         """
         pass
+
+    def _extract_title(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """Extract abstract from API response"""
+        return api_data.get("title", "")
 
     @abstractmethod
     def _extract_abstract(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -243,9 +243,12 @@ class BaseFetcherHandler(ABC):
         from paper_scanner.core.enum import DiscoveryMethod
 
         # Extract fields
-        title = api_data.get("title", "")
+        title = self._extract_title(api_data)
         if isinstance(title, list):
             title = title[0] if title else ""
+        
+        # Clean up title: remove newlines and HTML tags
+        title = self._clean_title(title)
 
         abstract = self._extract_abstract(api_data)
         authors = self._extract_authors(api_data)
@@ -313,16 +316,42 @@ class BaseFetcherHandler(ABC):
         Deterministic and unique: same DOI always produces same cite_key.
         Falls back to random UUID if no DOI provided.
         """
-        import hashlib
         import uuid
-        
+
         if doi:
             # Hash the normalized DOI for reproducibility
             hash_input = DOI(doi).md5
             return "doi_" + hash_input[:8]
-        
+
         # Fallback: random UUID if no DOI
         return str(uuid.uuid4())[:8]
+
+    def _clean_title(self, title: str) -> str:
+        """
+        Clean title by removing newlines, HTML tags, and excess whitespace.
+
+        Args:
+            title: Raw title string (may contain newlines, HTML markup)
+
+        Returns:
+            Cleaned title string
+        """
+        import re
+
+        if not title or not isinstance(title, str):
+            return title
+
+        # Remove HTML tags like <scp>, <i>, <b>, <sup>, <sub>, etc.
+        title = re.sub(r'<[^>]+>', '', title)
+
+        # Replace newlines and excessive whitespace with single space
+        title = re.sub(r'\s+', ' ', title)
+
+        # Strip leading/trailing whitespace
+        title = title.strip()
+
+        return title
+
 
     def __str__(self) -> str:
         return f"<FetcherHandler: {self.name}>"

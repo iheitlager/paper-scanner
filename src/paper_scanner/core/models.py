@@ -113,6 +113,19 @@ class Citation(BaseModel):
     # Linking
     resolved_paper: Optional['Paper'] = None  # If citation matches known paper (computed)
 
+    @field_validator('resolved_paper', mode='before')
+    @classmethod
+    def deserialize_resolved_paper(cls, v):
+        """Handle deserialization of resolved_paper from ID string or dict"""
+        if v is None:
+            return None
+        # If it's a string (ID from serialized form), skip it - will be None during checkpoint load
+        if isinstance(v, str):
+            return None
+        # If it's a dict, it's already in the right format for Pydantic
+        # If it's a Paper instance, use it directly
+        return v
+
     @field_serializer('resolved_paper', when_used='json')
     def serialize_resolved_paper(self, value: Optional['Paper']) -> Optional[str]:
         """Convert Paper reference to ID string during JSON serialization"""
@@ -156,6 +169,18 @@ class DeduplicationResult(BaseModel):
     method: str  # "doi_exact", "title_author", "fuzzy_title", etc.
     confidence: float = Field(ge=0, le=1)
     metadata: ProcessingMetadata
+
+    @field_validator('duplicate_of', mode='before')
+    @classmethod
+    def deserialize_duplicate_of(cls, v):
+        """Handle deserialization of duplicate_of from ID string or dict"""
+        if v is None:
+            return None
+        # If it's a string (ID from serialized form), skip it - will be None during checkpoint load
+        if isinstance(v, str):
+            return None
+        # If it's a dict or Paper instance, use it directly
+        return v
 
     @field_serializer('duplicate_of', when_used='json')
     def serialize_duplicate_of(self, value: Optional['Paper']) -> Optional[str]:
@@ -420,8 +445,20 @@ class Paper(BaseModel):
 
     duplicate_of: Optional['Paper'] = None
 
+    @field_validator('duplicate_of', mode='before')
+    @classmethod
+    def deserialize_duplicate_of_paper(cls, v):
+        """Handle deserialization of duplicate_of from ID string or dict"""
+        if v is None:
+            return None
+        # If it's a string (ID from serialized form), skip it - will be None during checkpoint load
+        if isinstance(v, str):
+            return None
+        # If it's a dict or Paper instance, use it directly
+        return v
+
     @field_serializer('duplicate_of', when_used='json')
-    def serialize_duplicate_of(self, value: Optional['Paper']) -> Optional[str]:
+    def serialize_duplicate_of_paper(self, value: Optional['Paper']) -> Optional[str]:
         """Convert Paper reference to ID string during JSON serialization"""
         return value.id if value else None
 
@@ -488,10 +525,42 @@ class Paper(BaseModel):
     cited_papers: List['Paper'] = Field(default_factory=list)
     cited_by_papers: List['Paper'] = Field(default_factory=list)
 
+    @field_validator('cited_papers', mode='before')
+    @classmethod
+    def deserialize_cited_papers(cls, v):
+        """Handle deserialization of cited_papers from ID strings or dicts"""
+        if not v:
+            return []
+        # Convert any string IDs to None (can't resolve without DB context)
+        result = []
+        for item in v:
+            if isinstance(item, str):
+                # Skip ID strings - can't recreate Paper object
+                continue
+            # Keep dicts and Paper instances
+            result.append(item)
+        return result
+
     @field_serializer('cited_papers', when_used='json')
     def serialize_cited_papers(self, value: List['Paper']) -> List[str]:
         """Convert Paper references to ID strings during JSON serialization"""
         return [paper.id for paper in value] if value else []
+
+    @field_validator('cited_by_papers', mode='before')
+    @classmethod
+    def deserialize_cited_by_papers(cls, v):
+        """Handle deserialization of cited_by_papers from ID strings or dicts"""
+        if not v:
+            return []
+        # Convert any string IDs to None (can't resolve without DB context)
+        result = []
+        for item in v:
+            if isinstance(item, str):
+                # Skip ID strings - can't recreate Paper object
+                continue
+            # Keep dicts and Paper instances
+            result.append(item)
+        return result
 
     @field_serializer('cited_by_papers', when_used='json')
     def serialize_cited_by_papers(self, value: List['Paper']) -> List[str]:

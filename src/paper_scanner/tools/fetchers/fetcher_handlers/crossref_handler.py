@@ -7,7 +7,6 @@ API docs: https://github.com/CrossRef/rest-api-doc
 
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-import logging
 
 import requests
 
@@ -16,8 +15,6 @@ from paper_scanner.core.enum import PaperType
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.documents.abstract_parser import AbstractParser
 from paper_scanner.core.doi import DOI
-
-logger = logging.getLogger(__name__)
 
 # Polite pool per Crossref requirements
 CROSSREF_API_URL = "https://api.crossref.org"
@@ -74,10 +71,6 @@ class CrossrefHandler(BaseFetcherHandler):
 
         # TODO: remove this broad exception handling and just fail
         except requests.exceptions.RequestException as e:
-            logger.warning(f"Crossref API error for {doi}: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error fetching {doi} from Crossref: {e}")
             return None
 
     def _extract_abstract(self, api_data: Dict[str, Any]) -> Optional[str]:

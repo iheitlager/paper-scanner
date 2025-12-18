@@ -130,6 +130,9 @@ class CitationsStep(BaseStep):
             continue_on_not_found = backward_config.get("continue_on_not_found", True)
             limit = backward_config.get("limit", None)
             self.output_errors = backward_config.get("output_errors", None)
+            if self.output_errors:
+                # Clear existing error file
+                Path(self.output_errors).write_text("", encoding="utf-8")
 
             if self.verbose:
                 console.print(f"[blue]Citations backward processing[/blue]")
@@ -304,8 +307,8 @@ class CitationsStep(BaseStep):
         if results is None:
             results = {}
 
+        missed_citations = {}
         for paper in papers:
-            missed_citations = {}
             if not paper.citations:
                 continue
 
@@ -331,7 +334,8 @@ class CitationsStep(BaseStep):
                             results["citations_created_new_paper"] = results.get("citations_created_new_paper", 0) + 1
                     else:
                         if self.output_errors:
-                            missed_citations.setdefault(paper.id, []).append(citation)
+                            citation_dict = citation.model_dump(exclude_none=True)
+                            missed_citations.setdefault(paper.id, []).append(citation_dict)
                         results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
                         if self.verbose:
                             console.print(
@@ -346,9 +350,9 @@ class CitationsStep(BaseStep):
                 console.print(f"[red]Error resolving citations for {paper.doi}: {e}[/red]")
 
         if self.output_errors and missed_citations:
-            with open(self.output_errors, "w", encoding="utf-8") as f:
-                for citation in missed_citations.values():
-                    f.write(json.dumps(citation, default=lambda o: o.__dict__) + "\n")
+            with open(self.output_errors, "a", encoding="utf-8") as f:
+                for paper_id, citation in missed_citations.items():
+                    f.write(json.dumps({"paper_id": paper_id, "citation": citation}) + "\n")
             if self.debug:
                 console.print(f"[yellow]Wrote {len(missed_citations)} unresolved citations to {self.output_errors}[/yellow]")   
 
