@@ -37,6 +37,7 @@ except ImportError:
         pass
 
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.cli.tasks.run import StepExecutor
 
 console = Console(file=sys.stderr)
 
@@ -79,6 +80,8 @@ class REPLSession:
         }
         self.results: Dict[str, Any] = {}
         self.step_history: List[str] = []
+        self.current_step_index: int = 0
+        self.loaded_definition_steps: List[Dict[str, Any]] = []
 
         # Load initial definition if provided
         if initial_definition:
@@ -123,6 +126,117 @@ class REPLSession:
         except Exception as e:
             console.print(f"[red]Error loading definition:[/red] {e}")
 
+    def _execute_definition_file(
+        self, definition_path: Path, execute: bool = True, verbose: bool = False
+    ) -> None:
+        """Load YAML definition and optionally execute it"""
+        if not definition_path.exists():
+            console.print(f"[red]Definition file not found: {definition_path}[/red]")
+            return
+
+        try:
+            with open(definition_path) as f:
+                definition_data = yaml.safe_load(f)
+
+            project_name = definition_data.get("project_name", "Loaded Project")
+            console.print(f"[green]Loaded project:[/green] {project_name}")
+
+            # Initialize database if needed
+            if self.papers_db is None:
+                self.papers_db = PapersDatabase()
+
+            # Get steps from definition
+            steps = definition_data.get("steps", [])
+            if not steps:
+                console.print("[yellow]No steps found in definition[/yellow]")
+                return
+
+            console.print(f"[cyan]Steps in pipeline:[/cyan]")
+            for step in steps:
+                step_name = next(
+                    (k.replace("builtin.", "") for k in step.keys()
+                    if k.startswith("builtin.")), None)
+                console.print(f"  - {step_name or 'unknown'}")
+
+            if not execute:
+                # Store steps for @step command
+                self.loaded_definition_steps = steps
+                self.current_step_index = 0
+                console.print(f"[green]Definition loaded[/green] - {len(steps)} steps ready")
+                console.print("[dim]Use[/dim] @step to execute steps one at a time, or @run to execute all")
+                return
+
+            # Execute each step
+            console.print(f"\n[cyan bold]Executing pipeline...[/cyan bold]\n")
+
+            for i, step_config in enumerate(steps, 1):
+                step_config["step_index"] = i - 1
+                step_config["project_name"] = project_name
+
+                try:
+                    # Create wrapper for step instantiation
+                    from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
+                    get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
+
+                    result = StepExecutor.execute_step(
+                        step_config=step_config,
+                        papers_db=self.papers_db,
+                        step_executor_func=get_step_func,
+                        verbose=verbose or self.verbose,
+                        dry_run=False,
+                        cache_dir=self.cache_dir,
+                        step_index=i - 1,
+                        project_name=project_name,
+                        project_config=self.general_config,
+                        debug=self.debug,
+                        builtin_steps=self.builtin_steps,
+                    )
+
+                    # Track execution
+                    step_name = next(
+                        (k.replace("builtin.", "") for k in step_config.keys()
+                        if k.startswith("builtin.")), "unknown")
+                    
+                    status = result.get("status", "unknown")
+                    count = result.get("count", 0)
+                    
+                    if status == "ok":
+                        console.print(
+                            f"[green]✓[/green] Step {i}: {step_name} - {count} items processed"
+                        )
+                        self.step_history.append(f"{step_name}: {count} items")
+                    elif status == "error":
+                        error_msg = result.get("error", "Unknown error")
+                        console.print(
+                            f"[red]✗[/red] Step {i}: {step_name} - {error_msg}"
+                        )
+                        self.step_history.append(f"{step_name}: ERROR - {error_msg}")
+                        break
+                    else:
+                        console.print(
+                            f"[yellow]?[/yellow] Step {i}: {step_name} - {status}"
+                        )
+
+                    self.results = result
+
+                except Exception as e:
+                    console.print(f"[red]Error executing step {i}:[/red] {e}")
+                    if self.debug:
+                        import traceback
+                        traceback.print_exc()
+                    break
+
+            console.print(
+                f"\n[green]Pipeline complete[/green] - "
+                f"{self.papers_db.count()} papers in database"
+            )
+
+        except Exception as e:
+            console.print(f"[red]Error processing definition:[/red] {e}")
+            if self.debug:
+                import traceback
+                traceback.print_exc()
+
     def _create_namespace(self) -> Dict[str, Any]:
         """Create namespace for Python REPL with helper objects/functions"""
         # Import here to avoid circular imports
@@ -155,8 +269,9 @@ class REPLSession:
         def help_commands() -> None:
             """Display available macro commands"""
             commands = [
-                ("@run <file.yml>", "Run a YAML definition file"),
-                ("@run_step <name> [config...]", "Run a single step programmatically"),
+                ("@run <file.yml>", "Load and execute a YAML definition file"),
+                ("@load <file.yml>", "Load YAML definition (view steps, don't execute)"),
+                ("@step", "Execute the next step in a loaded definition"),
                 ("@checkpoint <label>", "Save checkpoint with label"),
                 ("@history", "Show step execution history"),
                 ("@show", "Display current papers"),
@@ -292,29 +407,81 @@ class REPLSession:
         command, args, kwargs = self._parse_macro_command(line)
 
         if command == "run" and args:
-            # @run <file.yml>
+            # @run <file.yml> - Load and execute YAML definition
             definition_file = Path(args[0])
-            if not definition_file.exists():
-                console.print(f"[red]File not found: {definition_file}[/red]")
+            self._execute_definition_file(definition_file, execute=True, verbose=self.verbose)
+            return True
+
+        elif command == "load" and args:
+            # @load <file.yml> - Load YAML definition without executing
+            definition_file = Path(args[0])
+            self._execute_definition_file(definition_file, execute=False)
+            return True
+
+        elif command == "step":
+            # @step - Execute the next step in a loaded definition
+            if not self.loaded_definition_steps:
+                console.print("[yellow]No definition loaded. Use @load <file.yml> first[/yellow]")
+                return True
+
+            if self.current_step_index >= len(self.loaded_definition_steps):
+                console.print(
+                    f"[yellow]All {len(self.loaded_definition_steps)} steps completed[/yellow]"
+                )
                 return True
 
             try:
-                with open(definition_file) as f:
-                    definition_data = yaml.safe_load(f)
+                step_config = self.loaded_definition_steps[self.current_step_index]
+                step_num = self.current_step_index + 1
+                total_steps = len(self.loaded_definition_steps)
 
-                console.print(f"[green]Running:[/green] {definition_file}")
+                # Extract step name from config
+                step_name = next(
+                    (k.replace("builtin.", "") for k in step_config.keys()
+                    if k.startswith("builtin.")), "unknown")
 
-                # TODO: Integrate with actual StepExecutor/run flow
-                console.print(f"[yellow]Definition loaded with steps:[/yellow]")
-                steps = definition_data.get("steps", [])
-                for step in steps:
-                    step_name = next(
-                        (k.replace("builtin.", "") for k in step.keys()
-                        if k.startswith("builtin.")), None)
-                    console.print(f"  - {step_name or 'unknown'}")
+                console.print(
+                    f"[cyan]Executing step {step_num}/{total_steps}:[/cyan] "
+                    f"{step_name}"
+                )
+
+                # Execute the step - create a wrapper function
+                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
+                get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
+
+                result = StepExecutor.execute_step(
+                    step_config=step_config,
+                    papers_db=self.papers_db,
+                    step_executor_func=get_step_func,
+                    verbose=self.verbose,
+                    dry_run=False,
+                    cache_dir=self.cache_dir,
+                    step_index=self.current_step_index,
+                    project_name=self.general_config.get("project_name", "Interactive"),
+                    project_config=self.general_config,
+                    debug=self.debug,
+                    builtin_steps=self.builtin_steps,
+                )
+
+                self.current_step_index += 1
+                self.step_history.append(
+                    f"Step {step_num}: {step_name} - "
+                    f"{result.get('status', 'unknown')}"
+                )
+
+                if result.get("status") == "error":
+                    console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                else:
+                    console.print(
+                        f"[green]✓ Step completed:[/green] "
+                        f"{result.get('count', 0)} items processed"
+                    )
 
             except Exception as e:
-                console.print(f"[red]Error running definition:[/red] {e}")
+                console.print(f"[red]Error executing step:[/red] {e}")
+                if self.debug:
+                    import traceback
+                    traceback.print_exc()
 
             return True
 
