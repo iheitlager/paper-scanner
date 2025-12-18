@@ -82,6 +82,7 @@ class REPLSession:
         self.step_history: List[str] = []
         self.current_step_index: int = 0
         self.loaded_definition_steps: List[Dict[str, Any]] = []
+        self._current_definition_file: Optional[Path] = None
 
         # Load initial definition if provided
         if initial_definition:
@@ -133,6 +134,9 @@ class REPLSession:
         if not definition_path.exists():
             console.print(f"[red]Definition file not found: {definition_path}[/red]")
             return
+
+        # Store the definition file path for status display
+        self._current_definition_file = definition_path
 
         try:
             with open(definition_path) as f:
@@ -201,10 +205,16 @@ class REPLSession:
                     count = result.get("count", 0)
                     
                     if status == "ok":
-                        console.print(
-                            f"[green]✓[/green] Step {i}: {step_name} - {count} items processed"
-                        )
-                        self.step_history.append(f"{step_name}: {count} items")
+                        if count > 0:
+                            console.print(
+                                f"[green]✓[/green] Step {i}: {step_name} - {count} items processed"
+                            )
+                            self.step_history.append(f"{step_name}: {count} items")
+                        else:
+                            console.print(
+                                f"[green]✓[/green] Step {i}: {step_name}"
+                            )
+                            self.step_history.append(f"{step_name}: ok")
                     elif status == "error":
                         error_msg = result.get("error", "Unknown error")
                         console.print(
@@ -236,6 +246,30 @@ class REPLSession:
             if self.debug:
                 import traceback
                 traceback.print_exc()
+
+    def _get_status_line(self) -> str:
+        """Build the status line showing DB records, step progress, and definition file"""
+        parts = []
+        
+        # Database record count
+        record_count = self.papers_db.count() if self.papers_db else 0
+        parts.append(f"[cyan]PaperDB:[/cyan] {record_count} records")
+        
+        # Step progress (if loaded)
+        if self.loaded_definition_steps:
+            total = len(self.loaded_definition_steps)
+            current = self.current_step_index
+            if current == total:
+                parts.append(f"[red]All steps completed ({total}/{total})[/red]")
+            else:
+                parts.append(f"[yellow]Step {current}/{total}[/yellow]")
+        
+        # Definition file (if loaded)
+        if hasattr(self, '_current_definition_file') and self._current_definition_file:
+            filename = self._current_definition_file.name
+            parts.append(f"[magenta]{filename}[/magenta]")
+        
+        return " | ".join(parts)
 
     def _create_namespace(self) -> Dict[str, Any]:
         """Create namespace for Python REPL with helper objects/functions"""
@@ -272,6 +306,7 @@ class REPLSession:
                 ("@run <file.yml>", "Load and execute a YAML definition file"),
                 ("@load <file.yml>", "Load YAML definition (view steps, don't execute)"),
                 ("@step", "Execute the next step in a loaded definition"),
+                ("@go", "Execute all remaining steps in a loaded definition"),
                 ("@checkpoint <label>", "Save checkpoint with label"),
                 ("@history", "Show step execution history"),
                 ("@show", "Display current papers"),
@@ -472,13 +507,98 @@ class REPLSession:
                 if result.get("status") == "error":
                     console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
                 else:
-                    console.print(
-                        f"[green]✓ Step completed:[/green] "
-                        f"{result.get('count', 0)} items processed"
-                    )
+                    count = result.get('count', 0)
+                    if count > 0:
+                        console.print(
+                            f"[green]✓ Step completed:[/green] "
+                            f"{count} items processed"
+                        )
+                    else:
+                        console.print(f"[green]✓ Step completed[/green]")
 
             except Exception as e:
                 console.print(f"[red]Error executing step:[/red] {e}")
+                if self.debug:
+                    import traceback
+                    traceback.print_exc()
+
+            return True
+
+        elif command == "go":
+            # @go - Execute all remaining steps in a loaded definition
+            if not self.loaded_definition_steps:
+                console.print("[yellow]No definition loaded. Use @load <file.yml> first[/yellow]")
+                return True
+
+            if self.current_step_index >= len(self.loaded_definition_steps):
+                console.print(
+                    f"[yellow]All {len(self.loaded_definition_steps)} steps completed[/yellow]"
+                )
+                return True
+
+            try:
+                total_steps = len(self.loaded_definition_steps)
+                remaining = total_steps - self.current_step_index
+                console.print(
+                    f"[cyan bold]Executing {remaining} remaining step(s)...[/cyan bold]\n"
+                )
+
+                while self.current_step_index < total_steps:
+                    step_config = self.loaded_definition_steps[self.current_step_index]
+                    step_num = self.current_step_index + 1
+
+                    # Extract step name from config
+                    step_name = next(
+                        (k.replace("builtin.", "") for k in step_config.keys()
+                        if k.startswith("builtin.")), "unknown")
+
+                    console.print(
+                        f"[cyan]Step {step_num}/{total_steps}: {step_name}[/cyan]"
+                    )
+
+                    # Execute the step
+                    from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
+                    get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
+
+                    result = StepExecutor.execute_step(
+                        step_config=step_config,
+                        papers_db=self.papers_db,
+                        step_executor_func=get_step_func,
+                        verbose=self.verbose,
+                        dry_run=False,
+                        cache_dir=self.cache_dir,
+                        step_index=self.current_step_index,
+                        project_name=self.general_config.get("project_name", "Interactive"),
+                        project_config=self.general_config,
+                        debug=self.debug,
+                        builtin_steps=self.builtin_steps,
+                    )
+
+                    self.current_step_index += 1
+                    self.step_history.append(
+                        f"Step {step_num}: {step_name} - "
+                        f"{result.get('status', 'unknown')}"
+                    )
+
+                    if result.get("status") == "error":
+                        console.print(f"[red]✗ Error:[/red] {result.get('error', 'Unknown error')}")
+                        break
+                    else:
+                        count = result.get('count', 0)
+                        if count > 0:
+                            console.print(
+                                f"[green]✓[/green] {count} items processed"
+                            )
+                        else:
+                            console.print(f"[green]✓ Completed[/green]")
+
+                if self.current_step_index >= total_steps:
+                    console.print(
+                        f"\n[green bold]All {total_steps} steps completed[/green bold]"
+                    )
+
+            except Exception as e:
+                console.print(f"[red]Error executing steps:[/red] {e}")
                 if self.debug:
                     import traceback
                     traceback.print_exc()
@@ -630,44 +750,70 @@ class REPLSession:
 
     def _run_with_prompt_toolkit(self, namespace: Dict[str, Any]) -> None:
         """Run REPL with prompt_toolkit for full history and arrow key support"""
+        # Create history file in cache directory
         try:
-            # Create history file in cache directory
             history_dir = self.cache_dir / self.project_id
             history_dir.mkdir(parents=True, exist_ok=True)
             history_file = history_dir / ".repl_history"
-
             session = PromptSession(history=FileHistory(str(history_file)))
-
-            while True:
-                try:
-                    # Get input with history support and arrow keys
-                    line = session.prompt(">>> ").strip()
-
-                    if not line:
-                        continue
-
-                    # Check if it's a macro command
-                    if line.startswith("@"):
-                        if line.startswith("@exit"):
-                            break
-                        self._handle_macro_command(line)
-                    else:
-                        # Execute as Python code
-                        try:
-                            result = eval(line, namespace)
-                            if result is not None:
-                                print(repr(result))
-                        except SyntaxError:
-                            # Try to execute as statement
-                            exec(line, namespace)
-
-                except KeyboardInterrupt:
-                    console.print("\n[yellow]Interrupted[/yellow]")
-                except EOFError:
-                    break
-
         except Exception as e:
-            console.print(f"[red]REPL Error:[/red] {e}")
+            if self.debug:
+                console.print(f"[yellow]Warning: Could not set up history:[/yellow] {e}")
+            session = PromptSession()
+
+        while True:
+            try:
+                # Show status line
+                status_line = self._get_status_line()
+                console.print(status_line)
+                
+                # Get input with history support and arrow keys
+                line = session.prompt(">>> ").strip()
+
+                if not line:
+                    continue
+
+                # Check if it's a macro command
+                if line.startswith("@"):
+                    if line.startswith("@exit"):
+                        break
+                    try:
+                        self._handle_macro_command(line)
+                    except Exception as e:
+                        console.print(f"[red]Error in macro command:[/red] {e}")
+                        if self.debug:
+                            import traceback
+                            traceback.print_exc()
+                else:
+                    # Execute as Python code
+                    try:
+                        result = eval(line, namespace)
+                        if result is not None:
+                            print(repr(result))
+                    except SyntaxError:
+                        # Try to execute as statement
+                        try:
+                            exec(line, namespace)
+                        except Exception as e:
+                            console.print(f"[red]Error executing statement:[/red] {e}")
+                            if self.debug:
+                                import traceback
+                                traceback.print_exc()
+                    except Exception as e:
+                        console.print(f"[red]Error evaluating expression:[/red] {e}")
+                        if self.debug:
+                            import traceback
+                            traceback.print_exc()
+
+            except KeyboardInterrupt:
+                console.print("\n[yellow]Interrupted[/yellow]")
+            except EOFError:
+                break
+            except Exception as e:
+                console.print(f"[red]Unexpected error in REPL loop:[/red] {e}")
+                if self.debug:
+                    import traceback
+                    traceback.print_exc()
 
     def _run_with_basic_input(self, namespace: Dict[str, Any]) -> None:
         """Fallback REPL using basic input() (readline available on Unix)"""

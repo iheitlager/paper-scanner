@@ -94,7 +94,7 @@ class DumpDbStep(BaseStep):
                 "_id_index": len(self.db._id_index),
             }
 
-        result["status"] = "success"
+        result["status"] = "ok"
         return result
 
 

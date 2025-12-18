@@ -140,7 +140,7 @@ class ExportStep(BaseStep):
             "papers_total": self.db.count(primary_only=False),
             "duplicates_option": duplicates_option,
             "output_path": output_path or "stdout",
-            "status": "success",
+            "status": "ok",
             "error": None
         }
         
@@ -261,6 +261,7 @@ class ExportStep(BaseStep):
                     if verbose:
                         console.print(f"    [yellow][DRY RUN] Would export {len(papers_to_export)} papers to BibTeX[/yellow]")
             
+            results["status"] = "ok"
             return results
         
         except Exception as e:

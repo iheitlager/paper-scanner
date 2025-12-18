@@ -234,7 +234,7 @@ class BibtexImportStep(BaseStep):
                     "file_path": file_path,
                     "source_type": source_type,
                     "papers_imported": count if not dry_run else 0,
-                    "status": "success"
+                    "status": "ok"
                 })
                 
             except Exception as e:

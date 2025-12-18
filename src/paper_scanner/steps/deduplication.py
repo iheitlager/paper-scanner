@@ -368,11 +368,10 @@ def execute(
     if verbose:
         # Clear the progress line and print final result
         import sys
-        sys.stdout.write("\r" + " " * 80 + "\r")  # Clear the line
-        sys.stdout.flush()
         unique_count = papers_db.count(primary_only=True)  # Count primary papers (non-duplicates)
         console.print(f"    [green]✓ Deduplication complete[/green] - Found [cyan]{results['duplicates_found']}[/cyan] duplicates, [cyan]{unique_count}[/cyan] unique papers")
     
+    results["status"] = "ok"
     return results
 
 

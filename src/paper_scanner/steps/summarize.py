@@ -185,7 +185,7 @@ class SummarizeStep(BaseStep):
             "unique_keywords": unique_keywords,
             "sources": dict(sources),
             "screening_status": dict((k, v) for k, v in screening_status.items()),
-            "paper_types": dict(paper_types) if paper_types else None
+            "paper_types": dict(paper_types) if paper_types else None,
         }
         
         if verbose and show_summary:
@@ -236,6 +236,7 @@ class SummarizeStep(BaseStep):
         if verbose and show_screening:
             _display_screening_results(self.db.to_list(primary_only=False))
         
+        results["status"] = "ok"
         return results
 
 

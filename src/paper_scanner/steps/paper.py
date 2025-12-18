@@ -189,7 +189,7 @@ class PaperStep(BaseStep):
                     self.db.add(paper)
 
             result = {
-                "status": "success" if not errors else "partial",
+                "status": "ok" if not errors else "partial",
                 "count": len(created_papers),
                 "papers": [p.id for p in created_papers],
             }

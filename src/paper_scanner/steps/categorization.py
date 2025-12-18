@@ -410,9 +410,7 @@ class CategorizationStep(BaseStep):
         for i, paper in enumerate(all_papers):
             # Show progress every 100 papers
             if verbose and (i + 1) % 100 == 0:
-                import sys
-                sys.stdout.write(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
-                sys.stdout.flush()
+                console.print(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
             
             categorization, should_include, exclusion_reason = _categorize_paper(
                 paper,
@@ -465,9 +463,7 @@ class CategorizationStep(BaseStep):
 
         if verbose:
             # Clear the progress line and print final result
-            import sys
-            sys.stdout.write("\r" + " " * 100 + "\r")  # Clear the line
-            sys.stdout.flush()
             console.print(f"    [green]✓ Categorization complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan]")
 
+        results["status"] = "ok"
         return results

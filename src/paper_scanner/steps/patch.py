@@ -263,12 +263,12 @@ class PatchStep(BaseStep):
             message += f" ({patches_failed} failed)"
 
         if patches_failed == 0:
-            console.print(f"[green]✓ {message}[/green]")
+            console.print(f"{message}")
         else:
             console.print(f"[yellow]⚠️  {message}[/yellow]")
 
         return {
-            "status": "success" if patches_failed == 0 else "partial",
+            "status": "ok" if patches_failed == 0 else "partial",
             "patches_found": len(patches),
             "patches_applied": patches_applied,
             "patches_failed": patches_failed,

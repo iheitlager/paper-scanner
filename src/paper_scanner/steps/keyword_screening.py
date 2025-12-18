@@ -229,11 +229,9 @@ class KeywordScreeningStep(BaseStep):
         
         if verbose:
             # Clear the progress line and print final result
-            import sys
-            sys.stdout.write("\r" + " " * 100 + "\r")  # Clear the line
-            sys.stdout.flush()
             console.print(f"    [green]✓ Keyword screening complete[/green] - Passed: [cyan]{results['passed']}[/cyan], Failed: [cyan]{results['failed']}[/cyan]")
-        
+
+        results["status"] = "ok"
         return results
 # ============================================================================
 # KEYWORD MATCHING UTILITIES

@@ -221,6 +221,7 @@ class CitationsStep(BaseStep):
                 for error in results['errors'][:5]:  # Show first 5 errors
                     console.print(f"  [red]- {error}[/red]")
 
+        results['status'] = 'ok' if len(results['errors']) == 0 else 'completed_with_errors' 
         return results
 
     def _fetch_citations_for_papers(

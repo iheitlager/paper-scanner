@@ -237,6 +237,7 @@ class LoadFilesStep(BaseStep):
                         (f", expected {expected_count}" if expected_count and loaded != expected_count else ""))
             console.print()
 
+        results["status"] = "ok"
         return results
 
 
