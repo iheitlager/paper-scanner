@@ -24,22 +24,18 @@ Process:
 """
 
 import sys
-import re
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime, timezone
 from pprint import pformat
+import json
 from rich.console import Console
-import logging
 
-from paper_scanner.core.models import Paper, Citation, Discovery, DiscoveryMethod, PaperType
-from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.models import Paper, Citation, PaperType
 from paper_scanner.tools.fetchers.fetcher import Fetcher
 from paper_scanner.core.doi import DOI
 from .base import BaseStep
 
 console = Console(file=sys.stderr)
-logger = logging.getLogger(__name__)
 
 
 class CitationsStep(BaseStep):
@@ -92,6 +88,9 @@ class CitationsStep(BaseStep):
                 if "limit" in backward:
                     if not isinstance(backward["limit"], int) or backward["limit"] < 1:
                         errors.append("'backward.limit' must be a positive integer")
+                if "output_errors" in backward:
+                    if not isinstance(backward["output_errors"], str) or not Path(backward["output_errors"]).exists():
+                        errors.append("'backward.output_errors' must be a valid file path")
 
         return len(errors) == 0, errors
 
@@ -118,18 +117,24 @@ class CitationsStep(BaseStep):
         Returns:
             Results dict with statistics
         """
+
+        self.verbose = verbose
+        self.dry_run = dry_run
+        self.debug = debug
+
         # Extract configuration
         backward_config = config.get("backward", {})
         if backward_config:
             paper_types = backward_config.get("paper-types", ["journal_article"])
-            sourcess = backward_config.get("sources", ["crossref"])
+            sources = backward_config.get("sources", ["crossref"])
             continue_on_not_found = backward_config.get("continue_on_not_found", True)
             limit = backward_config.get("limit", None)
+            self.output_errors = backward_config.get("output_errors", None)
 
-            if verbose:
+            if self.verbose:
                 console.print(f"[blue]Citations backward processing[/blue]")
                 console.print(f"[blue]Paper types to process:[/blue] {paper_types}")
-                console.print(f"[blue]Citation sourcess:[/blue] {sourcess}")
+                console.print(f"[blue]Citation sourcess:[/blue] {sources}")
                 console.print(f"[blue]Continue on not found:[/blue] {continue_on_not_found}")
                 if limit:
                     console.print(f"[blue]Limit papers to process:[/blue] {limit}")
@@ -137,18 +142,21 @@ class CitationsStep(BaseStep):
         # Initialize fetcher
         fetcher = Fetcher(
             cache_dir=self.cache_dir,
-            methods=sourcess,
-            verbose=verbose,
-            debug=debug
+            methods=sources,
+            verbose=self.verbose,
+            debug=self.debug
         )
 
         # Get papers to process (filter by paper_type)
-        target_papers = self.db.find(
-            lambda p: p.paper_type and p.paper_type.value in paper_types,
-            primary_only=True
-        )
+        if paper_types:
+            target_papers = self.db.find(
+                lambda p: p.paper_type and p.paper_type.value in paper_types,
+                primary_only=True
+            )
+        else:
+            target_papers = self.db.all(primary_only=True)
 
-        if debug:
+        if self.debug:
             console.print(f"[blue]Fetcher initialized:[/blue]\n{pformat(fetcher.handlers, indent=2)}")
             console.print(f"[blue]Total papers in DB:[/blue] {self.db.count(primary_only=True)}")
             console.print(f"[blue]Target papers to process:[/blue] {len(target_papers)}")
@@ -173,8 +181,6 @@ class CitationsStep(BaseStep):
             target_papers=target_papers,
             fetcher=fetcher,
             results=results,
-            verbose=verbose,
-            debug=debug,
             limit=limit,
         )
 
@@ -183,10 +189,7 @@ class CitationsStep(BaseStep):
             papers=target_papers,
             fetcher=fetcher,
             continue_on_not_found=continue_on_not_found,
-            dry_run=dry_run,
             results=results,
-            verbose=verbose,
-            debug=debug
         )
 
         # PASS 3: Build citation graph in memory
@@ -194,11 +197,9 @@ class CitationsStep(BaseStep):
         self._link_citation_graph(
             papers=all_papers,
             results=results,
-            verbose=verbose,
-            debug=debug
         )
 
-        if verbose:
+        if self.verbose:
             console.print(f"[green]Citation graph linking completed.[/green]")
             console.print(f"\n[bold white]=== CITATION STATISTICS ===[/bold white]")
             console.print(f"[white]Total papers in DB:[/white] {results['total_papers']}")
@@ -224,8 +225,6 @@ class CitationsStep(BaseStep):
         target_papers: List[Paper],
         fetcher: "Fetcher",
         results: Dict[str, Any],
-        verbose: bool = False,
-        debug: bool = False,
         limit: Optional[int] = None,
     ) -> None:
         """
@@ -256,7 +255,7 @@ class CitationsStep(BaseStep):
                     results["cache_misses"] += 1
 
                 if not citations:
-                    if verbose:
+                    if self.verbose:
                         console.print(
                             f"[yellow][{i}/{len(target_papers)}] No citations found for {paper.doi}"
                         )
@@ -267,7 +266,7 @@ class CitationsStep(BaseStep):
                 results["papers_with_citations"] += 1
                 results["citations_fetched"] += len(citations)
 
-                if debug:
+                if self.debug:
                     console.print(
                         f"[cyan][{i}/{len(target_papers)}] Fetched {len(citations)} "
                         f"citations for {paper.doi}[/cyan]"
@@ -276,10 +275,6 @@ class CitationsStep(BaseStep):
                 # Store citations in paper
                 paper.citations.extend(citations)
 
-                if debug:
-                    console.print(
-                        f"[blue]Paper {paper.doi} now has {len(paper.citations)} citations[/blue]"
-                    )
 
             except Exception as e:
                 results["errors"].append(f"Fetch error for {paper.doi}: {str(e)}")
@@ -291,10 +286,7 @@ class CitationsStep(BaseStep):
         papers: List[Paper],
         fetcher: "Fetcher",
         continue_on_not_found: bool = True,
-        dry_run: bool = False,
         results: Optional[Dict[str, Any]] = None,
-        verbose: bool = False,
-        debug: bool = False
     ) -> None:
         """
         PASS 2: Resolve citations to existing papers or create new papers.
@@ -307,19 +299,17 @@ class CitationsStep(BaseStep):
             papers: List of all papers (including those with citations)
             fetcher: Fetcher instance to use for metadata enrichment
             continue_on_not_found: If True, create new Paper for unresolved citations
-            dry_run: Don't write to database if True
             results: Results dict to update with statistics (optional)
-            verbose: Enable verbose output
-            debug: Enable debug output
         """
         if results is None:
             results = {}
 
         for paper in papers:
+            missed_citations = {}
             if not paper.citations:
                 continue
 
-            if debug:
+            if self.debug:
                 console.print(f"[cyan]Resolving {len(paper.citations)} citations for {paper.doi}[/cyan]")
 
             try:
@@ -330,10 +320,7 @@ class CitationsStep(BaseStep):
                         citing_paper=paper,
                         fetcher=fetcher,
                         continue_on_not_found=continue_on_not_found,
-                        dry_run=dry_run,
                         results=results,
-                        verbose=verbose,
-                        debug=debug
                     )
 
                     if resolved_paper:
@@ -343,20 +330,28 @@ class CitationsStep(BaseStep):
                         if created_new:
                             results["citations_created_new_paper"] = results.get("citations_created_new_paper", 0) + 1
                     else:
+                        if self.output_errors:
+                            missed_citations.setdefault(paper.id, []).append(citation)
                         results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
-                        if verbose:
+                        if self.verbose:
                             console.print(
                                 f"[red]Unresolved citation {citation.doi} in paper {paper.doi}[/red]"
                             )
-                        if debug:
+                        if self.debug:
                             console.print(f"[blue]{citation}[/blue]")
 
 
             except Exception as e:
                 results["errors"].append(f"Resolve error for {paper.doi}: {str(e)}")
                 console.print(f"[red]Error resolving citations for {paper.doi}: {e}[/red]")
-                if debug:
-                    logger.exception(f"Exception while resolving citations for {paper.doi}")
+
+        if self.output_errors and missed_citations:
+            with open(self.output_errors, "w", encoding="utf-8") as f:
+                for citation in missed_citations.values():
+                    f.write(json.dumps(citation, default=lambda o: o.__dict__) + "\n")
+            if self.debug:
+                console.print(f"[yellow]Wrote {len(missed_citations)} unresolved citations to {self.output_errors}[/yellow]")   
+
 
     def _resolve_citation(
         self,
@@ -364,10 +359,7 @@ class CitationsStep(BaseStep):
         citing_paper: Paper,
         fetcher: "Fetcher",
         continue_on_not_found: bool = True,
-        dry_run: bool = False,
         results: Optional[Dict[str, Any]] = None,
-        verbose: bool = False,
-        debug: bool = False
     ) -> Tuple[Optional[Paper], bool]:
         """
         Resolve a citation to an existing paper or create a new paper.
@@ -382,10 +374,7 @@ class CitationsStep(BaseStep):
             citing_paper: Paper that contains this citation
             fetcher: Fetcher instance for metadata enrichment
             continue_on_not_found: If True, create new Paper; if False, leave unresolved
-            dry_run: Don't write to database if True
             results: Results dict to update with cache statistics (optional)
-            verbose: Enable verbose output
-            debug: Enable debug output
 
         Returns:
             Tuple of (resolved_paper, created_new_paper: bool)
@@ -402,21 +391,21 @@ class CitationsStep(BaseStep):
                 return paper, False
             else:
                 enriched_paper, cached = fetcher.fetch_paper(normalized_doi)
-                
+
                 # Track cache statistics
                 if cached:
                     results["cache_hits"] = results.get("cache_hits", 0) + 1
-                    if debug:
+                    if self.debug:
                         console.print(f"[green]Cache hit for citation DOI {normalized_doi}[/green]")
                 else:
                     results["cache_misses"] = results.get("cache_misses", 0) + 1
-                
+
                 # Only add if fetcher successfully returned a paper
                 if enriched_paper:
                     self.db.add(enriched_paper)
                     return enriched_paper, True
                 else:
-                    if debug:
+                    if self.debug:
                         console.print(f"[yellow]Could not fetch paper for DOI {normalized_doi}[/yellow]")
                     return None, False
 
@@ -431,8 +420,6 @@ class CitationsStep(BaseStep):
         self,
         papers: List[Paper],
         results: Dict[str, Any],
-        verbose: bool = False,
-        debug: bool = False
     ) -> None:
         """
         PASS 3: Build citation graph in memory (cited_papers, cited_by_papers).
@@ -443,8 +430,6 @@ class CitationsStep(BaseStep):
         Args:
             papers: List of all papers
             results: Results dict to update with statistics
-            verbose: Enable verbose output
-            debug: Enable debug output
         """
         for paper in papers:
             if not paper.citations:
