@@ -14,7 +14,7 @@ from rich.console import Console
 
 from paper_scanner import __version__
 from paper_scanner.cli import STEP_REGISTRY_PATHS
-from paper_scanner.cli.tasks import execute_run, execute_validate, execute_cache_clear, execute_cache_info, execute_info_steps
+from paper_scanner.cli.tasks import execute_run, execute_validate, execute_cache_clear, execute_cache_info, execute_info_steps, execute_repl
 from paper_scanner.steps.base import BaseStep
 
 # Handle broken pipe gracefully (when piping to head, wc, etc.)
@@ -310,6 +310,45 @@ def main():
         help="Show available steps and their documentation"
     )
     
+    # ===== REPL COMMAND =====
+    repl_parser = subparsers.add_parser(
+        "repl",
+        help="Start interactive REPL for building pipelines"
+    )
+    
+    repl_parser.add_argument(
+        "--project-id",
+        type=str,
+        default=None,
+        help="Project ID for this REPL session (default: interactive_session)"
+    )
+    
+    repl_parser.add_argument(
+        "--definition",
+        type=Path,
+        default=None,
+        help="Optional YAML definition file to load at startup (post-checkpoint)"
+    )
+    
+    repl_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+    )
+    
+    repl_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output"
+    )
+    
+    repl_parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug output"
+    )
+    
     # ===== CACHE COMMAND =====
     cache_parser = subparsers.add_parser(
         "cache",
@@ -397,6 +436,19 @@ def main():
             exit_code = execute_validate(
                 args.definition_file,
                 verbose=args.verbose,
+                builtin_steps=builtin_steps,
+            )
+            sys.exit(exit_code)
+        
+        elif args.command == "repl":
+            builtin_steps = StepExecutor.BUILTIN_STEPS
+            
+            exit_code = execute_repl(
+                project_id=args.project_id,
+                cache_dir=args.cache_dir,
+                definition_file=args.definition,
+                verbose=args.verbose,
+                debug=args.debug,
                 builtin_steps=builtin_steps,
             )
             sys.exit(exit_code)
