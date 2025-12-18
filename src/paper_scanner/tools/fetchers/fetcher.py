@@ -13,13 +13,14 @@ from rich.console import Console
 from paper_scanner.core.models import Paper, Citation
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import OpenAlexHandler
 
 console = Console(file=sys.stderr)
 
 # Mapping of method names to handler classes
 handler_classes = {
     "crossref": CrossrefHandler,
-    # "openalex": OpenAlexHandler,
+    "openalex": OpenAlexHandler,
     # "core": COREHandler,
     # Add others as implemented
 }
@@ -78,15 +79,24 @@ class Fetcher:
         Returns:
             Tuple of (Paper model or None, cache_hit: bool)
         """
+        paper = None
+        cache_hit = False
         for handler_name, handler in self.handlers.items():
             try:
-                paper, cache_hit = handler.fetch_paper(doi)
-                if paper:
+                new_paper, new_cache_hit = handler.fetch_paper(doi)
+                if not paper:
+                    paper = new_paper
+                    cache_hit = new_cache_hit
+                elif new_paper:
+                    handler.merge_papers(paper, new_paper)
+                    cache_hit = cache_hit and new_cache_hit
+                if paper and paper.calculated_quality_score >= 0.9:
                     return paper, cache_hit
             except Exception as e:
                 console.print(f"[red]Handler {handler_name} failed for {doi}: {e}[/red]")
                 continue
-
+        if paper:
+            return paper, cache_hit
         return None, False
 
     def fetch_citations(self, doi: str) -> Tuple[List[Citation], bool]:

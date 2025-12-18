@@ -307,6 +307,7 @@ class REPLSession:
                 ("@load <file.yml>", "Load YAML definition (view steps, don't execute)"),
                 ("@step", "Execute the next step in a loaded definition"),
                 ("@go, @g", "Execute all remaining steps in a loaded definition"),
+                ("@do, @d <step> [params]", "Execute ad-hoc step with parameters"),
                 ("@checkpoint <label>", "Save checkpoint with label"),
                 ("@history, @h", "Show step execution history"),
                 ("@show, @p", "Display current papers"),
@@ -413,6 +414,7 @@ class REPLSession:
         """
         # Shortcut mappings
         shortcuts = {
+            "d": "do",
             "g": "go",
             "h": "history",
             "s": "status",
@@ -469,6 +471,85 @@ class REPLSession:
             # @load <file.yml> - Load YAML definition without executing
             definition_file = Path(args[0])
             self._execute_definition_file(definition_file, execute=False)
+            return True
+
+        elif command == "do" and args:
+            # @do <step_name> [params] - Execute ad-hoc step with parameters
+            step_name = args[0]
+            
+            # Convert string values to appropriate types
+            def parse_value(v: str) -> Any:
+                """Parse string values to Python types"""
+                if v.lower() == "true":
+                    return True
+                elif v.lower() == "false":
+                    return False
+                elif v.lower() == "none" or v == "":
+                    return None
+                elif v.isdigit():
+                    return int(v)
+                else:
+                    try:
+                        return float(v)
+                    except ValueError:
+                        return v
+            
+            # Build config from kwargs, parsing values appropriately
+            step_config = {k: parse_value(v) for k, v in kwargs.items()}
+            
+            if self.papers_db is None:
+                console.print("[yellow]No database. Initialize with papers first.[/yellow]")
+                return True
+            
+            try:
+                console.print(f"[cyan]Executing step:[/cyan] {step_name}")
+                if step_config:
+                    console.print(f"[dim]Parameters: {step_config}[/dim]")
+                
+                # Execute the step
+                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
+                
+                # Build step config with required "step" key and builtin. prefix
+                # Format: {"step": "<description>", "builtin.{step_name}": {params}}
+                full_step_config = {
+                    "step": f"Ad-hoc: {step_name}",
+                    f"builtin.{step_name}": step_config
+                }
+                
+                get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
+                
+                result = StepExecutor.execute_step(
+                    step_config=full_step_config,
+                    papers_db=self.papers_db,
+                    step_executor_func=get_step_func,
+                    verbose=self.verbose,
+                    dry_run=False,
+                    cache_dir=self.cache_dir,
+                    step_index=len(self.step_history),
+                    project_name=self.general_config.get("project_name", "Interactive"),
+                    project_config=self.general_config,
+                    debug=self.debug,
+                    builtin_steps=self.builtin_steps,
+                )
+                
+                self.step_history.append(f"Ad-hoc: {step_name} - {result.get('status', 'unknown')}")
+                self.results = result
+                
+                if result.get("status") == "error":
+                    console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+                else:
+                    count = result.get('count', 0)
+                    if count > 0:
+                        console.print(f"[green]✓ Step completed:[/green] {count} items processed")
+                    else:
+                        console.print(f"[green]✓ Step completed[/green]")
+            
+            except Exception as e:
+                console.print(f"[red]Error executing step:[/red] {e}")
+                if self.debug:
+                    import traceback
+                    traceback.print_exc()
+            
             return True
 
         elif command == "step":

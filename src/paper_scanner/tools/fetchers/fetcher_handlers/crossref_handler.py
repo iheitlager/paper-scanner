@@ -401,7 +401,7 @@ class CrossrefHandler(BaseFetcherHandler):
         if ref.get("doi-asserted-by") == "publisher":
             confidence = 1.0
         else:
-            confidence = self._calculate_confidence(doi, title, year, authors)
+            confidence = self._calculate_citation_confidence(doi, title, year, authors)
 
         # Build Citation
         citation = Citation(
@@ -422,7 +422,7 @@ class CrossrefHandler(BaseFetcherHandler):
 
         return citation
 
-    def _calculate_confidence(
+    def _calculate_citation_confidence(
         self,
         doi: Optional[str],
         title: Optional[str],

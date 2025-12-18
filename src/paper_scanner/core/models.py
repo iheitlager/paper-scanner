@@ -612,23 +612,6 @@ class Paper(BaseModel):
     # COMPUTED PROPERTIES
     # ========================================
 
-    @field_validator('title')
-    @classmethod
-    def compute_title_normalized(cls, v):
-        """Auto-compute normalized title fields when title changes"""
-        # This validator is called when title is set/updated
-        # We'll use model_post_init to actually set the computed fields
-        return v
-
-    def model_post_init(self, __context):
-        """Compute normalized fields after model initialization"""
-        if self.title:
-            self.title_normalized = self.title.lower().strip()
-            self.title_length = len(self.title)
-        else:
-            self.title_normalized = None
-            self.title_length = 0
-
     @property
     def author_string(self) -> str:
         """Format authors as string"""
@@ -660,6 +643,18 @@ class Paper(BaseModel):
     def is_included(self) -> bool:
         """Check if paper passed screening"""
         return self.screening.final_decision == ScreeningDecision.INCLUDED
+
+    @property
+    def calculated_quality_score(self) -> float:
+        """Calculated bibliographic quality"""
+        base = 0.20
+        if self.title:
+            base += 0.20
+        if self.keywords:
+            base += 0.25
+        if self.abstract:
+            base += 0.25
+        return min(base, 1.0)
 
     def __str__(self) -> str:
         return f"{self.cite_key}: {self.title[:60]}... ({self.year})"

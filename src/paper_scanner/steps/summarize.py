@@ -36,6 +36,14 @@ class SummarizeStep(BaseStep):
         if "screening" in config and not isinstance(config["screening"], bool):
             errors.append("'screening' must be a boolean")
         
+        # Check citations flag
+        if "citations" in config and not isinstance(config["citations"], bool):
+            errors.append("'citations' must be a boolean")
+
+        # Check citations flag
+        if "bibliography" in config and not isinstance(config["bibliography"], bool):
+            errors.append("'bibliography' must be a boolean")
+
         # Check tabulate configuration
         if "tabulate" in config:
             tabulate = config["tabulate"]
@@ -79,6 +87,7 @@ class SummarizeStep(BaseStep):
             config: Step configuration with options:
                 - summary: bool (default: True) - Show summary statistics
                 - screening: bool (default: False) - Show screening results
+                - citations: bool (default: False) - Show citations histogram
                 - table_by_paper_type: bool (default: False) - DEPRECATED: Use tabulate instead
                 - tabulate: dict or list of dicts with options:
                     - field: str - Field to tabulate (e.g., 'paper_type', 'journal', 'booktitle')
@@ -94,7 +103,9 @@ class SummarizeStep(BaseStep):
         # Get configuration options
         show_summary = config.get("summary", False)
         show_screening = config.get("screening", False)
-        
+        show_citations = config.get("citations", False)
+        show_bibliography = config.get("bibliography", False)        
+
         # Support both old and new configuration format
         tabulate_configs = []
         
@@ -236,6 +247,14 @@ class SummarizeStep(BaseStep):
         if verbose and show_screening:
             _display_screening_results(self.db.to_list(primary_only=False))
         
+        # Display citations histogram if requested
+        if verbose and show_citations:
+            _display_citations_histogram(self.db.to_list(primary_only=False))
+
+        if verbose and show_bibliography:
+            _display_bibliography(self.db.to_list(primary_only=False))
+        
+
         results["status"] = "ok"
         return results
 
@@ -469,3 +488,118 @@ def _display_screening_results(papers_db: List[Paper]) -> None:
     if duplicate_papers:
         console.print(f"  [dim]Duplicate records: {len(duplicate_papers)}[/dim]")
 
+
+def _display_citations_histogram(papers_db: List[Paper]) -> None:
+    """
+    Display a histogram of citation counts ordered by number of citations (descending)
+    
+    Shows how many papers have each citation count, ordered from most cited to least.
+    
+    Args:
+        papers_db: List of papers to analyze
+    """
+    if not papers_db:
+        console.print("\n  [red]No papers to display citation statistics[/red]")
+        return
+    
+    # Filter to primary papers only
+    primary_papers = [p for p in papers_db if p.duplicate_of is None]
+    
+    if not primary_papers:
+        console.print("\n  [red]No primary papers to analyze[/red]")
+        return
+    
+    # Count papers by citation count
+    citation_counts = {}
+    for paper in primary_papers:
+        # Count the number of citations (citations is a list)
+        citations = len(paper.cited_by_papers) if paper.cited_by_papers else 0
+        if citations not in citation_counts:
+            citation_counts[citations] = 0
+        citation_counts[citations] += 1
+    
+    # Sort by citation count (descending)
+    sorted_counts = sorted(citation_counts.items(), key=lambda x: x[0], reverse=True)
+    
+    # Create table
+    table = Table(title="Citation Distribution")
+    table.add_column("Citations", style="cyan", justify="right")
+    table.add_column("Number of Papers", style="green", justify="right")
+    table.add_column("Percentage", style="yellow", justify="right")
+    table.add_column("Visual", style="blue")
+    
+    total_papers = len(primary_papers)
+    max_count = max(count for _, count in sorted_counts) if sorted_counts else 1
+    
+    # Add rows
+    for citations, count in sorted_counts:
+        percentage = (count / total_papers * 100) if total_papers > 0 else 0
+        bar_width = int((count / max_count) * 30) if max_count > 0 else 0
+        bar = "█" * bar_width
+        
+        table.add_row(
+            str(citations),
+            str(count),
+            f"{percentage:.1f}%",
+            bar
+        )
+    
+    console.print(table)
+    
+    # Print summary stats
+    total_citations = sum(cit * count for cit, count in sorted_counts)
+    avg_citations = (total_citations / total_papers) if total_papers > 0 else 0
+    max_citations = max(cit for cit, _ in sorted_counts) if sorted_counts else 0
+    
+    console.print(f"\n  [dim]Total citations: {total_citations}[/dim]")
+    console.print(f"  [dim]Average citations per paper: {avg_citations:.2f}[/dim]")
+    console.print(f"  [dim]Maximum citations: {max_citations}[/dim]")
+
+
+def _display_bibliography(papers_db: List[Paper]) -> None:
+    """
+    Display a histogram of citation counts ordered by number of citations (descending)
+    
+    Shows how many papers have each citation count, ordered from most cited to least.
+    
+    Args:
+        papers_db: List of papers to analyze
+    """
+    if not papers_db:
+        console.print("\n  [red]No papers to display citation statistics[/red]")
+        return
+    
+    # Filter to primary papers only
+    primary_papers = [p for p in papers_db if p.duplicate_of is None]
+    
+    if not primary_papers:
+        console.print("\n  [red]No primary papers to analyze[/red]")
+        return
+    
+    # Count papers by citation count
+    keywords = 0
+    abstracts = 0
+    keyword_abstracts = 0
+    for paper in primary_papers:
+        if paper.keywords:
+            keywords += 1
+        if paper.abstract:
+            abstracts += 1
+        if paper.keywords and paper.abstract:
+            keyword_abstracts += 1
+
+    
+    # Create table
+    table = Table(title="Citation Distribution")
+    table.add_column("Papers", style="cyan", justify="right")
+    table.add_column("With Keywords", style="green", justify="right")
+    table.add_column("With Abstract", style="yellow", justify="right")
+    table.add_column("With Both", style="blue")
+    
+    table.add_row(
+        str(len(primary_papers)),
+        str(keywords),
+        str(abstracts),
+        str(keyword_abstracts)
+    )
+    console.print(table)

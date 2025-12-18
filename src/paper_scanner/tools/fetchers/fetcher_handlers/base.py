@@ -352,6 +352,71 @@ class BaseFetcherHandler(ABC):
 
         return title
 
+    def _merge_paper_metadata(self, target: Paper, source: Paper, overwrite: bool = False) -> None:
+        """
+        Merge metadata from enriched Paper into target Paper.
+
+        Only updates fields that are empty in the target.
+        """
+        if (overwrite or not target.abstract) and source.abstract:
+            target.abstract = source.abstract
+
+        if (overwrite or not target.title) and source.title:
+            target.title = source.title
+
+        if (overwrite or not target.keywords) and source.keywords:
+            target.keywords = source.keywords
+
+        if (overwrite or not target.topics) and source.topics:
+            target.topics = source.topics
+
+        if (overwrite or not target.authors) and source.authors:
+            target.authors = source.authors
+
+        if (overwrite or not target.year) and source.year:
+            target.year = source.year
+
+        if (overwrite or not target.journal) and source.journal:
+            target.journal = source.journal
+
+        if (overwrite or not target.url) and source.url:
+            target.url = source.url
+
+        if (overwrite or not target.isbn) and source.isbn:
+            target.isbn = source.isbn
+
+        if (overwrite or not target.issn) and source.issn:
+            target.issn = source.issn
+
+        if (overwrite or not target.pmid) and source.pmid:
+            target.pmid = source.pmid
+
+        if (overwrite or not target.publisher) and source.publisher:
+            target.publisher = source.publisher
+
+        if (overwrite or not target.volume) and source.volume:
+            target.volume = source.volume
+
+        if (overwrite or not target.number) and source.number:
+            target.number = source.number
+
+        if (overwrite or not target.pages) and source.pages:
+            target.pages = source.pages
+
+        if (overwrite or not target.publication_date) and source.publication_date:
+            target.publication_date = source.publication_date
+
+        if (overwrite or not target.paper_type) and source.paper_type:
+            target.paper_type = source.paper_type
+
+        if (overwrite or not target.oa_status) and source.oa_status:
+            target.oa_status = source.oa_status
+
+        if (overwrite or not target.raw_json) and source.raw_json:
+            target.raw_json = source.raw_json
+
+        # Update timestamps
+        target.updated_at = datetime.now()
 
     def __str__(self) -> str:
         return f"<FetcherHandler: {self.name}>"
