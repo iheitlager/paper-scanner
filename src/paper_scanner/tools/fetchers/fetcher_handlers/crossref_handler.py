@@ -424,6 +424,7 @@ class CrossrefHandler(BaseFetcherHandler):
             extraction_method="crossref",
             confidence=confidence,
             raw_text=ref.get("unstructured"),
+            raw_json=ref if not doi else None,
         )
 
         return citation

@@ -1,0 +1,126 @@
+# AI Coding Agent Instructions for paper-scanner
+
+## Project Overview
+**paper-scanner** is a Python LLM-powered literature review tool (v2.4.0, pre-alpha). It uses Claude API to analyze academic PDFs, extract structured information (metadata, research questions, findings), and organize papers via PostgreSQL backend with a web UI.
+
+## Architecture
+
+### Core Data Flow
+```
+PDF Input → Claude Analysis → Structured JSON → PostgreSQL DB → Web Interface
+```
+
+### Major Components
+- **Core**: `src/paper_scanner/core/` - Database, models, DOI handling, LLM interactions
+- **Definition API**: `src/paper_scanner/definition/` - Fluent Python API for building pipelines (alternative to YAML)
+- **Steps**: `src/paper_scanner/steps/` - Pipeline processors (bibtex_import, deduplication, export, etc.)
+- **CLI**: `src/paper_scanner/cli/paper_processor.py` - Main entry point with subcommands: run, validate, info, cache
+- **Web**: `src/paper_scanner/web/` - Flask UI with PDF viewer, analysis, references, tags
+
+### Pipeline Architecture
+- **Two approaches**: YAML definition files (primary) or Pythonic fluent API (Definition class)
+- **Steps inherit from BaseStep** in `src/paper_scanner/steps/base.py` - implements validation, execution, result handling
+- **Step execution flow**: Validate config → Instantiate step → Execute with general_config + step_config + runtime flags → Return results dict
+- **Checkpointing**: Resume pipelines from specific steps (see `src/paper_scanner/steps/checkpoint.py`)
+
+## Critical Developer Workflows
+
+### Setup & Testing
+```bash
+uv sync --all-groups    # Install all dependencies
+make test               # Run all tests (Python + JS)
+make lint              # Ruff linting
+make type-check        # mypy type checking
+make format            # Code formatting
+```
+
+### Running Pipelines
+```bash
+# YAML-based (primary)
+uv run paper-processor definition.yml --verbose
+
+# Resume from checkpoint
+uv run paper-processor definition.yml --checkpoint last
+
+# Pythonic API (tests/spikes/007_new_approach/)
+from paper_scanner.definition import Definition, BibtexSource
+pipeline = Definition("Review").bibtex_import(...).export(...).run()
+```
+
+### Adding a New Pipeline Step
+1. Create `src/paper_scanner/steps/my_step.py` extending `BaseStep`
+2. Implement `validate(config)` → returns (bool, List[str] errors)
+3. Implement `execute(config, verbose, dry_run, debug)` → returns Dict with "status", "count", "errors"
+4. Register in `src/paper_scanner/cli/tasks/run.py` StepExecutor.BUILTIN_STEPS
+5. Document in `docs/steps/my_step.md`
+
+## Project-Specific Patterns
+
+### JSONLines Format
+All streaming data uses JSONLines (one JSON object per line). No commas between objects - essential for efficient batch processing:
+```python
+# Read JSONLines
+import json
+with open("file.jsonl") as f:
+    for line in f:
+        record = json.loads(line)
+
+# Write JSONLines
+with open("file.jsonl", "w") as f:
+    for record in records:
+        f.write(json.dumps(record) + "\n")
+```
+
+### Configuration Three-Level Model
+1. **general_config**: Project-level (passed to all steps)
+2. **step_config**: Step-specific from YAML
+3. **Runtime flags**: verbose, dry_run, debug (passed during execution)
+
+### Paper Model
+Located in `src/paper_scanner/core/models.py` - Paper dataclass with fields: id, title, authors, year, doi, batch_id, file_path, tags, and analysis metadata. Database uses indexed lookups by DOI, title, year for deduplication.
+
+### Error Handling Pattern
+Return structured result dict:
+```python
+return {
+    "status": "error|success",
+    "error": "message if failed",
+    "papers_count": db.count(),
+    "count": 42,  # processed count
+    "skipped": 5
+}
+```
+
+### Markdown Format Parsing
+The parser in `src/paper_scanner/core/advanced_section_parser.py` handles multiple markdown variations:
+- `**TITLE:** value` (colon inside bold)
+- `**TITLE**: value` (colon outside bold)
+- `TITLE: value` (plain text)
+- Both `##` headers and `###` subheaders
+
+When adding new analysis fields, support all three formats.
+
+## Versioning & Branching
+
+**Semantic Versioning**: MAJOR.MINOR.PATCH in `src/paper_scanner/__init__.py`
+
+- `feat/`: New features → MINOR bump + `### Added` in CHANGELOG
+- `fix/`: Bug fixes → PATCH bump + `### Fixed` in CHANGELOG
+- `docs/`, `test/`, `refactor/`, `chore/`: No version bump
+- 'spike/': Experimental, may be discarded, no version bump, most like a new folder in tests/spikes/XXX_name
+
+## Key Files Reference
+- Database schema: `src/paper_scanner/core/models.py` (Paper dataclass)
+- Step base class: `src/paper_scanner/steps/base.py` with documentation in `docs/steps/base_step.md`
+- Pipeline executor: `src/paper_scanner/cli/tasks/run.py` (StepExecutor)
+- Step examples: `src/paper_scanner/steps/{export,deduplication,bibtex_import}.py`
+- Tests: `tests/unit/` (run with `make test` or `uv run pytest`)
+- Step docs: `docs/steps/` (reference when implementing)
+
+## Important: Pre-Alpha Status
+- Breaking changes may occur between minor versions
+- Limited to Claude API (Anthropic integration in `src/paper_scanner/core/llm.py`)
+- Test coverage critical before merging (`pytest` with coverage tracking)
+- Always update CHANGELOG.md with changes
+- Alwas use `uv` when testing
+- Do no write any extra markdown documentation unless asked

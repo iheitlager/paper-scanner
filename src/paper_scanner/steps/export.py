@@ -66,7 +66,10 @@ class ExportStep(BaseStep):
         
         if "overwrite" in config and not isinstance(config["overwrite"], bool):
             errors.append("'overwrite' must be a boolean")
-        
+
+        if "doi" in config and config['doi']not in ['only', 'true', 'false', 'none']:
+            errors.append("'doi' must be either only, true, false, or none")
+
         # Check duplicates option
         if "duplicates" in config:
             dup = config["duplicates"]
@@ -104,7 +107,8 @@ class ExportStep(BaseStep):
         exclude_none = config.get("exclude_none", True)
         duplicates_option = config.get("duplicates", False)  # false, true, or "only"
         overwrite = config.get("overwrite", False)  # Default to False - fail on existing files
-        
+        doi_flag = config.get("doi", "false").lower()  # 'only', 'true', 'false', 'none'
+
         # Expand tilde and resolve the path (only if not stdout)
         output_path = None
         if output_target and not is_stdout:
@@ -124,6 +128,11 @@ class ExportStep(BaseStep):
             papers_to_export = self.db.to_list(primary_only=True)
             duplicates_label = "unique papers only"
         
+        if doi_flag == "only" or doi_flag == "true":
+            papers_to_export = [p for p in papers_to_export if p.doi]
+        elif doi_flag == "none":
+            papers_to_export = [p for p in papers_to_export if not p.doi]
+
         results = {
             "step": "export",
             "format": output_format,

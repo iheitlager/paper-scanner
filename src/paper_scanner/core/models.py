@@ -108,6 +108,7 @@ class Citation(BaseModel):
     extraction_method: str = Field(description="grobid, crossref, manual, etc.")
     confidence: Optional[float] = Field(ge=0, le=1, default=None)
     raw_text: Optional[str] = None
+    raw_json: Optional[Dict[str, Any]] = None
 
     # Linking
     resolved_paper: Optional['Paper'] = None  # If citation matches known paper (computed)

@@ -200,18 +200,18 @@ class CitationsStep(BaseStep):
 
         if verbose:
             console.print(f"[green]Citation graph linking completed.[/green]")
-            console.print(f"\n[bold cyan]=== CITATION STATISTICS ===[/bold cyan]")
-            console.print(f"[cyan]Total papers in DB:[/cyan] {results['total_papers']}")
-            console.print(f"[cyan]Target papers processed:[/cyan] {results['target_papers']}")
-            console.print(f"[cyan]Papers with citations:[/cyan] {results['papers_with_citations']}")
-            console.print(f"[cyan]Citations fetched:[/cyan] {results['citations_fetched']}")
-            console.print(f"[cyan]Citations resolved:[/cyan] {results['citations_resolved']}")
-            console.print(f"[cyan]Citations created new papers:[/cyan] {results['citations_created_new_paper']}")
-            console.print(f"[cyan]Citations unresolved:[/cyan] {results['citations_unresolved']}")
-            console.print(f"[cyan]Forward links created:[/cyan] {results['forward_links_created']}")
-            console.print(f"[cyan]Reverse links created:[/cyan] {results['reverse_links_created']}")
-            console.print(f"[cyan]Cache hits:[/cyan] {results['cache_hits']}")
-            console.print(f"[cyan]Cache misses:[/cyan] {results['cache_misses']}")
+            console.print(f"\n[bold white]=== CITATION STATISTICS ===[/bold white]")
+            console.print(f"[white]Total papers in DB:[/white] {results['total_papers']}")
+            console.print(f"[white]Target papers processed:[/white] {results['target_papers']}")
+            console.print(f"[white]Papers with citations:[/white] {results['papers_with_citations']}")
+            console.print(f"[white]Citations fetched:[/white] {results['citations_fetched']}")
+            console.print(f"[white]Citations resolved:[/white] {results['citations_resolved']}")
+            console.print(f"[white]Citations created new papers:[/white] {results['citations_created_new_paper']}")
+            console.print(f"[white]Citations unresolved:[/white] {results['citations_unresolved']}")
+            console.print(f"[white]Forward links created:[/white] {results['forward_links_created']}")
+            console.print(f"[white]Reverse links created:[/white] {results['reverse_links_created']}")
+            console.print(f"[white]Cache hits:[/white] {results['cache_hits']}")
+            console.print(f"[white]Cache misses:[/white] {results['cache_misses']}")
             if results['errors']:
                 console.print(f"[red]Errors:[/red] {len(results['errors'])}")
                 for error in results['errors'][:5]:  # Show first 5 errors
@@ -331,6 +331,7 @@ class CitationsStep(BaseStep):
                         fetcher=fetcher,
                         continue_on_not_found=continue_on_not_found,
                         dry_run=dry_run,
+                        results=results,
                         verbose=verbose,
                         debug=debug
                     )
@@ -343,9 +344,13 @@ class CitationsStep(BaseStep):
                             results["citations_created_new_paper"] = results.get("citations_created_new_paper", 0) + 1
                     else:
                         results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
+                        if verbose:
+                            console.print(
+                                f"[red]Unresolved citation {citation.doi} in paper {paper.doi}[/red]"
+                            )
+                        if debug:
+                            console.print(f"[blue]{citation}[/blue]")
 
-                    if debug:
-                        console.print(f"[blue]Citation resolved: {resolved_paper.id if resolved_paper else 'None'}[/blue]")
 
             except Exception as e:
                 results["errors"].append(f"Resolve error for {paper.doi}: {str(e)}")
@@ -360,6 +365,7 @@ class CitationsStep(BaseStep):
         fetcher: "Fetcher",
         continue_on_not_found: bool = True,
         dry_run: bool = False,
+        results: Optional[Dict[str, Any]] = None,
         verbose: bool = False,
         debug: bool = False
     ) -> Tuple[Optional[Paper], bool]:
@@ -377,12 +383,16 @@ class CitationsStep(BaseStep):
             fetcher: Fetcher instance for metadata enrichment
             continue_on_not_found: If True, create new Paper; if False, leave unresolved
             dry_run: Don't write to database if True
+            results: Results dict to update with cache statistics (optional)
             verbose: Enable verbose output
             debug: Enable debug output
 
         Returns:
             Tuple of (resolved_paper, created_new_paper: bool)
         """
+        if results is None:
+            results = {}
+
         # Try to resolve by DOI first
         if citation.doi:
             normalized_doi = DOI(citation.doi).stem
@@ -392,8 +402,14 @@ class CitationsStep(BaseStep):
                 return paper, False
             else:
                 enriched_paper, cached = fetcher.fetch_paper(normalized_doi)
-                if cached and debug:
-                    console.print(f"[green]Cache hit for citation DOI {normalized_doi}[/green]")
+                
+                # Track cache statistics
+                if cached:
+                    results["cache_hits"] = results.get("cache_hits", 0) + 1
+                    if debug:
+                        console.print(f"[green]Cache hit for citation DOI {normalized_doi}[/green]")
+                else:
+                    results["cache_misses"] = results.get("cache_misses", 0) + 1
                 
                 # Only add if fetcher successfully returned a paper
                 if enriched_paper:
