@@ -664,3 +664,100 @@ class PapersDatabase:
         paper.duplicate_of = None
         self.update(paper)
 
+    # ========================================================================
+    # MAGIC METHODS (Pythonic interface)
+    # ========================================================================
+    
+    def __len__(self) -> int:
+        """Return the number of papers in the database (including duplicates)."""
+        return len(self.papers)
+    
+    def __bool__(self) -> bool:
+        """Return True if database has any papers."""
+        return len(self.papers) > 0
+    
+    def __getitem__(self, key):
+        """
+        Support indexing and slicing: db[0], db[1:5], db[-1]
+        
+        Args:
+            key: Integer index or slice object
+            
+        Returns:
+            Paper or list of papers
+        """
+        return self.papers[key]
+    
+    def __iter__(self):
+        """Iterate over papers in the database."""
+        return iter(self.papers)
+    
+    def __contains__(self, paper: Paper) -> bool:
+        """Check if a paper is in the database by reference or ID."""
+        if paper in self.papers:
+            return True
+        return paper.id in self._id_index
+    
+    def __repr__(self) -> str:
+        """Return string representation of database."""
+        primary = len([p for p in self.papers if p.duplicate_of is None])
+        duplicates = len(self.papers) - primary
+        return (
+            f"PapersDatabase(total={len(self.papers)}, "
+            f"primary={primary}, duplicates={duplicates})"
+        )
+    
+    def __str__(self) -> str:
+        """Return human-readable string representation."""
+        stats = self.get_stats()
+        return (
+            f"PapersDatabase: {stats['total_papers']} papers "
+            f"({stats['primary_papers']} primary, {stats['duplicate_papers']} duplicates)"
+        )
+    
+    def __eq__(self, other) -> bool:
+        """Check equality based on paper IDs (set comparison)."""
+        if not isinstance(other, PapersDatabase):
+            return False
+        my_ids = {p.id for p in self.papers}
+        other_ids = {p.id for p in other.papers}
+        return my_ids == other_ids
+    
+    def __add__(self, other: "PapersDatabase") -> "PapersDatabase":
+        """
+        Merge two databases: db1 + db2
+        
+        Creates a new database with papers from both, handling duplicates intelligently.
+        """
+        if not isinstance(other, PapersDatabase):
+            raise TypeError(f"unsupported operand type(s) for +: 'PapersDatabase' and '{type(other).__name__}'")
+        
+        merged = PapersDatabase()
+        # Add papers from self
+        merged.add_many(self.to_list(primary_only=False))
+        
+        # Add papers from other that don't already exist
+        for paper in other.papers:
+            if paper.id not in merged._id_index:
+                merged.add(paper)
+        
+        return merged
+    
+    def __sub__(self, other: "PapersDatabase") -> "PapersDatabase":
+        """
+        Remove papers from one database that exist in another: db1 - db2
+        
+        Returns a new database with papers from self that are not in other.
+        """
+        if not isinstance(other, PapersDatabase):
+            raise TypeError(f"unsupported operand type(s) for -: 'PapersDatabase' and '{type(other).__name__}'")
+        
+        other_ids = {p.id for p in other.papers}
+        result = PapersDatabase()
+        
+        for paper in self.papers:
+            if paper.id not in other_ids:
+                result.add(paper)
+        
+        return result
+

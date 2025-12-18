@@ -306,14 +306,14 @@ class REPLSession:
                 ("@run <file.yml>", "Load and execute a YAML definition file"),
                 ("@load <file.yml>", "Load YAML definition (view steps, don't execute)"),
                 ("@step", "Execute the next step in a loaded definition"),
-                ("@go", "Execute all remaining steps in a loaded definition"),
+                ("@go, @g", "Execute all remaining steps in a loaded definition"),
                 ("@checkpoint <label>", "Save checkpoint with label"),
-                ("@history", "Show step execution history"),
-                ("@show", "Display current papers"),
+                ("@history, @h", "Show step execution history"),
+                ("@show, @p", "Display current papers"),
                 ("@export <format> <path>", "Export papers (jsonl, bib, json)"),
-                ("@status", "Show session status"),
-                ("@help", "Show this message"),
-                ("@exit", "Exit REPL"),
+                ("@status, @s", "Show session status"),
+                ("@help, @?", "Show this message"),
+                ("@exit, @q", "Exit REPL"),
             ]
 
             console.print("[cyan bold]Available Macro Commands (@prefix):[/cyan bold]")
@@ -405,15 +405,33 @@ class REPLSession:
         Format:
             @command arg1 arg2 key1=value1 key2=value2
 
+        Shortcuts:
+            g -> go, h -> history, s -> status, ? -> help, p -> show, q -> exit
+
         Returns:
             (command_name, args, kwargs)
         """
+        # Shortcut mappings
+        shortcuts = {
+            "g": "go",
+            "h": "history",
+            "s": "status",
+            "?": "help",
+            "p": "show",
+            "q": "exit",
+        }
+
         # Remove @ prefix and split
         tokens = line[1:].split()
         if not tokens:
             return "", [], {}
 
         command = tokens[0]
+        
+        # Expand shortcuts
+        if command in shortcuts:
+            command = shortcuts[command]
+        
         rest = tokens[1:]
 
         # Separate positional args and kwargs
