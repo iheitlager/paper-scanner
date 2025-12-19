@@ -1,12 +1,12 @@
 """
 REPL task - Interactive shell for paper-scanner pipelines
 
-Provides an interactive Python REPL with macro commands (@command syntax) for
+Provides an interactive Python REPL with macro commands (\command syntax) for
 running paper-scanner steps via the Definition API, combined with micro mode
 (direct Python code) for full programmatic access.
 
 Two modes of interaction:
-- Macro mode: @command prefix for predefined operations (e.g., @run, @export)
+- Macro mode: \command prefix for predefined operations (e.g., \run, \export)
 - Micro mode: Plain Python code with full access to paper_scanner modules
 """
 
@@ -163,11 +163,11 @@ class REPLSession:
                 console.print(f"  - {step_name or 'unknown'}")
 
             if not execute:
-                # Store steps for @step command
+                # Store steps for \step command
                 self.loaded_definition_steps = steps
                 self.current_step_index = 0
                 console.print(f"[green]Definition loaded[/green] - {len(steps)} steps ready")
-                console.print("[dim]Use[/dim] @step to execute steps one at a time, or @run to execute all")
+                console.print("[dim]Use[/dim] \step to execute steps one at a time, or \run to execute all")
                 return
 
             # Execute each step
@@ -303,21 +303,21 @@ class REPLSession:
         def help_commands() -> None:
             """Display available macro commands"""
             commands = [
-                ("@run <file.yml>", "Load and execute a YAML definition file"),
-                ("@load <file.yml>", "Load YAML definition (view steps, don't execute)"),
-                ("@step", "Execute the next step in a loaded definition"),
-                ("@go, @g", "Execute all remaining steps in a loaded definition"),
-                ("@do, @d <step> [params]", "Execute ad-hoc step with parameters"),
-                ("@checkpoint <label>", "Save checkpoint with label"),
-                ("@history, @h", "Show step execution history"),
-                ("@show, @p", "Display current papers"),
-                ("@export <format> <path>", "Export papers (jsonl, bib, json)"),
-                ("@status, @s", "Show session status"),
-                ("@help, @?", "Show this message"),
-                ("@exit, @q", "Exit REPL"),
+                ("\\run <file.yml>", "Load and execute a YAML definition file"),
+                ("\\load <file.yml>", "Load YAML definition (view steps, don't execute)"),
+                ("\\step", "Execute the next step in a loaded definition"),
+                ("\\go, \\g", "Execute all remaining steps in a loaded definition"),
+                ("\\do, \\d <step> {params}", "Execute ad-hoc step with parameters"),
+                ("\\checkpoint <label>", "Save checkpoint with label"),
+                ("\\history, \\h", "Show step execution history"),
+                ("\\show, \\p", "Display current papers"),
+                ("\\export <format> <path>", "Export papers (jsonl, bib, json)"),
+                ("\\status, \\s", "Show session status"),
+                ("\\help, \\?", "Show this message"),
+                ("\\exit, \\q", "Exit REPL"),
             ]
 
-            console.print("[cyan bold]Available Macro Commands (@prefix):[/cyan bold]")
+            console.print("[cyan bold]Available Macro Commands (\prefix):[/cyan bold]")
             for cmd, desc in commands:
                 console.print(f"  {cmd:<40} - {desc}")
 
@@ -325,8 +325,9 @@ class REPLSession:
                 "\n[cyan bold]Namespace Objects:[/cyan bold]"
             )
             console.print(
-                f"  papers_db (PapersDatabase)     - Current papers database"
+                f"  papers_db (PapersDatabase)        - Current papers database"
             )
+            console.print(f"  db (alias)                        - Shorthand for papers_db")
             console.print(f"  definition (Definition)           - Pipeline builder")
             console.print(f"  results (Dict)                    - Last step results")
             console.print(f"  general_config (Dict)             - Session configuration")
@@ -335,6 +336,7 @@ class REPLSession:
         namespace = {
             # Core objects
             "papers_db": self.papers_db,
+            "db": self.papers_db,  # Alias for papers_db
             "definition": self.definition or Definition(self.project_id),
             "results": self.results,
             "general_config": self.general_config,
@@ -401,10 +403,10 @@ class REPLSession:
 
     def _parse_macro_command(self, line: str) -> Tuple[str, List[str], Dict[str, str]]:
         """
-        Parse @command syntax into command name, positional args, and kwargs
+        Parse \command syntax into command name, positional args, and kwargs
 
         Format:
-            @command arg1 arg2 key1=value1 key2=value2
+            \command arg1 arg2 key1=value1 key2=value2
 
         Shortcuts:
             g -> go, h -> history, s -> status, ? -> help, p -> show, q -> exit
@@ -423,7 +425,7 @@ class REPLSession:
             "q": "exit",
         }
 
-        # Remove @ prefix and split
+        # Remove \ prefix and split
         tokens = line[1:].split()
         if not tokens:
             return "", [], {}
@@ -451,30 +453,30 @@ class REPLSession:
 
     def _handle_macro_command(self, line: str) -> bool:
         """
-        Handle @command macro execution
+        Handle \command macro execution
 
         Returns:
             True if command was handled, False if should go to Python REPL
         """
-        if not line.startswith("@"):
+        if not line.startswith("\\"):
             return False
 
         command, args, kwargs = self._parse_macro_command(line)
 
         if command == "run" and args:
-            # @run <file.yml> - Load and execute YAML definition
+            # \run <file.yml> - Load and execute YAML definition
             definition_file = Path(args[0])
             self._execute_definition_file(definition_file, execute=True, verbose=self.verbose)
             return True
 
         elif command == "load" and args:
-            # @load <file.yml> - Load YAML definition without executing
+            # \load <file.yml> - Load YAML definition without executing
             definition_file = Path(args[0])
             self._execute_definition_file(definition_file, execute=False)
             return True
 
         elif command == "do" and args:
-            # @do <step_name> [params] - Execute ad-hoc step with parameters
+            # \do <step_name> [params] - Execute ad-hoc step with parameters
             step_name = args[0]
             
             # Convert string values to appropriate types
@@ -553,9 +555,9 @@ class REPLSession:
             return True
 
         elif command == "step":
-            # @step - Execute the next step in a loaded definition
+            # \step - Execute the next step in a loaded definition
             if not self.loaded_definition_steps:
-                console.print("[yellow]No definition loaded. Use @load <file.yml> first[/yellow]")
+                console.print("[yellow]No definition loaded. Use \load <file.yml> first[/yellow]")
                 return True
 
             if self.current_step_index >= len(self.loaded_definition_steps):
@@ -624,9 +626,9 @@ class REPLSession:
             return True
 
         elif command == "go":
-            # @go - Execute all remaining steps in a loaded definition
+            # \go - Execute all remaining steps in a loaded definition
             if not self.loaded_definition_steps:
-                console.print("[yellow]No definition loaded. Use @load <file.yml> first[/yellow]")
+                console.print("[yellow]No definition loaded. Use \load <file.yml> first[/yellow]")
                 return True
 
             if self.current_step_index >= len(self.loaded_definition_steps):
@@ -705,7 +707,7 @@ class REPLSession:
             return True
 
         elif command == "checkpoint" and args:
-            # @checkpoint <label>
+            # \checkpoint <label>
             label = args[0]
             if self.papers_db is None:
                 console.print("[red]No database initialized[/red]")
@@ -747,14 +749,14 @@ class REPLSession:
             return True
 
         elif command == "show":
-            # @show
+            # \show
             show_papers = self._create_namespace()["show_papers"]
             limit = int(args[0]) if args else 10
             show_papers(limit=limit)
             return True
 
         elif command == "history":
-            # @history
+            # \history
             if not self.step_history:
                 console.print("[yellow]No steps executed yet[/yellow]")
             else:
@@ -764,7 +766,7 @@ class REPLSession:
             return True
 
         elif command == "status":
-            # @status
+            # \status
             status_info = {
                 "Project ID": self.project_id,
                 "Papers in DB": self.papers_db.count() if self.papers_db else 0,
@@ -779,13 +781,13 @@ class REPLSession:
             return True
 
         elif command == "help":
-            # @help
+            # \help
             help_func = self._create_namespace()["help_commands"]
             help_func()
             return True
 
         elif command == "export" and len(args) >= 2:
-            # @export <format> <path>
+            # \export <format> <path>
             fmt = args[0]
             output_path = Path(args[1])
 
@@ -820,14 +822,14 @@ class REPLSession:
             return True
 
         elif command == "exit":
-            # @exit
+            # \exit
             console.print("[yellow]Exiting REPL[/yellow]")
             return True  # Return True to indicate command was handled, don't call sys.exit in tests
 
         else:
             # Unknown command
-            console.print(f"[red]Unknown command:[/red] @{command}")
-            console.print("[dim]Type @help for available commands[/dim]")
+            console.print(f"[red]Unknown command:[/red] \{command}")
+            console.print("[dim]Type \help for available commands[/dim]")
             return True
 
     def run(self) -> None:
@@ -836,7 +838,7 @@ class REPLSession:
         console.print("[bold cyan]paper-scanner REPL[/bold cyan]")
         console.print(f"Project: [green]{self.project_id}[/green]")
         console.print(f"Papers DB: {self.papers_db.count() if self.papers_db else 0} papers")
-        console.print("[dim]Type @help for macro commands or Ctrl+D to exit[/dim]\n")
+        console.print("[dim]Type \help for macro commands or Ctrl+D to exit[/dim]\n")
 
         # Create namespace
         namespace = self._create_namespace()
@@ -873,8 +875,8 @@ class REPLSession:
                     continue
 
                 # Check if it's a macro command
-                if line.startswith("@"):
-                    if line.startswith("@exit"):
+                if line.startswith("\\"):
+                    if line.startswith("\\exit"):
                         break
                     try:
                         self._handle_macro_command(line)
@@ -926,8 +928,8 @@ class REPLSession:
                         continue
 
                     # Check if it's a macro command
-                    if line.startswith("@"):
-                        if line.startswith("@exit"):
+                    if line.startswith("\\"):
+                        if line.startswith("\\exit"):
                             break
                         self._handle_macro_command(line)
                     else:

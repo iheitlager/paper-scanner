@@ -47,12 +47,12 @@ class TestREPLSessionInit:
 
 
 class TestMacroCommandParsing:
-    """Test @command parsing logic"""
+    """Test \command parsing logic"""
 
     def test_parse_simple_command(self):
         """Test parsing command without args"""
         session = REPLSession()
-        command, args, kwargs = session._parse_macro_command("@help")
+        command, args, kwargs = session._parse_macro_command("\\help")
 
         assert command == "help"
         assert args == []
@@ -61,7 +61,7 @@ class TestMacroCommandParsing:
     def test_parse_command_with_positional_args(self):
         """Test parsing command with positional arguments"""
         session = REPLSession()
-        command, args, kwargs = session._parse_macro_command("@export jsonl /tmp/out.jsonl")
+        command, args, kwargs = session._parse_macro_command("\\export jsonl /tmp/out.jsonl")
 
         assert command == "export"
         assert args == ["jsonl", "/tmp/out.jsonl"]
@@ -71,7 +71,7 @@ class TestMacroCommandParsing:
         """Test parsing command with keyword arguments"""
         session = REPLSession()
         command, args, kwargs = session._parse_macro_command(
-            "@export jsonl /tmp/output.jsonl key1=value1 key2=value2"
+            "\\export jsonl /tmp/output.jsonl key1=value1 key2=value2"
         )
 
         assert command == "export"
@@ -82,7 +82,7 @@ class TestMacroCommandParsing:
         """Test parsing command with mixed positional and keyword args"""
         session = REPLSession()
         command, args, kwargs = session._parse_macro_command(
-            "@export jsonl /tmp/out.jsonl limit=100 format=compact"
+            "\\export jsonl /tmp/out.jsonl limit=100 format=compact"
         )
 
         assert command == "export"
@@ -94,32 +94,32 @@ class TestMacroCommandHandling:
     """Test macro command execution"""
 
     def test_handle_status_command(self):
-        """Test @status command"""
+        """Test \status command"""
         session = REPLSession(project_id="test_project")
         session.papers_db = PapersDatabase()
 
         # Should return True (command handled)
-        result = session._handle_macro_command("@status")
+        result = session._handle_macro_command("\\status")
         assert result is True
 
     def test_handle_history_command_empty(self):
-        """Test @history with no history"""
+        """Test \history with no history"""
         session = REPLSession()
-        result = session._handle_macro_command("@history")
+        result = session._handle_macro_command("\\history")
 
         assert result is True
         assert session.step_history == []
 
     def test_handle_history_command_with_entries(self):
-        """Test @history with entries"""
+        """Test \history with entries"""
         session = REPLSession()
         session.step_history = ["Step 1 completed", "Step 2 completed"]
 
-        result = session._handle_macro_command("@history")
+        result = session._handle_macro_command("\\history")
         assert result is True
 
     def test_handle_show_command(self):
-        """Test @show command"""
+        """Test \show command"""
         session = REPLSession()
         session.papers_db = PapersDatabase()
 
@@ -139,11 +139,11 @@ class TestMacroCommandHandling:
         session.papers_db.add(paper1)
         session.papers_db.add(paper2)
 
-        result = session._handle_macro_command("@show 5")
+        result = session._handle_macro_command("\\show 5")
         assert result is True
 
     def test_handle_checkpoint_command(self):
-        """Test @checkpoint command saves checkpoint"""
+        """Test \checkpoint command saves checkpoint"""
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_dir = Path(tmpdir)
             session = REPLSession(
@@ -161,7 +161,7 @@ class TestMacroCommandHandling:
             )
             session.papers_db.add(paper)
 
-            result = session._handle_macro_command("@checkpoint my_checkpoint")
+            result = session._handle_macro_command("\\checkpoint my_checkpoint")
             assert result is True
 
             # Verify checkpoint was created
@@ -169,36 +169,36 @@ class TestMacroCommandHandling:
             assert checkpoint_path.exists()
 
     def test_handle_help_command(self):
-        """Test @help command"""
+        """Test \help command"""
         session = REPLSession()
-        result = session._handle_macro_command("@help")
+        result = session._handle_macro_command("\\help")
 
         assert result is True
 
     def test_handle_exit_command(self):
-        """Test @exit command"""
+        """Test \exit command"""
         session = REPLSession()
 
-        # @exit should return True (indicating command was handled)
-        result = session._handle_macro_command("@exit")
+        # \exit should return True (indicating command was handled)
+        result = session._handle_macro_command("\\exit")
         assert result is True
 
     def test_handle_unknown_command(self):
-        """Test handling unknown @command"""
+        """Test handling unknown \command"""
         session = REPLSession()
-        result = session._handle_macro_command("@unknown_command")
+        result = session._handle_macro_command("\\unknown_command")
 
         assert result is True
 
     def test_non_macro_line(self):
-        """Test that non-@ lines return False"""
+        """Test that non-\ lines return False"""
         session = REPLSession()
         result = session._handle_macro_command("print('hello')")
 
         assert result is False
 
     def test_handle_export_jsonl_command(self):
-        """Test @export jsonl command"""
+        """Test \export jsonl command"""
         with tempfile.TemporaryDirectory() as tmpdir:
             session = REPLSession()
             session.papers_db = PapersDatabase()
@@ -213,13 +213,13 @@ class TestMacroCommandHandling:
             session.papers_db.add(paper)
 
             output_path = Path(tmpdir) / "output.jsonl"
-            result = session._handle_macro_command(f"@export jsonl {output_path}")
+            result = session._handle_macro_command(f"\\export jsonl {output_path}")
 
             assert result is True
             assert output_path.exists()
 
     def test_handle_export_json_command(self):
-        """Test @export json command"""
+        """Test \export json command"""
         with tempfile.TemporaryDirectory() as tmpdir:
             session = REPLSession()
             session.papers_db = PapersDatabase()
@@ -234,7 +234,7 @@ class TestMacroCommandHandling:
             session.papers_db.add(paper)
 
             output_path = Path(tmpdir) / "output.json"
-            result = session._handle_macro_command(f"@export json {output_path}")
+            result = session._handle_macro_command(f"\\export json {output_path}")
 
             assert result is True
             assert output_path.exists()

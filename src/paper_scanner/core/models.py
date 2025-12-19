@@ -656,10 +656,17 @@ class Paper(BaseModel):
             base += 0.25
         return min(base, 1.0)
 
+    # =============
+    # Magic Methods
+    # =============
+
     def __str__(self) -> str:
         return f"{self.cite_key}: {self.title[:60]}... ({self.year})"
 
-
+    def __repr__(self) -> str:
+        """Simplified repr to avoid infinite recursion with circular references"""
+        title_preview = self.title[:40] + "..." if self.title and len(self.title) > 40 else self.title or "N/A"
+        return f"Paper(id={self.id!r}, cite_key={self.cite_key!r}, title={title_preview!r}, year={self.year})"
 # ============================================================================
 # COLLECTION/BATCH MODEL
 # ============================================================================
