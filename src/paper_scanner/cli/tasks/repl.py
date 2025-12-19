@@ -1,5 +1,4 @@
-"""
-REPL task - Interactive shell for paper-scanner pipelines
+r"""REPL task - Interactive shell for paper-scanner pipelines
 
 Provides an interactive Python REPL with macro commands (\command syntax) for
 running paper-scanner steps via the Definition API, combined with micro mode
@@ -95,12 +94,6 @@ class REPLSession:
             return
 
         try:
-            with open(definition_path) as f:
-                definition_data = yaml.safe_load(f)
-
-            project_name = definition_data.get("project_name", "Loaded Project")
-            console.print(f"[green]Loaded project:[/green] {project_name}")
-
             # Create database and load from checkpoint if exists
             self.papers_db = PapersDatabase()
             checkpoint_path = (
@@ -113,16 +106,9 @@ class REPLSession:
                 self.step_history.append(
                     f"Loaded checkpoint: {checkpoint_path} ({self.papers_db.count()} papers)"
                 )
-            else:
-                console.print(
-                    "[yellow]No checkpoint found, starting with empty database[/yellow]"
-                )
-
-            self.results = {
-                "project": project_name,
-                "papers_loaded": self.papers_db.count(),
-                "checkpoint_path": str(checkpoint_path),
-            }
+            
+            # Execute the definition file
+            self._execute_definition_file(definition_path, execute=True, verbose=self.verbose)
 
         except Exception as e:
             console.print(f"[red]Error loading definition:[/red] {e}")
@@ -167,7 +153,7 @@ class REPLSession:
                 self.loaded_definition_steps = steps
                 self.current_step_index = 0
                 console.print(f"[green]Definition loaded[/green] - {len(steps)} steps ready")
-                console.print("[dim]Use[/dim] \step to execute steps one at a time, or \run to execute all")
+                console.print(r"[dim]Use[/dim] \step to execute steps one at a time, or \run to execute all")
                 return
 
             # Execute each step
@@ -317,7 +303,7 @@ class REPLSession:
                 ("\\exit, \\q", "Exit REPL"),
             ]
 
-            console.print("[cyan bold]Available Macro Commands (\prefix):[/cyan bold]")
+            console.print(r"[cyan bold]Available Macro Commands (\prefix):[/cyan bold]")
             for cmd, desc in commands:
                 console.print(f"  {cmd:<40} - {desc}")
 
@@ -402,7 +388,7 @@ class REPLSession:
             return {"status": "error", "error": str(e)}
 
     def _parse_macro_command(self, line: str) -> Tuple[str, List[str], Dict[str, str]]:
-        """
+        r"""
         Parse \command syntax into command name, positional args, and kwargs
 
         Format:
@@ -452,7 +438,7 @@ class REPLSession:
         return command, args, kwargs
 
     def _handle_macro_command(self, line: str) -> bool:
-        """
+        r"""
         Handle \command macro execution
 
         Returns:
@@ -557,7 +543,7 @@ class REPLSession:
         elif command == "step":
             # \step - Execute the next step in a loaded definition
             if not self.loaded_definition_steps:
-                console.print("[yellow]No definition loaded. Use \load <file.yml> first[/yellow]")
+                console.print(r"[yellow]No definition loaded. Use \load <file.yml> first[/yellow]")
                 return True
 
             if self.current_step_index >= len(self.loaded_definition_steps):
@@ -628,7 +614,7 @@ class REPLSession:
         elif command == "go":
             # \go - Execute all remaining steps in a loaded definition
             if not self.loaded_definition_steps:
-                console.print("[yellow]No definition loaded. Use \load <file.yml> first[/yellow]")
+                console.print(r"[yellow]No definition loaded. Use \load <file.yml> first[/yellow]")
                 return True
 
             if self.current_step_index >= len(self.loaded_definition_steps):
@@ -828,8 +814,8 @@ class REPLSession:
 
         else:
             # Unknown command
-            console.print(f"[red]Unknown command:[/red] \{command}")
-            console.print("[dim]Type \help for available commands[/dim]")
+            console.print(rf"[red]Unknown command:[/red] \{command}")
+            console.print(r"[dim]Type \help for available commands[/dim]")
             return True
 
     def run(self) -> None:
@@ -838,7 +824,7 @@ class REPLSession:
         console.print("[bold cyan]paper-scanner REPL[/bold cyan]")
         console.print(f"Project: [green]{self.project_id}[/green]")
         console.print(f"Papers DB: {self.papers_db.count() if self.papers_db else 0} papers")
-        console.print("[dim]Type \help for macro commands or Ctrl+D to exit[/dim]\n")
+        console.print(r"[dim]Type \help for macro commands or Ctrl+D to exit[/dim]" + "\n")
 
         # Create namespace
         namespace = self._create_namespace()
@@ -876,7 +862,7 @@ class REPLSession:
 
                 # Check if it's a macro command
                 if line.startswith("\\"):
-                    if line.startswith("\\exit"):
+                    if line.startswith("\\exit") or line.startswith("\\q"):
                         break
                     try:
                         self._handle_macro_command(line)
@@ -929,7 +915,7 @@ class REPLSession:
 
                     # Check if it's a macro command
                     if line.startswith("\\"):
-                        if line.startswith("\\exit"):
+                        if line.startswith("\\exit") or line.startswith("\\q"):
                             break
                         self._handle_macro_command(line)
                     else:
