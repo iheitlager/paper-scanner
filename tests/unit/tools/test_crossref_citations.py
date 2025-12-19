@@ -238,7 +238,7 @@ class TestCrossrefCitationExtraction:
 
     def test_calculate_confidence_perfect_score(self, handler):
         """Test confidence calculation with all fields."""
-        confidence = handler._calculate_confidence(
+        confidence = handler._calculate_citation_confidence(
             doi="10.1234/test",
             title="A complete and meaningful title",
             year=2020,
@@ -250,7 +250,7 @@ class TestCrossrefCitationExtraction:
 
     def test_calculate_confidence_no_doi(self, handler):
         """Test confidence without DOI."""
-        confidence = handler._calculate_confidence(
+        confidence = handler._calculate_citation_confidence(
             doi=None,
             title="A meaningful title",
             year=2020,
@@ -262,7 +262,7 @@ class TestCrossrefCitationExtraction:
 
     def test_calculate_confidence_short_title(self, handler):
         """Test confidence with short title."""
-        confidence = handler._calculate_confidence(
+        confidence = handler._calculate_citation_confidence(
             doi="10.1234/test",
             title="Short",
             year=2020,
@@ -274,7 +274,7 @@ class TestCrossrefCitationExtraction:
 
     def test_calculate_confidence_only_base(self, handler):
         """Test minimum confidence with no extra fields."""
-        confidence = handler._calculate_confidence(
+        confidence = handler._calculate_citation_confidence(
             doi=None,
             title=None,
             year=None,
@@ -287,7 +287,7 @@ class TestCrossrefCitationExtraction:
     def test_calculate_confidence_capped_at_1(self, handler):
         """Test confidence is capped at 1.0."""
         # Try to add more than possible
-        confidence = handler._calculate_confidence(
+        confidence = handler._calculate_citation_confidence(
             doi="10.1234/test",
             title="A very meaningful and long title here",
             year=2020,
@@ -416,7 +416,7 @@ class TestCrossrefCitationExtraction:
 
     def test_calculate_confidence_with_empty_authors(self, handler):
         """Test confidence calculation with empty authors list."""
-        confidence = handler._calculate_confidence(
+        confidence = handler._calculate_citation_confidence(
             doi="10.1234/test",
             title="Title",
             year=2020,
@@ -427,7 +427,7 @@ class TestCrossrefCitationExtraction:
 
     def test_calculate_confidence_with_short_author_name(self, handler):
         """Test confidence with very short author name."""
-        confidence = handler._calculate_confidence(
+        confidence = handler._calculate_citation_confidence(
             doi=None,
             title="Meaningful title here",
             year=None,

@@ -13,6 +13,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [2.5.0] - 2025-12-19
+
+### Added
+
+- **Interactive REPL command loop**: Full-featured Python REPL with integrated paper-scanner macro commands
+  - Dual-mode interface: Macro mode (`\command` prefix) for high-level operations and Micro mode (plain Python) for programmatic access
+  - Built-in macro commands: `\run`, `\list`, `\steps`, `\export`, `\db`, `\help`, `\exit`
+  - Macro command auto-completion with step suggestion
+  - Paper-scanner Definition API integration for building and running pipelines interactively
+  - Command history persistence across sessions (stored in `~/.cache/paper-scanner/.repl_history`)
+  - Full Python introspection with rich IDE-like environment containing:
+    - Direct database access (`db` object)
+    - All paper-scanner modules pre-imported
+    - Helper functions for common tasks
+    - Access to pipeline definition API
+  - Comprehensive help system (`\help` command) with examples and reference
+  - Support for multiline Python input with syntax validation
+  - Graceful error handling with informative error messages
+  - Cross-platform compatibility with optional `prompt_toolkit` for enhanced UX (readline fallback on Unix)
+  - Full test suite with 55+ tests covering all REPL modes and commands
+
+- **OpenAlex API handler**: New metadata and citation fetcher for OpenAlex API
+  - DOI-based work lookup with inverted index abstract reconstruction
+  - Metadata extraction: title, authors, abstract, keywords, venue, open access status
+  - Citation fetching with counts and references
+  - Cache integration for efficient lookups
+  - Full test suite with 15+ tests
+
+- **Complete step documentation**: Added comprehensive documentation for two previously undocumented steps
+  - `citations.md`: Three-pass citation extraction and graph building with examples and patterns
+  - `retrieve_metadata.md`: Metadata enrichment from external APIs with workflow patterns
+
+- **Test improvements**:
+  - Comprehensive test suite for `test_citations_backward.py` with 25 tests covering all three citation passes (fetch, resolve, link) and execute integration
+  - Enhanced mock setup for database fixtures with proper return value configuration
+  - Full coverage of validation, execution, error handling, and edge cases
+
+### Changed
+
+- **Fetcher architecture expansion**: Extended pluggable handler design to support OpenAlex alongside Crossref
+  - Unified interface for both citation and metadata fetching
+  - Configurable primary and fallback fetcher sources
+  - Seamless integration with existing cache layer
+
+- **Documentation organization**: Updated docs/README.md and main README.md with complete step inventory
+  - Organized all 15 documented main steps with descriptions
+  - Clarified distinction between main steps and utility steps (dump_db, paper)
+  - Added cross-references between related steps
+  - Enhanced workflow pattern examples
+
+- **CLI help system**: Extended CLI help to include information about available steps in error messages
+
+### Fixed
+
+- **Citation resolution edge cases**: Improved error handling for unresolved citations
+  - Proper exception catching for citations without DOI when `continue_on_not_found=False`
+  - Error logging to optional `output_errors` file for audit trail
+  - Bidirectional link prevention to avoid duplicate citation relationships
+
+- **Step registry consistency**: Ensured all 17 registered steps (15 main + 2 utility) are properly loaded and available
+
 ## [2.4.0] - 2025-12-14
 
 ### Added

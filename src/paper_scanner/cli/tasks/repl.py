@@ -27,9 +27,12 @@ from rich.syntax import Syntax
 try:
     from prompt_toolkit import PromptSession
     from prompt_toolkit.history import FileHistory
-    from prompt_toolkit.lexers import PythonLexer
+    from prompt_toolkit.lexers import PygmentsLexer
+    from pygments.lexers.python import PythonLexer
     from prompt_toolkit.validation import Validator, ValidationError
     from prompt_toolkit.enums import EditingMode
+    from prompt_toolkit.completion import WordCompleter
+    from prompt_toolkit.styles import Style
     HAS_PROMPT_TOOLKIT = True
 except ImportError:
     HAS_PROMPT_TOOLKIT = False
@@ -321,6 +324,10 @@ class REPLSession:
                 ("\\step", "Execute the next step in a loaded definition"),
                 ("\\go, \\g", "Execute all remaining steps in a loaded definition"),
                 ("\\do, \\d <step> {params}", "Execute ad-hoc step with parameters"),
+                ("  Examples:", ""),
+                ("    \\do summarize summary=true", "Simple parameter"),
+                ("    \\do summarize tabulate[field=paper_type]", "Nested config"),
+                ("    \\do summarize tabulate[field=paper_type,duplicates=false]", "Multiple nested params"),
                 ("\\checkpoint <label>", "Save checkpoint with label"),
                 ("\\history, \\h", "Show step execution history"),
                 ("\\show, \\p", "Display current papers"),
@@ -332,7 +339,10 @@ class REPLSession:
 
             console.print(r"[cyan bold]Available Macro Commands (\prefix):[/cyan bold]")
             for cmd, desc in commands:
-                console.print(f"  {cmd:<40} - {desc}")
+                if desc:
+                    console.print(f"  {cmd:<40} - {desc}")
+                else:
+                    console.print(f"  {cmd:<40}")
 
             console.print(
                 "\n[cyan bold]Namespace Objects:[/cyan bold]"
@@ -414,15 +424,16 @@ class REPLSession:
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-    def _parse_macro_command(self, line: str) -> Tuple[str, List[str], Dict[str, str]]:
+    def _parse_macro_command(self, line: str) -> Tuple[str, List[str], Dict[str, Any]]:
         r"""
         Parse \command syntax into command name, positional args, and kwargs
 
         Format:
             \command arg1 arg2 key1=value1 key2=value2
+            \command arg1 nested[key1=val1,key2=val2]
 
         Shortcuts:
-            g -> go, h -> history, s -> status, ? -> help, p -> show, q -> exit
+            d -> do, g -> go, h -> history, s -> status, ? -> help, p -> show, q -> exit
 
         Returns:
             (command_name, args, kwargs)
@@ -432,6 +443,7 @@ class REPLSession:
             "d": "do",
             "g": "go",
             "h": "history",
+            "n": "step",
             "s": "status",
             "?": "help",
             "p": "show",
@@ -456,6 +468,23 @@ class REPLSession:
         kwargs = {}
 
         for token in rest:
+            # Check for nested config: key[nested_params]
+            if "[" in token and "]" in token:
+                match = re.match(r"(\w+)\[(.*)\]", token)
+                if match:
+                    key = match.group(1)
+                    nested_str = match.group(2)
+                    
+                    # Parse nested parameters
+                    nested_config = {}
+                    for param in nested_str.split(","):
+                        if "=" in param:
+                            k, v = param.split("=", 1)
+                            nested_config[k.strip()] = v.strip()
+                    
+                    kwargs[key] = nested_config if nested_config else True
+                    continue
+            
             if "=" in token:
                 key, value = token.split("=", 1)
                 kwargs[key] = value
@@ -493,8 +522,13 @@ class REPLSession:
             step_name = args[0]
             
             # Convert string values to appropriate types
-            def parse_value(v: str) -> Any:
-                """Parse string values to Python types"""
+            def parse_value(v: Any) -> Any:
+                """Parse values to Python types"""
+                if isinstance(v, dict):
+                    # Recursively parse nested dictionaries
+                    return {k: parse_value(val) for k, val in v.items()}
+                if not isinstance(v, str):
+                    return v
                 if v.lower() == "true":
                     return True
                 elif v.lower() == "false":
@@ -863,118 +897,162 @@ class REPLSession:
             self._run_with_basic_input(namespace)
 
     def _run_with_prompt_toolkit(self, namespace: Dict[str, Any]) -> None:
-        """Run REPL with prompt_toolkit for full history and arrow key support with manual multiline"""
-        # Create history file in cache directory
+        """Run REPL with prompt_toolkit for full history and arrow key support"""
+        if self.debug:
+            console.print("[dim]Using prompt_toolkit for REPL[/dim]")
+        
+        # Setup history file with manual persistence
+        session = None
+        history_file = None
+        history_obj = None
         try:
-            history_dir = self.cache_dir / self.project_id
+            history_dir = self.cache_dir  / self.project_id 
             history_dir.mkdir(parents=True, exist_ok=True)
+            # Use single shared history file for all sessions (not per-project)
             history_file = history_dir / ".repl_history"
+            if self.debug:
+                console.print(f"[dim]History file: {history_file}[/dim]")
+                console.print(f"[dim]History file exists: {history_file.exists()}[/dim]")
+                if history_file.exists():
+                    console.print(f"[dim]History file size: {history_file.stat().st_size} bytes[/dim]")
+            
+            # Create FileHistory object
+            history_obj = FileHistory(str(history_file))
+            
             session = PromptSession(
-                history=FileHistory(str(history_file)),
-                lexer=PythonLexer(),
+                completer=WordCompleter([], ignore_case=True),
+                style=Style.from_dict({
+                    'completion-menu.completion': 'bg:#008888 #ffffff',
+                    'completion-menu.completion.current': 'bg:#00aaaa #000000',
+                    'prompt': '#00aa00 bold',
+                }),
+                history=history_obj,
+                lexer=PygmentsLexer(PythonLexer),
+                enable_history_search=True,
+                validate_while_typing=True,
             )
         except Exception as e:
+            console.print(f"[yellow]Warning: Could not set up history:[/yellow] {e}")
             if self.debug:
-                console.print(f"[yellow]Warning: Could not set up history:[/yellow] {e}")
+                import traceback
+                traceback.print_exc()
             try:
-                session = PromptSession(lexer=PythonLexer())
+                session = PromptSession(lexer=PygmentsLexer(PythonLexer))
             except Exception:
                 session = PromptSession()
 
-        while True:
-            try:
-                # Show status line
-                status_line = self._get_status_line()
-                console.print(status_line)
-                
-                # Get input with history support, arrow keys, and automatic multiline
-                # If code is incomplete (unclosed brackets, colon without body, etc),
-                # pressing Enter creates a new line with "... " prompt instead of executing
-                line = session.prompt(">>> ")
-                
-                # Handle multiline input by accumulating lines until we have complete code
-                accumulated = line
-                indent_level = 0
-                while not _is_code_complete(accumulated):
-                    try:
-                        # Calculate indentation for next line
-                        last_line = accumulated.split('\n')[-1]
-                        if last_line.rstrip().endswith(':'):
-                            indent_level = len(last_line) - len(last_line.lstrip()) + 4
-                        
-                        # Build prompt with indentation as visual cue
-                        indent_str = " " * indent_level
-                        continuation = session.prompt(f"... {indent_str}")
-                        # Prepend indentation to the user's input
-                        accumulated += "\n" + indent_str + continuation
-                    except EOFError:
-                        # Ctrl+D pressed - try to execute what we have or raise error
-                        break
-                
-                if self.debug:
-                    console.print(f"[dim]DEBUG: accumulated code is_complete={_is_code_complete(accumulated)}[/dim]")
-
-                if not accumulated.strip():
-                    continue
-
-                # Check if it's a macro command (only first line for multiline)
-                first_line = accumulated.split('\n')[0] if '\n' in accumulated else accumulated
-                if first_line.startswith("\\"):
-                    if first_line.startswith("\\exit") or first_line.startswith("\\q"):
-                        break
-                    try:
-                        self._handle_macro_command(first_line.strip())
-                    except Exception as e:
-                        console.print(f"[red]Error in macro command:[/red] {e}")
-                        if self.debug:
-                            import traceback
-                            traceback.print_exc()
-                else:
-                    # Execute as Python code (supports multiline)
-                    # Dedent the code to handle indented blocks properly
-                    code_to_exec = textwrap.dedent(accumulated)
-                    try:
-                        # Try eval first (for expressions)
-                        result = eval(code_to_exec, namespace)
-                        if result is not None:
-                            print(repr(result))
-                    except SyntaxError as e:
-                        # Fall back to exec for statements
+        try:
+            while True:
+                try:
+                    # Show status line
+                    status_line = self._get_status_line()
+                    console.print(status_line)
+                    
+                    # Get input - let prompt_toolkit handle history
+                    line = session.prompt(">>> ")
+                    
+                    # Accumulate multiline input manually for incomplete code
+                    accumulated = line
+                    while not _is_code_complete(accumulated):
                         try:
-                            exec(code_to_exec, namespace)
-                        except SyntaxError as syntax_err:
-                            # Show syntax error with details
-                            console.print(f"[red]SyntaxError:[/red] {syntax_err.msg}")
-                            if syntax_err.text:
-                                console.print(f"  {syntax_err.text.rstrip()}")
-                                if syntax_err.offset:
-                                    console.print(f"  {' ' * (syntax_err.offset - 1)}^")
+                            # Calculate indentation for next line
+                            last_line = accumulated.split('\n')[-1]
+                            if last_line.rstrip().endswith(':'):
+                                indent_level = len(last_line) - len(last_line.lstrip()) + 4
+                            else:
+                                indent_level = 0
+                            
+                            # Get continuation line with indentation prompt
+                            indent_str = " " * indent_level
+                            continuation = session.prompt(f"... {indent_str}")
+                            accumulated += "\n" + indent_str + continuation
+                        except EOFError:
+                            break
+                    
+                    if not accumulated.strip():
+                        continue
+
+                    # Manually append to history file for persistence
+                    if history_file:
+                        try:
+                            with open(history_file, 'a') as f:
+                                f.write(accumulated + '\n')
+                        except Exception as e:
+                            if self.debug:
+                                console.print(f"[yellow]Warning: Could not write to history file:[/yellow] {e}")
+
+                    # Check if it's a macro command (only first line for multiline)
+                    first_line = accumulated.split('\n')[0] if '\n' in accumulated else accumulated
+                    if first_line.startswith("\\"):
+                        if first_line.startswith("\\exit") or first_line.startswith("\\q"):
+                            break
+                        try:
+                            self._handle_macro_command(first_line.strip())
+                        except Exception as e:
+                            console.print(f"[red]Error in macro command:[/red] {e}")
                             if self.debug:
                                 import traceback
                                 traceback.print_exc()
+                    else:
+                        # Execute as Python code (supports multiline)
+                        # Dedent the code to handle indented blocks properly
+                        code_to_exec = textwrap.dedent(accumulated)
+                        try:
+                            # Try eval first (for expressions)
+                            result = eval(code_to_exec, namespace)
+                            if result is not None:
+                                print(repr(result))
+                        except SyntaxError as e:
+                            # Fall back to exec for statements
+                            try:
+                                exec(code_to_exec, namespace)
+                            except SyntaxError as syntax_err:
+                                # Show syntax error with details
+                                console.print(f"[red]SyntaxError:[/red] {syntax_err.msg}")
+                                if syntax_err.text:
+                                    console.print(f"  {syntax_err.text.rstrip()}")
+                                if syntax_err.offset:
+                                    console.print(f"  {' ' * (syntax_err.offset - 1)}^")
+                                if self.debug:
+                                    import traceback
+                                    traceback.print_exc()
+                            except Exception as e:
+                                console.print(f"[red]Error:[/red] {e}")
+                                if self.debug:
+                                    import traceback
+                                    traceback.print_exc()
                         except Exception as e:
                             console.print(f"[red]Error:[/red] {e}")
                             if self.debug:
                                 import traceback
                                 traceback.print_exc()
-                    except Exception as e:
-                        console.print(f"[red]Error:[/red] {e}")
-                        if self.debug:
-                            import traceback
-                            traceback.print_exc()
 
-            except KeyboardInterrupt:
-                console.print("\n[yellow]Interrupted[/yellow]")
-            except EOFError:
-                break
-            except Exception as e:
-                console.print(f"[red]Unexpected error in REPL loop:[/red] {e}")
-                if self.debug:
-                    import traceback
-                    traceback.print_exc()
+                except KeyboardInterrupt:
+                    console.print("\n[yellow]Interrupted[/yellow]")
+                except EOFError:
+                    break
+                except Exception as e:
+                    console.print(f"[red]Unexpected error in REPL loop:[/red] {e}")
+                    if self.debug:
+                        import traceback
+                        traceback.print_exc()
+        finally:
+            # Ensure history is flushed
+            if history_obj is not None:
+                try:
+                    # Force flush of the history object
+                    if hasattr(history_obj, '_file_obj') and history_obj._file_obj:
+                        history_obj._file_obj.flush()
+                    if self.debug:
+                        console.print(f"[dim]History flushed[/dim]")
+                except Exception as e:
+                    if self.debug:
+                        console.print(f"[yellow]Warning: Could not flush history:[/yellow] {e}")
 
     def _run_with_basic_input(self, namespace: Dict[str, Any]) -> None:
         """Fallback REPL using basic input() (readline available on Unix)"""
+        if self.debug:
+            console.print("[dim]Using basic input() for REPL[/dim]")
         try:
             while True:
                 try:

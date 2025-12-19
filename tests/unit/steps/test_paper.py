@@ -128,7 +128,7 @@ class TestPaperStepExecution:
         config = {"papers": [{"doi": "10.1000/182"}]}
         result = self.step.execute(config, dry_run=True)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["count"] == 1
         assert len(result["papers"]) == 1
 
@@ -148,7 +148,7 @@ class TestPaperStepExecution:
         config = {"papers": [{"doi": "10.1000/182", "cite_key": "custom_key"}]}
         result = self.step.execute(config, dry_run=True)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["count"] == 1
 
     def test_execute_sets_paper_type(self):
@@ -159,7 +159,7 @@ class TestPaperStepExecution:
         }]}
         result = self.step.execute(config, dry_run=True)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["count"] == 1
 
     def test_execute_persists_to_database_when_not_dry_run(self):
@@ -167,7 +167,7 @@ class TestPaperStepExecution:
         config = {"papers": [{"doi": "10.1000/182"}]}
         result = self.step.execute(config, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert self.mock_db.add.call_count == 1
 
     def test_execute_skips_database_on_dry_run(self):
@@ -175,7 +175,7 @@ class TestPaperStepExecution:
         config = {"papers": [{"doi": "10.1000/182"}]}
         result = self.step.execute(config, dry_run=True)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert self.mock_db.add.call_count == 0
 
     def test_execute_handles_multiple_papers(self):
@@ -187,7 +187,7 @@ class TestPaperStepExecution:
         ]}
         result = self.step.execute(config, dry_run=True)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["count"] == 3
 
     def test_execute_handles_invalid_doi_gracefully(self):
@@ -212,7 +212,7 @@ class TestPaperStepExecution:
         }]}
         result = self.step.execute(config, dry_run=True)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["count"] == 1
 
     def test_execute_sets_discovery_method(self):
@@ -220,7 +220,7 @@ class TestPaperStepExecution:
         config = {"papers": [{"doi": "10.1000/182"}]}
         result = self.step.execute(config, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         # Verify add was called with a Paper object
         call_args = self.mock_db.add.call_args[0][0]
         assert isinstance(call_args, Paper)
@@ -231,7 +231,7 @@ class TestPaperStepExecution:
         config = {"papers": [{"doi": "https://doi.org/10.1000/182"}]}
         result = self.step.execute(config, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         call_args = self.mock_db.add.call_args[0][0]
         assert call_args.doi == "10.1000/182"
 
@@ -240,7 +240,7 @@ class TestPaperStepExecution:
         config = {"papers": [{"doi": "10.1000/182"}]}
         result = self.step.execute(config, verbose=True, dry_run=True)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         # Verbose output goes to stderr through console
 
     def test_execute_error_handling(self):
@@ -287,7 +287,7 @@ class TestPaperStepIntegration:
         
         result = step.execute(config, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["count"] == 2
         assert mock_db.add.call_count == 2
         
@@ -321,7 +321,7 @@ class TestPaperStepIntegration:
         
         result = step.execute(config, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["count"] == 3
         
         # All should be normalized to stem format

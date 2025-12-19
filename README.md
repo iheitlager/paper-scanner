@@ -1,6 +1,6 @@
 # paper-scanner
 
-![Version](https://img.shields.io/badge/version-2.4.0-blue)
+![Version](https://img.shields.io/badge/version-2.5.0-blue)
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
@@ -147,6 +147,41 @@ python -m paper_scanner.cli run definition.yml
 # Resume from checkpoint
 python -m paper_scanner.cli run definition.yml --checkpoint last
 ```
+
+For complete documentation on all available steps, see [Step Documentation](docs/README.md).
+
+## Available Steps
+
+The pipeline includes **15 main built-in steps** organized into 6 categories:
+
+### Data Import
+- `bibtex_import` - Load papers from BibTeX files with batch tracking
+- `input` - Import papers from JSON Lines files or stdin  
+- `load_files` - Extract metadata from PDF files and fetch from Crossref
+
+### Data Maintenance
+- `patch` - Update existing papers by DOI with field replacements and appends
+
+### Data Quality
+- `deduplication` - Remove duplicate papers using multi-method matching
+- `categorization` - Filter by publication type and quality
+
+### Citation Management
+- `citations` - Extract and resolve backward citations, build citation graph
+- `retrieve_metadata` - Enrich papers with complete metadata from external APIs
+
+### Screening & Filtering
+- `keyword_screening` - Filter using inclusion/exclusion keywords
+- `semantic_screening` - Filter using embedding-based relevance
+
+### Checkpoints & Control Flow
+- `checkpoint` - Save pipeline state for resuming
+- `echo` - Display informational messages
+- `halt` - Conditionally stop pipeline execution
+
+### Output & Reporting
+- `summarize` - Display statistics and screening results
+- `export` - Export papers in multiple formats (JSONL, BibTeX, CSV)
 
 For complete documentation on all available steps, see [Step Documentation](docs/README.md).
 

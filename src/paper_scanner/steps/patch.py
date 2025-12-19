@@ -201,7 +201,7 @@ class PatchStep(BaseStep):
 
         if not patches:
             return {
-                "status": "success",
+                "status": "ok",
                 "message": "No patches to apply",
                 "patches_found": 0,
                 "patches_applied": 0,

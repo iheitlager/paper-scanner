@@ -210,18 +210,6 @@ class SummarizeStep(BaseStep):
             console.print(f"    Papers with DOI: [cyan]{with_doi}[/cyan]")
             console.print(f"    Papers with abstract: [cyan]{with_abstract}[/cyan]")
             console.print(f"    Unique keywords: [cyan]{unique_keywords}[/cyan]")
-            
-            if sources:
-                sources_str = str(dict(sources))
-                console.print(f"    Sources: [dim]{sources_str}[/dim]")
-            
-            if screening_status:
-                status_str = str(dict(screening_status))
-                console.print(f"    Screening status: [dim]{status_str}[/dim]")
-            
-            if paper_types:
-                types_str = str(dict(paper_types))
-                console.print(f"    Paper types: [dim]{types_str}[/dim]")
         
         # Generate tables if requested
         if verbose and tabulate_configs:

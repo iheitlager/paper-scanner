@@ -78,13 +78,13 @@ class TestValidate:
 
     def test_validate_empty_config(self):
         """Should validate with empty config"""
-        is_valid, errors = DumpDbStep.validate({})
+        is_valid, errors = DumpDbStep.validate({"papers": True})
         assert is_valid
         assert errors == []
 
     def test_validate_with_extra_params(self):
         """Should validate even with extra unexpected parameters (ignored)"""
-        config = {"unused_param": "value"}
+        config = {"papers": True, "unused_param": "value"}
         is_valid, errors = DumpDbStep.validate(config)
         assert is_valid
         assert errors == []
@@ -100,10 +100,10 @@ class TestExecute:
     def test_execute_empty_database(self, empty_db, temp_cache_dir):
         """Should handle empty database gracefully"""
         step = DumpDbStep(general_config={}, db=empty_db, cache_dir=temp_cache_dir)
-        result = step.execute({})
+        result = step.execute({"papers": True})
 
-        assert result["status"] == "success"
-        assert result["records_printed"] == 0
+        assert result["status"] == "ok"
+        assert result["printed_papers"] == 0
         assert result["index_sizes"]["papers"] == 0
         assert result["index_sizes"]["_doi_index"] == 0
         assert result["index_sizes"]["_cite_key_index"] == 0
@@ -112,10 +112,10 @@ class TestExecute:
     def test_execute_with_sample_data(self, sample_db, temp_cache_dir):
         """Should print all records and index statistics"""
         step = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
-        result = step.execute({})
+        result = step.execute({"papers": True})
 
-        assert result["status"] == "success"
-        assert result["records_printed"] == 3
+        assert result["status"] == "ok"
+        assert result["printed_papers"] == 3
         assert result["index_sizes"]["papers"] == 3
         assert result["index_sizes"]["_cite_key_index"] == 3
         assert result["index_sizes"]["_id_index"] == 3
@@ -125,7 +125,7 @@ class TestExecute:
     def test_execute_index_consistency(self, sample_db, temp_cache_dir):
         """Should show consistent index sizes"""
         step = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
-        result = step.execute({})
+        result = step.execute({"papers": True})
 
         index_sizes = result["index_sizes"]
         
@@ -140,22 +140,22 @@ class TestExecute:
         """Should produce same output regardless of verbose flag"""
         step1 = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
         step2 = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
-        result1 = step1.execute({}, verbose=False)
-        result2 = step2.execute({}, verbose=True)
+        result1 = step1.execute({"papers": True}, verbose=False)
+        result2 = step2.execute({"papers": True}, verbose=True)
 
         assert result1["status"] == result2["status"]
-        assert result1["records_printed"] == result2["records_printed"]
+        assert result1["printed_papers"] == result2["printed_papers"]
         assert result1["index_sizes"] == result2["index_sizes"]
     
     def test_execute_dry_run_ignored(self, sample_db, temp_cache_dir):
         """Should produce same output regardless of dry_run flag"""
         step1 = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
         step2 = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
-        result1 = step1.execute({}, dry_run=False)
-        result2 = step2.execute({}, dry_run=True)
+        result1 = step1.execute({"papers": True}, dry_run=False)
+        result2 = step2.execute({"papers": True}, dry_run=True)
 
         assert result1["status"] == result2["status"]
-        assert result1["records_printed"] == result2["records_printed"]
+        assert result1["printed_papers"] == result2["printed_papers"]
         assert result1["index_sizes"] == result2["index_sizes"]
     
     def test_execute_multiple_papers_same_doi(self, temp_cache_dir):
@@ -180,10 +180,10 @@ class TestExecute:
         db.add(paper2)
 
         step = DumpDbStep(general_config={}, db=db, cache_dir=temp_cache_dir)
-        result = step.execute({})
+        result = step.execute({"papers": True})
         
         # Both papers in records
-        assert result["records_printed"] == 2
+        assert result["printed_papers"] == 2
         # But only one DOI in index
         assert result["index_sizes"]["_doi_index"] == 1
         # Both in papers list
@@ -195,7 +195,7 @@ class TestExecute:
         original_stats = sample_db.get_stats()
 
         step = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
-        step.execute({})
+        step.execute({"papers": True})
 
         assert sample_db.count() == original_count
         assert sample_db.get_stats() == original_stats
@@ -208,10 +208,10 @@ class TestExecute:
         }
 
         step = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
-        result = step.execute(config)
+        result = step.execute({**config, "papers": True})
 
-        assert result["status"] == "success"
-        assert result["records_printed"] == 3
+        assert result["status"] == "ok"
+        assert result["printed_papers"] == 3
 
 
 # ============================================================================
@@ -235,9 +235,9 @@ class TestDumpDBTitleTruncation:
         db.add(paper)
 
         step = DumpDbStep(general_config={}, db=db, cache_dir=temp_cache_dir)
-        result = step.execute({})
+        result = step.execute({"papers": True})
 
-        assert result["records_printed"] == 1
+        assert result["printed_papers"] == 1
         # Title should be stored fully in the paper
         assert db.papers[0].title == long_title
     
@@ -255,9 +255,9 @@ class TestDumpDBTitleTruncation:
         db.add(paper)
 
         step = DumpDbStep(general_config={}, db=db, cache_dir=temp_cache_dir)
-        result = step.execute({})
+        result = step.execute({"papers": True})
 
-        assert result["records_printed"] == 1
+        assert result["printed_papers"] == 1
         # Title should be unchanged
         assert db.papers[0].title == short_title
 

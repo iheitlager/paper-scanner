@@ -237,7 +237,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["patches_found"] == 1
         assert result["patches_applied"] == 1
         assert result["patches_failed"] == 0
@@ -263,7 +263,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["patches_applied"] == 1
         
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
@@ -286,7 +286,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].abstract == "Original abstract text more text"
@@ -309,7 +309,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["patches_applied"] == 1
         
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
@@ -336,7 +336,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].abstract == "completely new"
@@ -429,7 +429,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["patches_found"] == 1
         assert result["patches_applied"] == 1
         
@@ -443,7 +443,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["patches_found"] == 1
         assert result["patches_applied"] == 1
         
@@ -482,7 +482,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].abstract == "New abstract"
@@ -497,7 +497,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["patches_found"] == 0
         assert result["patches_applied"] == 0
     
@@ -515,7 +515,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "success"
+        assert result["status"] == "ok"
         assert result["patches_applied"] == 1
 
 

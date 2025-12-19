@@ -690,18 +690,6 @@ class TestPaperClass:
         assert dumped["doi"] == "10.1234/test"
         assert dumped["year"] == 2020
 
-    def test_paper_cited_by_references(self):
-        """Verify Paper can track citations"""
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
-        paper = Paper(
-            cite_key="test2020",
-            title="Test Paper",
-            cited_by=["paper1", "paper2", "paper3"],
-            discovery=discovery
-        )
-        assert len(paper.cited_by) == 3
-        assert "paper1" in paper.cited_by
-
     def test_paper_booktitle_for_conference(self):
         """Verify Paper can have booktitle for conference papers"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)

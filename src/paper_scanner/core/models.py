@@ -126,9 +126,9 @@ class Citation(BaseModel):
         # If it's a Paper instance, use it directly
         return v
 
-    @field_serializer('resolved_paper', when_used='json')
+    @field_serializer('resolved_paper', when_used='always')
     def serialize_resolved_paper(self, value: Optional['Paper']) -> Optional[str]:
-        """Convert Paper reference to ID string during JSON serialization"""
+        """Convert Paper reference to ID string during serialization"""
         return value.id if value else None
 
 
@@ -182,9 +182,9 @@ class DeduplicationResult(BaseModel):
         # If it's a dict or Paper instance, use it directly
         return v
 
-    @field_serializer('duplicate_of', when_used='json')
+    @field_serializer('duplicate_of', when_used='always')
     def serialize_duplicate_of(self, value: Optional['Paper']) -> Optional[str]:
-        """Convert Paper reference to ID string during JSON serialization"""
+        """Convert Paper reference to ID string during serialization"""
         return value.id if value else None
 
 
@@ -457,9 +457,9 @@ class Paper(BaseModel):
         # If it's a dict or Paper instance, use it directly
         return v
 
-    @field_serializer('duplicate_of', when_used='json')
+    @field_serializer('duplicate_of', when_used='always')
     def serialize_duplicate_of_paper(self, value: Optional['Paper']) -> Optional[str]:
-        """Convert Paper reference to ID string during JSON serialization"""
+        """Convert Paper reference to ID string during serialization"""
         return value.id if value else None
 
     # ========================================
@@ -473,11 +473,6 @@ class Paper(BaseModel):
     topics: List[str] = Field(default_factory=list)
     authors: List[Author] = Field(default_factory=list)
     year: Optional[int] = None
-
-    # Precomputed title normalization for faster fuzzy matching
-    # Updated automatically via field_validator when title changes
-    title_normalized: Optional[str] = None  # lowercase, stripped version of title
-    title_length: int = 0  # cached length for quick filtering
 
     # Publication venue
     journal: Optional[str] = None
@@ -541,9 +536,9 @@ class Paper(BaseModel):
             result.append(item)
         return result
 
-    @field_serializer('cited_papers', when_used='json')
+    @field_serializer('cited_papers', when_used='always')
     def serialize_cited_papers(self, value: List['Paper']) -> List[str]:
-        """Convert Paper references to ID strings during JSON serialization"""
+        """Convert Paper references to ID strings during serialization"""
         return [paper.id for paper in value] if value else []
 
     @field_validator('cited_by_papers', mode='before')
@@ -562,9 +557,9 @@ class Paper(BaseModel):
             result.append(item)
         return result
 
-    @field_serializer('cited_by_papers', when_used='json')
+    @field_serializer('cited_by_papers', when_used='always')
     def serialize_cited_by_papers(self, value: List['Paper']) -> List[str]:
-        """Convert Paper references to ID strings during JSON serialization"""
+        """Convert Paper references to ID strings during serialization"""
         return [paper.id for paper in value] if value else []
 
     # ========================================

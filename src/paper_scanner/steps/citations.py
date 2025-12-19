@@ -197,7 +197,7 @@ class CitationsStep(BaseStep):
 
         # PASS 3: Build citation graph in memory
         all_papers = self.db.all(primary_only=False)
-        self._link_citation_graph(
+        self._link_citations(
             papers=all_papers,
             results=results,
         )
@@ -421,7 +421,7 @@ class CitationsStep(BaseStep):
         else:
             raise ValueError(f"Citation {citation.doi} could not be resolved and 'continue_on_not_found' is False.")
 
-    def _link_citation_graph(
+    def _link_citations(
         self,
         papers: List[Paper],
         results: Dict[str, Any],

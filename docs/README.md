@@ -6,30 +6,48 @@ This directory contains comprehensive documentation for all steps in the paper s
 
 The paper scanner processes papers through a configurable pipeline of steps. Each step performs specific operations and can be combined to create flexible screening workflows.
 
-### Documentation Files
+**17 built-in steps** organized into 6 categories:
+- 3 Data Import steps
+- 1 Data Maintenance step
+- 2 Data Quality steps
+- 2 Citation Management steps
+- 2 Screening & Filtering steps
+- 3 Checkpoint & Control Flow steps
+- 2 Output & Reporting steps
+- 2 Utility steps (dump_db, paper)
 
-| # | File | Purpose | Lines |
-|---|------|---------|-------|
-| 1 | `README.md` | Index, workflow patterns, best practices | 280+ |
-| 2 | `cli_validate_command.md` | Configuration validation | 180+ |
+### Main Steps (Documented)
 
+| # | Step | File | Purpose |
+|---|------|------|---------|
+| 1 | `bibtex_import` | [bibtex_import.md](./steps/bibtex_import.md) | Multi-source BibTeX import |
+| 2 | `input` | [input.md](./steps/input.md) | JSON Lines or stdin import |
+| 3 | `load_files` | [load_files.md](./steps/load_files.md) | PDF scanning with Crossref metadata |
+| 4 | `patch` | [patch.md](./steps/patch.md) | Update papers by DOI |
+| 5 | `deduplication` | [deduplication.md](./steps/deduplication.md) | Duplicate detection |
+| 6 | `categorization` | [categorization.md](./steps/categorization.md) | Filter by publication type |
+| 7 | `citations` | [citations.md](./steps/citations.md) | Backward citation extraction |
+| 8 | `retrieve_metadata` | [retrieve_metadata.md](./steps/retrieve_metadata.md) | Metadata enrichment from APIs |
+| 9 | `keyword_screening` | [keyword_screening.md](./steps/keyword_screening.md) | Keyword-based filtering |
+| 10 | `semantic_screening` | [semantic_screening.md](./steps/semantic_screening.md) | Embedding-based filtering |
+| 11 | `checkpoint` | [checkpoint.md](./steps/checkpoint.md) | Save pipeline state |
+| 12 | `echo` | [echo.md](./steps/echo.md) | Display messages |
+| 13 | `halt` | [halt.md](./steps/halt.md) | Conditional halt |
+| 14 | `summarize` | [summarize.md](./steps/summarize.md) | Statistics & reporting |
+| 15 | `export` | [export.md](./steps/export.md) | Multi-format export |
 
+### Utility Steps (Internal)
 
-| # | File | Purpose | Lines |
-|---|------|---------|-------|
-| 1 | `bibtex_import.md` | Multi-source BibTeX import step | 130+ |
-| 2 | `input.md` | JSON Lines file or stdin import step | 130+ |
-| 3 | `load_files.md` | PDF folder scanning and Crossref metadata fetching | 140+ |
-| 4 | `patch.md` | Update existing papers by DOI with replace/append operations | 190+ |
-| 5 | `deduplication.md` | Duplicate detection step | 120+ |
-| 6 | `categorization.md` | Publication type filtering step | 120+ |
-| 7 | `keyword_screening.md` | Keyword-based screening step | 140+ |
-| 8 | `semantic_screening.md` | Embedding-based screening step | 144+ |
-| 9 | `checkpoint.md` | State saving step | 100+ |
-| 10 | `echo.md` | Messaging step | 90+ |
-| 11 | `halt.md` | Conditional halt step | 100+ |
-| 12 | `summarize.md` | Statistics/reporting step | 140+ |
-| 13 | `export.md` | Multi-format export step | 150+ |
+| Step | Purpose |
+|------|---------|
+| `dump_db` | Debug: Print database contents and statistics |
+| `paper` | Utility: Create Paper objects from DOI specifications |
+
+### Reference Documentation
+
+| File | Purpose |
+|------|---------|
+| [cli_validate_command.md](./cli_validate_command.md) | Configuration validation reference |
 
 ### Step Categories
 
@@ -44,6 +62,10 @@ The paper scanner processes papers through a configurable pipeline of steps. Eac
 #### **Data Quality**
 - [**Deduplication**](./steps/deduplication.md) - Remove duplicate papers using multi-method matching
 - [**Categorization**](./steps/categorization.md) - Filter by publication type and quality
+
+#### **Citation Management**
+- [**Citations**](./steps/citations.md) - Extract and resolve backward citations, build citation graph
+- [**Retrieve Metadata**](./steps/retrieve_metadata.md) - Enrich papers with complete metadata from external APIs
 
 #### **Screening & Filtering**
 - [**Keyword Screening**](./steps/keyword_screening.md) - Filter using inclusion/exclusion keywords
