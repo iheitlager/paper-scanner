@@ -71,9 +71,5 @@ class HaltStep(BaseStep):
             "papers_count": self.db.count(primary_only=False)
         }
         
-        if verbose:
-            console.print(f"\n  [bold yellow]⏸ Halt:[/bold yellow] {message}")
-            console.print(f"  [cyan]Papers in database:[/cyan] {self.db.count(primary_only=False)}")
-        
         # Raise exception to halt pipeline
         raise HaltException(message)

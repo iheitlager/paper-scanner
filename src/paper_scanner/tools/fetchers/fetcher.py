@@ -65,7 +65,7 @@ class Fetcher:
             method_cache_dir = self.cache_dir / method
             self.handlers[method] = handler_class(cache_dir=method_cache_dir)
             if self.debug:
-                console.print(f"  [dim]{method} - {method_cache_dir}[/dim]")
+                console.print(f"[dim]{method} - {method_cache_dir}[/dim]")
 
     def fetch_paper(self, doi: str) -> Tuple[Optional[Paper], bool]:
         """
@@ -82,19 +82,17 @@ class Fetcher:
         paper = None
         cache_hit = False
         for handler_name, handler in self.handlers.items():
-            try:
-                new_paper, new_cache_hit = handler.fetch_paper(doi)
-                if not paper:
-                    paper = new_paper
-                    cache_hit = new_cache_hit
-                elif new_paper:
-                    handler.merge_papers(paper, new_paper)
-                    cache_hit = cache_hit and new_cache_hit
-                if paper and paper.calculated_quality_score >= 0.9:
-                    return paper, cache_hit
-            except Exception as e:
-                console.print(f"[red]Handler {handler_name} failed for {doi}: {e}[/red]")
-                continue
+            if self.debug:
+                console.print(f"  [blue]Trying handler {handler_name} for DOI {doi}[/blue]")
+            new_paper, new_cache_hit = handler.fetch_paper(doi)
+            if not paper:
+                paper = new_paper
+                cache_hit = new_cache_hit
+            elif new_paper:
+                handler.merge_papers(paper, new_paper)
+                cache_hit = cache_hit and new_cache_hit
+            if paper and paper.calculated_quality_score >= 0.9:
+                return paper, cache_hit
         if paper:
             return paper, cache_hit
         return None, False
@@ -115,10 +113,11 @@ class Fetcher:
             try:
                 citations, cache_hit = handler.fetch_citations(doi)
                 if citations:
-                    console.print(
-                        f"[green]Fetched {len(citations)} citations for {doi} "
-                        f"from {handler_name}[/green]"
-                    )
+                    if self.debug:
+                        console.print(
+                            f"[green]Fetched {len(citations)} citations for {doi} "
+                            f"from {handler_name}[/green]"
+                        )
                     return citations, cache_hit
             except Exception as e:
                 console.print(

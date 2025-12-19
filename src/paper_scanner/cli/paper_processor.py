@@ -317,13 +317,6 @@ def main():
     )
     
     repl_parser.add_argument(
-        "--project-id",
-        type=str,
-        default=None,
-        help="Project ID for this REPL session (default: interactive_session)"
-    )
-    
-    repl_parser.add_argument(
         "--definition",
         type=Path,
         default=None,
@@ -347,6 +340,12 @@ def main():
         "--debug",
         action="store_true",
         help="Enable debug output"
+    )
+    
+    repl_parser.add_argument(
+        "-q", "--quit",
+        action="store_true",
+        help="Quit immediately after executing definition file (no interactive mode)"
     )
     
     # ===== CACHE COMMAND =====
@@ -444,11 +443,11 @@ def main():
             builtin_steps = StepExecutor.BUILTIN_STEPS
             
             exit_code = execute_repl(
-                project_id=args.project_id,
                 cache_dir=args.cache_dir,
                 definition_file=args.definition,
                 verbose=args.verbose,
                 debug=args.debug,
+                quit_after_definition=args.quit,
                 builtin_steps=builtin_steps,
             )
             sys.exit(exit_code)
@@ -485,6 +484,9 @@ def main():
     
     except Exception as e:
         console.print(f"[red bold]Error:[/red bold] {e}", style="red")
+        if args.debug:
+            import traceback
+            console.print(traceback.print_exc())
         sys.exit(1)
 
 

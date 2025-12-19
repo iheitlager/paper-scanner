@@ -4,17 +4,20 @@ OpenAlex API handler - metadata and citations fetcher.
 Fetches publication metadata from OpenAlex API with better abstract/keyword coverage.
 API docs: https://docs.openalex.org/
 """
-
+import sys
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 import requests
+from rich.console import Console
 
 from paper_scanner.core.models import OpenAccessStatus, Citation
 from paper_scanner.core.enum import PaperType
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.documents.abstract_parser import AbstractParser
 from paper_scanner.core.doi import DOI
+
+console = Console(file=sys.stderr)
 
 # OpenAlex API configuration
 OPENALEX_API_URL = "https://api.openalex.org"
@@ -48,14 +51,18 @@ class OpenAlexHandler(BaseFetcherHandler):
         Returns:
             Work object from OpenAlex, or None if not found
         """
-        try:
-            # Normalize DOI
-            normalized = DOI(doi).stem
+        # Normalize DOI
+        normalized = DOI(doi).stem
 
-            # OpenAlex uses doi: prefix in URL
-            # Endpoint: /works/doi:{doi}
-            url = f"{OPENALEX_API_URL}/works/doi:{normalized}"
+        # OpenAlex uses doi: prefix in URL
+        # Endpoint: /works/doi:{doi}
+        url = f"{OPENALEX_API_URL}/works/doi:{normalized}"
+        console.print(f"[dim]Fetching OpenAlex data for DOI {normalized} from {url}[/dim]")
+
+        try:
             response = self.session.get(url, timeout=REQUEST_TIMEOUT)
+            console.print(f"[dim]Response status code: {response.status_code}[/dim]")
+            console.print(f"[dim]Response content: {response.text}[/dim]")
 
             if response.status_code == 404:
                 return None
@@ -358,21 +365,13 @@ class OpenAlexHandler(BaseFetcherHandler):
         
         is_oa = oa_info.get("is_oa", False)
         oa_status_str = oa_info.get("oa_status", "closed").lower()
-        
-        # Map OpenAlex OA status to our enum
-        if not is_oa or oa_status_str == "closed":
-            return OpenAccessStatus.CLOSED
-        elif oa_status_str == "gold":
-            return OpenAccessStatus.GOLD
-        elif oa_status_str == "green":
-            return OpenAccessStatus.GREEN
-        elif oa_status_str == "hybrid":
-            return OpenAccessStatus.HYBRID
-        elif oa_status_str == "bronze":
-            return OpenAccessStatus.BRONZE
-        
-        # Default to closed if uncertain
-        return OpenAccessStatus.CLOSED
+
+        return OpenAccessStatus(
+            is_oa=is_oa,
+            oa_status=oa_status_str,
+            source=self.name,
+        )
+
 
     def _extract_source_key(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
@@ -434,7 +433,7 @@ class OpenAlexHandler(BaseFetcherHandler):
                     issue=None,
                     pages=None,
                     publisher=None,
-                    extraction_method="openalex",
+                    extraction_method=self.name,
                     confidence=0.5,  # Medium confidence since we only have ID
                     raw_text=openalex_id,
                     raw_json={"openalex_id": openalex_id},

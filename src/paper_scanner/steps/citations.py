@@ -28,7 +28,9 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from pprint import pformat
 import json
+from matplotlib.pyplot import table
 from rich.console import Console
+from rich.table import Table
 
 from paper_scanner.core.models import Paper, Citation, PaperType
 from paper_scanner.tools.fetchers.fetcher import Fetcher
@@ -74,14 +76,22 @@ class CitationsStep(BaseStep):
             if not isinstance(backward, dict):
                 errors.append("'backward' must be a dictionary")
             else:
-                if "sources" in backward:
-                    sources = backward["sources"]
-                    if not isinstance(sources, (str, list)):
-                        errors.append("'backward.sources' must be a string or list of fetcher names")
-                    elif isinstance(sources, list):
-                        for src in sources:
+                if "citations" in backward:
+                    citations = backward["citations"]
+                    if not isinstance(citations, (str, list)):
+                        errors.append("'backward.citations' must be a string or list of fetcher names")
+                    elif isinstance(citations, list):
+                        for src in citations:
                             if not isinstance(src, str):
-                                errors.append(f"'backward.sources' items must be strings, got {type(src).__name__}")
+                                errors.append(f"'backward.citations' items must be strings, got {type(src).__name__}")
+                if "details" in backward:
+                    details = backward["details"]
+                    if not isinstance(details, (str, list)):
+                        errors.append("'backward.details' must be a string or list of fetcher names")
+                    elif isinstance(details, list):
+                        for src in details:
+                            if not isinstance(src, str):
+                                errors.append(f"'backward.details' items must be strings, got {type(src).__name__}")
                 if "continue_on_not_found" in backward:
                     if not isinstance(backward["continue_on_not_found"], bool):
                         errors.append("'backward.continue_on_not_found' must be a boolean")
@@ -104,7 +114,7 @@ class CitationsStep(BaseStep):
         """
         Execute backward citations extraction for papers in three passes.
 
-        Pass 1: Fetch citations from external sourcess and store in papers
+        Pass 1: Fetch citations from external sources and store in papers
         Pass 2: Resolve citations to existing papers or create new papers
         Pass 3: Build citation graph in memory (cited_papers, cited_by_papers)
 
@@ -126,7 +136,8 @@ class CitationsStep(BaseStep):
         backward_config = config.get("backward", {})
         if backward_config:
             paper_types = backward_config.get("paper-types", ["journal_article"])
-            sources = backward_config.get("sources", ["crossref"])
+            citations = backward_config.get("citations", ["crossref"])
+            details = backward_config.get("details", ["crossref"])
             continue_on_not_found = backward_config.get("continue_on_not_found", True)
             limit = backward_config.get("limit", None)
             self.output_errors = backward_config.get("output_errors", None)
@@ -137,18 +148,11 @@ class CitationsStep(BaseStep):
             if self.verbose:
                 console.print(f"[blue]Citations backward processing[/blue]")
                 console.print(f"[blue]Paper types to process:[/blue] {paper_types}")
-                console.print(f"[blue]Citation sourcess:[/blue] {sources}")
+                console.print(f"[blue]Citation sources:[/blue] {citations}")
+                console.print(f"[blue]Details sources:[/blue] {details}")
                 console.print(f"[blue]Continue on not found:[/blue] {continue_on_not_found}")
                 if limit:
                     console.print(f"[blue]Limit papers to process:[/blue] {limit}")
-
-        # Initialize fetcher
-        fetcher = Fetcher(
-            cache_dir=self.cache_dir,
-            methods=sources,
-            verbose=self.verbose,
-            debug=self.debug
-        )
 
         # Get papers to process (filter by paper_type)
         if paper_types:
@@ -160,7 +164,6 @@ class CitationsStep(BaseStep):
             target_papers = self.db.all(primary_only=True)
 
         if self.debug:
-            console.print(f"[blue]Fetcher initialized:[/blue]\n{pformat(fetcher.handlers, indent=2)}")
             console.print(f"[blue]Total papers in DB:[/blue] {self.db.count(primary_only=True)}")
             console.print(f"[blue]Target papers to process:[/blue] {len(target_papers)}")
 
@@ -180,6 +183,13 @@ class CitationsStep(BaseStep):
         }
 
         # PASS 1: Fetch citations from external sourcess
+        # Initialize fetcher
+        fetcher = Fetcher(
+            cache_dir=self.cache_dir,
+            methods=citations,
+            verbose=self.verbose,
+            debug=self.debug
+        )
         self._fetch_citations_for_papers(
             target_papers=target_papers,
             fetcher=fetcher,
@@ -188,6 +198,13 @@ class CitationsStep(BaseStep):
         )
 
         # PASS 2: Resolve citations and expand database
+        # Initialize fetcher
+        fetcher = Fetcher(
+            cache_dir=self.cache_dir,
+            methods=details,
+            verbose=self.verbose,
+            debug=self.debug
+        )
         self._resolve_citations_and_fetch_papers(
             papers=target_papers,
             fetcher=fetcher,
@@ -204,23 +221,31 @@ class CitationsStep(BaseStep):
 
         if self.verbose:
             console.print(f"[green]Citation graph linking completed.[/green]")
-            console.print(f"\n[bold white]=== CITATION STATISTICS ===[/bold white]")
-            console.print(f"[white]Total papers in DB:[/white] {results['total_papers']}")
-            console.print(f"[white]Target papers processed:[/white] {results['target_papers']}")
-            console.print(f"[white]Papers with citations:[/white] {results['papers_with_citations']}")
-            console.print(f"[white]Citations fetched:[/white] {results['citations_fetched']}")
-            console.print(f"[white]Citations resolved:[/white] {results['citations_resolved']}")
-            console.print(f"[white]Citations created new papers:[/white] {results['citations_created_new_paper']}")
-            console.print(f"[white]Citations unresolved:[/white] {results['citations_unresolved']}")
-            console.print(f"[white]Forward links created:[/white] {results['forward_links_created']}")
-            console.print(f"[white]Reverse links created:[/white] {results['reverse_links_created']}")
-            console.print(f"[white]Cache hits:[/white] {results['cache_hits']}")
-            console.print(f"[white]Cache misses:[/white] {results['cache_misses']}")
+
+            table = Table(title=f"Citation Statistics")
+            table.add_column("Fact", style="cyan")
+            table.add_column("Value", justify="right", style="green")
+
+            table.add_row("Total papers in DB", str(results['total_papers']))
+            table.add_row("Target papers processed", str(results['target_papers']))
+            table.add_row("Papers with citations", str(results['papers_with_citations']))
+            table.add_row("Citations fetched", str(results['citations_fetched']))
+            table.add_row("Citations resolved", str(results['citations_resolved']))
+            table.add_row("Citations created new papers", str(results['citations_created_new_paper']))
+            table.add_row("Citations unresolved", str(results['citations_unresolved']))
+            table.add_row("Forward links created", str(results['forward_links_created']))
+            table.add_row("Reverse links created", str(results['reverse_links_created']))
+            table.add_row("Cache hits", str(results['cache_hits']))
+            table.add_row("Cache misses", str(results['cache_misses']))
+
+            console.print(table)
+
             if results['errors']:
                 console.print(f"[red]Errors:[/red] {len(results['errors'])}")
                 for error in results['errors'][:5]:  # Show first 5 errors
                     console.print(f"  [red]- {error}[/red]")
 
+        results['message'] = f"Citations fetched: {results['citations_fetched']}"
         results['status'] = 'ok' if len(results['errors']) == 0 else 'completed_with_errors' 
         return results
 
@@ -257,6 +282,7 @@ class CitationsStep(BaseStep):
                     results["cache_hits"] += 1
                 else:
                     results["cache_misses"] += 1
+                cache = "💾" if cache_hit else "🌐"
 
                 if not citations:
                     if self.verbose:
@@ -272,7 +298,7 @@ class CitationsStep(BaseStep):
 
                 if self.debug:
                     console.print(
-                        f"[cyan][{i}/{len(target_papers)}] Fetched {len(citations)} "
+                        f"[cyan][{i}/{len(target_papers)}]{cache}Fetched {len(citations)} "
                         f"citations for {paper.doi}[/cyan]"
                     )
 
@@ -316,39 +342,33 @@ class CitationsStep(BaseStep):
             if self.debug:
                 console.print(f"[cyan]Resolving {len(paper.citations)} citations for {paper.doi}[/cyan]")
 
-            try:
-                # Resolve each citation
-                for citation in paper.citations:
-                    resolved_paper, created_new = self._resolve_citation(
-                        citation=citation,
-                        citing_paper=paper,
-                        fetcher=fetcher,
-                        continue_on_not_found=continue_on_not_found,
-                        results=results,
-                    )
+            # Resolve each citation
+            for citation in paper.citations:
+                resolved_paper, created_new = self._resolve_citation(
+                    citation=citation,
+                    citing_paper=paper,
+                    fetcher=fetcher,
+                    continue_on_not_found=continue_on_not_found,
+                    results=results,
+                )
 
-                    if resolved_paper:
-                        # Store full Paper object for Pass 3 linking
-                        citation.resolved_paper = resolved_paper
-                        results["citations_resolved"] = results.get("citations_resolved", 0) + 1
-                        if created_new:
-                            results["citations_created_new_paper"] = results.get("citations_created_new_paper", 0) + 1
-                    else:
-                        if self.output_errors:
-                            citation_dict = citation.model_dump(exclude_none=True)
-                            missed_citations.setdefault(paper.id, []).append(citation_dict)
-                        results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
-                        if self.verbose:
-                            console.print(
-                                f"[red]Unresolved citation {citation.doi} in paper {paper.doi}[/red]"
-                            )
-                        if self.debug:
-                            console.print(f"[blue]{citation}[/blue]")
-
-
-            except Exception as e:
-                results["errors"].append(f"Resolve error for {paper.doi}: {str(e)}")
-                console.print(f"[red]Error resolving citations for {paper.doi}: {e}[/red]")
+                if resolved_paper:
+                    # Store full Paper object for Pass 3 linking
+                    citation.resolved_paper = resolved_paper
+                    results["citations_resolved"] = results.get("citations_resolved", 0) + 1
+                    if created_new:
+                        results["citations_created_new_paper"] = results.get("citations_created_new_paper", 0) + 1
+                else:
+                    if self.output_errors:
+                        citation_dict = citation.model_dump(exclude_none=True)
+                        missed_citations.setdefault(paper.id, []).append(citation_dict)
+                    results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
+                    if self.verbose:
+                        console.print(
+                            f"  [red]Unresolved citation {citation.doi} in paper {paper.doi}[/red]"
+                        )
+                    if self.debug:
+                        console.print(f"  [blue]{citation}[/blue]")
 
         if self.output_errors and missed_citations:
             with open(self.output_errors, "a", encoding="utf-8") as f:
@@ -393,18 +413,20 @@ class CitationsStep(BaseStep):
             papers = self.db.get_by_doi(normalized_doi, primary_only=True)
             if papers:
                 paper = papers[0]
+                if self.debug:
+                    console.print(f"  [green]Paper already in database: {normalized_doi}[/green]")
                 return paper, False
             else:
-                enriched_paper, cached = fetcher.fetch_paper(normalized_doi)
+                enriched_paper, cache_hit = fetcher.fetch_paper(normalized_doi)
+                cache = "💾" if cache_hit else "🌐"
 
                 # Track cache statistics
-                if cached:
+                if cache_hit:
                     results["cache_hits"] = results.get("cache_hits", 0) + 1
-                    if self.debug:
-                        console.print(f"[green]Cache hit for citation DOI {normalized_doi}[/green]")
                 else:
                     results["cache_misses"] = results.get("cache_misses", 0) + 1
-
+                if self.debug:
+                    console.print(f"  [green]{cache}Retrieving metadata for citation DOI {normalized_doi}[/green]")
                 # Only add if fetcher successfully returned a paper
                 if enriched_paper:
                     self.db.add(enriched_paper)

@@ -92,9 +92,6 @@ class RetrieveMetadataStep(BaseStep):
         # Initialize fetcher with specified methods
         fetcher = Fetcher(cache_dir=self.cache_dir, methods=methods, verbose=verbose, debug=debug)
 
-        if debug:
-            console.print(f"[blue]Fetcher initialized with methods:[/blue]\n{pformat(fetcher.handlers, indent=2)}")
-
         # Get all papers
         papers = self.db.all(primary_only=True)
 
@@ -114,46 +111,37 @@ class RetrieveMetadataStep(BaseStep):
                 console.print(f"[yellow][{i}/{len(papers)}] Skipping: no DOI")
                 continue
 
-            try:
+            # Fetch metadata
+            enriched_paper, cache_hit = fetcher.fetch_paper(paper.doi)
+            cache = "💾" if cache_hit else "🌐"
 
+            if verbose:
+                console.print(
+                    f"[cyan][{i}/{len(papers)}]{cache}Fetching metadata for[/cyan] [white]{paper.doi}...",
+                )
 
-                # Fetch metadata
-                enriched_paper, cache_hit = fetcher.fetch_paper(paper.doi)
-                cache = "💾" if cache_hit else "🌐"
+            if enriched_paper is None:
+                results["not_found"] += 1
+                console.print("[yellow]Not found")
+                if not continue_on_not_found:
+                    results["errors"].append(f"{paper.doi}: Not found in any source")
+                continue
+            elif debug:
+                console.print(f"[blue]Fetched metadata: {enriched_paper}[/blue]")
 
-                if verbose:
-                    console.print(
-                        f"[cyan][{i}/{len(papers)}]{cache}Fetching metadata for[/cyan] [white]{paper.doi}...",
-                    )
+            # Merge enriched metadata into existing paper
+            _merge_paper_metadata(paper, enriched_paper, overwrite=overwrite)
 
-                if enriched_paper is None:
-                    results["not_found"] += 1
-                    console.print("[yellow]Not found")
-                    if not continue_on_not_found:
-                        results["errors"].append(f"{paper.doi}: Not found in any source")
-                    continue
-                elif debug:
-                    console.print(f"[blue]Fetched metadata: {enriched_paper}[/blue]")
+            # Update database (unless in dry_run mode)
+            if not dry_run:
+                self.db.update(paper)
+            results["updated_papers"] += 1
 
-
-                # Merge enriched metadata into existing paper
-                _merge_paper_metadata(paper, enriched_paper, overwrite=overwrite)
-
-                # Update database (unless in dry_run mode)
-                if not dry_run:
-                    self.db.update(paper)
-                results["updated_papers"] += 1
-
-                # Track cache hit/miss
-                if cache_hit:
-                    results["cache_hits"] += 1
-                else:
-                    results["cache_misses"] += 1
-
-
-            except Exception as e:
-                console.print(f"[red]Error: {str(e)}")
-                results["errors"].append(f"{paper.doi}: {str(e)}")
+            # Track cache hit/miss
+            if cache_hit:
+                results["cache_hits"] += 1
+            else:
+                results["cache_misses"] += 1
 
         # Print summary
         if verbose:

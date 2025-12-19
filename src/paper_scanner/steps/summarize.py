@@ -10,7 +10,6 @@ from rich.console import Console
 from rich.table import Table
 
 from ..core.models import Paper
-from ..core.database import PapersDatabase
 from ..core.enum import ScreeningDecision
 from .base import BaseStep
 

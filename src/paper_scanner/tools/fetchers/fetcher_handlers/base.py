@@ -166,7 +166,7 @@ class BaseFetcherHandler(ABC):
         """
         doi = api_data.get("DOI", "")
         if doi:
-            return f"doi_{doi.replace('/', '_')}"
+            return f"doi_{DOI(doi).md5[:8]}"
         return "unknown_cite_key"
 
 
@@ -193,9 +193,10 @@ class BaseFetcherHandler(ABC):
             return None, False
 
         self._cache.set(doi, api_data)
-
         paper = self._translate_to_paper(doi, api_data)
+
         return paper, False
+
 
     def fetch_citations(self, doi: str) -> Tuple[List[Citation], bool]:
         """
@@ -352,7 +353,7 @@ class BaseFetcherHandler(ABC):
 
         return title
 
-    def _merge_paper_metadata(self, target: Paper, source: Paper, overwrite: bool = False) -> None:
+    def merge_papers(self, target: Paper, source: Paper, overwrite: bool = False) -> None:
         """
         Merge metadata from enriched Paper into target Paper.
 

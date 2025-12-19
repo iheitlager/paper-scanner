@@ -191,7 +191,6 @@ class PaperStep(BaseStep):
             result = {
                 "status": "ok" if not errors else "partial",
                 "count": len(created_papers),
-                "papers": [p.id for p in created_papers],
             }
 
             if errors:

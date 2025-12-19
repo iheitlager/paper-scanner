@@ -89,20 +89,20 @@ class TestValidate:
         """Test validation fails when backward.sources is not string or list"""
         config = {
             "backward": {
-                "sources": 123
+                "citations": 123
             }
         }
         
         is_valid, errors = CitationsStep.validate(config)
         
         assert is_valid is False
-        assert any("'backward.sources' must be a string or list" in err for err in errors)
+        assert any("'backward.citations' must be a string or list" in err for err in errors)
 
     def test_validate_continue_on_not_found_not_bool(self):
         """Test validation fails when continue_on_not_found is not bool"""
         config = {
             "backward": {
-                "sources": ["crossref"],
+                "citations": ["crossref"],
                 "continue_on_not_found": "true"
             }
         }
@@ -116,7 +116,7 @@ class TestValidate:
         """Test validation accepts sources as a string"""
         config = {
             "backward": {
-                "sources": "crossref"
+                "citations": "crossref"
             }
         }
         
@@ -142,7 +142,7 @@ class TestValidate:
         """Test validation fails when sources list contains non-string items"""
         config = {
             "backward": {
-                "sources": ["crossref", 123]
+                "citations": ["crossref", 123]
             }
         }
         
