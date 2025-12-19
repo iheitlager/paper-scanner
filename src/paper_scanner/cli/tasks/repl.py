@@ -14,6 +14,7 @@ import os
 import json
 import code
 import re
+import textwrap
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime
@@ -26,6 +27,9 @@ from rich.syntax import Syntax
 try:
     from prompt_toolkit import PromptSession
     from prompt_toolkit.history import FileHistory
+    from prompt_toolkit.lexers import PythonLexer
+    from prompt_toolkit.validation import Validator, ValidationError
+    from prompt_toolkit.enums import EditingMode
     HAS_PROMPT_TOOLKIT = True
 except ImportError:
     HAS_PROMPT_TOOLKIT = False
@@ -39,6 +43,29 @@ from paper_scanner.core.database import PapersDatabase
 from paper_scanner.cli.tasks.run import StepExecutor
 
 console = Console(file=sys.stderr)
+
+
+def _is_code_complete(code: str) -> bool:
+    """Check if Python code is syntactically complete."""
+    code = code.strip()
+    if not code:
+        return True
+    
+    # Remove comments to check for colon properly
+    code_no_comment = code.split('#')[0].rstrip()
+    
+    # Check for lines that require indentation (end with colon)
+    # This catches: for, while, if, elif, else, def, class, with, try, except, finally
+    if code_no_comment.endswith(':'):
+        return False
+    
+    try:
+        # Try to compile the dedented code
+        compile(textwrap.dedent(code), '<input>', 'exec')
+        return True
+    except SyntaxError as e:
+        # "unexpected EOF" indicates incomplete code (e.g., unclosed parenthesis, colon without body)
+        return "unexpected EOF" not in str(e)
 
 
 class REPLSession:
@@ -836,17 +863,23 @@ class REPLSession:
             self._run_with_basic_input(namespace)
 
     def _run_with_prompt_toolkit(self, namespace: Dict[str, Any]) -> None:
-        """Run REPL with prompt_toolkit for full history and arrow key support"""
+        """Run REPL with prompt_toolkit for full history and arrow key support with manual multiline"""
         # Create history file in cache directory
         try:
             history_dir = self.cache_dir / self.project_id
             history_dir.mkdir(parents=True, exist_ok=True)
             history_file = history_dir / ".repl_history"
-            session = PromptSession(history=FileHistory(str(history_file)))
+            session = PromptSession(
+                history=FileHistory(str(history_file)),
+                lexer=PythonLexer(),
+            )
         except Exception as e:
             if self.debug:
                 console.print(f"[yellow]Warning: Could not set up history:[/yellow] {e}")
-            session = PromptSession()
+            try:
+                session = PromptSession(lexer=PythonLexer())
+            except Exception:
+                session = PromptSession()
 
         while True:
             try:
@@ -854,40 +887,78 @@ class REPLSession:
                 status_line = self._get_status_line()
                 console.print(status_line)
                 
-                # Get input with history support and arrow keys
-                line = session.prompt(">>> ").strip()
+                # Get input with history support, arrow keys, and automatic multiline
+                # If code is incomplete (unclosed brackets, colon without body, etc),
+                # pressing Enter creates a new line with "... " prompt instead of executing
+                line = session.prompt(">>> ")
+                
+                # Handle multiline input by accumulating lines until we have complete code
+                accumulated = line
+                indent_level = 0
+                while not _is_code_complete(accumulated):
+                    try:
+                        # Calculate indentation for next line
+                        last_line = accumulated.split('\n')[-1]
+                        if last_line.rstrip().endswith(':'):
+                            indent_level = len(last_line) - len(last_line.lstrip()) + 4
+                        
+                        # Build prompt with indentation as visual cue
+                        indent_str = " " * indent_level
+                        continuation = session.prompt(f"... {indent_str}")
+                        # Prepend indentation to the user's input
+                        accumulated += "\n" + indent_str + continuation
+                    except EOFError:
+                        # Ctrl+D pressed - try to execute what we have or raise error
+                        break
+                
+                if self.debug:
+                    console.print(f"[dim]DEBUG: accumulated code is_complete={_is_code_complete(accumulated)}[/dim]")
 
-                if not line:
+                if not accumulated.strip():
                     continue
 
-                # Check if it's a macro command
-                if line.startswith("\\"):
-                    if line.startswith("\\exit") or line.startswith("\\q"):
+                # Check if it's a macro command (only first line for multiline)
+                first_line = accumulated.split('\n')[0] if '\n' in accumulated else accumulated
+                if first_line.startswith("\\"):
+                    if first_line.startswith("\\exit") or first_line.startswith("\\q"):
                         break
                     try:
-                        self._handle_macro_command(line)
+                        self._handle_macro_command(first_line.strip())
                     except Exception as e:
                         console.print(f"[red]Error in macro command:[/red] {e}")
                         if self.debug:
                             import traceback
                             traceback.print_exc()
                 else:
-                    # Execute as Python code
+                    # Execute as Python code (supports multiline)
+                    # Dedent the code to handle indented blocks properly
+                    code_to_exec = textwrap.dedent(accumulated)
                     try:
-                        result = eval(line, namespace)
+                        # Try eval first (for expressions)
+                        result = eval(code_to_exec, namespace)
                         if result is not None:
                             print(repr(result))
-                    except SyntaxError:
-                        # Try to execute as statement
+                    except SyntaxError as e:
+                        # Fall back to exec for statements
                         try:
-                            exec(line, namespace)
+                            exec(code_to_exec, namespace)
+                        except SyntaxError as syntax_err:
+                            # Show syntax error with details
+                            console.print(f"[red]SyntaxError:[/red] {syntax_err.msg}")
+                            if syntax_err.text:
+                                console.print(f"  {syntax_err.text.rstrip()}")
+                                if syntax_err.offset:
+                                    console.print(f"  {' ' * (syntax_err.offset - 1)}^")
+                            if self.debug:
+                                import traceback
+                                traceback.print_exc()
                         except Exception as e:
-                            console.print(f"[red]Error executing statement:[/red] {e}")
+                            console.print(f"[red]Error:[/red] {e}")
                             if self.debug:
                                 import traceback
                                 traceback.print_exc()
                     except Exception as e:
-                        console.print(f"[red]Error evaluating expression:[/red] {e}")
+                        console.print(f"[red]Error:[/red] {e}")
                         if self.debug:
                             import traceback
                             traceback.print_exc()
@@ -907,26 +978,59 @@ class REPLSession:
         try:
             while True:
                 try:
-                    # Get input from user (readline module enables history on Unix if imported)
+                    # Get input
                     line = input(">>> ").strip()
 
                     if not line:
                         continue
+                    
+                    # Handle multiline input by accumulating lines until we have complete code
+                    accumulated = line
+                    indent_level = 0
+                    while not _is_code_complete(accumulated):
+                        try:
+                            # Calculate indentation for next line
+                            last_line = accumulated.split('\n')[-1]
+                            if last_line.rstrip().endswith(':'):
+                                indent_level = len(last_line) - len(last_line.lstrip()) + 4
+                            
+                            # Build prompt with indentation as visual cue
+                            indent_str = " " * indent_level
+                            continuation = input(f"... {indent_str}")
+                            # Prepend indentation to the user's input
+                            if not continuation.strip():
+                                break
+                            accumulated += "\n" + indent_str + continuation
+                        except EOFError:
+                            break
 
                     # Check if it's a macro command
-                    if line.startswith("\\"):
-                        if line.startswith("\\exit") or line.startswith("\\q"):
+                    first_line = accumulated.split('\n')[0] if '\n' in accumulated else accumulated
+                    if first_line.startswith("\\"):
+                        if first_line.startswith("\\exit") or first_line.startswith("\\q"):
                             break
-                        self._handle_macro_command(line)
+                        self._handle_macro_command(first_line.strip())
                     else:
                         # Execute as Python code
+                        code_to_exec = textwrap.dedent(accumulated)
                         try:
-                            result = eval(line, namespace)
+                            result = eval(code_to_exec, namespace)
                             if result is not None:
                                 print(repr(result))
-                        except SyntaxError:
+                        except SyntaxError as e:
                             # Try to execute as statement
-                            exec(line, namespace)
+                            try:
+                                exec(code_to_exec, namespace)
+                            except SyntaxError as syntax_err:
+                                console.print(f"[red]SyntaxError:[/red] {syntax_err.msg}")
+                                if syntax_err.text:
+                                    console.print(f"  {syntax_err.text.rstrip()}")
+                                    if syntax_err.offset:
+                                        console.print(f"  {' ' * (syntax_err.offset - 1)}^")
+                            except Exception as ex:
+                                console.print(f"[red]Error:[/red] {ex}")
+                        except Exception as ex:
+                            console.print(f"[red]Error:[/red] {ex}")
 
                 except KeyboardInterrupt:
                     console.print("\n[yellow]Interrupted[/yellow]")
