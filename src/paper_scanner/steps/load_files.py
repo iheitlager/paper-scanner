@@ -4,11 +4,10 @@ Load files step - Load PDF files from folder, extract DOI, fetch metadata from C
 Processes PDF files:
 1. Scans folder for PDF files
 2. Extracts DOI from each PDF
-3. Fetches metadata from Crossref using DOI
-4. Transforms metadata into Paper models
-5. Stores papers in database
-6. Copies PDF to store_path with DOI-based filename
-7. Updates PDFInfo with file details
+3. Stores papers in database
+4. caches PDF in pdf store
+5. Copies PDF to store_path with DOI-based filename
+6. Updates PDFInfo with file details
 """
 
 import sys
@@ -20,7 +19,7 @@ import shutil
 import logging
 
 from ..core.models import Paper, PDFInfo, Discovery, Screening
-from ..core.database import PapersDatabase
+from paper_scanner.tools.cache import PDFCache
 from ..core.enum import DiscoveryMethod
 from ..tools.documents import FileReader
 from .base import BaseStep
@@ -99,9 +98,10 @@ class LoadFilesStep(BaseStep):
         # Create store path
         store_path.mkdir(parents=True, exist_ok=True)
 
-
         # Scan for PDF files
         pdf_files = sorted(file_path.glob("*.pdf"))
+
+        pdf_cache = PDFCache(cache_dir=self.cache_dir / "pdfs")
 
         if verbose:
             console.print(f"  Loading {len(pdf_files)} PDF files from: {file_path}")
@@ -159,6 +159,9 @@ class LoadFilesStep(BaseStep):
                     continue
 
                 file_result["doi"] = doi
+
+                # Step 3: Store Paper in cache (we keep everything)
+                pdf_cache.set(doi, pdf_path, move=False)
 
                 # Step 4: Create Discovery object
                 discovery = Discovery(

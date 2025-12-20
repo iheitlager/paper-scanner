@@ -451,3 +451,36 @@ class CrossrefHandler(BaseFetcherHandler):
             score += 0.05  # Year adds 0.05
 
         return min(score, 1.0)  # Cap at 1.0
+
+    def _find_download_url(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Find a downloadable PDF URL from Crossref metadata.
+
+        Strategy:
+        - Try link array for content with proper content-type
+        - Prefer application/pdf over other content types
+        - Skip resource.primary.URL as it often leads to paywalled landing pages
+
+        Args:
+            api_data: Crossref API response dict
+
+        Returns:
+            Download URL string, or None if no PDF link available
+        """
+        # Get link array for text-mining content with proper content-types
+        links = api_data.get("link", [])
+        if not links:
+            return None
+
+        # First pass: prefer application/pdf content-type
+        for link in links:
+            if link.get("content-type") == "application/pdf":
+                return link.get("URL")
+
+        # Second pass: take any URL if we didn't find PDF content-type
+        for link in links:
+            url = link.get("URL")
+            if url and url.startswith("http"):
+                return url
+
+        return None

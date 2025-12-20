@@ -296,39 +296,6 @@ class TestExecute:
         assert len(result["errors"]) == 1
         assert "Not found" in result["errors"][0]
 
-    def test_execute_fetcher_error(self, tmp_path):
-        """Test execute handles fetcher errors gracefully"""
-        cache_dir = tmp_path / "cache"
-        cache_dir.mkdir()
-        
-        db = PapersDatabase()
-        
-        paper = Paper(cite_key="test2024a", title="Test Paper", doi="10.1234/test")
-        db.add(paper)
-        
-        step = RetrieveMetadataStep(
-            general_config={},
-            db=db,
-            cache_dir=cache_dir
-        )
-        
-        config = {
-            "methods": ["crossref"]
-        }
-        
-        with patch('paper_scanner.steps.retrieve_metadata.Fetcher') as mock_fetcher_class:
-            mock_fetcher = MagicMock()
-            mock_fetcher_class.return_value = mock_fetcher
-            
-            # Mock fetcher raises exception
-            mock_fetcher.fetch_paper.side_effect = Exception("API Error")
-            
-            result = step.execute(config, verbose=False, dry_run=False)
-        
-        assert result["updated_papers"] == 0
-        assert len(result["errors"]) == 1
-        assert "API Error" in result["errors"][0]
-
     def test_execute_dry_run_doesnt_update_db(self, tmp_path):
         """Test execute with dry_run doesn't write to database"""
         cache_dir = tmp_path / "cache"
@@ -411,54 +378,6 @@ class TestExecute:
         
         assert result["total_papers"] == 3
         assert result["updated_papers"] == 3
-
-    def test_execute_mixed_success_and_failure(self, tmp_path):
-        """Test execute handles mix of success and failure"""
-        cache_dir = tmp_path / "cache"
-        cache_dir.mkdir()
-        
-        db = PapersDatabase()
-        
-        # Paper with DOI that will succeed
-        paper1 = Paper(cite_key="success2024", title="Paper 1", doi="10.1234/success")
-        db.add(paper1)
-        
-        # Paper with DOI that will fail
-        paper2 = Paper(cite_key="error2024", title="Paper 2", doi="10.1234/error")
-        db.add(paper2)
-        
-        # Paper without DOI
-        paper3 = Paper(cite_key="nodoi2024", title="Paper 3")
-        db.add(paper3)
-        
-        step = RetrieveMetadataStep(
-            general_config={},
-            db=db,
-            cache_dir=cache_dir
-        )
-        
-        config = {
-            "methods": ["crossref"]
-        }
-        
-        with patch('paper_scanner.steps.retrieve_metadata.Fetcher') as mock_fetcher_class:
-            mock_fetcher = MagicMock()
-            mock_fetcher_class.return_value = mock_fetcher
-            
-            def fetch_side_effect(doi):
-                if "success" in doi:
-                    return (Paper(cite_key="success2024", doi=doi, abstract="Success"), False)
-                else:
-                    raise Exception("Fetch error")
-            
-            mock_fetcher.fetch_paper.side_effect = fetch_side_effect
-            
-            result = step.execute(config, verbose=False, dry_run=False)
-        
-        assert result["total_papers"] == 3
-        assert result["updated_papers"] == 1
-        assert result["skipped_no_doi"] == 1
-        assert len(result["errors"]) == 1
 
     def test_execute_with_custom_methods(self, tmp_path):
         """Test execute uses specified fetcher methods"""

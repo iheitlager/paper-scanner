@@ -374,6 +374,21 @@ class OpenAlexHandler(BaseFetcherHandler):
             source=self.name,
         )
 
+    def _extract_publisher(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract publisher from OpenAlex.
+        
+        OpenAlex provides publisher in 'publisher' field.
+        """
+        publisher = api_data.get("primary_location", {}).get("source", {}).get("host_organization_name")
+        if publisher and isinstance(publisher, str):
+            return publisher.strip()
+
+        publisher = api_data.get("best_oa_location", {}).get("source", {}).get("host_organization_name")
+        if publisher and isinstance(publisher, str):
+            return publisher.strip()
+            
+        return None
 
     def _extract_source_key(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
@@ -445,3 +460,23 @@ class OpenAlexHandler(BaseFetcherHandler):
                 continue
 
         return citations
+
+    def _find_download_url(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract PDF download URL from OpenAlex metadata.
+        
+        OpenAlex API responses include:
+        - "open_access" object with "pdf_url", "is_oa"
+        - "has_fulltext" boolean
+        
+        Args:
+            api_data: OpenAlex API response metadata
+            
+        Returns:
+            URL string if found, None otherwise
+        """
+        # TODO: Investigate OpenAlex metadata structure for PDF URLs
+        # Check ~/.paper-scanner/openalex/ for sample responses
+        
+        # Placeholder implementation
+        return None

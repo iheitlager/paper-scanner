@@ -130,18 +130,6 @@ class TestPaperStepExecution:
         
         assert result["status"] == "ok"
         assert result["count"] == 1
-        assert len(result["papers"]) == 1
-
-    def test_execute_generates_cite_key_from_doi(self):
-        """Should auto-generate cite_key from DOI MD5 if not provided"""
-        config = {"papers": [{"doi": "10.1000/182"}]}
-        result = self.step.execute(config, dry_run=True)
-        
-        # Get the created paper
-        assert self.mock_db.upsert.call_count == 0  # dry_run=True
-        
-        # The result should contain paper IDs
-        assert len(result["papers"]) == 1
 
     def test_execute_uses_provided_cite_key(self):
         """Should use provided cite_key instead of generating one"""

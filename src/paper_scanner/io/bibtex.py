@@ -388,7 +388,6 @@ def bibtex_to_papers(
     discovery: Optional[Discovery] = None,
     source_type: Optional[str] = None,
     discovery_method: Optional[DiscoveryMethod] = None,
-    import_batch_id: Optional[str] = None,
     type_mapping_config: Optional[Dict[str, Any]] = None
 ) -> List[Paper]:
     """
@@ -399,7 +398,6 @@ def bibtex_to_papers(
         discovery: Optional Discovery object for tracking import
         source_type: Source database ('scopus', 'wos', 'ieee', 'manual', etc.)
         discovery_method: How papers were discovered
-        import_batch_id: Optional batch ID for tracking
         type_mapping_config: Optional pre-loaded type mapping configuration
 
     Returns:
@@ -407,12 +405,11 @@ def bibtex_to_papers(
     """
 
     # Build discovery object if parameters provided
-    if source_type or discovery_method or import_batch_id:
+    if source_type or discovery_method:
         if discovery is None:
             discovery = Discovery(
                 method=discovery_method or DiscoveryMethod.MANUAL,
                 source_database=source_type,
-                import_batch_id=import_batch_id
             )
         else:
             # Update provided discovery object with new values
@@ -420,8 +417,6 @@ def bibtex_to_papers(
                 discovery.source_database = source_type
             if discovery_method:
                 discovery.method = discovery_method
-            if import_batch_id:
-                discovery.import_batch_id = import_batch_id
 
     # Load type mapping configuration if not provided
     if type_mapping_config is None:
@@ -437,19 +432,14 @@ def bibtex_to_papers(
     papers = []
 
     for entry in bib_database.entries:
-        try:
-            paper = bibtex_entry_to_paper(
-                entry,
-                discovery=discovery,
-                source_type=source_type,
-                type_mapping_config=type_mapping_config
-            )
-            papers.append(paper)
-        except Exception as e:
-            cite_key = entry.get('ID', 'unknown')
-            print(f"Warning: Failed to parse BibTeX entry {cite_key}: {e}")
-            continue
-    
+        paper = bibtex_entry_to_paper(
+            entry,
+            discovery=discovery,
+            source_type=source_type,
+            type_mapping_config=type_mapping_config
+        )
+        papers.append(paper)
+
     return papers
 
 
@@ -458,7 +448,6 @@ def bibtex_file_to_papers(
     discovery: Optional[Discovery] = None,
     source_type: Optional[str] = None,
     discovery_method: Optional[DiscoveryMethod] = None,
-    import_batch_id: Optional[str] = None,
     type_mapping_config: Optional[Dict[str, Any]] = None
 ) -> List[Paper]:
     """
@@ -469,7 +458,6 @@ def bibtex_file_to_papers(
         discovery: Optional Discovery object for tracking import
         source_type: Source database ('scopus', 'wos', 'ieee', 'manual', etc.)
         discovery_method: How papers were discovered
-        import_batch_id: Optional batch ID for tracking
         type_mapping_config: Optional pre-loaded type mapping configuration
 
     Returns:
@@ -484,7 +472,6 @@ def bibtex_file_to_papers(
         discovery=discovery,
         source_type=source_type,
         discovery_method=discovery_method,
-        import_batch_id=import_batch_id,
         type_mapping_config=type_mapping_config
     )
 
@@ -663,12 +650,8 @@ def papers_to_bibtex(
     # Convert papers to entries
     entries = []
     for paper in papers:
-        try:
-            entry = paper_to_bibtex_entry(paper, use_source_key=use_source_key)
-            entries.append(entry)
-        except Exception as e:
-            print(f"Warning: Failed to convert paper {paper.cite_key} to BibTeX: {e}")
-            continue
+        entry = paper_to_bibtex_entry(paper, use_source_key=use_source_key)
+        entries.append(entry)
     
     bib_database.entries = entries
     
@@ -780,21 +763,17 @@ def import_bibtex_files(
                 source_type = 'ieee'
             else:
                 source_type = 'bibtex'
-        
-        print(f"Importing {filepath} (source: {source_type})...")
-        
+               
         discovery = Discovery(
             source_type=source_type,
-            discovery_method=DiscoveryMethod.KEYWORD_SEARCH,
-            import_batch_id=import_batch_id
+            discovery_method=DiscoveryMethod.KEYWORD_SEARCH
         )
 
         papers = bibtex_file_to_papers(
             filepath,
             discovery=discovery
         )
-        
-        print(f"  Loaded {len(papers)} papers")
+
         all_papers.extend(papers)
     
     return all_papers
@@ -836,7 +815,6 @@ def export_papers_by_source(
         papers_to_bibtex_file(source_papers, filepath, use_source_key=True)
         
         output_files[source_type] = filepath
-        print(f"Exported {len(source_papers)} papers to {filepath}")
     
     return output_files
 
@@ -876,7 +854,6 @@ def export_papers_by_decision(
         papers_to_bibtex_file(decision_papers, filepath, use_source_key=False)
         
         output_files[decision] = filepath
-        print(f"Exported {len(decision_papers)} {decision} papers to {filepath}")
     
     return output_files
 

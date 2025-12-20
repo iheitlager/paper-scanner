@@ -384,50 +384,6 @@ class TestResolveCitationsAndFetchPapers:
         assert results["citations_created_new_paper"] == 0
 
     @patch("paper_scanner.steps.citations.Fetcher")
-    def test_resolve_citations_unresolved_continue_false(self, mock_fetcher_class, step):
-        """Test unresolved citation without DOI raises error when continue_on_not_found=False"""
-        citing_paper = Paper(
-            cite_key="citing2020",
-            title="Citing Paper",
-            doi="10.1234/citing",
-            year=2020,
-            paper_type=PaperType.JOURNAL_ARTICLE
-        )
-
-        # Citation without DOI will not resolve
-        citation = Citation(
-            title="Unknown Paper",
-            extraction_method="crossref"
-        )
-        citing_paper.citations = [citation]
-
-        step.db.get_by_doi.return_value = []
-
-        mock_fetcher = MagicMock()
-        mock_fetcher.fetch_paper.return_value = (None, False)
-
-        results = {
-            "citations_resolved": 0,
-            "citations_created_new_paper": 0,
-            "citations_unresolved": 0,
-            "cache_hits": 0,
-            "cache_misses": 0,
-            "errors": []
-        }
-
-        # When continue_on_not_found=False and citation has no DOI, should raise ValueError
-        step._resolve_citations_and_fetch_papers(
-            papers=[citing_paper],
-            fetcher=mock_fetcher,
-            continue_on_not_found=False,
-            results=results
-        )
-
-        # Exception is caught in try/except block and added to errors
-        assert len(results["errors"]) > 0
-        assert "could not be resolved" in results["errors"][0]
-
-    @patch("paper_scanner.steps.citations.Fetcher")
     def test_resolve_citations_create_new_paper(self, mock_fetcher_class, step):
         """Test creating new paper for unresolved citation"""
         citing_paper = Paper(

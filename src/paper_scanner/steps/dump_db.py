@@ -63,7 +63,7 @@ class DumpDbStep(BaseStep):
             Execution result with database statistics
         """
 
-        if not verbose:
+        if not verbose and not debug:
             return {"status": "skipped", "message": "verbose mode not enabled"}
         
         self.print_papers = "papers" in config

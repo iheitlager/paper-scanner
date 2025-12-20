@@ -77,12 +77,12 @@ class BibtexImportStep(BaseStep):
             Tuple of (is_valid, error_messages)
         """
         errors = []
-        
-        # Check batch_id
-        if "batch_id" in config and not isinstance(config["batch_id"], str):
-            errors.append("'batch_id' must be a string")
-        
+
         # Check imports list
+        limit = config.get("limit")
+        if limit and (not isinstance(limit, int) or limit <= 0):
+            errors.append("'limit' must be a positive integer")
+
         imports = config.get("imports", [])
         if not isinstance(imports, list):
             errors.append("'imports' must be a list")
@@ -138,8 +138,7 @@ class BibtexImportStep(BaseStep):
         Returns:
             Dictionary with execution results
         """
-        
-        batch_id = config.get("batch_id", f"import_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        limit = config.get("limit")
         imports = config.get("imports", [])
         type_mapping_config_path = config.get("type_mapping_config_path")
         
@@ -157,7 +156,6 @@ class BibtexImportStep(BaseStep):
         
         results = {
             "step": "bibtex_import",
-            "batch_id": batch_id,
             "total_files": len(imports),
             "files_processed": 0,
             "papers_imported": 0,
@@ -193,10 +191,10 @@ class BibtexImportStep(BaseStep):
                         str(path),
                         source_type=source_type,
                         discovery_method=DiscoveryMethod.KEYWORD_SEARCH,
-                        import_batch_id=batch_id,
                         type_mapping_config=type_mapping_config
                     )
-                    
+                    if limit:
+                        papers = papers[:limit]
                     # Fix cite_key collisions if requested
                     if fix_cite_key:
                         fixed_count = _fix_cite_key_collisions(papers, self.db)

@@ -176,7 +176,7 @@ class PDFCache:
         except Exception:
             return None
 
-    def set(self, key: str, tmp_path: Path) -> Optional[Path]:
+    def set(self, key: str, tmp_path: Path, move: bool = True) -> Optional[Path]:
         """
         Move a PDF from temporary location to cache.
 
@@ -197,8 +197,14 @@ class PDFCache:
 
         cache_path = self._get_cache_path(key)
 
+        if cache_path.exists():
+            return cache_path
+
         try:
-            shutil.move(str(tmp_path), str(cache_path))
+            if move:
+                shutil.move(str(tmp_path), str(cache_path))
+            else:
+                shutil.copy2(str(tmp_path), str(cache_path))
             return cache_path
         except Exception as e:
             raise CacheError(f"Error moving PDF to cache for {key}: {e}")

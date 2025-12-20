@@ -8,6 +8,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "categorization": "paper_scanner.steps.categorization:CategorizationStep",
     "checkpoint": "paper_scanner.steps.checkpoint:CheckpointStep",
     "deduplication": "paper_scanner.steps.deduplication:DeduplicationStep",
+    "download_pdfs": "paper_scanner.steps.download_pdfs:DownloadPDFsStep",
     "dump_db": "paper_scanner.steps.dump_db:DumpDbStep",
     "echo": "paper_scanner.steps.echo:EchoStep",
     "export": "paper_scanner.steps.export:ExportStep",

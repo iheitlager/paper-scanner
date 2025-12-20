@@ -18,6 +18,7 @@ load_dotenv()
 
 DOI = "10.1186/s13731-024-00404-5"
 CORE_API_URL = "https://api.core.ac.uk/v3/search/works"
+REQUEST_TIMEOUT = 10
 
 def fetch_paper_details():
     """Fetch paper details from CORE API."""
@@ -37,7 +38,7 @@ def fetch_paper_details():
         "offset": 0
     }
     
-    response = requests.get(CORE_API_URL, params=params, headers=headers)
+    response = requests.get(CORE_API_URL, params=params, headers=headers, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     
     data = response.json()

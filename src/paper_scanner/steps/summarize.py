@@ -567,6 +567,7 @@ def _display_bibliography(papers_db: List[Paper]) -> None:
     keywords = 0
     abstracts = 0
     keyword_abstracts = 0
+    pdf = 0
     for paper in primary_papers:
         if paper.keywords:
             keywords += 1
@@ -574,6 +575,8 @@ def _display_bibliography(papers_db: List[Paper]) -> None:
             abstracts += 1
         if paper.keywords and paper.abstract:
             keyword_abstracts += 1
+        if paper.pdf_info and paper.pdf_info.file_path:
+            pdf += 1
 
     
     # Create table
@@ -582,11 +585,13 @@ def _display_bibliography(papers_db: List[Paper]) -> None:
     table.add_column("With Keywords", style="green", justify="right")
     table.add_column("With Abstract", style="yellow", justify="right")
     table.add_column("With Both", style="blue")
+    table.add_column("With PDF", style="blue")
     
     table.add_row(
         str(len(primary_papers)),
         str(keywords),
         str(abstracts),
-        str(keyword_abstracts)
+        str(keyword_abstracts),
+        str(pdf)
     )
     console.print(table)

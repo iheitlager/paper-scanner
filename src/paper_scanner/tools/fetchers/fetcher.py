@@ -10,10 +10,13 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
 from rich.console import Console
 
-from paper_scanner.core.models import Paper, Citation
+from paper_scanner.core.models import Paper, Citation, PDFInfo
+from paper_scanner.tools.cache import PDFCache
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import OpenAlexHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.core_handler import COREHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import PublisherHandler
 
 console = Console(file=sys.stderr)
 
@@ -21,7 +24,8 @@ console = Console(file=sys.stderr)
 handler_classes = {
     "crossref": CrossrefHandler,
     "openalex": OpenAlexHandler,
-    # "core": COREHandler,
+    "core": COREHandler,
+    "publisher": PublisherHandler,
     # Add others as implemented
 }
 
@@ -44,6 +48,8 @@ class Fetcher:
         self.handlers: Dict[str, BaseFetcherHandler] = {}
         self.verbose = verbose
         self.debug = debug
+        # NB: PDF caching is handled here in the Fetcher, not in individual handlers
+        self.pdf_cache = PDFCache(cache_dir=self.cache_dir / "pdfs")
 
         # Register handlers for enabled methods
         self._register_handlers(methods)
@@ -131,3 +137,62 @@ class Fetcher:
                 continue
 
         return [], False
+
+    def fetch_pdf(self, doi: str, timeout: int = 30) -> Optional[PDFInfo]:
+        """
+        Fetch PDF for a DOI, using cache if available.
+
+        Checks the PDF cache first, then attempts to fetch from handlers.
+        Once fetched, the PDF is cached for future use.
+        NB: Note that caching PDFs is handled here in the Fetcher, not in individual handlers.
+
+        Args:
+            doi: Digital Object Identifier
+
+        Returns:
+            PDFInfo with file path and metadata if found or successfully downloaded, None otherwise
+        """
+        # Check cache first
+        cached_path = self.pdf_cache.get(doi)
+        if cached_path:
+            if self.debug:
+                console.print(f"[green]PDF cache hit for {doi}[/green]")
+            # Return PDFInfo from cached path (we'll reconstruct metadata)
+            if cached_path.exists():
+                return PDFInfo(
+                    file_path=str(cached_path),
+                    file_size_bytes=cached_path.stat().st_size,
+                    download_source="cache",
+                )
+            return None
+
+        # Try to fetch from handlers
+        for handler_name, handler in self.handlers.items():
+            try:
+                if self.debug:
+                    console.print(f"[blue]Trying to fetch PDF from {handler_name} for DOI {doi}[/blue]")
+                
+                # Handler now returns PDFInfo with handler name as source
+                pdf_info = handler.fetch_pdf(doi, timeout=timeout)
+                if pdf_info and pdf_info.file_path:
+                    tmp_pdf_path = Path(pdf_info.file_path)
+                    # Cache the PDF
+                    cached_path = self.pdf_cache.set(doi, tmp_pdf_path)
+                    if self.debug:
+                        console.print(f"[green]PDF cached for {doi} from {handler_name}[/green]")
+                    
+                    # Return PDFInfo with updated file path (now in cache) but preserve handler name
+                    return PDFInfo(
+                        file_path=str(cached_path),
+                        file_size_bytes=cached_path.stat().st_size,
+                        download_source=pdf_info.download_source,  # Preserve handler name
+                        download_url=pdf_info.download_url,
+                        downloaded_at=pdf_info.downloaded_at,
+                    )
+            except Exception as e:
+                console.print(
+                    f"[yellow]Handler {handler_name} failed to fetch PDF for {doi}: {e}[/yellow]"
+                )
+                continue
+
+        return None

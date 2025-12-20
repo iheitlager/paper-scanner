@@ -289,8 +289,8 @@ class TestPDFCacheSet:
         assert result.exists()
         assert not tmp_pdf.exists()
 
-    def test_set_overwrites_existing_cache(self, tmp_path):
-        """Test that set overwrites existing cached file."""
+    def test_set_does_not_overwrite_existing_cache(self, tmp_path):
+        """Test that set does not overwrite existing cached file."""
         cache = PDFCache(cache_dir=tmp_path / "cache")
         
         key = "10.1234/test.doi"
@@ -306,7 +306,7 @@ class TestPDFCacheSet:
         cache.set(key, tmp_pdf)
         
         # Should have new content
-        assert cache_path.read_bytes() == b"new content"
+        assert cache_path.read_bytes() == b"old content"
 
 
 class TestPDFCacheClear:

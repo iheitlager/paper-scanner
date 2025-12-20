@@ -102,30 +102,19 @@ class TestExecute:
         step = DumpDbStep(general_config={}, db=empty_db, cache_dir=temp_cache_dir)
         result = step.execute({"papers": True})
 
-        assert result["status"] == "ok"
-        assert result["printed_papers"] == 0
-        assert result["index_sizes"]["papers"] == 0
-        assert result["index_sizes"]["_doi_index"] == 0
-        assert result["index_sizes"]["_cite_key_index"] == 0
-        assert result["index_sizes"]["_id_index"] == 0
+        assert result["status"] == "skipped"
     
     def test_execute_with_sample_data(self, sample_db, temp_cache_dir):
         """Should print all records and index statistics"""
         step = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
         result = step.execute({"papers": True})
 
-        assert result["status"] == "ok"
-        assert result["printed_papers"] == 3
-        assert result["index_sizes"]["papers"] == 3
-        assert result["index_sizes"]["_cite_key_index"] == 3
-        assert result["index_sizes"]["_id_index"] == 3
-        # Two papers have DOI, one doesn't
-        assert result["index_sizes"]["_doi_index"] == 2
+        assert result["status"] == "skipped"
     
     def test_execute_index_consistency(self, sample_db, temp_cache_dir):
         """Should show consistent index sizes"""
         step = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
-        result = step.execute({"papers": True})
+        result = step.execute({"papers": True}, verbose=True)
 
         index_sizes = result["index_sizes"]
         
@@ -143,20 +132,13 @@ class TestExecute:
         result1 = step1.execute({"papers": True}, verbose=False)
         result2 = step2.execute({"papers": True}, verbose=True)
 
-        assert result1["status"] == result2["status"]
-        assert result1["printed_papers"] == result2["printed_papers"]
-        assert result1["index_sizes"] == result2["index_sizes"]
-    
-    def test_execute_dry_run_ignored(self, sample_db, temp_cache_dir):
-        """Should produce same output regardless of dry_run flag"""
-        step1 = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
-        step2 = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
-        result1 = step1.execute({"papers": True}, dry_run=False)
-        result2 = step2.execute({"papers": True}, dry_run=True)
+        assert result1["status"] == 'skipped'
+        assert result2["status"] == 'ok'
+        assert "printed_papers" not in result1
+        assert "printed_papers" in result2
+        assert "index_sizes" not in result1
+        assert "index_sizes" in result2
 
-        assert result1["status"] == result2["status"]
-        assert result1["printed_papers"] == result2["printed_papers"]
-        assert result1["index_sizes"] == result2["index_sizes"]
     
     def test_execute_multiple_papers_same_doi(self, temp_cache_dir):
         """Should handle multiple papers with same DOI"""
@@ -180,7 +162,7 @@ class TestExecute:
         db.add(paper2)
 
         step = DumpDbStep(general_config={}, db=db, cache_dir=temp_cache_dir)
-        result = step.execute({"papers": True})
+        result = step.execute({"papers": True}, verbose=True)
         
         # Both papers in records
         assert result["printed_papers"] == 2
@@ -208,7 +190,7 @@ class TestExecute:
         }
 
         step = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
-        result = step.execute({**config, "papers": True})
+        result = step.execute({**config, "papers": True}, verbose=True)
 
         assert result["status"] == "ok"
         assert result["printed_papers"] == 3
@@ -235,7 +217,7 @@ class TestDumpDBTitleTruncation:
         db.add(paper)
 
         step = DumpDbStep(general_config={}, db=db, cache_dir=temp_cache_dir)
-        result = step.execute({"papers": True})
+        result = step.execute({"papers": True}, verbose=True)
 
         assert result["printed_papers"] == 1
         # Title should be stored fully in the paper
@@ -255,7 +237,7 @@ class TestDumpDBTitleTruncation:
         db.add(paper)
 
         step = DumpDbStep(general_config={}, db=db, cache_dir=temp_cache_dir)
-        result = step.execute({"papers": True})
+        result = step.execute({"papers": True}, verbose=True)
 
         assert result["printed_papers"] == 1
         # Title should be unchanged

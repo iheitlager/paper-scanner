@@ -36,12 +36,21 @@ def _format_size(size_bytes: int) -> str:
     return f"{size_bytes:.1f}TB"
 
 
+def _collapse_home(path: Path) -> str:
+    """Convert home directory path to use ~ notation"""
+    try:
+        home = Path.home()
+        if path.is_relative_to(home):
+            return f"~/{path.relative_to(home)}"
+    except (ValueError, AttributeError):
+        pass
+    return str(path)
+
 def _count_files(path: Path) -> int:
     """Count number of files in directory"""
     if not path.exists():
         return 0
     return len(list(path.rglob("*")))
-
 
 def execute_cache_info(
     cache_dir: Optional[Path] = None,
@@ -80,31 +89,31 @@ def execute_cache_info(
     table.add_column("Files", justify="right")
     table.add_column("Size", justify="right")
 
-    # Checkpoints
-    checkpoints_dir = cache_dir / "checkpoints"
-    checkpoint_files = _count_files(checkpoints_dir)
-    checkpoint_size = _get_dir_size(checkpoints_dir)
-    table.add_row(
-        "Checkpoints",
-        "checkpoints/",
-        str(checkpoint_files),
-        _format_size(checkpoint_size),
-    )
+    # Cache folders to display
+    cache_folders = [
+        ("checkpoints", "checkpoints"),
+        ("crossref", "crossref"),
+        ("openalex", "openalex"),
+        ("pdfs", "pdfs"),
+    ]
 
-    # Crossref
-    crossref_dir = cache_dir / "crossref"
-    crossref_files = _count_files(crossref_dir)
-    crossref_size = _get_dir_size(crossref_dir)
-    table.add_row(
-        "Crossref Cache",
-        "crossref/",
-        str(crossref_files),
-        _format_size(crossref_size),
-    )
+    total_files = 0
+    total_size = 0
+
+    for name, folder in cache_folders:
+        folder_dir = cache_dir / folder
+        folder_files = _count_files(folder_dir)
+        folder_size = _get_dir_size(folder_dir)
+        table.add_row(
+            name,
+            f"{_collapse_home(folder_dir)}/",
+            str(folder_files),
+            _format_size(folder_size),
+        )
+        total_files += folder_files
+        total_size += folder_size
 
     # Total
-    total_files = checkpoint_files + crossref_files
-    total_size = checkpoint_size + crossref_size
     table.add_row(
         "[bold]Total[/bold]",
         "",
@@ -154,9 +163,20 @@ def execute_cache_clear(
 
         if checkpoints_dir.exists():
             shutil.rmtree(checkpoints_dir)
-            console.print(f"[green]✓ Cleared checkpoints[/green]: {checkpoints_dir}")
+            console.print(f"[green]✓ Cleared checkpoints[/green]: {_collapse_home(checkpoints_dir)}")
         else:
             console.print(f"[green]✓ No checkpoints to clear[/green] (directory is clean)")
+
+        return 0
+
+    elif target == "pdfs":
+        pdfs_dir = cache_dir / "pdfs"
+
+        if pdfs_dir.exists():
+            shutil.rmtree(pdfs_dir)
+            console.print(f"[green]✓ Cleared PDFs[/green]: {_collapse_home(pdfs_dir)}")
+        else:
+            console.print(f"[green]✓ No PDFs to clear[/green] (directory is clean)")
 
         return 0
 

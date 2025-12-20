@@ -307,7 +307,7 @@ class REPLSession:
             commands = [
                 ("\\run <file.yml>", "Load and execute a YAML definition file"),
                 ("\\load <file.yml>", "Load YAML definition (view steps, don't execute)"),
-                ("\\step \\n", "Execute the next step in a loaded definition"),
+                ("\\step, \\n", "Execute the next step in a loaded definition"),
                 ("\\go, \\g", "Execute all remaining steps in a loaded definition"),
                 ("\\do, \\d <step> {params}", "Execute ad-hoc step with parameters"),
                 # ("  Examples:", ""),
@@ -932,7 +932,15 @@ class REPLSession:
                     
                     # Get input - let prompt_toolkit handle history
                     line = session.prompt(">>> ")
-                    
+
+                    if line.startswith("\\exit") or line.startswith("\\q") or line.strip() in ["exit()", "quit()", "quit", "exit", "x", "bye"]:
+                        if self.debug:
+                            console.print("[dim]Exiting REPL loop[/dim]")
+                        break
+                    elif line.startswith("\\"):
+                        self._handle_macro_command(line.strip())
+                        continue
+
                     # Accumulate multiline input manually for incomplete code
                     accumulated = line
                     while not _is_code_complete(accumulated):
@@ -954,61 +962,32 @@ class REPLSession:
                     if not accumulated.strip():
                         continue
 
-                    # Manually append to history file for persistence
-                    if history_file:
-                        try:
-                            with open(history_file, 'a') as f:
-                                f.write(accumulated + '\n')
-                        except Exception as e:
-                            if self.debug:
-                                console.print(f"[yellow]Warning: Could not write to history file:[/yellow] {e}")
-
-                    # Check if it's a macro command (only first line for multiline)
-                    first_line = accumulated.split('\n')[0] if '\n' in accumulated else accumulated
-                    if first_line.startswith("\\"):
-                        if first_line.startswith("\\exit") or first_line.startswith("\\q"):
-                            break
-                        try:
-                            self._handle_macro_command(first_line.strip())
-                        except Exception as e:
-                            console.print(f"[red]Error in macro command:[/red] {e}")
-                            if self.debug:
-                                import traceback
-                                traceback.print_exc()
-                    else:
-                        # Execute as Python code (supports multiline)
-                        # Dedent the code to handle indented blocks properly
-                        code_to_exec = textwrap.dedent(accumulated)
-                        try:
-                            # Try eval first (for expressions)
-                            result = eval(code_to_exec, namespace)
-                            if result is not None:
-                                print(repr(result))
-                        except SyntaxError as e:
-                            # Fall back to exec for statements
-                            try:
-                                exec(code_to_exec, namespace)
-                            except SyntaxError as syntax_err:
-                                # Show syntax error with details
-                                console.print(f"[red]SyntaxError:[/red] {syntax_err.msg}")
-                                if syntax_err.text:
-                                    console.print(f"  {syntax_err.text.rstrip()}")
-                                if syntax_err.offset:
-                                    console.print(f"  {' ' * (syntax_err.offset - 1)}^")
-                                if self.debug:
-                                    import traceback
-                                    traceback.print_exc()
-                            except Exception as e:
-                                console.print(f"[red]Error:[/red] {e}")
-                                if self.debug:
-                                    import traceback
-                                    traceback.print_exc()
-                        except Exception as e:
-                            console.print(f"[red]Error:[/red] {e}")
-                            if self.debug:
-                                import traceback
-                                traceback.print_exc()
-
+                    # Execute as Python code (supports multiline)
+                    # Dedent the code to handle indented blocks properly
+                    code_to_exec = textwrap.dedent(accumulated)
+                    # Try eval first (for expressions)
+                    result = eval(code_to_exec, namespace)
+                    if result is not None:
+                        print(repr(result))
+                except SyntaxError as e:
+                    # Fall back to exec for statements
+                    try:
+                        exec(code_to_exec, namespace)
+                    except SyntaxError as syntax_err:
+                        # Show syntax error with details
+                        console.print(f"[red]SyntaxError:[/red] {syntax_err.msg}")
+                        if syntax_err.text:
+                            console.print(f"  {syntax_err.text.rstrip()}")
+                        if syntax_err.offset:
+                            console.print(f"  {' ' * (syntax_err.offset - 1)}^")
+                        if self.debug:
+                            import traceback
+                            traceback.print_exc()
+                    except Exception as e:
+                        console.print(f"[red]Error:[/red] {e}")
+                        if self.debug:
+                            import traceback
+                            traceback.print_exc()
                 except KeyboardInterrupt:
                     console.print("\n[yellow]Interrupted[/yellow]")
                 except EOFError:

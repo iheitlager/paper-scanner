@@ -30,7 +30,6 @@ class TestValidate:
     def test_validate_valid_full_config(self):
         """Test validation of full config with all fields"""
         config = {
-            "batch_id": "test_batch",
             "imports": [
                 {
                     "name": "Test Import",
@@ -87,16 +86,6 @@ class TestValidate:
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
         assert any("fix_cite_key" in err for err in errors)
-
-    def test_validate_invalid_batch_id_type(self):
-        """Test validation fails with non-string batch_id"""
-        config = {
-            "batch_id": 123,
-            "imports": [{"file_path": "test.bib"}]
-        }
-        is_valid, errors = BibtexImportStep.validate(config)
-        assert is_valid is False
-        assert any("batch_id" in err for err in errors)
 
 
 class TestFixCiteKeyCollisions:

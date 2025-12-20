@@ -80,6 +80,10 @@ class DummyHandler(BaseFetcherHandler):
         """Mock citation extraction."""
         return []
 
+    def _find_download_url(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """Mock PDF URL extraction."""
+        return None
+
 
 class TestBaseCacheIntegration:
     """Test BaseFetcherHandler cache behavior using DummyHandler."""

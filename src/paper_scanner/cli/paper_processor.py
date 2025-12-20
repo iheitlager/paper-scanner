@@ -16,7 +16,10 @@ from paper_scanner import __version__
 from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.cli.tasks import execute_run, execute_validate, execute_cache_clear, execute_cache_info, execute_info_steps, execute_repl
 from paper_scanner.steps.base import BaseStep
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
 # Handle broken pipe gracefully (when piping to head, wc, etc.)
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
@@ -387,7 +390,7 @@ def main():
     
     clear_parser.add_argument(
         "target",
-        choices=["checkpoints"],
+        choices=["checkpoints", "pdfs"],
         help="What to clear"
     )
     

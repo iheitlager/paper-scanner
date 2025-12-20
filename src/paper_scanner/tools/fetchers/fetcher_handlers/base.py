@@ -10,9 +10,13 @@ from pathlib import Path
 from typing import Optional, Tuple, Dict, Any, List
 from datetime import datetime
 
-from paper_scanner.core.models import Paper, Citation
+from paper_scanner.core.models import Paper, Citation, PDFInfo
 from paper_scanner.tools.cache import JSONFileCache
 from paper_scanner.core.doi import DOI
+
+import sys
+from rich.console import Console
+console = Console(file=sys.stderr)
 
 class BaseFetcherHandler(ABC):
     """
@@ -157,6 +161,21 @@ class BaseFetcherHandler(ABC):
         """
         pass
 
+    @abstractmethod
+    def _find_download_url(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Find a downloadable PDF URL from API response.
+
+        Handler-specific implementation to extract download URL from metadata.
+
+        Args:
+            api_data: API response dict
+
+        Returns:
+            Download URL string, or None if no PDF available
+        """
+        pass
+
     def _extract_cite_key(self, api_data: Dict[str, Any]) -> str:
         """
         Generate a cite key from API data.
@@ -174,10 +193,18 @@ class BaseFetcherHandler(ABC):
             return f"doi_{DOI(doi).md5[:8]}"
         return "unknown_cite_key"
 
-
-    def fetch_paper(self, doi: str) -> Tuple[Optional[Paper], bool]:
+    def _extract_publisher(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
-        Fetch Paper from doi.
+        Extract publisher from API response.
+        
+        Default implementation returns None.
+        Subclasses can override for API-specific handling.
+        """
+        return api_data.get("publisher")
+
+    def fetch_metadata(self, doi: str) -> Tuple[Optional[Dict[str, Any]], bool]:
+        """
+        Fetch metadata for a DOI from cache or API.
 
         Checks cache first, then API, storing result in cache.
 
@@ -185,22 +212,38 @@ class BaseFetcherHandler(ABC):
             doi: Digital Object Identifier
 
         Returns:
-            Tuple of (Paper model or None, cache_hit: bool)
+            Tuple of (API response dict or None, cache_hit: bool)
         """
         # Check cache
         api_data = self._jsoncache.get(doi)
         if api_data is not None:
-            paper = self._translate_to_paper(doi, api_data)
-            return paper, True
+            return api_data, True
 
         api_data = self._fetch_from_api(doi)
         if api_data is None:
             return None, False
 
         self._jsoncache.set(doi, api_data)
-        paper = self._translate_to_paper(doi, api_data)
+        return api_data, False
 
-        return paper, False
+    def fetch_paper(self, doi: str) -> Tuple[Optional[Paper], bool]:
+        """
+        Fetch Paper from DOI.
+
+        Uses fetch_metadata to get API data, then translates to Paper model.
+
+        Args:
+            doi: Digital Object Identifier
+
+        Returns:
+            Tuple of (Paper model or None, cache_hit: bool)
+        """
+        api_data, cache_hit = self.fetch_metadata(doi)
+        if api_data is None:
+            return None, cache_hit
+
+        paper = self._translate_to_paper(doi, api_data)
+        return paper, cache_hit
 
 
     def fetch_citations(self, doi: str) -> Tuple[List[Citation], bool]:
@@ -216,23 +259,67 @@ class BaseFetcherHandler(ABC):
         Returns:
             Tuple of (List[Citation] models, cache_hit: bool)
         """
-        # Check cache - same key as fetch_paper
-        api_data = self._jsoncache.get(doi)
-
-        if api_data is not None:
-            citations = self._extract_citations(api_data)
-            return citations, True
-
-        # Fetch full API data (includes citations)
-        api_data = self._fetch_from_api(doi)
+        api_data, cache_hit = self.fetch_metadata(doi)
         if api_data is None:
             return [], False
 
-        # Cache the full API response
-        self._jsoncache.set(doi, api_data)
         citations = self._extract_citations(api_data)
+        return citations, cache_hit
 
-        return citations, False
+    def fetch_pdf(self, doi: str, timeout: int = 30) -> Optional[PDFInfo]:
+        """
+        Fetch PDF for a DOI and download to temporary location.
+
+        Gets metadata, finds download URL, and downloads PDF to temp folder.
+
+        Args:
+            doi: Digital Object Identifier
+
+        Returns:
+            PDFInfo with file path and metadata, or None if not found
+        """
+        import tempfile
+        import requests
+
+        # Get metadata (uses cache)
+        api_data, _ = self.fetch_metadata(doi)
+        if api_data is None:
+            return None
+
+        # Find download URL (handler-specific)
+        download_url = self._find_download_url(api_data)
+        if not download_url:
+            return None
+
+        # Download to temporary folder
+        try:
+            response = requests.get(download_url, timeout=timeout, allow_redirects=True)
+            response.raise_for_status()
+
+            # Check if we got HTML instead of PDF (common with paywalled content)
+            content_type = response.headers.get('content-type', '').lower()
+            if 'text/html' in content_type:
+                if self.debug:
+                    console.print(f"[yellow]Got HTML page instead of PDF from {download_url}[/yellow]")
+                return None
+
+            # Create temporary file
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
+                tmp_file.write(response.content)
+                pdf_path = Path(tmp_file.name)
+                
+                # Return PDFInfo with download source (handler name)
+                return PDFInfo(
+                    file_path=str(pdf_path),
+                    file_size_bytes=pdf_path.stat().st_size,
+                    download_source=self.name,
+                    download_url=download_url,
+                    downloaded_at=datetime.now(),
+                )
+        except Exception as e:
+            if self.debug:
+                console.print(f"[yellow]Failed to download PDF from {download_url}: {e}[/yellow]")
+            return None
 
     def _translate_to_paper(self, doi: str, api_data: Dict[str, Any]) -> Paper:
         """
@@ -271,7 +358,7 @@ class BaseFetcherHandler(ABC):
         isbn = self._extract_isbn(api_data)
         issn = self._extract_issn(api_data)
         pmid = self._extract_pmid(api_data)
-        publisher = api_data.get("publisher")
+        publisher = self._extract_publisher(api_data)
         volume = api_data.get("volume")
         number = api_data.get("issue")
         pages = api_data.get("pages")
