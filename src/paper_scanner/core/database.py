@@ -760,4 +760,75 @@ class PapersDatabase:
                 result.add(paper)
         
         return result
+    
+    def query(self) -> "PapersQuery":
+        """
+        Create fluent query builder for complex filters.
+        
+        Returns:
+            PapersQuery builder that supports chainable filters, sorting, and limits
+            
+        Example:
+            >>> papers_db.query().filter_by_topic("AI").top(10).execute()
+            >>> papers_db.query().grep("cloud computing").exclude_duplicates().first()
+            >>> papers_db.query().filter_by_year(2020, 2023).order_by_year(descending=True).list()
+        """
+        from paper_scanner.core.query import PapersQuery
+        return PapersQuery(self)
+    
+    # ========================================================================
+    # CONVENIENCE SHORTHAND METHODS (implicit query builder)
+    # ========================================================================
+    
+    def filter(self, predicate) -> "PapersQuery":
+        """
+        Shorthand for query().filter(predicate).
+        
+        Returns PapersQuery for chaining.
+        
+        Example:
+            >>> db.filter(lambda p: p.year > 2020).order_by_year()
+            >>> db.filter(lambda p: 'AI' in p.keywords)[0]  # First match
+        """
+        return self.query().filter(predicate)
+    
+    def by_topic(self, topic):
+        """
+        Shorthand for query().filter_by_topic(topic).
+        
+        Example:
+            >>> db.by_topic("AI")[0:5]  # First 5 AI papers
+            >>> list(db.by_topic("ML"))  # Iterate results
+        """
+        return self.query().filter_by_topic(topic)
+    
+    def by_author(self, author_name) -> "PapersQuery":
+        """
+        Shorthand for query().filter_by_author(author_name).
+        
+        Example:
+            >>> db.by_author("Smith").count()
+            >>> if db.by_author("Bengio"): print("Found papers by Bengio")
+        """
+        return self.query().filter_by_author(author_name)
+    
+    def by_year(self, min_year, max_year=None) -> "PapersQuery":
+        """
+        Shorthand for query().filter_by_year(min_year, max_year).
+        
+        Example:
+            >>> db.by_year(2020)  # Papers from 2020
+            >>> db.by_year(2020, 2022).order_by_year(descending=True)
+        """
+        return self.query().filter_by_year(min_year, max_year)
+    
+    def search(self, text) -> "PapersQuery":
+        """
+        Shorthand for query().grep(text).
+        
+        Example:
+            >>> db.search("transformer")[0]  # First paper matching "transformer"
+            >>> len(db.search("neural network"))  # Count matches
+        """
+        return self.query().grep(text)
 
