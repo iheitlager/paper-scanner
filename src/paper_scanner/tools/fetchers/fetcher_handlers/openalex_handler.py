@@ -30,9 +30,9 @@ REQUEST_TIMEOUT = 10
 class OpenAlexHandler(BaseFetcherHandler):
     """Fetcher for OpenAlex API metadata and citations."""
 
-    def __init__(self, cache_dir: Path):
+    def __init__(self, cache_dir: Path, debug: bool = False, verbose: bool = False):
         """Initialize OpenAlex handler."""
-        super().__init__(cache_dir)
+        super().__init__(cache_dir, debug=debug, verbose=verbose)
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": OPENALEX_USER_AGENT})
 
@@ -57,12 +57,14 @@ class OpenAlexHandler(BaseFetcherHandler):
         # OpenAlex uses doi: prefix in URL
         # Endpoint: /works/doi:{doi}
         url = f"{OPENALEX_API_URL}/works/doi:{normalized}"
-        console.print(f"[dim]Fetching OpenAlex data for DOI {normalized} from {url}[/dim]")
+        if self.verbose:
+            console.print(f"Fetching OpenAlex data for DOI {normalized} from {url}")
 
         try:
             response = self.session.get(url, timeout=REQUEST_TIMEOUT)
-            console.print(f"[dim]Response status code: {response.status_code}[/dim]")
-            console.print(f"[dim]Response content: {response.text}[/dim]")
+            if self.debug:
+                console.print(f"[dim]Response status code: {response.status_code}[/dim]")
+                console.print(f"[dim]Response content: {response.text}[/dim]")
 
             if response.status_code == 404:
                 return None
@@ -95,11 +97,11 @@ class OpenAlexHandler(BaseFetcherHandler):
             for word, positions in inverted_index.items():
                 for pos in positions:
                     word_positions.append((pos, word))
-            
+
             # Sort by position and join
             word_positions.sort(key=lambda x: x[0])
             abstract = " ".join(word for _, word in word_positions)
-            
+
             # Clean up with AbstractParser
             return AbstractParser.clean(abstract)
             

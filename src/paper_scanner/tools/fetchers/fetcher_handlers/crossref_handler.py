@@ -28,9 +28,9 @@ REQUEST_TIMEOUT = 10
 class CrossrefHandler(BaseFetcherHandler):
     """Fetcher for Crossref API metadata and citations."""
 
-    def __init__(self, cache_dir: Path):
+    def __init__(self, cache_dir: Path, debug: bool = False, verbose: bool = False):
         """Initialize Crossref handler."""
-        super().__init__(cache_dir)
+        super().__init__(cache_dir, debug=debug, verbose=verbose)
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": CROSSREF_USER_AGENT})
 

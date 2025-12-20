@@ -30,10 +30,12 @@ class TestFetcherInitialization:
 
     def test_fetcher_handler_cache_subdirectory(self, tmp_path):
         """Test that handlers get method-specific cache subdirectories."""
-        fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
-        handler = fetcher.handlers["crossref"]
-        expected_cache_dir = tmp_path / "crossref"
-        assert handler.cache_dir == expected_cache_dir
+        for h in ["crossref"]:
+            fetcher = Fetcher(cache_dir=tmp_path, methods=[h])
+            handler = fetcher.handlers[h]
+            expected_cache_dir = tmp_path / h
+            assert handler.cache_dir == tmp_path
+            assert handler.cache_dir_json == expected_cache_dir
 
     def test_fetcher_initialization_with_unknown_method(self, tmp_path):
         """Test fetcher raises error for unknown methods."""
@@ -110,6 +112,7 @@ class TestFetcherMetadataFetching:
         ):
             result, cache_hit = fetcher.fetch_paper("10.1234/test")
             assert result is None
+            assert cache_hit is False
 
 
 class TestFetcherFallbackLogic:
@@ -163,7 +166,8 @@ class TestFetcherCaching:
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
         assert "crossref" in fetcher.handlers
         handler = fetcher.handlers["crossref"]
-        assert handler.cache_dir == (tmp_path / "crossref")
+        assert handler.cache_dir == tmp_path
+        assert handler.cache_dir_json == (tmp_path / "crossref")
 
 
 class TestFetcherErrorHandling:

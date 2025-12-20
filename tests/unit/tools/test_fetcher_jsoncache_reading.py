@@ -181,8 +181,8 @@ class TestBaseCacheIntegration:
         """Test that same identifier always produces same cache file path."""
         identifier = "10.1000/test-id-6"
 
-        path1 = dummy_handler._cache._get_cache_path(identifier)
-        path2 = dummy_handler._cache._get_cache_path(identifier)
+        path1 = dummy_handler._jsoncache._get_cache_path(identifier)
+        path2 = dummy_handler._jsoncache._get_cache_path(identifier)
 
         assert path1 == path2, "Same identifier should always map to same cache path"
 

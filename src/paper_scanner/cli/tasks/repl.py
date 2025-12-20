@@ -125,17 +125,18 @@ class REPLSession:
         try:
             # Create database and load from checkpoint if exists
             self.papers_db = PapersDatabase()
-            checkpoint_path = (self.cache_dir / "checkpoint_last.json")
 
+            checkpoint_path = (self.cache_dir / "checkpoint_last.json")
             if checkpoint_path.exists():
                 console.print(f"[green]Loading checkpoint:[/green] {checkpoint_path}")
                 self.papers_db.load_checkpoint(checkpoint_path)
                 self.step_history.append(
                     f"Loaded checkpoint: {checkpoint_path} ({self.papers_db.count()} papers)"
                 )
-            
+
             with open(definition_path) as f:
                 self.loaded_definition = yaml.safe_load(f)
+
             self.current_step_index = 0
             self.project_name = self.loaded_definition.get("project", {}).get("name")
             self.general_config["project_name"] = self.project_name
@@ -306,7 +307,7 @@ class REPLSession:
             commands = [
                 ("\\run <file.yml>", "Load and execute a YAML definition file"),
                 ("\\load <file.yml>", "Load YAML definition (view steps, don't execute)"),
-                ("\\step", "Execute the next step in a loaded definition"),
+                ("\\step \\n", "Execute the next step in a loaded definition"),
                 ("\\go, \\g", "Execute all remaining steps in a loaded definition"),
                 ("\\do, \\d <step> {params}", "Execute ad-hoc step with parameters"),
                 # ("  Examples:", ""),

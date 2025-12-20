@@ -38,10 +38,10 @@ class TestCrossrefHandlerInitialization:
     def test_cache_file_path_generation(self, handler):
         """Test cache file path is generated correctly."""
         doi = "10.1145/3025453.3025761"
-        cache_file = handler._cache._get_cache_path(doi)
+        cache_file = handler._jsoncache._get_cache_path(doi)
 
         # Should be MD5 hash of normalized DOI
-        assert cache_file.parent == handler._cache.cache_dir
+        assert cache_file.parent == handler._jsoncache.cache_dir
         assert cache_file.suffix == ".json"
         assert len(cache_file.stem) == 32  # MD5 hex string length
 
@@ -51,9 +51,9 @@ class TestCrossrefHandlerInitialization:
         doi2 = "DOI:10.1145/3025453.3025761"
         doi3 = "https://doi.org/10.1145/3025453.3025761"
 
-        file1 = handler._cache._get_cache_path(doi1)
-        file2 = handler._cache._get_cache_path(doi2)
-        file3 = handler._cache._get_cache_path(doi3)
+        file1 = handler._jsoncache._get_cache_path(doi1)
+        file2 = handler._jsoncache._get_cache_path(doi2)
+        file3 = handler._jsoncache._get_cache_path(doi3)
 
         # All should normalize to same file
         assert file1 == file2 == file3
@@ -178,7 +178,7 @@ class TestCrossrefUnifiedCache:
             "DOI": doi,
             "title": "Test Paper",
         }
-        success = handler1._cache.set(doi, api_data)
+        success = handler1._jsoncache.set(doi, api_data)
         assert success
         
         # Create second handler with same cache dir

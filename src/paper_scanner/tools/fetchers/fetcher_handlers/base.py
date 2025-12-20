@@ -21,16 +21,21 @@ class BaseFetcherHandler(ABC):
     Subclasses implement API calls and field translation logic.
     """
 
-    def __init__(self, cache_dir: Path):
+    def __init__(self, cache_dir: Path, debug: bool = False, verbose: bool = False):
         """
         Initialize handler with cache directory.
 
         Args:
             cache_dir: Directory for caching API responses (e.g., ~/.cache/paper-scanner/crossref/)
+            debug: Enable debug output
+            verbose: Enable verbose output
         """
         self.cache_dir = Path(cache_dir).expanduser()
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self._cache = JSONFileCache(self.cache_dir)
+        self.cache_dir_json = self.cache_dir / self.name
+        self.cache_dir_json.mkdir(parents=True, exist_ok=True)
+        self._jsoncache = JSONFileCache(self.cache_dir_json)
+        self.debug = debug
+        self.verbose = verbose
 
     @property
     @abstractmethod
@@ -183,7 +188,7 @@ class BaseFetcherHandler(ABC):
             Tuple of (Paper model or None, cache_hit: bool)
         """
         # Check cache
-        api_data = self._cache.get(doi)
+        api_data = self._jsoncache.get(doi)
         if api_data is not None:
             paper = self._translate_to_paper(doi, api_data)
             return paper, True
@@ -192,7 +197,7 @@ class BaseFetcherHandler(ABC):
         if api_data is None:
             return None, False
 
-        self._cache.set(doi, api_data)
+        self._jsoncache.set(doi, api_data)
         paper = self._translate_to_paper(doi, api_data)
 
         return paper, False
@@ -212,7 +217,7 @@ class BaseFetcherHandler(ABC):
             Tuple of (List[Citation] models, cache_hit: bool)
         """
         # Check cache - same key as fetch_paper
-        api_data = self._cache.get(doi)
+        api_data = self._jsoncache.get(doi)
 
         if api_data is not None:
             citations = self._extract_citations(api_data)
@@ -224,7 +229,7 @@ class BaseFetcherHandler(ABC):
             return [], False
 
         # Cache the full API response
-        self._cache.set(doi, api_data)
+        self._jsoncache.set(doi, api_data)
         citations = self._extract_citations(api_data)
 
         return citations, False

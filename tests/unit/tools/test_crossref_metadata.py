@@ -370,11 +370,11 @@ class TestCrossrefMetadataExtraction:
         }
 
         # Save to cache
-        success = handler._cache.set(doi, api_data)
+        success = handler._jsoncache.set(doi, api_data)
         assert success
 
         # Load from cache
-        loaded = handler._cache.get(doi)
+        loaded = handler._jsoncache.get(doi)
         assert loaded == api_data
 
 if __name__ == "__main__":
