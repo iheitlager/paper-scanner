@@ -144,7 +144,8 @@ class REPLSession:
                 console.print("[yellow]No steps found in definition[/yellow]")
                 return
             self.loaded_definition_steps = steps
-            console.print(f"[green]Loaded project:[/green] {self.project_name}")
+            if self.debug:
+                console.print(f"[dim]Loaded project: {definition_path} with {len(steps)} steps[/dim]")
             return True
         except Exception as e:
             console.print(f"[red]Error loading definition:[/red] {e}")
@@ -308,10 +309,10 @@ class REPLSession:
                 ("\\step", "Execute the next step in a loaded definition"),
                 ("\\go, \\g", "Execute all remaining steps in a loaded definition"),
                 ("\\do, \\d <step> {params}", "Execute ad-hoc step with parameters"),
-                ("  Examples:", ""),
-                ("    \\do summarize summary=true", "Simple parameter"),
-                ("    \\do summarize tabulate[field=paper_type]", "Nested config"),
-                ("    \\do summarize tabulate[field=paper_type,duplicates=false]", "Multiple nested params"),
+                # ("  Examples:", ""),
+                # ("    \\do summarize summary=true", "Simple parameter"),
+                # ("    \\do summarize tabulate[field=paper_type]", "Nested config"),
+                # ("    \\do summarize tabulate[field=paper_type,duplicates=false]", "Multiple nested params"),
                 ("\\checkpoint <label>", "Save checkpoint with label"),
                 ("\\history, \\h", "Show step execution history"),
                 ("\\show, \\p", "Display current papers"),
@@ -864,7 +865,6 @@ class REPLSession:
     def run(self) -> None:
         """Start the interactive REPL session"""
         # Display banner
-        console.print("[bold cyan]paper-scanner REPL[/bold cyan]")
         console.print(f"Project: [green]{self.project_name}[/green]")
         console.print(r"[dim]Type \help for macro commands or Ctrl+D to exit[/dim]" + "\n")
 
@@ -1101,6 +1101,7 @@ class REPLSession:
 def execute_repl(
     cache_dir: Optional[Path] = None,
     definition_file: Optional[Path] = None,
+    auto_run: bool = False,
     verbose: bool = False,
     debug: bool = False,
     quit_after_definition: bool = False,
@@ -1125,7 +1126,7 @@ def execute_repl(
         builtin_steps=builtin_steps,
     )
 
-    if session.load_initial_definition(definition_file):
+    if session.load_initial_definition(definition_file) and auto_run:
         session.execute_definition_file()
         if quit_after_definition:
             console.print(

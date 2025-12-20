@@ -315,39 +315,45 @@ def main():
         "repl",
         help="Start interactive REPL for building pipelines"
     )
-    
+
     repl_parser.add_argument(
         "--definition",
         type=Path,
         default=None,
         help="Optional YAML definition file to load at startup (post-checkpoint)"
     )
-    
+
     repl_parser.add_argument(
         "--cache-dir",
         type=Path,
         default=None,
         help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
     )
-    
+
     repl_parser.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Enable verbose output"
     )
-    
+
     repl_parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable debug output"
     )
-    
+
     repl_parser.add_argument(
         "-q", "--quit",
         action="store_true",
         help="Quit immediately after executing definition file (no interactive mode)"
     )
-    
+
+    repl_parser.add_argument(
+        "-n", "--no-autorun",
+        action="store_true",
+        help="Only load definition file (direct into interactive mode)"
+    )
+
     # ===== CACHE COMMAND =====
     cache_parser = subparsers.add_parser(
         "cache",
@@ -445,6 +451,7 @@ def main():
             exit_code = execute_repl(
                 cache_dir=args.cache_dir,
                 definition_file=args.definition,
+                auto_run=not args.no_autorun,
                 verbose=args.verbose,
                 debug=args.debug,
                 quit_after_definition=args.quit,

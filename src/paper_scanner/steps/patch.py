@@ -197,7 +197,8 @@ class PatchStep(BaseStep):
         elif "patches" in config:
             patches = config["patches"]
             source_description = "inline configuration"
-            console.print(f"[bold blue]Applying patches from:[/bold blue] {source_description}")
+            if verbose:
+                console.print(f"[bold blue]Applying patches from:[/bold blue] {source_description}")
 
         if not patches:
             return {
