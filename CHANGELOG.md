@@ -13,6 +13,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [2.6.0] - 2025-12-20
+
+### Added
+
+- **Fluent query builder (PapersQuery)**: Interactive database query mechanism with chainable filters
+  - Three API levels for different use cases (explicit, shorthand, implicit)
+  - Filter methods: `filter_by_topic()`, `filter_by_author()`, `filter_by_year()`, `grep()`, `filter()`, `exclude_duplicates()`
+  - Sort methods: `order_by_year()`, `order_by_title()`, `order_by()`
+  - Limit methods: `top()`, `limit()`
+  - Terminal operations: `execute()`, `list()`, `first()`, `count()`
+  - Magic methods for implicit execution: `__iter__`, `__len__`, `__getitem__`, `__bool__`
+  - Shorthand database methods: `by_topic()`, `by_author()`, `by_year()`, `grep()`, `filter()`, `search()`
+  - Convenience list-returning methods: `find_by_topic()`, `find_by_author()`, `find_by_year()`, `search()`
+  - Lazy evaluation of filters for efficient large dataset filtering
+  - Full test suite with 32 tests covering all methods and magic method behaviors
+
+- **Enhanced PDF handling**: Improved PDF metadata extraction and filename handling
+  - Better cite_key based filename generation for downloaded PDFs
+  - Improved error handling in PDF download and processing steps
+  - More robust path handling for PDFs with special characters
+
+- **Query API documentation**: Comprehensive guides for fluent query usage
+  - Three-level API guide showing explicit, shorthand, and implicit usage patterns
+  - Quick reference guide with method signatures and examples
+  - Magic methods demo showing Python dunder method usage
+
+### Changed
+
+- Database paper queries now support interactive fluent API alongside traditional access patterns
+- `PapersDatabase.query()` method now returns `PapersQuery` builder for chainable operations
+
 ## [2.5.0] - 2025-12-19
 
 ### Added

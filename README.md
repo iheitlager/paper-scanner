@@ -1,6 +1,6 @@
 # paper-scanner
 
-![Version](https://img.shields.io/badge/version-2.5.0-blue)
+![Version](https://img.shields.io/badge/version-2.6.0-blue)
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
@@ -92,6 +92,31 @@ python -m paper_scanner.cli run definition.yml
 - **📖 References Tab**: View extracted references from the paper's bibliography with structured metadata
 - **🏷️ Tags Tab**: Manage paper tags for organization and filtering
 - **🔗 Share**: Generate deeplinks to share specific papers via URL
+
+### Interactive Database Queries (v2.6.0+)
+
+The fluent query builder enables interactive exploration with three API levels:
+
+**Level 1: Explicit (Full Control)**
+```python
+papers = db.query().filter_by_topic("AI").filter_by_year(2020, 2023).execute()
+```
+
+**Level 2: Shorthand (Convenience)**
+```python
+papers = db.by_topic("AI").order_by_year(descending=True)
+```
+
+**Level 3: Implicit (Pythonic)**
+```python
+# No .execute() needed - Python magic methods handle it
+for paper in db.by_topic("AI"):
+    print(paper.title)
+```
+
+Available methods: `filter_by_topic()`, `filter_by_author()`, `filter_by_year()`, `grep()`, `order_by_year()`, `order_by_title()`, `top()`, `first()`, `count()`, and more.
+
+See [docs/THREE_LEVELS_API.md](docs/THREE_LEVELS_API.md) for complete reference.
 
 ## Core Tools
 

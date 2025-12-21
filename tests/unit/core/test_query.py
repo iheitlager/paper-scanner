@@ -678,9 +678,9 @@ class TestShorthandMethods:
         
         return db
     
-    def test_where_shorthand(self, db_with_papers):
-        """where() shorthand for custom filter"""
-        results = db_with_papers.where(lambda p: p.year >= 2021).execute()
+    def test_filter_shorthand(self, db_with_papers):
+        """filter() shorthand for custom filter"""
+        results = db_with_papers.filter(lambda p: p.year >= 2021).execute()
         assert len(results) == 2
     
     def test_by_topic_shorthand(self, db_with_papers):
