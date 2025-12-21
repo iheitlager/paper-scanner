@@ -320,7 +320,7 @@ def main():
     )
 
     repl_parser.add_argument(
-        "--definition",
+        "-f", "--definition",
         type=Path,
         default=None,
         help="Optional YAML definition file to load at startup (post-checkpoint)"
@@ -340,7 +340,7 @@ def main():
     )
 
     repl_parser.add_argument(
-        "--debug",
+        "-d", "--debug",
         action="store_true",
         help="Enable debug output"
     )

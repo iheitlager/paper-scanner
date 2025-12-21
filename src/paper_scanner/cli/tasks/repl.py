@@ -116,8 +116,7 @@ class REPLSession:
     def load_initial_definition(self, definition_path: Path) -> bool:
         """Load and execute YAML definition up to last checkpoint"""
         if not definition_path.exists():
-            console.print(f"[red]Definition file not found: {definition_path}[/red]")
-            return False
+            raise FileNotFoundError(f"Definition file not found: {definition_path}")
 
         # Store the definition file path for status display
         self._current_definition_file = definition_path
