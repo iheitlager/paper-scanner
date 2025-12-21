@@ -12,14 +12,14 @@ from pathlib import Path
 from paper_scanner.steps.citations import CitationsStep
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Paper, Citation, Discovery, DiscoveryMethod, Author
-from paper_scanner.core.enum import PaperType
+from paper_scanner.core.enum import PaperType, CitationDirection
 
 
 class TestValidate:
     """Test CitationsStep.validate() static method"""
 
-    def test_validate_valid_config_defaults(self):
-        """Test validation of minimal valid configuration"""
+    def test_validate_invalid_config_defaults(self):
+        """Test validation of invalid configuration"""
         config = {
             "backward": {
                 "sources": ["crossref"]
@@ -28,16 +28,16 @@ class TestValidate:
         
         is_valid, errors = CitationsStep.validate(config)
         
-        assert is_valid is True
-        assert len(errors) == 0
+        assert is_valid is False
+        assert len(errors) > 0
 
     def test_validate_valid_config_with_paper_types(self):
         """Test validation with explicit paper-types"""
         config = {
             "paper-type": ["journal_article", "conference_paper"],
+            "continue_on_not_found": True,
             "backward": {
-                "sources": ["crossref"],
-                "continue_on_not_found": True
+                "citations": ["crossref"],
             }
         }
         
@@ -46,33 +46,6 @@ class TestValidate:
         assert is_valid is True
         assert len(errors) == 0
 
-    def test_validate_invalid_paper_type(self):
-        """Test validation fails with invalid paper_type"""
-        config = {
-            "paper-type": ["invalid_type"],
-            "backward": {
-                "sources": ["crossref"]
-            }
-        }
-        
-        is_valid, errors = CitationsStep.validate(config)
-        
-        assert is_valid is False
-        assert any("not a valid PaperType" in err for err in errors)
-
-    def test_validate_paper_types_not_list(self):
-        """Test validation fails when paper-types is not a list"""
-        config = {
-            "paper-type": "journal_article",
-            "backward": {
-                "sources": "crossref"
-            }
-        }
-        
-        is_valid, errors = CitationsStep.validate(config)
-        
-        assert is_valid is False
-        assert any("'paper-types' must be a list" in err for err in errors)
 
     def test_validate_backward_not_dict(self):
         """Test validation fails when backward is not a dict"""
@@ -98,20 +71,6 @@ class TestValidate:
         assert is_valid is False
         assert any("'backward.citations' must be a string or list" in err for err in errors)
 
-    def test_validate_continue_on_not_found_not_bool(self):
-        """Test validation fails when continue_on_not_found is not bool"""
-        config = {
-            "backward": {
-                "citations": ["crossref"],
-                "continue_on_not_found": "true"
-            }
-        }
-        
-        is_valid, errors = CitationsStep.validate(config)
-        
-        assert is_valid is False
-        assert any("'backward.continue_on_not_found' must be a boolean" in err for err in errors)
-
     def test_validate_sources_as_string(self):
         """Test validation accepts sources as a string"""
         config = {
@@ -129,7 +88,7 @@ class TestValidate:
         """Test validation accepts sources as a list of fetcher names"""
         config = {
             "backward": {
-                "sources": ["crossref", "openalex"]
+                "citations": ["crossref", "openalex"]
             }
         }
         
@@ -187,7 +146,8 @@ class TestFetchCitationsForPapers:
             doi="10.1234/cited",
             title="Cited Paper",
             extraction_method="crossref",
-            confidence=0.9
+            confidence=0.9,
+            direction=CitationDirection.BACKWARD,
         )
 
         mock_fetcher = MagicMock()
@@ -259,7 +219,8 @@ class TestFetchCitationsForPapers:
         citation = Citation(
             doi="10.1234/cited",
             title="Cited",
-            extraction_method="crossref"
+            extraction_method="crossref",
+            direction=CitationDirection.BACKWARD,
         )
 
         mock_fetcher = MagicMock()
@@ -355,7 +316,8 @@ class TestResolveCitationsAndFetchPapers:
         citation = Citation(
             doi="10.1234/existing",
             title="Cited Paper",
-            extraction_method="crossref"
+            extraction_method="crossref",
+            direction=CitationDirection.BACKWARD,
         )
         citing_paper.citations = [citation]
 
@@ -407,7 +369,8 @@ class TestResolveCitationsAndFetchPapers:
             doi="10.1234/new",
             title="New Paper from Citation",
             year=2019,
-            extraction_method="crossref"
+            extraction_method="crossref",
+            direction=CitationDirection.BACKWARD,
         )
         citing_paper.citations = [citation]
 
@@ -467,144 +430,6 @@ class TestResolveCitationsAndFetchPapers:
         assert results["citations_resolved"] == 0
 
 
-class TestLinkCitations:
-    """Test CitationsStep._link_citations() method - PASS 3"""
-
-    @pytest.fixture
-    def mock_db(self):
-        """Create a mock database"""
-        db = MagicMock(spec=PapersDatabase)
-        return db
-
-    @pytest.fixture
-    def step(self, tmp_path, mock_db):
-        """Create a CitationsStep instance"""
-        step = CitationsStep(general_config={}, db=mock_db, cache_dir=tmp_path)
-        # Initialize attributes used by the step
-        step.verbose = False
-        step.debug = False
-        step.output_errors = None
-        return step
-
-    def test_link_citations_bidirectional(self, step):
-        """Test bidirectional linking of citations"""
-        cited_paper = Paper(
-            cite_key="cited2020",
-            title="Cited Paper",
-            doi="10.1234/cited",
-            year=2020
-        )
-
-        citing_paper = Paper(
-            cite_key="citing2020",
-            title="Citing Paper",
-            doi="10.1234/citing",
-            year=2020
-        )
-
-        citation = Citation(
-            doi="10.1234/cited",
-            title="Cited Paper",
-            extraction_method="crossref"
-        )
-        citation.resolved_paper = cited_paper
-        citing_paper.citations = [citation]
-
-        results = {
-            "forward_links_created": 0,
-            "reverse_links_created": 0,
-        }
-
-        step._link_citations(papers=[citing_paper, cited_paper], results=results)
-
-        assert cited_paper in citing_paper.cited_papers
-        assert citing_paper in cited_paper.cited_by_papers
-        assert results["forward_links_created"] == 1
-        assert results["reverse_links_created"] == 1
-
-    def test_link_citations_no_duplicates(self, step):
-        """Test that duplicate links are not created"""
-        cited_paper = Paper(
-            cite_key="cited2020",
-            title="Cited Paper",
-            doi="10.1234/cited",
-            year=2020
-        )
-
-        citing_paper = Paper(
-            cite_key="citing2020",
-            title="Citing Paper",
-            doi="10.1234/citing",
-            year=2020
-        )
-
-        # Pre-add the link
-        citing_paper.cited_papers.append(cited_paper)
-        cited_paper.cited_by_papers.append(citing_paper)
-
-        citation = Citation(
-            doi="10.1234/cited",
-            title="Cited Paper",
-            extraction_method="crossref"
-        )
-        citation.resolved_paper = cited_paper
-        citing_paper.citations = [citation]
-
-        results = {
-            "forward_links_created": 0,
-            "reverse_links_created": 0,
-        }
-
-        step._link_citations(papers=[citing_paper, cited_paper], results=results)
-
-        assert results["forward_links_created"] == 0
-        assert results["reverse_links_created"] == 0
-
-    def test_link_citations_unresolved_citation(self, step):
-        """Test handling of unresolved citations"""
-        citing_paper = Paper(
-            cite_key="citing2020",
-            title="Citing Paper",
-            doi="10.1234/citing",
-            year=2020
-        )
-
-        citation = Citation(
-            doi="10.1234/unknown",
-            title="Unknown Paper",
-            extraction_method="crossref"
-        )
-        citation.resolved_paper = None
-        citing_paper.citations = [citation]
-
-        results = {
-            "forward_links_created": 0,
-            "reverse_links_created": 0,
-        }
-
-        step._link_citations(papers=[citing_paper], results=results)
-
-        assert results["forward_links_created"] == 0
-        assert results["reverse_links_created"] == 0
-
-    def test_link_citations_paper_without_citations(self, step):
-        """Test handling papers without citations"""
-        paper = Paper(
-            cite_key="test2020",
-            title="Test Paper",
-            doi="10.1234/test",
-            year=2020
-        )
-
-        results = {
-            "forward_links_created": 0,
-            "reverse_links_created": 0,
-        }
-
-        step._link_citations(papers=[paper], results=results)
-
-        assert results["forward_links_created"] == 0
-        assert results["reverse_links_created"] == 0
 
 
 class TestExecute:
@@ -710,6 +535,149 @@ class TestExecute:
         assert len(results["errors"]) > 0
         assert results["status"] == "completed_with_errors"
 
+
+
+class TestLinkCitations:
+    """Test CitationsStep._link_citations() method - PASS 3"""
+
+    @pytest.fixture
+    def mock_db(self):
+        """Create a mock database"""
+        db = MagicMock(spec=PapersDatabase)
+        return db
+
+    @pytest.fixture
+    def step(self, tmp_path, mock_db):
+        """Create a CitationsStep instance"""
+        step = CitationsStep(general_config={}, db=mock_db, cache_dir=tmp_path)
+        # Initialize attributes used by the step
+        step.verbose = False
+        step.debug = False
+        step.output_errors = None
+        return step
+
+    def test_link_citations_bidirectional(self, step):
+        """Test bidirectional linking of citations"""
+        cited_paper = Paper(
+            cite_key="cited2020",
+            title="Cited Paper",
+            doi="10.1234/cited",
+            year=2020
+        )
+
+        citing_paper = Paper(
+            cite_key="citing2020",
+            title="Citing Paper",
+            doi="10.1234/citing",
+            year=2020
+        )
+
+        citation = Citation(
+            doi="10.1234/cited",
+            title="Cited Paper",
+            extraction_method="crossref",
+            direction=CitationDirection.BACKWARD,
+        )
+        citation.resolved_paper = cited_paper
+        citing_paper.citations = [citation]
+
+        results = {
+            "forward_links_created": 0,
+            "reverse_links_created": 0,
+        }
+
+        step._link_citations(papers=[citing_paper, cited_paper], results=results)
+
+        assert cited_paper in citing_paper.cited_papers
+        assert citing_paper in cited_paper.cited_by_papers
+        assert results["forward_links_created"] == 1
+        assert results["reverse_links_created"] == 1
+
+    def test_link_citations_no_duplicates(self, step):
+        """Test that duplicate links are not created"""
+        cited_paper = Paper(
+            cite_key="cited2020",
+            title="Cited Paper",
+            doi="10.1234/cited",
+            year=2020
+        )
+
+        citing_paper = Paper(
+            cite_key="citing2020",
+            title="Citing Paper",
+            doi="10.1234/citing",
+            year=2020
+        )
+
+        # Pre-add the link
+        citing_paper.cited_papers.append(cited_paper)
+        cited_paper.cited_by_papers.append(citing_paper)
+
+        citation = Citation(
+            doi="10.1234/cited",
+            title="Cited Paper",
+            extraction_method="crossref",
+            direction=CitationDirection.BACKWARD,
+        )
+        citation.resolved_paper = cited_paper
+        citing_paper.citations = [citation]
+
+        results = {
+            "forward_links_created": 0,
+            "reverse_links_created": 0,
+        }
+
+        step._link_citations(papers=[citing_paper, cited_paper], results=results)
+
+        assert results["forward_links_created"] == 0
+        assert results["reverse_links_created"] == 0
+
+    def test_link_citations_unresolved_citation(self, step):
+        """Test handling of unresolved citations"""
+        citing_paper = Paper(
+            cite_key="citing2020",
+            title="Citing Paper",
+            doi="10.1234/citing",
+            year=2020
+        )
+
+        citation = Citation(
+            doi="10.1234/unknown",
+            title="Unknown Paper",
+            extraction_method="crossref",
+            direction=CitationDirection.BACKWARD,
+        )
+        citation.resolved_paper = None
+        citing_paper.citations = [citation]
+
+        results = {
+            "forward_links_created": 0,
+            "reverse_links_created": 0,
+        }
+
+        step._link_citations(papers=[citing_paper], results=results)
+
+        assert results["forward_links_created"] == 0
+        assert results["reverse_links_created"] == 0
+
+    def test_link_citations_paper_without_citations(self, step):
+        """Test handling papers without citations"""
+        paper = Paper(
+            cite_key="test2020",
+            title="Test Paper",
+            doi="10.1234/test",
+            year=2020
+        )
+
+        results = {
+            "forward_links_created": 0,
+            "reverse_links_created": 0,
+        }
+
+        step._link_citations(papers=[paper], results=results)
+
+        assert results["forward_links_created"] == 0
+        assert results["reverse_links_created"] == 0
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

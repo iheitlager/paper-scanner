@@ -15,6 +15,7 @@ from paper_scanner.core.enum import (
     QualityTier,
     DiscoveryMethod,
     ScreeningDecision,
+    CitationDirection,
 )
 
 # ============================================================================
@@ -87,6 +88,8 @@ class Citation(BaseModel):
     """Bibliographic reference"""
 
     id: Optional[str] = Field(default_factory=lambda: str(uuid.uuid4()))
+    source_key: Optional[str] = None  # Original ID from source
+    direction: CitationDirection
 
     # Identifiers
     doi: Optional[str] = None
@@ -111,6 +114,7 @@ class Citation(BaseModel):
     raw_json: Optional[Dict[str, Any]] = None
 
     # Linking
+    resolved: bool = False  # Whether citation was resolved to a known paper
     resolved_paper: Optional['Paper'] = None  # If citation matches known paper (computed)
 
     @field_validator('resolved_paper', mode='before')
@@ -517,6 +521,7 @@ class Paper(BaseModel):
     # ========================================
 
     citations: List[Citation] = Field(default_factory=list)
+    cited_by: List[Citation] = Field(default_factory=list)
     cited_papers: List['Paper'] = Field(default_factory=list)
     cited_by_papers: List['Paper'] = Field(default_factory=list)
 

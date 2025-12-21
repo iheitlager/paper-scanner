@@ -299,7 +299,8 @@ class JSONViewer:
         """Show search prompt (simplified version)."""
         # This would be better with a proper input prompt
         # For now, just set a status message
-        self.set_status("Search: (type and press enter - TODO: implement input)", curses.COLOR_YELLOW)
+        # TODO: Implement actual input handling
+        self.set_status("Search: (type and press enter)", curses.COLOR_YELLOW)
     
     def draw(self, stdscr):
         """Main draw loop."""

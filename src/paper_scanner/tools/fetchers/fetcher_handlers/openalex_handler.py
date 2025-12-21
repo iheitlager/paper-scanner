@@ -7,12 +7,13 @@ API docs: https://docs.openalex.org/
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from urllib.parse import quote
 
 import requests
 from rich.console import Console
 
 from paper_scanner.core.models import OpenAccessStatus, Citation
-from paper_scanner.core.enum import PaperType
+from paper_scanner.core.enum import PaperType, CitationDirection
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.documents.abstract_parser import AbstractParser
 from paper_scanner.core.doi import DOI
@@ -34,6 +35,7 @@ class OpenAlexHandler(BaseFetcherHandler):
         """Initialize OpenAlex handler."""
         super().__init__(cache_dir, debug=debug, verbose=verbose)
         self.session = requests.Session()
+        # TODO: Improve this
         self.session.headers.update({"User-Agent": OPENALEX_USER_AGENT})
 
     @property
@@ -52,11 +54,11 @@ class OpenAlexHandler(BaseFetcherHandler):
             Work object from OpenAlex, or None if not found
         """
         # Normalize DOI
-        normalized = DOI(doi).stem
+        normalized = DOI(doi).uri
 
         # OpenAlex uses doi: prefix in URL
         # Endpoint: /works/doi:{doi}
-        url = f"{OPENALEX_API_URL}/works/doi:{normalized}"
+        url = f"{OPENALEX_API_URL}/works/{normalized}"
         if self.verbose:
             console.print(f"Fetching OpenAlex data for DOI {normalized} from {url}")
 
@@ -442,6 +444,8 @@ class OpenAlexHandler(BaseFetcherHandler):
                 # In a full implementation, you'd fetch the work details
                 citation = Citation(
                     doi=None,  # Would need to fetch
+                    source_key=openalex_id,
+                    direction=CitationDirection.BACKWARD,
                     title=None,  # Would need to fetch
                     authors=[],  # Would need to fetch
                     year=None,  # Would need to fetch
@@ -468,15 +472,104 @@ class OpenAlexHandler(BaseFetcherHandler):
         OpenAlex API responses include:
         - "open_access" object with "pdf_url", "is_oa"
         - "has_fulltext" boolean
-        
+
         Args:
             api_data: OpenAlex API response metadata
-            
+
         Returns:
             URL string if found, None otherwise
         """
         # TODO: Investigate OpenAlex metadata structure for PDF URLs
         # Check ~/.paper-scanner/openalex/ for sample responses
-        
+
         # Placeholder implementation
         return None
+
+    def _fetch_cited_by_from_api(self, doi: str, limit: int = 100) -> Dict[str, Any]:
+        """
+        Fetch and parse forward citations for a given DOI.
+
+        Args:
+            doi: Digital Object Identifier
+        Returns:
+            Tuple of (citations list, cache_hit: bool)
+        """
+
+        metadata, _ = self.fetch_metadata(doi)
+        if not metadata:
+            return []
+
+        source_key = self._extract_source_key(metadata)
+
+        # Call API
+        try:
+            # OpenAlex uses filter query: cites:<openalex_id>
+            url = (
+                f"{OPENALEX_API_URL}/works?"
+                f"filter=cites:{source_key}&"
+                f"per-page={min(limit, 200)}"
+            )
+
+            response = self.session.get(url, timeout=10)
+            if self.debug:
+                console.print(f"[dim]Response status code: {response.status_code}[/dim]")
+                console.print(f"[dim]Response content: {response.text}[/dim]")
+
+            if response.status_code == 404:  # 404: Not Found
+                return []
+
+            response.raise_for_status()
+            data = response.json()
+
+            results = data.get("results", [])
+            return results
+        except requests.exceptions.RequestException as e:
+            console.print(f"[red]OpenAlex API error for {doi}: {e}[/red]")
+            return []
+
+    def _parse_cited_by(self, work: Dict[str, Any]) -> Citation:
+        """
+        Parse a single forward citation from OpenAlex API work object.
+
+        Args:
+            work: Single OpenAlex work object
+        Returns:
+            Citation object
+        """
+        try:
+            doi = DOI(work.get("doi")).stem if work.get("doi") else None
+            source_key = work.get("id").split("/")[-1] if work.get("id") else None
+            title = work.get("title")
+            year = work.get("publication_year")
+
+            # Extract authors
+            authors = []
+            for authorship in work.get("authorships", []):
+                author = authorship.get("author", {})
+                name = author.get("display_name")
+                if name:
+                    authors.append(name)
+
+            # Extract journal
+            journal = None
+            primary_location = work.get("primary_location")
+            if primary_location:
+                source = primary_location.get("source")
+                if source:
+                    journal = source.get("display_name")
+
+            citation = Citation(
+                doi=doi,
+                source_key=source_key,
+                direction=CitationDirection.FORWARD,
+                title=title,
+                authors=authors,
+                year=year,
+                journal=journal,
+                extraction_method=self.name,
+                confidence=0.8,  # Medium-high confidence
+                raw_json=work,
+            )
+            return citation
+        except Exception as e:
+            return None

@@ -64,3 +64,8 @@ class ScreeningDecision(str, Enum):
     PENDING = "pending"
     MANUAL_REVIEW = "manual_review"
     UNCERTAIN = "uncertain"
+
+class CitationDirection(str, Enum):
+    """Direction of citation fetching"""
+    FORWARD = "forward"
+    BACKWARD = "backward"

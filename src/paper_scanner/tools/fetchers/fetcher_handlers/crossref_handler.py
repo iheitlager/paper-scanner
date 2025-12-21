@@ -6,12 +6,12 @@ API docs: https://github.com/CrossRef/rest-api-doc
 """
 
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 
 import requests
 
 from paper_scanner.core.models import OpenAccessStatus, Citation
-from paper_scanner.core.enum import PaperType
+from paper_scanner.core.enum import PaperType, CitationDirection
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.documents.abstract_parser import AbstractParser
 from paper_scanner.core.doi import DOI
@@ -406,6 +406,7 @@ class CrossrefHandler(BaseFetcherHandler):
         # Build Citation
         citation = Citation(
             doi=doi,
+            direction=CitationDirection.BACKWARD,
             title=title,
             authors=authors,
             year=year,
@@ -414,7 +415,7 @@ class CrossrefHandler(BaseFetcherHandler):
             issue=issue,
             pages=pages,
             publisher=publisher,
-            extraction_method="crossref",
+            extraction_method=self.name,
             confidence=confidence,
             raw_text=ref.get("unstructured"),
             raw_json=ref if not doi else None,
@@ -484,3 +485,15 @@ class CrossrefHandler(BaseFetcherHandler):
                 return url
 
         return None
+
+    def fetch_cited_by(self, doi: str) -> Tuple[List[Citation], bool]:
+        """
+        Fetch backward citations for a given DOI.
+
+        Args:
+            doi: Digital Object Identifier
+
+        Returns:
+            Tuple of (citations list, cache_hit: bool)
+        """
+        raise NotImplementedError("CrossrefHandler does not support forward citations.")

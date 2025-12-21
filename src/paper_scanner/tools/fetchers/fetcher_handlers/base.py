@@ -202,6 +202,35 @@ class BaseFetcherHandler(ABC):
         """
         return api_data.get("publisher")
 
+    def fetch_cited_by(self, doi: str, limit: Optional[int] = 100) -> Tuple[List[Citation], bool]:
+        """
+        Fetch and parse forward citations for a given DOI.
+
+        Tries handlers in order until one succeeds.
+
+        Args:
+            doi: Digital Object Identifier
+            limit: Maximum number of citations to fetch
+        Returns:
+            Tuple of (citations list, cache_hit: bool)
+        """
+        key = f"{doi}_fwd" # this is going to be mangled to md5
+        api_data = self._jsoncache.get(key)
+        if api_data == []:  # we can also set empty lists in cache
+            return [], True
+        elif api_data is not None:
+            return [self._parse_cited_by(c) for c in api_data], True
+
+        api_data = self._fetch_cited_by_from_api(doi, limit)
+        if api_data is None:
+            return [], False
+
+        if self.debug:
+            console.print(f"[dim]Caching {len(api_data)} forward citations for {doi} with key {key}[/dim]")    
+        self._jsoncache.set(key, api_data)
+        citations = [self._parse_cited_by(c) for c in api_data]
+        return citations, False
+
     def fetch_metadata(self, doi: str) -> Tuple[Optional[Dict[str, Any]], bool]:
         """
         Fetch metadata for a DOI from cache or API.
@@ -222,6 +251,9 @@ class BaseFetcherHandler(ABC):
         api_data = self._fetch_from_api(doi)
         if api_data is None:
             return None, False
+
+        if self.debug:
+            console.print(f"[dim]Caching metadata for {doi}[/dim]")
 
         self._jsoncache.set(doi, api_data)
         return api_data, False

@@ -112,7 +112,7 @@ class Fetcher:
         """
         Fetch and parse backward citations for a given DOI.
 
-        Tries handlers in order until one succeeds.
+        Tries handlers in order until first succeeds.
 
         Args:
             doi: Digital Object Identifier
@@ -126,7 +126,38 @@ class Fetcher:
                 if citations:
                     if self.debug:
                         console.print(
-                            f"[green]Fetched {len(citations)} citations for {doi} "
+                            f"[green]Fetched {len(citations)} backward citations for {doi} "
+                            f"from {handler_name}[/green]"
+                        )
+                    return citations, cache_hit
+            except Exception as e:
+                console.print(
+                    f"[yellow]Handler {handler_name} failed for {doi}: {e}[/yellow]"
+                )
+                continue
+
+        return [], False
+
+
+    def fetch_cited_by(self, doi: str, limit: Optional[int] = 100) -> Tuple[List[Citation], bool]:
+        """
+        Fetch and parse forward citations for a given DOI.
+
+        Tries handlers in order until first succeeds.
+
+        Args:
+            doi: Digital Object Identifier
+
+        Returns:
+            Tuple of (citations list, cache_hit: bool)
+        """
+        for handler_name, handler in self.handlers.items():
+            try:
+                citations, cache_hit = handler.fetch_cited_by(doi, limit=limit)
+                if citations:
+                    if self.debug:
+                        console.print(
+                            f"[green]Fetched {len(citations)} forward citations for {doi} "
                             f"from {handler_name}[/green]"
                         )
                     return citations, cache_hit
