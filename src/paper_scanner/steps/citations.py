@@ -761,9 +761,6 @@ class CitationsStep(BaseStep):
             results: Results dict to update with statistics
         """
         for paper in papers:
-            if not paper.citations:
-                continue
-
             for citation in paper.citations:
                 resolved_paper = citation.resolved_paper
                 if not resolved_paper:
@@ -787,6 +784,7 @@ class CitationsStep(BaseStep):
                     continue
                 if not citation.direction == CitationDirection.FORWARD:
                     raise ValueError(f"Citation direction must be FORWARD in cited_by citations, got {citation.direction}")
+
                 # Link citing paper
                 if resolved_paper.id not in [p.id for p in paper.cited_by_papers]:
                     paper.cited_by_papers.append(resolved_paper)
