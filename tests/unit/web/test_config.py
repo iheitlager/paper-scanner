@@ -97,7 +97,11 @@ class TestConfig:
         """Test that debug warning is logged for non-local environments."""
         with patch("paper_scanner.web.config.logger") as mock_logger:
             Config(env="production", debug=True)
-            mock_logger.warning.assert_called_once()
+            # Config logs two warnings: PDF_BASE_DIR check and debug mode warning
+            assert mock_logger.warning.call_count >= 1
+            # Verify the debug mode warning is present
+            calls = [str(call) for call in mock_logger.warning.call_args_list]
+            assert any("Debug mode" in call for call in calls)
 
     def test_pdf_base_dir_expansion(self):
         """Test that PDF base directory is expanded and resolved."""

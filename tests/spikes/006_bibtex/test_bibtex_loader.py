@@ -5,54 +5,27 @@ Comprehensive test for BibTeX loader.
 Tests both BibtexReader and PostgreSQLLoader functionality.
 """
 
-import sys
+import os
 from pathlib import Path
-import logging
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent))
-
-from load_bibtex import BibtexReader, PostgreSQLLoader, Paper
+import pytest
 import json
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+from load_bibtex import BibtexReader, PostgreSQLLoader, Paper
 
 
 def test_bibtex_reader():
     """Test BibTeX reader on sample file."""
-    print("\n" + "="*70)
-    print("TEST 1: BibTeX Reader")
-    print("="*70)
-    
-    # Find a test bibtex file
-    test_file = Path('/Users/iheitlager/wc/innovation-review/raw/search 2025-04-19 - 690 - no review - excluded.bib')
+    test_file = Path('tests/data/scopus_sample_20.bib')
     
     assert test_file.exists(), f"Test file not found: {test_file}"
     
     reader = BibtexReader(str(test_file))
     papers = reader.parse()
     
-    print(f"✓ Successfully parsed {len(papers)} papers")
-    
-    # Verify structure
     assert len(papers) > 0, "No papers parsed"
     
     sample = papers[0]
     assert sample.citekey, "Missing citekey"
-    
-    print(f"\nSample paper:")
-    print(f"  Citekey: {sample.citekey}")
-    print(f"  Title: {sample.title[:80] if sample.title else 'N/A'}...")
-    print(f"  Year: {sample.year}")
-    print(f"  Journal: {sample.journal or 'N/A'}")
-    print(f"  Authors: {len(sample.authors) if sample.authors else 0}")
-    print(f"  Keywords: {len(sample.keywords) if sample.keywords else 0}")
-    print(f"  DOI: {sample.doi or 'N/A'}")
-    print(f"  Abstract length: {len(sample.abstract) if sample.abstract else 0} chars")
     
     # Check field mappings
     papers_with_doi = sum(1 for p in papers if p.doi)
@@ -60,22 +33,13 @@ def test_bibtex_reader():
     papers_with_keywords = sum(1 for p in papers if p.keywords)
     papers_with_authors = sum(1 for p in papers if p.authors)
     
-    print(f"\nStatistics:")
-    print(f"  Papers with DOI: {papers_with_doi}/{len(papers)}")
-    print(f"  Papers with Abstract: {papers_with_abstract}/{len(papers)}")
-    print(f"  Papers with Keywords: {papers_with_keywords}/{len(papers)}")
-    print(f"  Papers with Authors: {papers_with_authors}/{len(papers)}")
-    
-    print("\n✓ BibtexReader test PASSED")
+    # Verify at least some papers have these fields
+    assert papers_with_doi > 0, "No papers with DOI found"
+    assert papers_with_abstract > 0, "No papers with abstract found"
 
 
 def test_paper_to_dict():
     """Test Paper.to_dict() serialization."""
-    print("\n" + "="*70)
-    print("TEST 2: Paper Serialization")
-    print("="*70)
-    
-    # Create a test paper
     paper = Paper(
         citekey="TEST001",
         title="Test Paper",
@@ -89,26 +53,18 @@ def test_paper_to_dict():
     # Convert to dict
     data = paper.to_dict()
     
-    print(f"✓ Paper serialized successfully")
-    print(f"  Fields: {list(data.keys())}")
-    print(f"  Data types:")
-    for key, value in data.items():
-        print(f"    {key}: {type(value).__name__}")
+    assert data is not None, "Paper serialization failed"
+    assert 'citekey' in data, "Missing citekey in serialized data"
+    assert data['citekey'] == "TEST001", "Citekey not preserved"
     
     # Check JSON serialization
     json_str = json.dumps(data, indent=2, default=str)
-    print(f"\n✓ JSON serialization successful ({len(json_str)} chars)")
-    
-    print("\n✓ Paper serialization test PASSED")
-
+    assert json_str is not None, "JSON serialization failed"
+    assert len(json_str) > 0, "JSON serialization produced empty string"
 
 def test_field_parsing():
     """Test specific field parsing."""
-    print("\n" + "="*70)
-    print("TEST 3: Field Parsing")
-    print("="*70)
-    
-    test_file = Path('/Users/iheitlager/wc/innovation-review/raw/search 2025-04-19 - 690 - no review - excluded.bib')
+    test_file = Path('tests/data/scopus_sample_20.bib')
     reader = BibtexReader(str(test_file))
     papers = reader.parse()
     
@@ -117,37 +73,19 @@ def test_field_parsing():
     paper_with_keywords = next((p for p in papers if p.keywords and len(p.keywords) > 2), None)
     paper_with_abstract = next((p for p in papers if p.abstract and len(p.abstract) > 100), None)
     
-    if paper_with_authors:
-        print(f"\n✓ Authors parsing:")
-        print(f"  Citekey: {paper_with_authors.citekey}")
-        print(f"  Author count: {len(paper_with_authors.authors)}")
-        for i, author in enumerate(paper_with_authors.authors[:3]):
-            print(f"    {i+1}. {author.get('first_name')} {author.get('last_name')} (order={author.get('order')})")
+    # Verify at least some papers have these fields
+    assert paper_with_authors is not None, "No papers with multiple authors found"
+    assert paper_with_keywords is not None, "No papers with multiple keywords found"
+    assert paper_with_abstract is not None, "No papers with long abstracts found"
     
-    if paper_with_keywords:
-        print(f"\n✓ Keywords parsing:")
-        print(f"  Citekey: {paper_with_keywords.citekey}")
-        print(f"  Keyword count: {len(paper_with_keywords.keywords)}")
-        for kw in paper_with_keywords.keywords[:5]:
-            print(f"    - {kw}")
-    
-    if paper_with_abstract:
-        print(f"\n✓ Abstract parsing:")
-        print(f"  Citekey: {paper_with_abstract.citekey}")
-        print(f"  Abstract length: {len(paper_with_abstract.abstract)} chars")
-        print(f"  Preview: {paper_with_abstract.abstract[:100]}...")
-    
-    print("\n✓ Field parsing test PASSED")
+    # Verify field structure
+    assert len(paper_with_authors.authors) > 2, "Author list incomplete"
+    assert len(paper_with_keywords.keywords) > 2, "Keywords list incomplete"
+    assert len(paper_with_abstract.abstract) > 100, "Abstract too short"
 
 
 def test_database_connection():
     """Test database connection (if database is available)."""
-    print("\n" + "="*70)
-    print("TEST 4: Database Connection")
-    print("="*70)
-    
-    import os
-    
     connection_string = os.getenv(
         'DATABASE_URL',
         'postgresql://pdfuser:pdfpass@localhost:5432/pdfdb'
@@ -157,7 +95,7 @@ def test_database_connection():
     
     try:
         loader.connect()
-        print("✓ Connected to PostgreSQL successfully")
+        assert loader.connection is not None, "Failed to connect to PostgreSQL"
         
         # Check if papers table exists
         cursor = loader.connection.cursor()
@@ -170,35 +108,12 @@ def test_database_connection():
         table_exists = cursor.fetchone()[0]
         cursor.close()
         
-        if table_exists:
-            print("✓ Papers table exists")
-        else:
-            print("⚠ Papers table not found")
+        assert table_exists, "Papers table not found"
         
         loader.disconnect()
-        print("✓ Database connection test PASSED")
         
     except Exception as e:
-        print(f"⚠ Database not available: {e}")
-        print("  (This is OK if PostgreSQL is not running)")
-
-
-def main():
-    """Run all tests."""
-    print("\n" + "="*70)
-    print("BIBTEX LOADER TEST SUITE")
-    print("="*70)
-    
-    # Run tests
-    test_bibtex_reader()
-    test_paper_to_dict()
-    test_field_parsing()
-    test_database_connection()
-    
-    print("\n" + "="*70)
-    print("TEST SUITE COMPLETE")
-    print("="*70)
-
+        pytest.skip(f"Database not available: {e} (OK if PostgreSQL is not running)")
 
 if __name__ == '__main__':
-    main()
+    pytest.main([__file__, '-v'])
