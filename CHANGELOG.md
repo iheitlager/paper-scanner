@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `load_initial_definition()` in REPLSession to properly raise FileNotFoundError when definition file is not found instead of silently returning False
+
 ## [2.7.0] - 2025-12-21
 
 ### Added
