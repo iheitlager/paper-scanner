@@ -17,9 +17,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Forward citations support in CitationsStep**: Fetch papers that cite the current papers (forward citations)
+  - New `forward` configuration option for CitationsStep with `citations` and `details` sources
+  - `_fetch_cited_by_for_papers()` method to fetch forward citations from external APIs
+  - `_resolve_cited_by_and_fetch_papers()` method to resolve forward citations and enrich database
+  - Support for OpenAlex forward citations via `cites:` filter
+  - New result metrics: `papers_with_cited_by` to track papers with forward citations
+
 ### Changed
 
+- **CitationsStep configuration**: Now supports both backward and forward citation fetching
+  - `backward` config: Fetch papers cited by current papers (backward citations)
+  - `forward` config: Fetch papers that cite current papers (forward citations)
+  - Both can have `citations` sources (e.g., "crossref", "openalex") and optional `details` sources
+- **OpenAlexHandler URL encoding**: DOI values in API queries are now properly URL-encoded to handle special characters
+- **OpenAlexHandler._parse_cited_by()**: Changed to process single work objects instead of lists for consistency with base handler interface
+- **Results dict initialization**: Forward and backward execute methods now initialize all required keys including both `papers_with_citations` and `papers_with_cited_by`
+- **Statistics display table**: Now uses `.get()` with defaults for safe access to all result keys, prevents KeyError for missing metrics
+
 ### Fixed
+
+- Fixed unpacking of `fetch_metadata()` return tuple (metadata, cache_hit) in OpenAlexHandler._fetch_cited_by_from_api()
+- Fixed variable name bug in OpenAlexHandler._parse_cited_by() (was using undefined `item` instead of `work`)
+- Fixed URL formatting in OpenAlexHandler._fetch_cited_by_from_api() to avoid line breaks in parameter names
+- Fixed `_parse_cited_by()` return type to match base handler interface (single Citation instead of List[Citation])
 
 ## [2.6.0] - 2025-12-20
 
