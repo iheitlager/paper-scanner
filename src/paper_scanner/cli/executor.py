@@ -137,6 +137,84 @@ class StepExecutor:
         self.start_time: Optional[float] = None
         self.step_timings: List[Dict[str, Any]] = []
     
+    # =========================================================================
+    # Step Navigation Properties (for REPL/CLI convenience)
+    # =========================================================================
+    
+    @property
+    def has_steps(self) -> bool:
+        """Check if definition has any steps loaded."""
+        return len(self.steps) > 0
+    
+    @property
+    def has_next_step(self) -> bool:
+        """Check if there is a next step to execute."""
+        return self.current_step_index < len(self.steps)
+    
+    @property
+    def step_progress(self) -> Tuple[int, int]:
+        """Get current progress as (current_index, total_steps)."""
+        return (self.current_step_index, len(self.steps))
+    
+    def describe_next_step(self) -> Optional[Dict[str, Any]]:
+        """
+        Get details about the next step to execute.
+        
+        Returns:
+            Dict with step details or None if no next step:
+            {
+                "index": int,
+                "name": str,           # builtin step name
+                "description": str,    # human-readable description
+                "is_template": bool,   # whether it's a run-template step
+                "template_name": str,  # template name if is_template
+                "config": Dict,        # raw step config
+            }
+        """
+        if not self.has_next_step:
+            return None
+        
+        step_config = self.steps[self.current_step_index]
+        step_name, step_params, description = self.parse_step_config(step_config)
+        
+        result = {
+            "index": self.current_step_index,
+            "name": step_name,
+            "description": description or step_config.get('step', ''),
+            "is_template": step_name == "run-template",
+            "config": step_config,
+        }
+        
+        if result["is_template"]:
+            result["template_name"] = step_params.get('template', 'unknown')
+        
+        return result
+    
+    def execute_next_step(self, dry_run: bool = False) -> Dict[str, Any]:
+        """
+        Execute the next step in the pipeline.
+        
+        Convenience wrapper around execute_step() that uses current_step_index.
+        
+        Args:
+            dry_run: Don't actually execute the step
+            
+        Returns:
+            Step result dictionary, or error dict if no next step
+        """
+        if not self.has_next_step:
+            return {
+                "status": "error",
+                "error": "No more steps to execute",
+                "count": 0,
+            }
+        
+        return self.execute_step(self.current_step_index, dry_run=dry_run)
+    
+    # =========================================================================
+    # Step Registry
+    # =========================================================================
+    
     @classmethod
     def get_builtin_steps(cls) -> Dict[str, Type[BaseStep]]:
         """
@@ -565,12 +643,21 @@ class StepExecutor:
                 "count": total_count,
             }
 
-    def run_all(self, dry_run: bool = False) -> Dict[str, Any]:
+    def run_all(
+        self,
+        dry_run: bool = False,
+        on_step_start: Optional[callable] = None,
+        on_step_end: Optional[callable] = None,
+    ) -> Dict[str, Any]:
         """
         Execute all remaining steps sequentially.
 
         Args:
             dry_run: Don't actually execute steps
+            on_step_start: Optional callback called before each step.
+                Signature: (step_index: int, step_config: Dict, total_steps: int) -> None
+            on_step_end: Optional callback called after each step.
+                Signature: (step_index: int, step_config: Dict, result: Dict) -> None
 
         Returns:
             Aggregated results dictionary
@@ -584,9 +671,21 @@ class StepExecutor:
             "step_results": [],
         }
 
+        total_steps = len(self.steps)
+
         try:
-            for i in range(self.current_step_index, len(self.steps)):
+            for i in range(self.current_step_index, total_steps):
+                step_config = self.steps[i]
+                
+                # Call start callback if provided
+                if on_step_start:
+                    on_step_start(i, step_config, total_steps)
+                
                 result = self.execute_step(i, dry_run=dry_run)
+
+                # Call end callback if provided
+                if on_step_end:
+                    on_step_end(i, step_config, result)
 
                 results_summary["step_results"].append(result)
 

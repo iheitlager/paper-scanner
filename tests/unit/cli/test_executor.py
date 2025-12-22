@@ -97,6 +97,107 @@ def sample_definition_file(temp_cache_dir):
 
 
 # ============================================================================
+# TestStepNavigationAPI
+# ============================================================================
+
+class TestStepNavigationAPI:
+    """Tests for step navigation properties and methods"""
+
+    def test_has_steps_false_before_loading(self, executor):
+        """has_steps is False before loading definition"""
+        assert executor.has_steps is False
+
+    def test_has_steps_true_after_loading(self, executor, sample_definition_file):
+        """has_steps is True after loading definition with steps"""
+        executor.load_definition(sample_definition_file)
+        assert executor.has_steps is True
+
+    def test_has_next_step_true_at_start(self, executor, sample_definition_file):
+        """has_next_step is True when steps remain"""
+        executor.load_definition(sample_definition_file)
+        assert executor.has_next_step is True
+
+    def test_has_next_step_false_when_complete(self, executor, sample_definition_file):
+        """has_next_step is False when all steps executed"""
+        executor.load_definition(sample_definition_file)
+        executor.current_step_index = len(executor.steps)
+        assert executor.has_next_step is False
+
+    def test_step_progress_returns_tuple(self, executor, sample_definition_file):
+        """step_progress returns (current, total) tuple"""
+        executor.load_definition(sample_definition_file)
+        current, total = executor.step_progress
+        assert current == 0
+        assert total == 3
+
+    def test_step_progress_updates(self, executor, sample_definition_file):
+        """step_progress updates after execution"""
+        executor.load_definition(sample_definition_file)
+        
+        mock_step = Mock()
+        mock_step.execute.return_value = {"status": "ok", "count": 1}
+        
+        with patch.object(executor, 'get_step', return_value=mock_step):
+            executor.execute_next_step()
+        
+        current, total = executor.step_progress
+        assert current == 1
+        assert total == 3
+
+    def test_describe_next_step_returns_dict(self, executor, sample_definition_file):
+        """describe_next_step returns step details dict"""
+        executor.load_definition(sample_definition_file)
+        info = executor.describe_next_step()
+        
+        assert info is not None
+        assert info["index"] == 0
+        assert info["name"] == "echo"
+        assert info["description"] == "Import data"
+        assert info["is_template"] is False
+        assert "config" in info
+
+    def test_describe_next_step_for_template(self, executor, sample_definition_file):
+        """describe_next_step returns template info for run-template"""
+        executor.load_definition(sample_definition_file)
+        executor.current_step_index = 1  # Move to run-template step
+        
+        info = executor.describe_next_step()
+        
+        assert info["is_template"] is True
+        assert info["template_name"] == "screening"
+
+    def test_describe_next_step_none_when_complete(self, executor, sample_definition_file):
+        """describe_next_step returns None when no next step"""
+        executor.load_definition(sample_definition_file)
+        executor.current_step_index = len(executor.steps)
+        
+        assert executor.describe_next_step() is None
+
+    def test_execute_next_step_works(self, executor, sample_definition_file):
+        """execute_next_step executes current step"""
+        executor.load_definition(sample_definition_file)
+        
+        mock_step = Mock()
+        mock_step.execute.return_value = {"status": "ok", "count": 5}
+        
+        with patch.object(executor, 'get_step', return_value=mock_step):
+            result = executor.execute_next_step()
+        
+        assert result["status"] == "ok"
+        assert executor.current_step_index == 1
+
+    def test_execute_next_step_error_when_complete(self, executor, sample_definition_file):
+        """execute_next_step returns error when no steps remain"""
+        executor.load_definition(sample_definition_file)
+        executor.current_step_index = len(executor.steps)
+        
+        result = executor.execute_next_step()
+        
+        assert result["status"] == "error"
+        assert "No more steps" in result["error"]
+
+
+# ============================================================================
 # TestDefinitionLoading
 # ============================================================================
 
@@ -702,6 +803,97 @@ class TestHaltException:
         assert error_result["status"] == "error"
         assert "message" in halt_result
         assert "error" in error_result
+
+
+class TestRunAllCallbacks:
+    """Tests for run_all callback functionality"""
+
+    def test_on_step_start_called_for_each_step(self, executor, sample_definition_file):
+        """Test that on_step_start is called for each step"""
+        executor.load_definition(sample_definition_file)
+        
+        mock_step = Mock()
+        mock_step.execute.return_value = {"status": "ok", "count": 1}
+        
+        start_calls = []
+        def on_start(idx, config, total):
+            start_calls.append((idx, config, total))
+        
+        with patch.object(executor, 'get_step', return_value=mock_step):
+            executor.run_all(on_step_start=on_start)
+        
+        # Should be called for each of the 3 steps
+        assert len(start_calls) == 3
+        assert start_calls[0][0] == 0  # first step index
+        assert start_calls[0][2] == 3  # total steps
+        assert start_calls[1][0] == 1
+        assert start_calls[2][0] == 2
+
+    def test_on_step_end_called_for_each_step(self, executor, sample_definition_file):
+        """Test that on_step_end is called for each step with result"""
+        executor.load_definition(sample_definition_file)
+        
+        mock_step = Mock()
+        mock_step.execute.return_value = {"status": "ok", "count": 5}
+        
+        end_calls = []
+        def on_end(idx, config, result):
+            end_calls.append((idx, config, result))
+        
+        with patch.object(executor, 'get_step', return_value=mock_step):
+            executor.run_all(on_step_end=on_end)
+        
+        # Should be called for each step
+        assert len(end_calls) == 3
+        # Each call should have the result
+        for idx, config, result in end_calls:
+            assert result["status"] == "ok"
+
+    def test_callbacks_called_in_order(self, executor, sample_definition_file):
+        """Test that callbacks are called in correct order: start, execute, end"""
+        executor.load_definition(sample_definition_file)
+        
+        mock_step = Mock()
+        mock_step.execute.return_value = {"status": "ok", "count": 1}
+        
+        call_order = []
+        def on_start(idx, config, total):
+            call_order.append(f"start_{idx}")
+        def on_end(idx, config, result):
+            call_order.append(f"end_{idx}")
+        
+        with patch.object(executor, 'get_step', return_value=mock_step):
+            executor.run_all(on_step_start=on_start, on_step_end=on_end)
+        
+        # Should alternate: start_0, end_0, start_1, end_1, start_2, end_2
+        expected = ["start_0", "end_0", "start_1", "end_1", "start_2", "end_2"]
+        assert call_order == expected
+
+    def test_callbacks_stop_on_error(self, executor, sample_definition_file):
+        """Test that callbacks stop when step returns error"""
+        executor.load_definition(sample_definition_file)
+        
+        call_count = [0]
+        def mock_get_step(name):
+            call_count[0] += 1
+            mock_step = Mock()
+            if call_count[0] == 2:
+                mock_step.execute.return_value = {"status": "error", "error": "fail"}
+            else:
+                mock_step.execute.return_value = {"status": "ok", "count": 1}
+            return mock_step
+        
+        end_calls = []
+        def on_end(idx, config, result):
+            end_calls.append((idx, result["status"]))
+        
+        with patch.object(executor, 'get_step', side_effect=mock_get_step):
+            executor.run_all(on_step_end=on_end)
+        
+        # Should have 2 calls: ok, error (then stop)
+        assert len(end_calls) == 2
+        assert end_calls[0][1] == "ok"
+        assert end_calls[1][1] == "error"
 
 
 if __name__ == "__main__":

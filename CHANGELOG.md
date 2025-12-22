@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Step Navigation API**: New properties and methods for REPL/CLI convenience:
+  - `has_steps`: Property checking if definition has any steps
+  - `has_next_step`: Property checking if there's a next step to execute
+  - `step_progress`: Property returning `(current_index, total_steps)` tuple
+  - `describe_next_step()`: Returns dict with step details (name, description, is_template, etc.)
+  - `execute_next_step()`: Executes current step and advances index
+- **Progress callbacks for run_all()**: `on_step_start` and `on_step_end` callbacks enable UI progress feedback without reimplementing execution loops
+  - `on_step_start(step_index, step_config, total_steps)`: Called before each step
+  - `on_step_end(step_index, step_config, result)`: Called after each step with result
+  - Keeps UI concerns separate from executor logic
 - **Unified StepExecutor**: New core execution engine (`src/paper_scanner/cli/executor.py`) that harmonizes workflow execution and interactive REPL modes
   - Definition loading with early template validation
   - Template support (v1: static step sequences, no parameters or nesting)
