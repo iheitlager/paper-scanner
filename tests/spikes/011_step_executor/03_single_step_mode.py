@@ -90,12 +90,15 @@ def beautiful_menu():
     print()
 
 
-def main(debug: bool = False):
+def main(debug: bool = False, verbose: bool = False):
     """Interactive REPL for single-step execution."""
     beautiful_header()
     
     if debug:
         print(f"{Colors.warning('Debug mode enabled - verbose output will be shown')}\n")
+    
+    if verbose:
+        print(f"{Colors.info('Verbose mode enabled - showing step details before execution')}\n")
     
     # Load definition
     definition_path = Path(__file__).parent / "test_definition.yml"
@@ -156,7 +159,20 @@ def main(debug: bool = False):
                         print(f"{Colors.warning('All steps already completed!')}\n")
                         continue
                     
-                    print(f"\n{Colors.info('Executing next step...')}")
+                    # Show step info before execution if verbose
+                    if verbose:
+                        step_idx = executor.current_step_index
+                        step_config = executor.steps[step_idx]
+                        step_name, step_params, description = executor.parse_step_config(step_config)
+                        step_desc = description or step_config.get('step', '')
+                        if step_name == "run-template":
+                            template_name = step_params.get('template', 'unknown')
+                            print(f"\n{Colors.CYAN}[{step_idx}] Executing:{Colors.END} {step_desc} {Colors.GRAY}(template: {template_name}){Colors.END}")
+                        else:
+                            print(f"\n{Colors.CYAN}[{step_idx}] Executing:{Colors.END} {step_desc} {Colors.GRAY}(builtin.{step_name}){Colors.END}")
+                    else:
+                        print(f"\n{Colors.info('Executing next step...')}")
+                    
                     prev_index = executor.current_step_index
                     result = executor.execute_step(executor.current_step_index, dry_run=False)
                     
@@ -212,9 +228,18 @@ def main(debug: bool = False):
                     while executor.current_step_index < total_steps:
                         step_count += 1
                         step_num = executor.current_step_index
-                        step_name = executor.steps[step_num].get('step', 'Unknown') if step_num < len(executor.steps) else 'Unknown'
+                        step_config = executor.steps[step_num]
+                        step_desc = step_config.get('step', 'Unknown')
                         
-                        print(f"  [{step_count}/{remaining}] {step_name}...", end=" ", flush=True)
+                        if verbose:
+                            step_name, step_params, description = executor.parse_step_config(step_config)
+                            if step_name == "run-template":
+                                template_name = step_params.get('template', 'unknown')
+                                print(f"  [{step_count}/{remaining}] {step_desc} {Colors.GRAY}(template: {template_name}){Colors.END}...", end=" ", flush=True)
+                            else:
+                                print(f"  [{step_count}/{remaining}] {step_desc} {Colors.GRAY}(builtin.{step_name}){Colors.END}...", end=" ", flush=True)
+                        else:
+                            print(f"  [{step_count}/{remaining}] {step_desc}...", end=" ", flush=True)
                         
                         result = executor.execute_step(executor.current_step_index, dry_run=False)
                         
@@ -356,6 +381,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Enable debug mode with verbose output"
     )
+    parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Show step name and type before execution"
+    )
     args = parser.parse_args()
     
-    main(debug=args.debug)
+    main(debug=args.debug, verbose=args.verbose)

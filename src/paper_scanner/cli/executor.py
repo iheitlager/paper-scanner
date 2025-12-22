@@ -252,43 +252,38 @@ class StepExecutor:
         if not definition_file.exists():
             raise FileNotFoundError(f"Definition file not found: {definition_file}")
 
-        try:
-            with open(definition_file, "r", encoding="utf-8") as f:
-                self.definition = yaml.safe_load(f)
+        with open(definition_file, "r", encoding="utf-8") as f:
+            self.definition = yaml.safe_load(f)
 
-            if not self.definition:
-                raise ValueError("Definition file is empty")
+        if not self.definition:
+            raise ValueError("Definition file is empty")
 
-            # Update general config from definition
-            project_config = self.definition.get("project", {})
-            if "name" in project_config:
-                self.general_config["project_name"] = project_config["name"]
+        # Update general config from definition
+        project_config = self.definition.get("project", {})
+        if "name" in project_config:
+            self.general_config["project_name"] = project_config["name"]
 
-            # Load templates section (optional, v1: static sequences only)
-            self.templates = {}
-            for template in self.definition.get("templates", []):
-                template_name = template.get("template")
-                if not template_name:
-                    raise ValueError("Template missing 'template' key")
-                template_steps = template.get("steps", [])
-                self.templates[template_name] = template_steps
+        # Load templates section (optional, v1: static sequences only)
+        self.templates = {}
+        for template in self.definition.get("templates", []):
+            template_name = template.get("template")
+            if not template_name:
+                raise ValueError("Template missing 'template' key")
+            template_steps = template.get("steps", [])
+            self.templates[template_name] = template_steps
 
-            # Load main steps section
-            self.steps = self.definition.get("steps", [])
+        # Load main steps section
+        self.steps = self.definition.get("steps", [])
 
-            # Validate all template references (fail early)
-            self._validate_template_references()
+        # Validate all template references (fail early)
+        self._validate_template_references()
 
-            # Initialize checkpoint directory
-            checkpoints_dir = self.cache_dir / "checkpoints"
-            checkpoints_dir.mkdir(parents=True, exist_ok=True)
+        # Initialize checkpoint directory
+        checkpoints_dir = self.cache_dir / "checkpoints"
+        checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
-            return True
+        return True
 
-        except Exception as e:
-            if self.verbose:
-                print(f"Error loading definition: {e}")
-            raise
 
     def _validate_template_references(self) -> None:
         """
@@ -325,8 +320,6 @@ class StepExecutor:
         if clear_checkpoint and checkpoints_dir.exists():
             import shutil
             shutil.rmtree(checkpoints_dir)
-            if self.verbose:
-                print(f"Cleared checkpoints directory: {checkpoints_dir}")
             return
 
         if skip_checkpoint:
