@@ -18,6 +18,7 @@ Controls:
 - ↑/↓: Command history (readline)
 """
 
+import argparse
 import readline
 import sys
 from pathlib import Path
@@ -68,18 +69,34 @@ def beautiful_header():
 def beautiful_menu():
     """Print a beautifully formatted menu."""
     print(f"{Colors.BOLD}Available Commands:{Colors.END}")
-    print(f"  {Colors.GREEN}step{Colors.END:<12} - Execute next step")
-    print(f"  {Colors.GREEN}checkpoint{Colors.END:<12} - Save checkpoint")
-    print(f"  {Colors.GREEN}stats{Colors.END:<12} - Show execution statistics")
-    print(f"  {Colors.GREEN}state{Colors.END:<12} - Show current session state")
-    print(f"  {Colors.GREEN}history{Colors.END:<12} - Show command history")
-    print(f"  {Colors.GREEN}help{Colors.END:<12} - Show this menu")
-    print(f"  {Colors.GREEN}quit{Colors.END:<12} - Exit REPL\n")
+    
+    commands = [
+        ("step", "Execute next step"),
+        ("run", "Execute all remaining steps"),
+        ("checkpoint", "Save checkpoint"),
+        ("steps", "List loaded steps and templates"),
+        ("stats", "Show execution statistics"),
+        ("state", "Show current session state"),
+        ("history", "Show command history"),
+        ("help", "Show this menu"),
+        ("quit", "Exit REPL"),
+    ]
+    
+    max_cmd_len = max(len(cmd) for cmd, _ in commands)
+    
+    for cmd, desc in commands:
+        padding = " " * (max_cmd_len - len(cmd))
+        print(f"  {Colors.GREEN}{cmd}{Colors.END}{padding} - {desc}")
+    
+    print()
 
 
-def main():
+def main(debug: bool = False):
     """Interactive REPL for single-step execution."""
     beautiful_header()
+    
+    if debug:
+        print(f"{Colors.warning('Debug mode enabled - verbose output will be shown')}\n")
     
     # Load definition
     definition_path = Path(__file__).parent / "test_definition.yml"
@@ -104,7 +121,7 @@ def main():
         general_config=general_config,
         cache_dir=cache_dir,
         verbose=True,
-        debug=False,
+        debug=debug,
         get_step_func=lambda name: ProcessorExecutor.get_step(
             name, 
             general_config, 
@@ -140,21 +157,103 @@ def main():
                 
                 # Execute commands
                 if cmd == "step":
-                    print(f"\n{Colors.info('Executing next step...')}")
-                    result = executor.execute_step(executor.current_step_index, dry_run=False)
-                    executor.current_step_index += 1
+                    total_steps = len(executor.steps)
                     
-                    if result and result.get('status') == 'ok':
-                        step_name = result.get('step_name', 'Unknown')
-                        count = result.get('count', 0)
-                        print(f"  {Colors.success(f'{step_name} completed')}")
-                        print(f"  {Colors.CYAN}Processed:{Colors.END} {count} items")
-                        if 'duration_seconds' in result:
-                            duration = result['duration_seconds']
-                            print(f"  {Colors.CYAN}Duration:{Colors.END} {duration:.2f}s")
+                    if executor.current_step_index >= total_steps:
+                        print(f"{Colors.warning('All steps already completed!')}\n")
+                        continue
+                    
+                    print(f"\n{Colors.info('Executing next step...')}")
+                    prev_index = executor.current_step_index
+                    result = executor.execute_step(executor.current_step_index, dry_run=False)
+                    
+                    # Track how many steps were actually executed
+                    new_index = executor.current_step_index
+                    steps_executed = new_index - prev_index
+                    
+                    if debug and result:
+                        print(f"\n{Colors.GRAY}Debug: Executed from step {prev_index} to {new_index} ({steps_executed} step(s)){Colors.END}")
+                        print(f"{Colors.GRAY}Debug: Full result: {result}{Colors.END}\n")
+                    
+                    # Show what was executed
+                    if steps_executed > 1:
+                        print(f"  {Colors.info(f'Auto-advanced {steps_executed} step(s)')}")
+                    
+                    # Display result information
+                    if result:
+                        has_error = result.get('error') is not None
+                        has_details = 'details' in result
+                        explicit_status = result.get('status')
+                        step_name = result.get('step', 'Unknown')
+                        
+                        if explicit_status == 'ok' or (not has_error and has_details):
+                            count = result.get('papers_imported') or result.get('count', 0)
+                            print(f"  {Colors.success(f'{step_name} completed')}")
+                            if count > 0:
+                                print(f"  {Colors.CYAN}Processed:{Colors.END} {count} items")
+                            if 'duration_seconds' in result:
+                                duration = result['duration_seconds']
+                                print(f"  {Colors.CYAN}Duration:{Colors.END} {duration:.2f}s")
+                        else:
+                            status = explicit_status or 'completed'
+                            error_msg = result.get('error', 'No error details')
+                            print(f"  {Colors.success(f'{step_name} {status}')}")
+                            count = result.get('papers_imported') or result.get('count', 0)
+                            if count > 0:
+                                print(f"  {Colors.CYAN}Processed:{Colors.END} {count} items")
                     else:
-                        error_msg = result.get('error', 'Unknown error') if result else 'No result'
-                        print(f"  {Colors.error(f'Execution failed: {error_msg}')}")
+                        print(f"  {Colors.error('No result returned from execution')}")
+                    print()
+                
+                elif cmd == "run" or cmd == "go":
+                    total_steps = len(executor.steps)
+                    remaining = total_steps - executor.current_step_index
+                    
+                    if remaining <= 0:
+                        print(f"{Colors.warning('All steps already completed!')}\n")
+                        continue
+                    
+                    print(f"\n{Colors.info(f'Running {remaining} remaining step(s)...')}\n")
+                    
+                    step_count = 0
+                    while executor.current_step_index < total_steps:
+                        step_count += 1
+                        step_num = executor.current_step_index
+                        step_name = executor.steps[step_num].get('step', 'Unknown') if step_num < len(executor.steps) else 'Unknown'
+                        
+                        print(f"  [{step_count}/{remaining}] {step_name}...", end=" ", flush=True)
+                        
+                        result = executor.execute_step(executor.current_step_index, dry_run=False)
+                        
+                        if result and result.get('status') == 'ok':
+                            count = result.get('papers_imported') or result.get('count', 0)
+                            if count > 0:
+                                print(f"{Colors.success(f'✓ ({count} items)')}")
+                            else:
+                                print(f"{Colors.success('✓')}")
+                        else:
+                            status = result.get('status', 'completed') if result else 'no_result'
+                            print(f"{Colors.success(f'✓ ({status})')}")
+                    
+                    print(f"\n{Colors.success('All steps completed!')}\n")
+                
+                elif cmd == "steps":
+                    print(f"\n{Colors.BOLD}📋 Pipeline Steps:{Colors.END}")
+                    
+                    # Show templates
+                    if executor.templates:
+                        print(f"\n{Colors.CYAN}Templates ({len(executor.templates)}):{Colors.END}")
+                        for template_name, template_steps in executor.templates.items():
+                            print(f"  {Colors.GREEN}•{Colors.END} {template_name} ({len(template_steps)} steps)")
+                    
+                    # Show main steps
+                    if executor.steps:
+                        print(f"\n{Colors.CYAN}Main Steps ({len(executor.steps)}):{Colors.END}")
+                        for i, step_config in enumerate(executor.steps):
+                            step_name = list(step_config.keys())[0] if step_config else "unknown"
+                            step_desc = step_config.get('step', 'No description')
+                            status = "✓" if i < executor.current_step_index else " "
+                            print(f"  [{status}] Step {i}: {step_desc}")
                     print()
                 
                 elif cmd == "checkpoint":
@@ -227,11 +326,11 @@ def main():
                     percentage = (steps_executed / total_steps_val * 100) if total_steps_val > 0 else 0
                     
                     print(f"\n{Colors.BOLD}{Colors.CYAN}╔══════════════════════════════════════════════════════════╗{Colors.END}")
-                    print(f"{Colors.BOLD}{Colors.CYAN}║                   📈 Final Summary                        ║{Colors.END}")
+                    print(f"{Colors.BOLD}{Colors.CYAN}║                   📈 Final Summary                       ║{Colors.END}")
                     print(f"{Colors.BOLD}{Colors.CYAN}╠══════════════════════════════════════════════════════════╣{Colors.END}")
-                    print(f"{Colors.CYAN}║  Steps Completed:     {steps_executed}/{total_steps_val} ({percentage:5.1f}%)                        {Colors.END}║")
-                    print(f"{Colors.CYAN}║  Total Duration:      {stats.get('total_duration_seconds', 0):.2f}s                                  {Colors.END}║")
-                    print(f"{Colors.CYAN}║  Papers Processed:    {stats.get('papers_total', 0)}                                      {Colors.END}║")
+                    print(f"{Colors.CYAN}║  Steps Completed:     {steps_executed}/{total_steps_val} ({percentage:5.1f}%)                       ║{Colors.END}")
+                    print(f"{Colors.CYAN}║  Total Duration:      {stats.get('total_duration_seconds', 0):.2f}s                              ║{Colors.END}")
+                    print(f"{Colors.CYAN}║  Papers Processed:    {stats.get('papers_total', 0):4}                               ║{Colors.END}")
                     print(f"{Colors.BOLD}{Colors.CYAN}╚══════════════════════════════════════════════════════════╝{Colors.END}\n")
                     break
                 
@@ -256,4 +355,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Interactive REPL for StepExecutor single-step mode"
+    )
+    parser.add_argument(
+        "-d", "--debug",
+        action="store_true",
+        help="Enable debug mode with verbose output"
+    )
+    args = parser.parse_args()
+    
+    main(debug=args.debug)
