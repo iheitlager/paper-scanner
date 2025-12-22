@@ -12,6 +12,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "dump_db": "paper_scanner.steps.dump_db:DumpDbStep",
     "echo": "paper_scanner.steps.echo:EchoStep",
     "export": "paper_scanner.steps.export:ExportStep",
+    "fix_cite_keys": "paper_scanner.steps.fix_cite_keys:FixCiteKeysStep",
     "halt": "paper_scanner.steps.halt:HaltStep",
     "paper": "paper_scanner.steps.paper:PaperStep",
     "input": "paper_scanner.steps.input:InputStep",

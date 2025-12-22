@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.1] - 2025-12-23
+
+### Added
+
+- **Fix Cite Keys Step** (`fix_cite_keys`): Standardize citation keys across papers
+  - Regenerates citation keys in `LastnameYear` format from first author and publication year
+  - Automatic collision resolution using character suffixes (a, b, c, ..., aa, ab, ...)
+  - Processes only primary papers (excludes duplicates)
+  - Comprehensive unit tests with 30+ test cases covering validation, execution, collisions, and edge cases
+  - Full documentation with usage examples and best practices
+  - Database integration: updates cite_keys in-place with index maintenance
+  - Dry-run support for previewing changes
+
 ## [3.2.0] - 2025-12-22
 
 ### Added
