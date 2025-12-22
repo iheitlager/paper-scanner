@@ -30,32 +30,6 @@ def _normalize_title(title: Optional[str]) -> str:
     return " ".join(title.lower().split())
 
 
-def _doi_exact_match(paper: Paper, papers_db: PapersDatabase) -> Optional[Tuple[str, float]]:
-    """
-    Check for exact DOI match using indexed lookup - returns (paper_id, similarity_score)
-    
-    When multiple papers share the same DOI, the paper with the lexicographically smallest ID
-    is considered the "primary" paper, and all others are marked as duplicates of it.
-    """
-    if not paper.doi:
-        return None
-    
-    # Use the indexed lookup for O(1) performance
-    matching_papers = papers_db.get_by_doi(paper.doi)
-    if matching_papers:
-        # Sort by ID to ensure consistent ordering
-        matching_papers_sorted = sorted(matching_papers, key=lambda p: p.id)
-        
-        # The first paper (by sorted ID) is the primary
-        primary_paper = matching_papers_sorted[0]
-        
-        # If this paper is NOT the primary, it's a duplicate
-        if paper.id != primary_paper.id:
-            return (primary_paper.id, 1.0)
-    
-    return None
-
-
 def _title_author_fuzzy_match(
     paper: Paper,
     existing_papers: List[Paper],
@@ -260,10 +234,14 @@ class DeduplicationStep(BaseStep):
                 
                 if method == "doi_exact":
                     # Use indexed lookup for O(1) performance
-                    match_result = _doi_exact_match(paper, self.db)
-                    if match_result:
-                        duplicate_id, similarity_score = match_result
-                        matching_paper = self.db.get_by_id(duplicate_id)
+                    if paper.doi:
+                        # Use the indexed lookup for O(1) performance
+                        matching_papers = self.db.get_by_doi(paper.doi, primary_only=True)
+                        if matching_papers:
+                            matching_paper = matching_papers[0]
+                            # If this paper is NOT the primary, it's a duplicate
+                            if paper.id != matching_paper.id:
+                                match_result = (matching_paper.id, 1.0)
                 elif method == "title_author_fuzzy":
                     # For fuzzy matching, compare against papers processed so far (primary candidates)
                     # Only match against papers that came before in the list and haven't been marked as duplicates

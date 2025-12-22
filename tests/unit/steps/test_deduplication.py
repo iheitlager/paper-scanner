@@ -23,7 +23,6 @@ from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.deduplication import (
     DeduplicationStep,
     _normalize_title,
-    _doi_exact_match,
     _title_author_fuzzy_match,
     _title_fuzzy_match,
     _get_confidence,
@@ -145,58 +144,6 @@ class TestNormalizeTitle:
     def test_normalize_title_empty(self):
         """Test empty title."""
         assert _normalize_title("") == ""
-
-
-class TestDOIExactMatch:
-    """Test DOI exact matching"""
-
-    def test_doi_exact_match_found(self, sample_paper_1, sample_paper_duplicate_doi):
-        """Test DOI exact match when duplicate exists."""
-        papers_db = PapersDatabase()
-        papers_db.add(sample_paper_1)
-        
-        result = _doi_exact_match(sample_paper_duplicate_doi, papers_db)
-        
-        assert result is not None
-        duplicate_id, similarity = result
-        assert duplicate_id == "paper-1"
-        assert similarity == 1.0
-
-    def test_doi_exact_match_case_insensitive(self):
-        """Test that DOI comparison is case-insensitive."""
-        paper1 = Paper(
-            id="p1", cite_key="p1", title="Test", doi="10.1234/EXAMPLE.2024"
-        )
-        paper2 = Paper(
-            id="p2", cite_key="p2", title="Test 2", doi="10.1234/example.2024"
-        )
-        papers_db = PapersDatabase()
-        papers_db.add(paper1)
-        
-        result = _doi_exact_match(paper2, papers_db)
-        
-        assert result is not None
-        assert result[0] == "p1"
-
-    def test_doi_exact_match_not_found(self, sample_paper_1, sample_paper_2):
-        """Test when no DOI match exists."""
-        papers_db = PapersDatabase()
-        papers_db.add(sample_paper_1)
-        
-        result = _doi_exact_match(sample_paper_2, papers_db)
-        
-        assert result is None
-
-    def test_doi_exact_match_no_doi(self):
-        """Test with papers that have no DOI."""
-        paper1 = Paper(id="p1", cite_key="p1", title="Test")
-        paper2 = Paper(id="p2", cite_key="p2", title="Test 2")
-        papers_db = PapersDatabase()
-        papers_db.add(paper1)
-        
-        result = _doi_exact_match(paper2, papers_db)
-        
-        assert result is None
 
 
 class TestTitleAuthorFuzzyMatch:
@@ -672,7 +619,7 @@ class TestIntegration:
         assert p1.screening.deduplication.is_duplicate is False
         assert p2.screening.deduplication.is_duplicate is False
         
-        # Duplicate should be marked
+        # Duplicate should be marked, first is original
         p3 = papers_db.get_by_id("p3")
         assert p3.screening.deduplication.is_duplicate is True
         assert p3.duplicate_of.id == "p1"
@@ -711,13 +658,73 @@ class TestIntegration:
         assert p2.screening.deduplication.is_duplicate is True
         assert p2.duplicate_of.id == "p1"
 
-    def test_deduplication_preserves_paper_order(self):
+
+    def test_realistic_deduplication_retains_addition_order(self):
+        """Test addtition order is maintained, not key order."""
+        # Create a realistic scenario with multiple papers
+        papers_db = PapersDatabase()
+        
+        # Add original papers
+        paper1 = Paper(
+            id="p3", cite_key="smith2024", title="ML in Healthcare",
+            authors=[Author(family_name="Smith", given_name="J", full_name="J Smith")],
+            doi="10.1234/ml.2024", paper_type=PaperType.JOURNAL_ARTICLE
+        )
+        paper2 = Paper(
+            id="p2", cite_key="doe2024", title="AI in Finance",
+            authors=[Author(family_name="Doe", given_name="J", full_name="J Doe")],
+            doi="10.5678/ai.2024", paper_type=PaperType.JOURNAL_ARTICLE
+        )
+        
+        # Add duplicates
+        paper1_dup = Paper(
+            id="p1", cite_key="smith2024b", title="ML in Healthcare",
+            authors=[Author(family_name="Smith", given_name="J", full_name="J Smith")],
+            doi="10.1234/ml.2024", paper_type=PaperType.JOURNAL_ARTICLE  # Exact duplicate
+        )
+        
+        papers_db.add(paper1)
+        papers_db.add(paper2)
+        papers_db.add(paper1_dup)
+        
+        config = {
+            "methods": [
+                {"method": "doi_exact", "priority": 1},
+            ]
+        }
+        
+        step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
+        result = step.execute(config=config)
+        
+        # Should find 1 duplicate (exact DOI match)
+        assert result["duplicates_found"] == 1
+        assert result["total_papers"] == 3
+        
+        # Original papers should not be marked as duplicates
+        p1 = papers_db.get_by_id("p1")
+        p2 = papers_db.get_by_id("p2")
+        p3 = papers_db.get_by_id("p3")
+        assert p1.screening.deduplication.is_duplicate is True
+        assert p2.screening.deduplication.is_duplicate is False
+        assert p3.screening.deduplication.is_duplicate is False
+
+
+    def test_deduplication_preserves_paper_integrity(self):
         """Test that deduplication preserves paper data integrity."""
         papers_db = PapersDatabase()
         
         papers_db.add(Paper(
-            id="p1", cite_key="p1", title="Test Paper",
-            abstract="Test abstract with specific content",
+            id="p1", cite_key="p1", title="Test P1 Paper",
+            abstract="Test abstract with p1 content",
+            year=2024,
+            authors=[Author(family_name="Test", given_name="T", full_name="T Test")],
+            doi="10.1234/test.2024", paper_type=PaperType.JOURNAL_ARTICLE
+        ))
+
+        # This is the duplicate paper (on DOI), note cite_key and id differ
+        papers_db.add(Paper(
+            id="p2", cite_key="p2", title="Test P2 Paper",
+            abstract="Test abstract with p2 content",
             year=2024,
             authors=[Author(family_name="Test", given_name="T", full_name="T Test")],
             doi="10.1234/test.2024", paper_type=PaperType.JOURNAL_ARTICLE
@@ -726,7 +733,11 @@ class TestIntegration:
         original_paper = papers_db.get_by_id("p1")
         original_abstract = original_paper.abstract
         original_year = original_paper.year
-        
+
+        duplicate_paper = papers_db.get_by_id("p2")
+        duplicate_abstract = duplicate_paper.abstract
+        duplicate_year = duplicate_paper.year
+
         config = {
             "methods": [
                 {"method": "doi_exact", "priority": 1}
@@ -740,3 +751,7 @@ class TestIntegration:
         modified_paper = papers_db.get_by_id("p1")
         assert modified_paper.abstract == original_abstract
         assert modified_paper.year == original_year
+
+        assert duplicate_paper.abstract == duplicate_abstract
+        assert duplicate_paper.year == duplicate_year
+

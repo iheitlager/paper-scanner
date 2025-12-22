@@ -79,7 +79,7 @@ class TestDeduplicationCircularFix:
         """
         papers_db = PapersDatabase()
         
-        # Add papers in non-sorted order with same DOI
+        # Add papers in order of addition with same DOI
         papers_db.add(Paper(
             id="z-paper", cite_key="z", title="Test Paper",
             authors=[Author(family_name="Test", given_name="T", full_name="T Test")],
@@ -104,22 +104,22 @@ class TestDeduplicationCircularFix:
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         step.execute(config=config)
         
-        # a-paper should be primary (smallest ID alphabetically)
-        a_paper = papers_db.get_by_id("a-paper")
-        assert a_paper.duplicate_of is None, \
-            f"Expected a-paper to be primary, but it's marked as duplicate of {a_paper.duplicate_of}"
+        # z-paper should be primary (first added)
+        z_paper = papers_db.get_by_id("z-paper")
+        assert z_paper.duplicate_of is None, \
+            f"Expected z-paper to be primary, but it's marked as duplicate of {z_paper.duplicate_of}"
         
         # z-paper and m-paper should both be duplicates of a-paper
-        z_paper = papers_db.get_by_id("z-paper")
+        a_paper = papers_db.get_by_id("a-paper")
         m_paper = papers_db.get_by_id("m-paper")
         
-        assert z_paper.duplicate_of is not None, "Expected z-paper to be marked as duplicate"
-        assert z_paper.duplicate_of.id == "a-paper", \
-            f"Expected z-paper to be duplicate of a-paper, got {z_paper.duplicate_of.id}"
+        assert a_paper.duplicate_of is not None, "Expected a-paper to be marked as duplicate"
+        assert a_paper.duplicate_of.id == "z-paper", \
+            f"Expected a-paper to be duplicate of z-paper, got {a_paper.duplicate_of.id}"
         
         assert m_paper.duplicate_of is not None, "Expected m-paper to be marked as duplicate"
-        assert m_paper.duplicate_of.id == "a-paper", \
-            f"Expected m-paper to be duplicate of a-paper, got {m_paper.duplicate_of.id}"
+        assert m_paper.duplicate_of.id == "z-paper", \
+            f"Expected m-paper to be duplicate of z-paper, got {m_paper.duplicate_of.id}"
     
     def test_no_circular_dependencies_in_duplicates(self):
         """

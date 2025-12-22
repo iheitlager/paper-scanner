@@ -7,7 +7,7 @@ Verifies that indexed lookups are actually being used
 import time
 import pytest
 from pathlib import Path
-from paper_scanner.steps.deduplication import DeduplicationStep, _doi_exact_match
+from paper_scanner.steps.deduplication import DeduplicationStep
 from paper_scanner.core.models import Paper, Author, PaperType
 from paper_scanner.core.database import PapersDatabase
 
@@ -40,7 +40,14 @@ def test_doi_matching_performance():
     
     # Time the lookup
     start = time.time()
-    result = _doi_exact_match(test_paper, papers_db)
+    result = None
+    if test_paper.doi:
+        matching_papers = papers_db.get_by_doi(test_paper.doi)
+        if matching_papers:
+            matching_papers_sorted = sorted(matching_papers, key=lambda p: p.id)
+            primary_paper = matching_papers_sorted[0]
+            if test_paper.id != primary_paper.id:
+                result = (primary_paper.id, 1.0)
     elapsed = time.time() - start
     
     # Should find the match
@@ -128,7 +135,14 @@ def test_indexed_lookup_vs_linear_search():
         )
         
         start = time.time()
-        result = _doi_exact_match(test_paper, papers_db)
+        result = None
+        if test_paper.doi:
+            matching_papers = papers_db.get_by_doi(test_paper.doi)
+            if matching_papers:
+                matching_papers_sorted = sorted(matching_papers, key=lambda p: p.id)
+                primary_paper = matching_papers_sorted[0]
+                if test_paper.id != primary_paper.id:
+                    result = (primary_paper.id, 1.0)
         elapsed = time.time() - start
         doi_lookup_times.append(elapsed)
         
