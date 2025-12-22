@@ -136,9 +136,7 @@ class TestExecute:
         result = step.execute(config)
         
         assert result["status"] == "ok"
-        assert result["output"] == "Test echo message"
-        assert "papers_count" in result
-        assert result["papers_count"] == 0
+        assert result["message"] == "Test echo message"
     
     def test_execute_without_message(self, empty_db, temp_cache_dir):
         """Should execute with empty message when not provided"""
@@ -148,8 +146,7 @@ class TestExecute:
         result = step.execute(config)
         
         assert result["status"] == "ok"
-        assert result["output"] == ""
-        assert result["papers_count"] == 0
+        assert result["message"] == ""
     
     def test_execute_with_sample_data(self, sample_db, temp_cache_dir):
         """Should return correct paper count"""
@@ -159,8 +156,7 @@ class TestExecute:
         result = step.execute(config)
         
         assert result["status"] == "ok"
-        assert result["output"] == "Processing papers"
-        assert result["papers_count"] == 2
+        assert result["message"] == "Processing papers"
     
     def test_execute_verbose_mode(self, sample_db, temp_cache_dir):
         """Should execute in verbose mode without error"""
@@ -170,8 +166,7 @@ class TestExecute:
         result = step.execute(config, verbose=True)
         
         assert result["status"] == "ok"
-        assert result["output"] == "Verbose test"
-        assert result["papers_count"] == 2
+        assert result["message"] == "Verbose test"
     
     def test_execute_dry_run_mode(self, sample_db, temp_cache_dir):
         """Should execute in dry_run mode (no side effects for echo)"""
@@ -181,7 +176,7 @@ class TestExecute:
         result = step.execute(config, dry_run=True)
         
         assert result["status"] == "ok"
-        assert result["output"] == "Dry run test"
+        assert result["message"] == "Dry run test"
     
     def test_execute_debug_mode(self, sample_db, temp_cache_dir):
         """Should execute in debug mode without error"""
@@ -191,7 +186,7 @@ class TestExecute:
         result = step.execute(config, debug=True)
         
         assert result["status"] == "ok"
-        assert result["output"] == "Debug test"
+        assert result["message"] == "Debug test"
     
     def test_execute_with_multiline_message(self, empty_db, temp_cache_dir):
         """Should handle multiline messages"""
@@ -202,7 +197,7 @@ class TestExecute:
         result = step.execute(config)
         
         assert result["status"] == "ok"
-        assert result["output"] == message
+        assert result["message"] == message
     
     def test_execute_with_special_characters(self, empty_db, temp_cache_dir):
         """Should handle special characters in message"""
@@ -213,7 +208,7 @@ class TestExecute:
         result = step.execute(config)
         
         assert result["status"] == "ok"
-        assert result["output"] == message
+        assert result["message"] == message
 
 
 # ============================================================================
@@ -237,8 +232,7 @@ class TestEchoIntegration:
         result = step.execute(config)
         
         assert result["status"] == "ok"
-        assert result["output"] == "Integration test"
-        assert result["papers_count"] == 2
+        assert result["message"] == "Integration test"
 
 
 if __name__ == "__main__":

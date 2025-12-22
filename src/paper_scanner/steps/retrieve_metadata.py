@@ -86,7 +86,7 @@ class RetrieveMetadataStep(BaseStep):
         overwrite = config.get("overwrite", True)
 
         if verbose:
-            console.print(f"[blue]Using methods:[/blue] {methods}")
+            console.print(f" Using methods: {methods}")
 
         # Initialize fetcher with specified methods
         fetcher = Fetcher(cache_dir=self.cache_dir, methods=methods, verbose=verbose, debug=debug)
@@ -107,7 +107,7 @@ class RetrieveMetadataStep(BaseStep):
         for i, paper in enumerate(papers, 1):
             if not paper.doi:
                 results["skipped_no_doi"] += 1
-                console.print(f"[yellow][{i}/{len(papers)}] Skipping: no DOI")
+                console.print(f" [yellow]⚠️  [{i}/{len(papers)}][/yellow] Skipping: no DOI")
                 continue
 
             # Fetch metadata
@@ -116,17 +116,17 @@ class RetrieveMetadataStep(BaseStep):
 
             if verbose:
                 console.print(
-                    f"[cyan][{i}/{len(papers)}]{cache}Fetching metadata for[/cyan] [white]{paper.doi}...",
+                    f" [{i}/{len(papers)}]{cache}Fetching metadata for {paper.doi}...",
                 )
 
             if enriched_paper is None:
                 results["not_found"] += 1
-                console.print("[yellow]Not found")
+                console.print(" [yellow]Not found[/yellow]")
                 if not continue_on_not_found:
                     results["errors"].append(f"{paper.doi}: Not found in any source")
                 continue
             elif debug:
-                console.print(f"[blue]Fetched metadata: {enriched_paper}[/blue]")
+                console.print(f" [dim]Fetched metadata: {enriched_paper}[/dim]")
 
             # Merge enriched metadata into existing paper
             _merge_paper_metadata(paper, enriched_paper, overwrite=overwrite)
@@ -144,7 +144,7 @@ class RetrieveMetadataStep(BaseStep):
 
         # Print summary
         if verbose:
-            console.print(f"[bold]Metadata Retrieval Summary[/bold]")
+            console.print(f" Metadata Retrieval Summary")
             console.print(f"  Total papers: {results['total_papers']}")
             console.print(f"  Updated: {results['updated_papers']}")
             console.print(f"  Skipped (no DOI): {results['skipped_no_doi']}")
@@ -153,7 +153,7 @@ class RetrieveMetadataStep(BaseStep):
             console.print(f"  Cache misses: {results['cache_misses']}")
         
         if results["errors"]:
-            console.print(f"[red]  Errors: {len(results['errors'])}[/red]")
+            console.print(f" [red]✗[/red] [red]Errors: {len(results['errors'])}[/red]")
 
         results['status'] = 'ok' if len(results['errors']) == 0 else 'completed_with_errors' 
         return results

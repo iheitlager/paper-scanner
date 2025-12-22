@@ -18,7 +18,7 @@ from rich.console import Console
 
 from paper_scanner.tools.cache import PDFCache
 
-from ..core.enum import DiscoveryMethod
+from ..core.enum import DiscoveryMethod, StepStatus
 from ..core.models import Discovery, Paper, PDFInfo, Screening
 from ..tools.documents import FileReader
 from .base import BaseStep
@@ -86,9 +86,9 @@ class LoadFilesStep(BaseStep):
         # Validate paths
         if not file_path.exists() or not file_path.is_dir():
             error_msg = f"File path does not exist or is not a directory: {file_path}"
-            console.print(f"[red]✗ {error_msg}[/red]")
+            console.print(f" [red]✗[/red] {error_msg}")
             return {
-                "status": "error",
+                "status": StepStatus.ERROR,
                 "error": error_msg,
                 "papers_loaded": 0,
                 "papers_failed": 0
@@ -103,16 +103,15 @@ class LoadFilesStep(BaseStep):
         pdf_cache = PDFCache(cache_dir=self.cache_dir / "pdfs")
 
         if verbose:
-            console.print(f"  Loading {len(pdf_files)} PDF files from: {file_path}")
-            console.print(f"  Storing files to: {store_path}")
+            console.print(f" Loading {len(pdf_files)} PDF files from: {file_path}")
+            console.print(f" Storing files to: {store_path}")
 
         if not pdf_files:
-            console.print(f"[yellow]⚠️  No PDF files found in {file_path}[/yellow]")
             return {
-                "status": "ok",
+                "status": StepStatus.WARNING,
                 "papers_loaded": 0,
                 "papers_failed": 0,
-                "message": "No PDF files found"
+                "message": f"No PDF files found in {file_path}"
             }
 
         # Track results
@@ -121,7 +120,7 @@ class LoadFilesStep(BaseStep):
             "papers_failed": 0,
             "files_copied": 0,
             "details": [],
-            "status": "ok"
+            "status": StepStatus.SUCCESS
         }
 
         # Process each PDF
@@ -142,7 +141,7 @@ class LoadFilesStep(BaseStep):
                 if not file_reader.exists():
                     file_result["error"] = "PDF file not found"
                     results["papers_failed"] += 1
-                    console.print(f"[yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: not found")
+                    console.print(f" [yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: not found")
                     results["details"].append(file_result)
                     continue
 
@@ -153,7 +152,7 @@ class LoadFilesStep(BaseStep):
                 if not doi:
                     file_result["error"] = "No DOI extracted"
                     results["papers_failed"] += 1
-                    console.print(f"[yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: no DOI")
+                    console.print(f" [yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: no DOI")
                     results["details"].append(file_result)
                     continue
 
@@ -192,7 +191,7 @@ class LoadFilesStep(BaseStep):
                     except Exception as e:
                         file_result["error"] = "DB storage failed"
                         results["papers_failed"] += 1
-                        console.print(f"[red]✗ {i}/{len(pdf_files)}[/red] {pdf_path.name}: DB error")
+                        console.print(f" [red]✗[/red] {i}/{len(pdf_files)} {pdf_path.name}: DB error")
                         results["details"].append(file_result)
                         continue
 
@@ -208,7 +207,7 @@ class LoadFilesStep(BaseStep):
                     except Exception as e:
                         file_result["error"] = "File copy failed"
                         results["papers_failed"] += 1
-                        console.print(f"[red]✗ {i}/{len(pdf_files)}[/red] {pdf_path.name}: copy error")
+                        console.print(f" [red]✗[/red] {i}/{len(pdf_files)} {pdf_path.name}: copy error")
                         results["details"].append(file_result)
                         continue
 
@@ -217,29 +216,29 @@ class LoadFilesStep(BaseStep):
                 results["papers_loaded"] += 1
 
                 if verbose:
-                    console.print(f"[green]✓ {i}/{len(pdf_files)}[/green] {pdf_path.name} → {new_filename}")
+                    console.print(f" [green]✓[/green] {i}/{len(pdf_files)} {pdf_path.name} → {new_filename}")
 
             except Exception as e:
                 file_result["error"] = str(e)
                 file_result["success"] = False
-                console.print(f"[red]✗ {i}/{len(pdf_files)}[/red] {pdf_path.name}: {str(e)[:50]}")
+                console.print(f" [red]✗[/red] {i}/{len(pdf_files)} {pdf_path.name}: {str(e)[:50]}")
                 results["papers_failed"] += 1
-                console.print(f"[red]Exception while processing {pdf_path}: {e}[/red]")
+                console.print(f" [red]Exception while processing {pdf_path}: {e}[/red]")
 
             results["details"].append(file_result)
 
         # Display summary
         if verbose:
-            console.print()
             loaded = results["papers_loaded"]
             failed = results["papers_failed"]
             total = len(pdf_files)
             status = "[green]✓[/green]" if failed == 0 else "[yellow]⚠️ [/yellow]"
-            console.print(f"{status} [cyan]Summary:[/cyan] {loaded}/{total} loaded, {failed} failed" + 
+            console.print()
+            console.print(f" {status} {loaded}/{total} loaded, {failed} failed" + 
                         (f", expected {expected_count}" if expected_count and loaded != expected_count else ""))
             console.print()
 
-        results["status"] = "ok"
+        results["status"] = StepStatus.SUCCESS if results["papers_failed"] == 0 else StepStatus.WARNING
         return results
 
 

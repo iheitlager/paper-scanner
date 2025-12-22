@@ -210,7 +210,7 @@ class TestStepExecutorIntegration:
             result = step.execute(config, verbose=False)
 
             assert isinstance(result, dict)
-            assert "output" in result
+            assert "message" in result
             assert result["status"] == "ok"
 
     def test_execute_step_with_papers(self):

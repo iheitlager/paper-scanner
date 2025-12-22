@@ -195,7 +195,43 @@ class StepExecutor:
             result["template_name"] = step_params.get('template', 'unknown')
         
         return result
-    
+
+
+    def describe_last_step(self) -> Optional[Dict[str, Any]]:
+        """
+        Get details about the last step executed.
+
+        Returns:
+            Dict with step details or None if no next step:
+            {
+                "index": int,
+                "name": str,           # builtin step name
+                "description": str,    # human-readable description
+                "is_template": bool,   # whether it's a run-template step
+                "template_name": str,  # template name if is_template
+                "config": Dict,        # raw step config
+            }
+        """
+        if self.current_step_index == 0:
+            return None
+        
+        step_config = self.steps[self.current_step_index-1]
+        step_name, step_params, description = self.parse_step_config(step_config)
+        
+        result = {
+            "index": self.current_step_index - 1,
+            "name": step_name,
+            "description": description or step_config.get('step', ''),
+            "is_template": step_name == "run-template",
+            "config": step_config,
+        }
+        
+        if result["is_template"]:
+            result["template_name"] = step_params.get('template', 'unknown')
+        
+        return result
+
+
     def execute_next_step(self, dry_run: bool = False) -> Dict[str, Any]:
         """
         Execute the next step in the pipeline.
@@ -831,7 +867,7 @@ class StepExecutor:
 
     def get_session_state(self) -> Dict[str, Any]:
         """Get current session state for REPL or status display"""
-        return {
+        state = {
             "papers_db": self.papers_db,
             "papers_count": self.papers_db.count(),
             "current_step_index": self.current_step_index,
@@ -840,3 +876,26 @@ class StepExecutor:
             "results": self.results,
             "general_config": self.general_config,
         }
+        
+        last_step_info = self.describe_last_step()
+        if last_step_info:
+            state["last_step"] = {
+                "name": last_step_info["name"],
+                "description": last_step_info["description"],
+                "step_text": self.steps[self.current_step_index - 1].get("step", ""),
+                "is_template": last_step_info["is_template"],
+                "template_name": last_step_info.get("template_name"),
+            }
+        # Add current step details if there's a next step to execute
+        if self.has_next_step:
+            step_info = self.describe_next_step()
+            if step_info:
+                state["current_step"] = {
+                    "name": step_info["name"],
+                    "description": step_info["description"],
+                    "step_text": self.steps[self.current_step_index].get("step", ""),
+                    "is_template": step_info["is_template"],
+                    "template_name": step_info.get("template_name"),
+                }
+        
+        return state
