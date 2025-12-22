@@ -12,16 +12,15 @@ Tests cover:
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 import yaml
 
 from paper_scanner.cli.executor import StepExecutor
-from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Paper
 from paper_scanner.steps.halt import HaltException
-
+from paper_scanner.core.enum import StepStatus
 
 # ============================================================================
 # Fixtures
@@ -193,7 +192,7 @@ class TestStepNavigationAPI:
         
         result = executor.execute_next_step()
         
-        assert result["status"] == "error"
+        assert result["status"] == StepStatus.ERROR
         assert "No more steps" in result["error"]
 
 

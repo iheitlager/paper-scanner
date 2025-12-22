@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Tuple
 
 from rich.console import Console
 
+from paper_scanner.core.enum import StepStatus
+
 from .base import BaseStep
 
 # Initialize rich console
@@ -59,6 +61,6 @@ class EchoStep(BaseStep):
         console.print(f"[cyan]Message:[/cyan] [white]{message}[/white]")
 
         return {
-            "status": "ok",
+            "status": StepStatus.SUCCESS,
             "message": message
         }

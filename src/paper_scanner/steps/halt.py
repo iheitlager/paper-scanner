@@ -9,7 +9,9 @@ from typing import Any, Dict, List, Tuple
 
 from rich.console import Console
 
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.exceptions import PaperScannerError
+
 from .base import BaseStep
 
 # Initialize rich console
@@ -66,7 +68,7 @@ class HaltStep(BaseStep):
         message = config.get("message", "Pipeline halted")
         
         result = {
-            "status": "halted",
+            "status": StepStatus.HALTED,
             "message": message,
             "papers_count": self.db.count(primary_only=False)
         }

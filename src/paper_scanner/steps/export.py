@@ -139,13 +139,13 @@ class ExportStep(BaseStep):
             "papers_total": self.db.count(primary_only=False),
             "duplicates_option": duplicates_option,
             "output_path": output_path or "stdout",
-            "status": "ok",
+            "status": StepStatus.SUCCESS,
             "error": None
         }
         
         if not output_target:
             error_msg = "Either 'output' or 'output_path' is required"
-            results["status"] = "error"
+            results["status"] = StepStatus.ERROR
             results["error"] = error_msg
             if verbose:
                 console.print(f"  [red]✗ Error: {error_msg}[/red]")
@@ -153,7 +153,7 @@ class ExportStep(BaseStep):
         
         if output_format not in ("jsonl", "bibtex", "json"):
             error_msg = f"Unsupported format: {output_format}. Supported: jsonl, json, bibtex"
-            results["status"] = "error"
+            results["status"] = StepStatus.ERROR
             results["error"] = error_msg
             if verbose:
                 console.print(f"  [red]✗ Error: {error_msg}[/red]")
@@ -168,7 +168,7 @@ class ExportStep(BaseStep):
                 # Check if file exists and overwrite is False
                 if path.exists() and not overwrite:
                     error_msg = f"File already exists and overwrite=False: {output_path}"
-                    results["status"] = "error"
+                    results["status"] = StepStatus.ERROR
                     results["error"] = error_msg
                     if verbose:
                         console.print(f"  [red]✗ Error: {error_msg}[/red]")
@@ -260,12 +260,12 @@ class ExportStep(BaseStep):
                     if verbose:
                         console.print(f"    [yellow][DRY RUN] Would export {len(papers_to_export)} papers to BibTeX[/yellow]")
             
-            results["status"] = "ok"
+            results["status"] = StepStatus.SUCCESS
             return results
         
         except Exception as e:
             error_msg = f"Failed to export database: {str(e)}"
-            results["status"] = "error"
+            results["status"] = StepStatus.ERROR
             results["error"] = error_msg
             if verbose:
                 console.print(f"  [red]✗ Error exporting database: {str(e)}[/red]")

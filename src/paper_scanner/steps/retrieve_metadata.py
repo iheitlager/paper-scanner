@@ -25,6 +25,7 @@ from paper_scanner.core.models import Paper
 from paper_scanner.tools.fetchers.fetcher import Fetcher
 
 from .base import BaseStep
+from paper_scanner.core.enum import StepStatus
 
 console = Console(file=sys.stderr)
 
@@ -155,7 +156,7 @@ class RetrieveMetadataStep(BaseStep):
         if results["errors"]:
             console.print(f" [red]✗[/red] [red]Errors: {len(results['errors'])}[/red]")
 
-        results['status'] = 'ok' if len(results['errors']) == 0 else 'completed_with_errors' 
+        results["status"] = StepStatus.ERROR if len(results['errors']) == 0 else 'completed_with_errors' 
         return results
 
 

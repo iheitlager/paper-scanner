@@ -14,7 +14,6 @@ from typing import Optional
 
 from paper_scanner.cli.executor import StepExecutor
 
-
 # ==============================================================================
 # INTEGRATION PATTERN 1: Batch Task (CLI-based, for run.py)
 # ==============================================================================

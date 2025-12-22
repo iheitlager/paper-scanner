@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Tuple
 from rich.console import Console
 
 from paper_scanner.core.doi import DOI
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import PDFInfo
 from paper_scanner.tools.fetchers.fetcher import Fetcher
 
@@ -122,7 +123,7 @@ class DownloadPDFsStep(BaseStep):
 
         if not papers_needing_pdf:
             return {
-                "status": "ok",
+                "status": StepStatus.SUCCESS,
                 "count": 0,
                 "papers_total": self.db.count(primary_only=True),
                 "skipped": self.db.count(primary_only=True),
@@ -202,7 +203,7 @@ class DownloadPDFsStep(BaseStep):
                     f.write(json.dumps(detail) + "\n")
 
         return {
-            "status": "ok" if not errors else "error",
+            "status": StepStatus.SUCCESS if not errors else StepStatus.ERROR,
             "count": downloaded,
             "papers_total": self.db.count(primary_only=True),
             "skipped": skipped,

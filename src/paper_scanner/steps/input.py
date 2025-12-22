@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Tuple
 
 from rich.console import Console
 
+from paper_scanner.core.enum import StepStatus
+
 from ..core.enum import DiscoveryMethod
 from ..io.json import dict_to_paper
 from .base import BaseStep
@@ -123,7 +125,7 @@ class InputStep(BaseStep):
             
             if not file_path.exists():
                 return {
-                    "status": "error",
+                    "status": StepStatus.ERROR,
                     "error": f"File not found: {file_path}",
                     "papers_count": self.db.count(primary_only=False)
                 }
@@ -133,7 +135,7 @@ class InputStep(BaseStep):
                     records = _read_json_lines(f)
             except IOError as e:
                 return {
-                    "status": "error",
+                    "status": StepStatus.ERROR,
                     "error": f"Failed to read file {file_path}: {e}",
                     "papers_count": self.db.count(primary_only=False)
                 }
@@ -193,7 +195,7 @@ class InputStep(BaseStep):
         console.print(f"  Papers total: {self.db.count(primary_only=False)}")
         
         result = {
-            "status": "ok",
+            "status": StepStatus.SUCCESS,
             "source": source_description,
             "records_read": len(records),
             "papers_converted": len(papers),

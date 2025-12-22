@@ -25,14 +25,11 @@ import yaml
 
 from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.exceptions import (
-    CheckpointError,
-    ConfigurationError,
-    PipelineExecutionError,
-    StepError,
-)
+from paper_scanner.core.exceptions import (CheckpointError, ConfigurationError,
+                                           PipelineExecutionError, StepError)
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
+from paper_scanner.core.enum import StepStatus
 
 
 class LazyStepRegistry(dict):
@@ -246,7 +243,7 @@ class StepExecutor:
         """
         if not self.has_next_step:
             return {
-                "status": "error",
+                "status": StepStatus.ERROR,
                 "error": "No more steps to execute",
                 "count": 0,
             }
@@ -756,7 +753,7 @@ class StepExecutor:
                 results_summary["step_results"].append(result)
 
                 if result.get("status") == "error":
-                    results_summary["status"] = "error"
+                    results_summary["status"] = StepStatus.ERROR
                     results_summary["steps_failed"] += 1
                     break
                 elif result.get("status") == "halted":

@@ -32,7 +32,7 @@ from rich.console import Console
 from rich.table import Table
 
 from paper_scanner.core.doi import DOI
-from paper_scanner.core.enum import CitationDirection
+from paper_scanner.core.enum import CitationDirection, StepStatus
 from paper_scanner.core.models import Citation, Paper, PaperType
 from paper_scanner.tools.fetchers.fetcher import Fetcher
 
@@ -208,7 +208,7 @@ class CitationsStep(BaseStep):
                     console.print(f"  [red]- {error}[/red]")
 
         results['message'] = f"Citations fetched: {results['citations_fetched']}"
-        results['status'] = 'ok' if len(results['errors']) == 0 else 'completed_with_errors' 
+        results["status"] = StepStatus.SUCCESS if len(results['errors']) == 0 else StepStatus.ERROR 
         return results
 
     def backward_execute(self, config: Dict[str, Any]) -> Dict[str, Any]:

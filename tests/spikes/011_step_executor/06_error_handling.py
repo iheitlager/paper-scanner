@@ -78,8 +78,9 @@ def test_undefined_template_reference():
     print("=" * 60)
     
     import tempfile
+
     import yaml
-    
+
     # Create a definition with undefined template reference
     definition = {
         'project': {'name': 'Test'},
@@ -133,8 +134,9 @@ def test_step_execution_error():
     print("=" * 60)
     
     import tempfile
+
     import yaml
-    
+
     # Create a definition with an invalid step config
     definition = {
         'project': {'name': 'Test'},

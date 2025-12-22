@@ -14,6 +14,7 @@ from paper_scanner.core.enum import PaperType
 from paper_scanner.core.models import Author, OpenAccessStatus, Paper
 from paper_scanner.steps.retrieve_metadata import (RetrieveMetadataStep,
                                                    _merge_paper_metadata)
+from paper_scanner.core.enum import StepStatus
 
 
 class TestValidate:

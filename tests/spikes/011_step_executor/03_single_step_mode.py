@@ -251,7 +251,7 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
                             msg += f" [dim]({step_type})[/dim]"
                     else:
                         msg += f"{step_desc}..."
-                    console.print(msg)                                
+                    console.print(msg)
 
                 _ = executor.run_all(
                     dry_run=False,

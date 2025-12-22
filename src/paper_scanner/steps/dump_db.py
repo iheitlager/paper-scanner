@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .base import BaseStep
+from paper_scanner.core.enum import StepStatus
 
 # Initialize rich console
 console = Console(file=sys.stderr)
@@ -98,7 +99,7 @@ class DumpDbStep(BaseStep):
                 "_id_index": len(self.db._id_index),
             }
 
-        result["status"] = "ok"
+        result["status"] = StepStatus.SUCCESS
         return result
 
 

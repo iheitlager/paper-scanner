@@ -7,13 +7,11 @@ Tests cover:
 - Error handling
 """
 
-from unittest.mock import Mock
 
 import pytest
 
-from paper_scanner.steps.run_template import RunTemplateStep
 from paper_scanner.core.database import PapersDatabase
-
+from paper_scanner.steps.run_template import RunTemplateStep
 
 # ============================================================================
 # Fixtures

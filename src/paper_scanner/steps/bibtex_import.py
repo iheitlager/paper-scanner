@@ -272,5 +272,5 @@ class BibtexImportStep(BaseStep):
                     "error": str(e)
                 })
 
-        results["status"] = "ok" if not results["errors"] else "error"
+        results["status"] = StepStatus.SUCCESS if not results["errors"] else "error"
         return results

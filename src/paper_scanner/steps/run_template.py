@@ -11,6 +11,7 @@ v1: Static templates only (no parameters or nesting)
 from typing import Any, Dict, List, Tuple
 
 from paper_scanner.steps.base import BaseStep
+from paper_scanner.core.enum import StepStatus
 
 
 class RunTemplateStep(BaseStep):
@@ -74,7 +75,7 @@ class RunTemplateStep(BaseStep):
         is_valid, errors = self.validate(step_config)
         if not is_valid:
             return {
-                "status": "error",
+                "status": StepStatus.ERROR,
                 "error": f"Invalid template config: {', '.join(errors)}",
                 "count": 0,
             }
@@ -83,7 +84,7 @@ class RunTemplateStep(BaseStep):
 
         if dry_run:
             return {
-                "status": "ok",
+                "status": StepStatus.SUCCESS,
                 "message": f"Would execute template: {template_name}",
                 "count": 0,
             }
@@ -91,7 +92,7 @@ class RunTemplateStep(BaseStep):
         # Template execution is handled by StepExecutor._execute_template
         # This step just validates the configuration
         return {
-            "status": "ok",
+            "status": StepStatus.SUCCESS,
             "message": f"Template '{template_name}' expanded (see template_results)",
             "count": 0,
         }

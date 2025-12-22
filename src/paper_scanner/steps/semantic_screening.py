@@ -26,6 +26,8 @@ import numpy as np
 from rich.console import Console
 from scipy.spatial.distance import cosine
 
+from paper_scanner.core.enum import StepStatus
+
 from ..core.enum import ScreeningDecision
 from ..core.models import Paper, ProcessingMetadata, SemanticScreening
 from .base import BaseStep
@@ -199,7 +201,7 @@ class SemanticScreeningStep(BaseStep):
             # Clear the progress line and print final result
             console.print(f"    [green]✓ Semantic screening complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan], Manual Review: [cyan]{results['manual_review']}[/cyan]")
 
-        results["status"] = "ok"        
+        results["status"] = StepStatus.SUCCESS        
         return results
 
 
