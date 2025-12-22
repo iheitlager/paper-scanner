@@ -17,24 +17,24 @@ services:
       timeout: 5s
       retries: 5
 
-  pdf-browser-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: pdf-browser-app
-    environment:
-      DATABASE_URL: postgresql://pdfuser:pdfpass@pdf-browser-db:5432/pdfdb
-      PDF_BASE_DIR: /papers
-      PORT: 8000
-      ENV: docker
-    ports:
-      - "8000:8000"
-    volumes:
-      - /Users/iheitlager/wc/papers:/papers:ro
-    depends_on:
-      pdf-browser-db:
-        condition: service_healthy
-    restart: unless-stopped
+  # pdf-browser-app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: pdf-browser-app
+  #   environment:
+  #     DATABASE_URL: postgresql://pdfuser:pdfpass@pdf-browser-db:5432/pdfdb
+  #     PDF_BASE_DIR: /papers
+  #     PORT: 8000
+  #     ENV: docker
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - /Users/iheitlager/wc/papers:/papers:ro
+  #   depends_on:
+  #     pdf-browser-db:
+  #       condition: service_healthy
+  #   restart: unless-stopped
 
 volumes:
   postgres_data:

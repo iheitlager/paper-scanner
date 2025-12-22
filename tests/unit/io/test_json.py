@@ -16,13 +16,9 @@ from typing import List
 import pytest
 
 from paper_scanner.core.models import (Author, Discovery, DiscoveryMethod,
-                                       Paper, PaperCollection, Screening,
-                                       ScreeningDecision)
-from paper_scanner.io.json import (PaperJSONEncoder, collection_to_dict,
-                                   collection_to_json, collection_to_json_file,
-                                   dict_to_collection, dict_to_paper,
-                                   json_file_to_collection, json_file_to_paper,
-                                   json_file_to_papers, json_to_collection,
+                                       Paper, Screening, ScreeningDecision)
+from paper_scanner.io.json import (PaperJSONEncoder, dict_to_paper,
+                                   json_file_to_paper, json_file_to_papers,
                                    json_to_paper, json_to_papers,
                                    jsonl_file_to_papers, jsonl_to_papers,
                                    paper_to_dict, paper_to_dict_bibliographic,
@@ -408,95 +404,6 @@ class TestPartialSerialization:
         assert len(data) == 2
         assert "cite_key" in data[0]
         assert "title" in data[0]
-
-
-# ============================================================================
-# Tests: PaperCollection
-# ============================================================================
-
-class TestPaperCollectionSerialization:
-    """Test PaperCollection serialization."""
-
-    def test_collection_to_dict(self, paper_list):
-        """Test converting collection to dictionary."""
-        collection = PaperCollection(
-            name="Test Collection",
-            papers=paper_list
-        )
-        
-        result = collection_to_dict(collection)
-        
-        assert result["name"] == "Test Collection"
-        assert len(result["papers"]) == 2
-
-    def test_collection_to_json(self, paper_list):
-        """Test converting collection to JSON."""
-        collection = PaperCollection(
-            name="Test Collection",
-            papers=paper_list
-        )
-        
-        json_str = collection_to_json(collection)
-        data = json.loads(json_str)
-        
-        assert data["name"] == "Test Collection"
-        assert len(data["papers"]) == 2
-
-    def test_collection_to_json_file(self, paper_list, tmp_path):
-        """Test writing collection to JSON file."""
-        collection = PaperCollection(
-            name="Test Collection",
-            papers=paper_list
-        )
-        
-        filepath = tmp_path / "collection.json"
-        result = collection_to_json_file(collection, str(filepath))
-        
-        assert filepath.exists()
-        
-        with open(filepath) as f:
-            data = json.load(f)
-        assert data["name"] == "Test Collection"
-
-    def test_dict_to_collection(self, paper_list):
-        """Test converting dictionary to collection."""
-        collection = PaperCollection(
-            name="Test Collection",
-            papers=paper_list
-        )
-        
-        collection_dict = collection_to_dict(collection)
-        restored = dict_to_collection(collection_dict)
-        
-        assert restored.name == collection.name
-        assert len(restored.papers) == len(collection.papers)
-
-    def test_json_to_collection(self, paper_list):
-        """Test converting JSON to collection."""
-        collection = PaperCollection(
-            name="Test Collection",
-            papers=paper_list
-        )
-        
-        json_str = collection_to_json(collection)
-        restored = json_to_collection(json_str)
-        
-        assert restored.name == collection.name
-        assert len(restored.papers) == 2
-
-    def test_json_file_to_collection(self, paper_list, tmp_path):
-        """Test reading collection from JSON file."""
-        collection = PaperCollection(
-            name="Test Collection",
-            papers=paper_list
-        )
-        
-        filepath = tmp_path / "collection.json"
-        collection_to_json_file(collection, str(filepath))
-        
-        restored = json_file_to_collection(str(filepath))
-        assert restored.name == collection.name
-        assert len(restored.papers) == 2
 
 
 # ============================================================================

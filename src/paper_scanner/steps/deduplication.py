@@ -13,9 +13,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 
+from paper_scanner.core.enum import StepStatus
+
 from ..core.models import DeduplicationResult, Paper, ProcessingMetadata
 from .base import BaseStep
-from paper_scanner.core.enum import StepStatus
 
 # Initialize rich console
 console = Console(file=sys.stderr)

@@ -10,8 +10,8 @@ v1: Static templates only (no parameters or nesting)
 
 from typing import Any, Dict, List, Tuple
 
-from paper_scanner.steps.base import BaseStep
 from paper_scanner.core.enum import StepStatus
+from paper_scanner.steps.base import BaseStep
 
 
 class RunTemplateStep(BaseStep):

@@ -25,11 +25,11 @@ import yaml
 
 from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.exceptions import (CheckpointError, ConfigurationError,
                                            PipelineExecutionError, StepError)
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
-from paper_scanner.core.enum import StepStatus
 
 
 class LazyStepRegistry(dict):

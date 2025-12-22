@@ -18,9 +18,9 @@ import pytest
 import yaml
 
 from paper_scanner.cli.executor import StepExecutor
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import Paper
 from paper_scanner.steps.halt import HaltException
-from paper_scanner.core.enum import StepStatus
 
 # ============================================================================
 # Fixtures

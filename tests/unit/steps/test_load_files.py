@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.steps.load_files import LoadFilesStep
 from paper_scanner.core.enum import StepStatus
+from paper_scanner.steps.load_files import LoadFilesStep
 
 
 class TestValidate:

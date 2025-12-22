@@ -10,10 +10,10 @@ import pytest
 import yaml
 
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import Author, Paper
 from paper_scanner.steps.patch import (PatchStep, _apply_patch_to_paper,
                                        _load_patches_from_file)
-from paper_scanner.core.enum import StepStatus
 
 # ============================================================================
 # FIXTURES

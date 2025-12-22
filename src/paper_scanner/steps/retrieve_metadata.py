@@ -21,11 +21,11 @@ from typing import Any, Dict, List, Tuple
 
 from rich.console import Console
 
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import Paper
 from paper_scanner.tools.fetchers.fetcher import Fetcher
 
 from .base import BaseStep
-from paper_scanner.core.enum import StepStatus
 
 console = Console(file=sys.stderr)
 

@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.steps.citations import CitationsStep
 from paper_scanner.core.enum import StepStatus
+from paper_scanner.steps.citations import CitationsStep
 
 
 class TestValidation:
