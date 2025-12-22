@@ -45,6 +45,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Spike tests**: `tests/spikes/011_step_executor/` demonstrating executor patterns
   - `07_halt_test.py`: HaltException handling tests (echo/halt/echo pattern)
 - **Unit tests for HaltException**: 6 new tests in `test_executor.py` covering halt behavior
+- **Enhanced step messaging**: REPL displays richer step information from `describe_next_step()` in all output modes
+  - Normal mode: Shows step description with type indicator `(builtin: step_name)` or `(template: name)`
+  - Verbose mode: Shows full step description with detailed type information
+  - Batch mode: Each step displays description with step counter `[n/total]`
+  - `get_session_state()` now includes current step details: name, description, step_text, is_template, template_name
 
 ### Changed
 
