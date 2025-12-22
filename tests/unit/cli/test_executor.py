@@ -20,6 +20,7 @@ import yaml
 from paper_scanner.cli.executor import StepExecutor
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Paper
+from paper_scanner.steps.halt import HaltException
 
 
 # ============================================================================
@@ -554,6 +555,153 @@ class TestStatistics:
         assert state["papers_count"] == 1
         assert state["current_step_index"] == 1
         assert state["total_steps"] == 3
+
+
+# ============================================================================
+# TestHaltException
+# ============================================================================
+
+class TestHaltException:
+    """Tests for HaltException handling in StepExecutor"""
+
+    @pytest.fixture
+    def simple_definition_file(self, temp_cache_dir):
+        """Create a simple definition without templates for halt tests"""
+        definition = {
+            "project": {"name": "Halt Test"},
+            "steps": [
+                {"step": "Step 1", "builtin.echo": {"message": "One"}},
+                {"step": "Step 2", "builtin.echo": {"message": "Two"}},
+                {"step": "Step 3", "builtin.echo": {"message": "Three"}},
+            ]
+        }
+        def_file = temp_cache_dir / "halt_definition.yml"
+        with open(def_file, "w") as f:
+            yaml.dump(definition, f)
+        return def_file
+
+    def test_execute_step_catches_halt_exception(self, executor, sample_definition_file):
+        """Test that execute_step catches HaltException and returns halted status"""
+        executor.load_definition(sample_definition_file)
+        
+        # Mock get_step to return a step that raises HaltException
+        mock_step = Mock()
+        mock_step.execute.side_effect = HaltException("Test halt message")
+        
+        with patch.object(executor, 'get_step', return_value=mock_step):
+            result = executor.execute_step(0)
+        
+        assert result["status"] == "halted"
+        assert result["message"] == "Test halt message"
+        assert result["count"] == 0
+
+    def test_execute_step_halt_does_not_increment_index(self, executor, sample_definition_file):
+        """Test that halt exception doesn't increment step index"""
+        executor.load_definition(sample_definition_file)
+        initial_index = executor.current_step_index
+        
+        mock_step = Mock()
+        mock_step.execute.side_effect = HaltException("Halting")
+        
+        with patch.object(executor, 'get_step', return_value=mock_step):
+            executor.execute_step(0)
+        
+        # Index should not have been incremented (halt happens before increment)
+        assert executor.current_step_index == initial_index
+
+    def test_run_all_stops_on_halt(self, general_config, temp_cache_dir, simple_definition_file):
+        """Test that run_all stops execution when HaltException is raised"""
+        executor = StepExecutor(
+            general_config=general_config,
+            cache_dir=temp_cache_dir,
+            verbose=False,
+        )
+        executor.load_definition(simple_definition_file)
+        
+        call_count = [0]
+        def mock_get_step(name):
+            call_count[0] += 1
+            mock_step = Mock()
+            if call_count[0] == 2:
+                # Second step raises halt
+                mock_step.execute.side_effect = HaltException("Halt at step 2")
+            else:
+                mock_step.execute.return_value = {"status": "ok", "count": 0}
+            return mock_step
+        
+        with patch.object(executor, 'get_step', side_effect=mock_get_step):
+            results = executor.run_all()
+        
+        assert results["status"] == "halted"
+        assert results["steps_executed"] == 1  # Only first step completed
+        assert results["steps_failed"] == 0    # Halt is not a failure
+
+    def test_run_all_halt_returns_step_results(self, general_config, temp_cache_dir, simple_definition_file):
+        """Test that run_all includes all step results including halted step"""
+        executor = StepExecutor(
+            general_config=general_config,
+            cache_dir=temp_cache_dir,
+            verbose=False,
+        )
+        executor.load_definition(simple_definition_file)
+        
+        call_count = [0]
+        def mock_get_step(name):
+            call_count[0] += 1
+            mock_step = Mock()
+            if call_count[0] == 2:
+                mock_step.execute.side_effect = HaltException("Stopping here")
+            else:
+                mock_step.execute.return_value = {"status": "ok", "count": 5}
+            return mock_step
+        
+        with patch.object(executor, 'get_step', side_effect=mock_get_step):
+            results = executor.run_all()
+        
+        # Should have 2 step results: 1 ok + 1 halted
+        assert len(results["step_results"]) == 2
+        assert results["step_results"][0]["status"] == "ok"
+        assert results["step_results"][1]["status"] == "halted"
+
+    def test_halt_preserves_custom_message(self, executor, sample_definition_file):
+        """Test that halt message is preserved in result"""
+        executor.load_definition(sample_definition_file)
+        
+        custom_message = "Review papers before continuing"
+        mock_step = Mock()
+        mock_step.execute.side_effect = HaltException(custom_message)
+        
+        with patch.object(executor, 'get_step', return_value=mock_step):
+            result = executor.execute_step(0)
+        
+        assert result["message"] == custom_message
+
+    def test_halt_different_from_error(self, executor, sample_definition_file):
+        """Test that halt status is distinct from error status"""
+        executor.load_definition(sample_definition_file)
+        
+        # First test halt
+        mock_halt_step = Mock()
+        mock_halt_step.execute.side_effect = HaltException("Halted")
+        
+        with patch.object(executor, 'get_step', return_value=mock_halt_step):
+            halt_result = executor.execute_step(0)
+        
+        # Reset for error test
+        executor.current_step_index = 0
+        
+        # Then test error
+        mock_error_step = Mock()
+        mock_error_step.execute.side_effect = Exception("Some error")
+        
+        with patch.object(executor, 'get_step', return_value=mock_error_step):
+            error_result = executor.execute_step(0)
+        
+        # Verify they are different statuses
+        assert halt_result["status"] == "halted"
+        assert error_result["status"] == "error"
+        assert "message" in halt_result
+        assert "error" in error_result
 
 
 if __name__ == "__main__":

@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Single-step and batch execution modes
   - Comprehensive statistics and timing collection
   - Full inventory of available steps and templates
+  - **Self-contained step discovery**: Integrated `LazyStepRegistry` for lazy-loading steps on demand without external dependencies
+  - **Built-in `get_step()` method**: No longer requires external `get_step_func` callback
+- **HaltException handling**: StepExecutor properly catches `HaltException` from halt steps
+  - Returns `status: halted` (distinct from `status: error`)
+  - Preserves custom halt messages in result
+  - Stops `run_all()` gracefully without counting as failure
 - **RunTemplateStep builtin**: New `run-template` step for applying predefined template sequences within pipelines
   - Enables mid-pipeline template application (e.g., after citations)
   - Recursive template expansion for sophisticated reuse patterns
@@ -26,11 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `docs/executor/class.md`: Complete API reference with all methods, parameters, return values, and usage examples
   - `docs/executor/main_entry_example.py`: Example implementations (batch mode, single-step mode, template usage)
 - **Example Definition**: `src/definitions/supplier_innovation_review.yml` - Full multi-phase pipeline demonstrating templates, checkpoints, and citation expansion
+- **Spike tests**: `tests/spikes/011_step_executor/` demonstrating executor patterns
+  - `07_halt_test.py`: HaltException handling tests (echo/halt/echo pattern)
+- **Unit tests for HaltException**: 6 new tests in `test_executor.py` covering halt behavior
 
 ### Changed
 
 - **Major Breaking Change**: Steps now use new three-level configuration model (general_config, step_config, runtime flags) replacing simpler config patterns
 - **Step Registry**: Added `run-template` to `STEP_REGISTRY_PATHS` in `src/paper_scanner/cli/__init__.py`
+- **StepExecutor is now self-contained**: Removed `get_step_func` parameter from constructor; uses internal lazy step registry
+- **Removed duplicate `_parse_step_config`**: Consolidated to single static `parse_step_config()` method
 
 ### Design Decisions (v3.0.0)
 
@@ -39,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Explicit Checkpointing in Single-Step**: Manual `executor.checkpoint()` calls prevent accidental data loss in interactive mode
 - **Early Template Validation**: All template references validated at definition load time to catch errors immediately
 - **Three-Level Configuration**: Project-level (general_config) → Step-level (step_config) → Runtime flags (verbose, dry_run, debug)
+- **Self-contained Executor**: No external callbacks needed; lazy loading minimizes startup time
 
 ## [2.8.0] - 2025-12-22
 
