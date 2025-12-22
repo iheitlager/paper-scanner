@@ -13,6 +13,9 @@ from typing import Optional
 from rich.console import Console
 from rich.table import Table
 
+from paper_scanner.tools.cache import PDFCache
+from paper_scanner.tools.documents import FileReader
+
 console = Console(file=sys.stderr)
 
 
@@ -181,3 +184,125 @@ def execute_cache_clear(
         return 0
 
     return 1
+
+
+def execute_cache_load(
+    folder_path: str,
+    cache_dir: Optional[Path] = None,
+    verbose: bool = False,
+    dry_run: bool = False,
+) -> int:
+    """
+    Load PDFs from folder into cache, indexed by DOI.
+
+    Pre-fills PDF cache from local folder to avoid API downloads during
+    later processing. Extracts DOI from each PDF and caches it.
+
+    Args:
+        folder_path: Path to folder containing PDF files
+        cache_dir: Cache directory (default: ~/.paper-scanner)
+        verbose: Enable verbose output
+        dry_run: Don't actually cache files
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    import os
+
+    # Determine cache_dir
+    if cache_dir is None:
+        cache_dir = Path(os.getenv("CACHE_DIR", ""))
+        if not cache_dir or str(cache_dir) == ".":
+            cache_dir = None
+
+    if cache_dir is None:
+        cache_dir = Path("~/.paper-scanner").expanduser()
+    else:
+        cache_dir = cache_dir.expanduser()
+
+    # Validate and expand folder path
+    folder = Path(folder_path).expanduser()
+
+    if not folder.exists() or not folder.is_dir():
+        console.print(f"[red]✗ Error[/red]: Folder does not exist or is not a directory: {folder}")
+        return 1
+
+    # Scan for PDF files
+    pdf_files = sorted(folder.glob("*.pdf"))
+
+    if not pdf_files:
+        console.print(f"[yellow]⚠ No PDF files found[/yellow] in {_collapse_home(folder)}")
+        return 0
+
+    if verbose:
+        console.print(f"Loading {len(pdf_files)} PDFs into cache...\n")
+
+    # Initialize cache
+    pdf_cache = PDFCache(cache_dir=cache_dir / "pdfs")
+
+    # Track results
+    cached = 0
+    skipped = 0
+    errors = 0
+    failed_items = []
+
+    # Process each PDF
+    for i, pdf_path in enumerate(pdf_files, 1):
+        try:
+            # Read file and extract DOI
+            file_reader = FileReader(pdf_path)
+
+            if not file_reader.exists():
+                skipped += 1
+                if verbose:
+                    console.print(
+                        f" [dim]{i}/{len(pdf_files)}[/dim] {pdf_path.name}: [yellow]PDF not found[/yellow]"
+                    )
+                continue
+
+            # Extract DOI
+            doi = file_reader.extract_doi()
+
+            if not doi:
+                skipped += 1
+                if verbose:
+                    console.print(
+                        f" [dim]{i}/{len(pdf_files)}[/dim] {pdf_path.name}: [dim]skipped (no DOI)[/dim]"
+                    )
+                continue
+
+            # Cache the PDF
+            if not dry_run:
+                pdf_cache.set(doi, pdf_path, move=False)
+
+            cached += 1
+
+            if verbose:
+                console.print(
+                    f" [green]✓[/green] {i}/{len(pdf_files)} {pdf_path.name} → {doi}"
+                )
+
+        except Exception as e:
+            errors += 1
+            failed_items.append((pdf_path.name, str(e)[:80]))
+            if verbose:
+                console.print(
+                    f" [red]✗[/red] {i}/{len(pdf_files)} {pdf_path.name}: [red]{str(e)[:50]}[/red]"
+                )
+
+    # Summary
+    console.print()
+    if errors == 0:
+        console.print(
+            f"[green]✓ Success[/green]: Cached {cached} PDFs, skipped {skipped} (no DOI)"
+        )
+    else:
+        console.print(
+            f"[yellow]⚠ Completed with errors[/yellow]: {cached} cached, {skipped} skipped, {errors} errors"
+        )
+        if verbose and failed_items:
+            console.print("\n[red]Failed items:[/red]")
+            for name, error in failed_items:
+                console.print(f"  • {name}: {error}")
+
+    return 1 if errors > 0 else 0

@@ -16,6 +16,7 @@ from rich.console import Console
 from paper_scanner import __version__
 from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.cli.tasks import (execute_cache_clear, execute_cache_info,
+                                     execute_cache_load,
                                      execute_db_stats, execute_db_clear,
                                      execute_info_steps,
                                      execute_repl, execute_run, execute_validate)
@@ -410,6 +411,36 @@ def main():
         help="Enable verbose output"
     )
     
+    load_parser = cache_subparsers.add_parser(
+        "load",
+        help="Load PDFs into cache from folder (indexed by DOI)"
+    )
+    
+    load_parser.add_argument(
+        "folder",
+        type=str,
+        help="Path to folder containing PDF files"
+    )
+    
+    load_parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+    )
+    
+    load_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output"
+    )
+    
+    load_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Don't actually cache files"
+    )
+    
     # ===== DB COMMAND =====
     db_parser = subparsers.add_parser(
         "db",
@@ -550,6 +581,15 @@ def main():
                     args.target,
                     cache_dir=args.cache_dir,
                     verbose=args.verbose,
+                )
+                sys.exit(exit_code)
+            
+            elif args.cache_command == "load":
+                exit_code = execute_cache_load(
+                    args.folder,
+                    cache_dir=args.cache_dir,
+                    verbose=args.verbose,
+                    dry_run=args.dry_run,
                 )
                 sys.exit(exit_code)
         
