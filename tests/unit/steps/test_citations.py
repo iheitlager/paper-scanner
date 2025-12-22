@@ -11,6 +11,7 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.citations import CitationsStep
+from paper_scanner.core.enum import StepStatus
 
 
 class TestValidation:
@@ -241,7 +242,7 @@ class TestExecuteWithBackwardConfig:
         result = step.execute(config)
 
         assert result == expected_result
-        assert result["status"] == "completed_with_errors"
+        assert result["status"] == StepStatus.ERROR
         assert len(result["errors"]) == 2
 
 class TestExecuteWithForwardConfig:
@@ -312,7 +313,7 @@ class TestExecuteWithForwardConfig:
         result = step.execute(config)
 
         assert result == expected_result
-        assert result["status"] == "completed_with_errors"
+        assert result["status"] == StepStatus.ERROR
         assert len(result["errors"]) == 2
 
 

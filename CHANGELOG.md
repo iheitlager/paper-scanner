@@ -5,6 +5,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-12-22
+
+### Added
+
+- **Step Navigation API**: New properties and methods for REPL/CLI convenience:
+  - `has_steps`: Property checking if definition has any steps
+  - `has_next_step`: Property checking if there's a next step to execute
+  - `step_progress`: Property returning `(current_index, total_steps)` tuple
+  - `describe_next_step()`: Returns dict with step details (name, description, is_template, etc.)
+  - `execute_next_step()`: Executes current step and advances index
+- **Progress callbacks for run_all()**: `on_step_start` and `on_step_end` callbacks enable UI progress feedback without reimplementing execution loops
+  - `on_step_start(step_index, step_config, total_steps)`: Called before each step
+  - `on_step_end(step_index, step_config, result)`: Called after each step with result
+  - Keeps UI concerns separate from executor logic
+- **Unified StepExecutor**: New core execution engine (`src/paper_scanner/cli/executor.py`) that harmonizes workflow execution and interactive REPL modes
+  - Definition loading with early template validation
+  - Template support (v1: static step sequences, no parameters or nesting)
+  - Session state management (database, results, execution history)
+  - Checkpoint management (local file-based, explicit control)
+  - Single-step and batch execution modes
+  - Comprehensive statistics and timing collection
+  - Full inventory of available steps and templates
+  - **Self-contained step discovery**: Integrated `LazyStepRegistry` for lazy-loading steps on demand without external dependencies
+  - **Built-in `get_step()` method**: No longer requires external `get_step_func` callback
+- **HaltException handling**: StepExecutor properly catches `HaltException` from halt steps
+  - Returns `status: halted` (distinct from `status: error`)
+  - Preserves custom halt messages in result
+  - Stops `run_all()` gracefully without counting as failure
+- **RunTemplateStep builtin**: New `run-template` step for applying predefined template sequences within pipelines
+  - Enables mid-pipeline template application (e.g., after citations)
+  - Recursive template expansion for sophisticated reuse patterns
+  - v1: Static templates only (parameters and nesting planned for future versions)
+- **Executor Documentation**: 
+  - `docs/executor/explanation.md`: Architecture, three-level config model, template system, checkpoint design
+  - `docs/executor/class.md`: Complete API reference with all methods, parameters, return values, and usage examples
+  - `docs/executor/main_entry_example.py`: Example implementations (batch mode, single-step mode, template usage)
+- **Example Definition**: `src/definitions/supplier_innovation_review.yml` - Full multi-phase pipeline demonstrating templates, checkpoints, and citation expansion
+- **Spike tests**: `tests/spikes/011_step_executor/` demonstrating executor patterns
+  - `07_halt_test.py`: HaltException handling tests (echo/halt/echo pattern)
+- **Unit tests for HaltException**: 6 new tests in `test_executor.py` covering halt behavior
+- **Enhanced step messaging**: REPL displays richer step information from `describe_next_step()` in all output modes
+  - Normal mode: Shows step description with type indicator `(builtin: step_name)` or `(template: name)`
+  - Verbose mode: Shows full step description with detailed type information
+  - Batch mode: Each step displays description with step counter `[n/total]`
+  - `get_session_state()` now includes current step details: name, description, step_text, is_template, template_name
+
+### Changed
+
+- **Major Breaking Change**: Steps now use new three-level configuration model (general_config, step_config, runtime flags) replacing simpler config patterns
+- **Step Registry**: Added `run-template` to `STEP_REGISTRY_PATHS` in `src/paper_scanner/cli/__init__.py`
+- **StepExecutor is now self-contained**: Removed `get_step_func` parameter from constructor; uses internal lazy step registry
+- **Removed duplicate `_parse_step_config`**: Consolidated to single static `parse_step_config()` method
+
+### Design Decisions (v3.0.0)
+
+- **v1 Static Templates**: No parameter injection or template nesting; enables safe scoping
+- **Local Checkpoints Only**: File-based checkpoints with deterministic naming
+- **Explicit Checkpointing in Single-Step**: Manual `executor.checkpoint()` calls prevent accidental data loss in interactive mode
+- **Early Template Validation**: All template references validated at definition load time to catch errors immediately
+- **Three-Level Configuration**: Project-level (general_config) → Step-level (step_config) → Runtime flags (verbose, dry_run, debug)
+- **Self-contained Executor**: No external callbacks needed; lazy loading minimizes startup time
+
 ## [2.8.0] - 2025-12-22
 
 ### Added

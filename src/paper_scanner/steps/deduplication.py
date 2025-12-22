@@ -15,6 +15,7 @@ from rich.console import Console
 
 from ..core.models import DeduplicationResult, Paper, ProcessingMetadata
 from .base import BaseStep
+from paper_scanner.core.enum import StepStatus
 
 # Initialize rich console
 console = Console(file=sys.stderr)
@@ -335,5 +336,5 @@ class DeduplicationStep(BaseStep):
             unique_count = self.db.count(primary_only=True)  # Count primary papers (non-duplicates)
             console.print(f"    [green]✓ Deduplication complete[/green] - Found [cyan]{results['duplicates_found']}[/cyan] duplicates, [cyan]{unique_count}[/cyan] unique papers")
         
-        results["status"] = "ok"
+        results["status"] = StepStatus.SUCCESS
         return results

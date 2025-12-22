@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Tuple
 from rich.console import Console
 
 from ..core.database import PapersDatabase
-from ..core.enum import DiscoveryMethod
+from ..core.enum import DiscoveryMethod, StepStatus
 from ..core.models import Paper
 from ..io.bibtex import bibtex_file_to_papers, load_type_mapping_config
 from .base import BaseStep
@@ -159,16 +159,15 @@ class BibtexImportStep(BaseStep):
         type_mapping_config = None
         if type_mapping_config_path:
             if debug:
-                console.print(f"[dim]Loading type mapping config from:[/dim] {type_mapping_config_path}")
+                console.print(f" [dim]Loading type mapping config from: {type_mapping_config_path}[/dim]")
             type_mapping_config = load_type_mapping_config(type_mapping_config_path)
         else:
             # Use default location
             type_mapping_config = load_type_mapping_config()
             if debug:
-                console.print("[dim]Using default type mapping configuration[/dim]")
+                console.print(" [dim]Using default type mapping configuration[/dim]")
         
         results = {
-            "step": "bibtex_import",
             "total_files": len(imports),
             "files_processed": 0,
             "papers_imported": 0,
@@ -194,9 +193,9 @@ class BibtexImportStep(BaseStep):
                     continue
                 
                 if debug:
-                    console.print(f"    [dim]Processing:[/dim] {name}")
-                    console.print(f"    [dim]File:[/dim] {file_path}")
-                    console.print(f"    [dim]Source:[/dim] {source_type}")
+                    console.print(f" [dim]Processing: {name}[/dim]")
+                    console.print(f" [dim]File: {file_path}[/dim]")
+                    console.print(f" [dim]Source: {source_type}[/dim]")
                 
                 if not dry_run:
                     # Parse BibTeX file with type mapping config
@@ -214,13 +213,13 @@ class BibtexImportStep(BaseStep):
                         random.shuffle(papers)
                         if verbose:
                             seed_display = f" (seed={random_seed})" if random_seed is not None else ""
-                            console.print(f"    [cyan]✓ Randomized papers{seed_display}[/cyan]")
+                            console.print(f" [cyan]✓[/cyan] Randomized papers{seed_display}")
                     
                     # Apply limit after randomization
                     if limit:
                         papers = papers[:limit]
                         if debug:
-                            console.print(f"    [dim]✓ Limited to {limit} papers[/dim]")
+                            console.print(f" [dim]✓ Limited to {limit} papers[/dim]")
                     
                     # Fix cite_key collisions if requested
                     if fix_cite_key:
@@ -234,11 +233,11 @@ class BibtexImportStep(BaseStep):
                     results["papers_imported"] += count
                     
                     if verbose:
-                        console.print(f"    [green]✓ Imported {count} papers[/green]")
+                        console.print(f" [green]✓[/green] Imported {count} papers")
                         if expected_count:
                             match = "✓" if count == expected_count else "!"
                             style = "green" if count == expected_count else "yellow"
-                            console.print(f"    [{style}]{match} Expected: {expected_count}, Got: {count}[/{style}]")
+                            console.print(f" [{style}]{match} Expected: {expected_count}, Got: {count}[/{style}]")
                 else:
                     # Dry run: just show what would happen
                     papers = bibtex_file_to_papers(
@@ -247,24 +246,25 @@ class BibtexImportStep(BaseStep):
                     )
                     count = len(papers)
                     if verbose:
-                        console.print(f"    [yellow][DRY RUN] Would import {count} papers[/yellow]")
+                        console.print(f" [yellow][DRY RUN][/yellow] Would import {count} papers")
                         if expected_count:
                             match = "✓" if count == expected_count else "!"
                             style = "green" if count == expected_count else "yellow"
-                            console.print(f"    [{style}]{match} Expected: {expected_count}, Would get: {count}[/{style}]")
+                            console.print(f" [{style}]{match} Expected: {expected_count}, Would get: {count}[/{style}]")
                 
                 results["files_processed"] += 1
                 results["details"].append({
                     "name": name,
-                    "file_path": file_path,
+                    "message": f"Imported {count if not dry_run else 0} papers from {file_path}",
                     "source_type": source_type,
-                    "papers_imported": count if not dry_run else 0,
-                    "status": "ok"
+                    "count": count if not dry_run else 0,
+                    "status": StepStatus.SUCCESS
                 })
                 
             except Exception as e:
                 error_msg = f"{name}: {str(e)}"
                 results["errors"].append(error_msg)
+                console.print(f" [red]✗[/red] {name}: {str(e)}")
                 results["details"].append({
                     "name": name,
                     "file_path": file_path,
@@ -272,4 +272,5 @@ class BibtexImportStep(BaseStep):
                     "error": str(e)
                 })
 
+        results["status"] = StepStatus.SUCCESS if not results["errors"] else "error"
         return results

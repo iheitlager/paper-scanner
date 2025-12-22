@@ -69,3 +69,12 @@ class CitationDirection(str, Enum):
     """Direction of citation fetching"""
     FORWARD = "forward"
     BACKWARD = "backward"
+
+class StepStatus(str, Enum):
+    """Status of a processing step"""
+    SUCCESS = "ok"
+    ERROR = "error"
+    WARNING = "warning"
+    HALTED = "halted"
+    READY = "ready"
+    SKIPPED = "skipped"

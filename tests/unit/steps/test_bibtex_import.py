@@ -365,7 +365,6 @@ class TestExecute:
 
         result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["step"] == "bibtex_import"
         assert result["files_processed"] == 0
         assert len(result["errors"]) > 0
         assert any("File not found" in err for err in result["errors"])
@@ -395,7 +394,6 @@ class TestExecute:
             config["imports"][0]["file_path"] = tmp.name
             result = step.execute(config, verbose=False, dry_run=True)
 
-        assert result["step"] == "bibtex_import"
         assert result["papers_imported"] == 0  # Dry run doesn't import
         assert result["files_processed"] == 1
     
@@ -437,7 +435,6 @@ class TestExecute:
             config["imports"][0]["file_path"] = tmp.name
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["step"] == "bibtex_import"
         assert result["papers_imported"] == 2
         assert result["files_processed"] == 1
 

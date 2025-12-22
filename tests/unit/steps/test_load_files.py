@@ -10,6 +10,7 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.load_files import LoadFilesStep
+from paper_scanner.core.enum import StepStatus
 
 
 class TestValidate:
@@ -176,7 +177,7 @@ class TestExecute:
         
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "ok"
+        assert result["status"] == StepStatus.WARNING
         assert result["papers_loaded"] == 0
         assert result["papers_failed"] == 0
         assert "No PDF files found" in result["message"]
@@ -276,7 +277,7 @@ class TestExecute:
         result = step.execute(config, verbose=True, dry_run=False)
         
         # Should execute without error
-        assert result["status"] == "ok"
+        assert result["status"] == StepStatus.WARNING
 
     def test_execute_file_not_found_during_read(self, tmp_path):
         """Test handling when PDF file is not found during processing"""
@@ -505,7 +506,7 @@ class TestExecute:
             
             result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "ok"
+        assert result["status"] == StepStatus.WARNING
         assert result["papers_loaded"] == 2
         assert result["papers_failed"] == 1
         assert result["files_copied"] == 2

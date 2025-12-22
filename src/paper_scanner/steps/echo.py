@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Tuple
 
 from rich.console import Console
 
+from paper_scanner.core.enum import StepStatus
+
 from .base import BaseStep
 
 # Initialize rich console
@@ -56,10 +58,9 @@ class EchoStep(BaseStep):
 
         message = config.get("message", "")
 
-        result = {"status": "ok", "output": message, "papers_count": self.db.count(primary_only=False)}
+        console.print(f"[cyan]Message:[/cyan] [white]{message}[/white]")
 
-        console.print(f"[bold blue]Message:[/bold blue] [yellow]{message}[/yellow]")
-        if verbose:
-            console.print(f"  [cyan]Papers in database:[/cyan] {self.db.count(primary_only=False)}")
-
-        return result
+        return {
+            "status": StepStatus.SUCCESS,
+            "message": message
+        }

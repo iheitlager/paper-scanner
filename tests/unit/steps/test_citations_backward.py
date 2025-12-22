@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.enum import CitationDirection, PaperType
+from paper_scanner.core.enum import CitationDirection, PaperType, StepStatus
 from paper_scanner.core.models import (Citation, Discovery, DiscoveryMethod,
                                        Paper)
 from paper_scanner.steps.citations import CitationsStep
@@ -470,7 +470,7 @@ class TestExecute:
         assert results["total_papers"] == 0
         assert results["target_papers"] == 0
         assert results["citations_fetched"] == 0
-        assert results["status"] == "ok"
+        assert results["status"] == StepStatus.SUCCESS
 
     @patch("paper_scanner.steps.citations.Fetcher")
     def test_execute_with_papers(self, mock_fetcher_class, step):
@@ -503,7 +503,7 @@ class TestExecute:
 
         assert results["total_papers"] == 1
         assert results["target_papers"] == 1
-        assert results["status"] == "ok"
+        assert results["status"] == StepStatus.SUCCESS
 
     @patch("paper_scanner.steps.citations.Fetcher")
     def test_execute_with_errors(self, mock_fetcher_class, step):
@@ -533,7 +533,7 @@ class TestExecute:
         results = step.execute(config, verbose=False, dry_run=False)
 
         assert len(results["errors"]) > 0
-        assert results["status"] == "completed_with_errors"
+        assert results["status"] == StepStatus.ERROR
 
 
 

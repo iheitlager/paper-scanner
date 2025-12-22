@@ -13,6 +13,7 @@ from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Author, Paper
 from paper_scanner.steps.patch import (PatchStep, _apply_patch_to_paper,
                                        _load_patches_from_file)
+from paper_scanner.core.enum import StepStatus
 
 # ============================================================================
 # FIXTURES
@@ -357,7 +358,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "partial"
+        assert result["status"] == StepStatus.WARNING
         assert result["patches_found"] == 1
         assert result["patches_applied"] == 0
         assert result["patches_failed"] == 1
@@ -481,7 +482,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "ok"
+        assert result["status"] == StepStatus.SUCCESS
         
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].abstract == "New abstract"
@@ -496,7 +497,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "ok"
+        assert result["status"] == StepStatus.SUCCESS
         assert result["patches_found"] == 0
         assert result["patches_applied"] == 0
     
@@ -514,7 +515,7 @@ class TestExecute:
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "ok"
+        assert result["status"] == StepStatus.SUCCESS
         assert result["patches_applied"] == 1
 
 

@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from paper_scanner.core.enum import DiscoveryMethod, PaperType
+from paper_scanner.core.enum import DiscoveryMethod, PaperType, StepStatus
 from paper_scanner.core.models import Paper
 from paper_scanner.steps.paper import PaperStep
 
@@ -188,7 +188,7 @@ class TestPaperStepExecution:
         ]}
         result = self.step.execute(config, dry_run=True)
         
-        assert result["status"] == "partial"
+        assert result["status"] == StepStatus.ERROR
         assert result["count"] == 2  # Only valid papers created
         assert "errors" in result
         assert len(result["errors"]) == 1

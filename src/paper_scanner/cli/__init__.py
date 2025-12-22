@@ -19,6 +19,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "load_files": "paper_scanner.steps.load_files:LoadFilesStep",
     "patch": "paper_scanner.steps.patch:PatchStep",
     "retrieve_metadata": "paper_scanner.steps.retrieve_metadata:RetrieveMetadataStep",
+    "run-template": "paper_scanner.steps.run_template:RunTemplateStep",
     "semantic_screening": "paper_scanner.steps.semantic_screening:SemanticScreeningStep",
     "summarize": "paper_scanner.steps.summarize:SummarizeStep",
     "citations": "paper_scanner.steps.citations:CitationsStep",

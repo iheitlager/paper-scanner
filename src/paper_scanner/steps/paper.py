@@ -12,7 +12,8 @@ from typing import Any, Dict, List, Tuple
 from rich.console import Console
 
 from paper_scanner.core.doi import DOI
-from paper_scanner.core.enum import DiscoveryMethod, PaperType, StudyType
+from paper_scanner.core.enum import (DiscoveryMethod, PaperType, StepStatus,
+                                     StudyType)
 from paper_scanner.core.models import Discovery, Paper
 
 from .base import BaseStep
@@ -188,7 +189,7 @@ class PaperStep(BaseStep):
                     self.db.add(paper)
 
             result = {
-                "status": "ok" if not errors else "partial",
+                "status": StepStatus.SUCCESS if not errors else StepStatus.ERROR,
                 "count": len(created_papers),
             }
 
@@ -209,7 +210,7 @@ class PaperStep(BaseStep):
             if debug:
                 raise
             return {
-                "status": "error",
+                "status": StepStatus.ERROR,
                 "count": 0,
                 "error": error_msg,
             }

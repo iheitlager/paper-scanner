@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 from rich.console import Console
 
+from paper_scanner.core.enum import StepStatus
+
 from ..core.models import Paper
 from .base import BaseStep
 
@@ -189,7 +191,7 @@ class PatchStep(BaseStep):
                 patches = _load_patches_from_file(file_path)
             except (IOError, ValueError) as e:
                 return {
-                    "status": "error",
+                    "status": StepStatus.ERROR,
                     "error": str(e),
                     "papers_count": self.db.count(primary_only=False)
                 }
@@ -202,7 +204,7 @@ class PatchStep(BaseStep):
 
         if not patches:
             return {
-                "status": "ok",
+                "status": StepStatus.SUCCESS,
                 "message": "No patches to apply",
                 "patches_found": 0,
                 "patches_applied": 0,
@@ -263,13 +265,8 @@ class PatchStep(BaseStep):
         if patches_failed > 0:
             message += f" ({patches_failed} failed)"
 
-        if patches_failed == 0:
-            console.print(f"{message}")
-        else:
-            console.print(f"[yellow]⚠️  {message}[/yellow]")
-
         return {
-            "status": "ok" if patches_failed == 0 else "partial",
+            "status": StepStatus.SUCCESS if patches_failed == 0 else StepStatus.WARNING,
             "patches_found": len(patches),
             "patches_applied": patches_applied,
             "patches_failed": patches_failed,

@@ -24,7 +24,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 
-from ..core.enum import PaperType, QualityTier, ScreeningDecision, StudyType
+from ..core.enum import (PaperType, QualityTier, ScreeningDecision, StepStatus,
+                         StudyType)
 from ..core.models import Categorization, Paper, ProcessingMetadata
 from .base import BaseStep
 
@@ -465,5 +466,5 @@ class CategorizationStep(BaseStep):
             # Clear the progress line and print final result
             console.print(f"    [green]✓ Categorization complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan]")
 
-        results["status"] = "ok"
+        results["status"] = StepStatus.SUCCESS
         return results

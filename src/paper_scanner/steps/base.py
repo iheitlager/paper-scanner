@@ -115,7 +115,8 @@ class BaseStep(ABC):
 
         Returns:
             Dictionary with execution results. Must include:
-            - "status": "success" or "error"
+            - "status": StepStatus.[SUCCESS, ERROR, WARNING, HALTED]
+            - "message": Summary message
             - "count": Number of items processed (or 0 on error)
             
             May include:

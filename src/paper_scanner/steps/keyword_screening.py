@@ -29,6 +29,7 @@ from rich.console import Console
 from ..core.enum import ScreeningDecision
 from ..core.models import KeywordScreening, Paper, ProcessingMetadata
 from .base import BaseStep
+from paper_scanner.core.enum import StepStatus
 
 # Initialize rich console for colored output
 console = Console(file=sys.stderr)
@@ -231,7 +232,7 @@ class KeywordScreeningStep(BaseStep):
             # Clear the progress line and print final result
             console.print(f"    [green]✓ Keyword screening complete[/green] - Passed: [cyan]{results['passed']}[/cyan], Failed: [cyan]{results['failed']}[/cyan]")
 
-        results["status"] = "ok"
+        results["status"] = StepStatus.SUCCESS
         return results
 # ============================================================================
 # KEYWORD MATCHING UTILITIES

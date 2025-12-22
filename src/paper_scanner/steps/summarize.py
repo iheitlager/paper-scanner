@@ -10,6 +10,8 @@ from typing import Any, List
 from rich.console import Console
 from rich.table import Table
 
+from paper_scanner.core.enum import StepStatus
+
 from ..core.enum import ScreeningDecision
 from ..core.models import Paper
 from .base import BaseStep
@@ -243,7 +245,7 @@ class SummarizeStep(BaseStep):
             _display_bibliography(self.db.to_list(primary_only=False))
         
 
-        results["status"] = "ok"
+        results["status"] = StepStatus.SUCCESS
         return results
 
 
