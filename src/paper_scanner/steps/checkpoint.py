@@ -17,7 +17,6 @@ from rich.console import Console
 
 from paper_scanner.core.models import Paper
 from paper_scanner.io.json import paper_to_dict
-from paper_scanner.core.enum import StepStatus
 
 from .base import BaseStep
 

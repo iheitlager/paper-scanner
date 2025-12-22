@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2025-12-22
+
+### Added
+
+- **PostgreSQL Database Loader**: New `upload_database` step for persisting papers to PostgreSQL
+  - Bulk paper upload with transaction management
+  - Configurable conflict resolution strategies: `skip`, `update`, `raise`
+  - Dry-run validation mode for testing without database writes
+  - Detailed error reporting with sample conflict examples
+  - Connection pooling for efficient database access
+  - Batched processing for optimal performance
+- **Database Abstraction Layer** (`src/paper_scanner/io/sql.py`):
+  - `DatabaseConnectionPool`: Connection pooling with context managers
+  - `PaperToRowConverter`: Bidirectional conversion between Pydantic `Paper` model and SQL rows
+  - `PaperUploader`: Bulk insert/upsert with conflict handling
+  - `DOIDuplicateHandler`: DOI-based duplicate detection utilities
+- **PostgreSQL Schema Alignment** (v3.1.0):
+  - Updated `papers` table schema aligned with Pydantic `Paper` model
+  - UUID `id` column (Python identifier) + auto-increment `db_id` (PK)
+  - Global unique `cite_key` constraint
+  - JSONB columns for complex objects: `authors`, `discovery`, `screening`, `pdf_info`, `conceptual_analysis`
+  - TEXT arrays for `keywords`, `topics`
+  - Full-text search indexes on title and abstract
+  - Multi-stage `paper_screening` table for Discovery/Screening workflow
+- **Database CLI Task** (`db` command):
+  - New `paper-processor db stats` command for database statistics overview
+  - Shows record counts for papers and citations tables
+  - Displays additional metrics: year range, validated papers, screened papers
+  - Supports custom database URL via `--database-url` flag
+  - Formatted Rich table output
+- **Enhanced README**: Added PostgreSQL integration features to documentation
+
+
+
 ## [3.0.0] - 2025-12-22
 
 ### Added
@@ -68,8 +102,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Self-contained Executor**: No external callbacks needed; lazy loading minimizes startup time
 
 ## [2.8.0] - 2025-12-22
-
-### Added
 
 ### Changed
 

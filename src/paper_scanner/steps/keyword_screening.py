@@ -26,10 +26,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 
+from paper_scanner.core.enum import StepStatus
+
 from ..core.enum import ScreeningDecision
 from ..core.models import KeywordScreening, Paper, ProcessingMetadata
 from .base import BaseStep
-from paper_scanner.core.enum import StepStatus
 
 # Initialize rich console for colored output
 console = Console(file=sys.stderr)

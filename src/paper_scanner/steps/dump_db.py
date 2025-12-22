@@ -10,8 +10,9 @@ from typing import Any, Dict, List, Tuple
 from rich.console import Console
 from rich.table import Table
 
-from .base import BaseStep
 from paper_scanner.core.enum import StepStatus
+
+from .base import BaseStep
 
 # Initialize rich console
 console = Console(file=sys.stderr)

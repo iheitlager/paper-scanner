@@ -23,6 +23,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "semantic_screening": "paper_scanner.steps.semantic_screening:SemanticScreeningStep",
     "summarize": "paper_scanner.steps.summarize:SummarizeStep",
     "citations": "paper_scanner.steps.citations:CitationsStep",
+    "upload_database": "paper_scanner.steps.upload_database:UploadDatabaseStep",
 }
 
 __all__ = ["STEP_REGISTRY_PATHS"]

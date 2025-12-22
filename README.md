@@ -1,6 +1,6 @@
 # paper-scanner
 
-![Version](https://img.shields.io/badge/version-3.0.0-blue)
+![Version](https://img.shields.io/badge/version-3.1.0-blue)
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
@@ -30,6 +30,11 @@ AI-powered literature review tool for analyzing academic research papers using L
   - Structured reference metadata: authors, year, title, DOI, URL, publication source
   - PostgreSQL-backed reference storage and citation relationships
   - References tab in web interface for browsing extracted citations
+- 💾 **PostgreSQL Integration**: Load papers and analysis data into PostgreSQL database
+  - Automatic database schema initialization via Docker or manual setup
+  - Persistent storage of papers with full bibliographic metadata
+  - Support for Discovery/Screening workflow data (v3.1.0+)
+  - Planned: Full citation networks, embeddings, and multi-stage screening in future releases
 - ⚡ **Rate Limiting**: Built-in automatic retry logic and request throttling for API limits
 
 ## Quick Start

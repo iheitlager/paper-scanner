@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from ..core.models import (Author, Discovery, DiscoveryMethod, Paper,
-                           PaperCollection, PaperType, QualityTier,
-                           ScreeningDecision, StudyType)
+                           PaperType, QualityTier, ScreeningDecision,
+                           StudyType)
 
 # ============================================================================
 # CUSTOM JSON ENCODER

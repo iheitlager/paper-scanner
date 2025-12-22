@@ -8,227 +8,292 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ============================================================================
--- STAGE 1: papers (EXTENDED - keeping all original fields)
-
--- Upgrade to citation info/bibliographical info/abstract * keywords / metadata
+-- MAIN PAPERS TABLE (Aligned with Pydantic Paper model)
+-- ============================================================================
+--
+-- Key design decisions:
+-- - id (UUID as VARCHAR): Unique identifier from Python/Pydantic
+-- - db_id (SERIAL): PostgreSQL auto-increment primary key (for join efficiency)
+-- - cite_key (VARCHAR UNIQUE): Global unique citation key (bibtex style)
+-- - doi (VARCHAR): Optional, allows multiple papers with different DOIs or duplicates
+-- - source_key (VARCHAR): Original ID from discovery source
+-- - authors (JSONB): Full Author objects with given_name, family_name, affiliation, orcid
+-- - keywords, topics (TEXT[]): List fields as PostgreSQL arrays
+-- - abstract (TEXT): Long text field
+-- - discovery (JSONB): Complete Discovery object (method, source_database, import_batch_id)
+-- - screening (JSONB): Complete Screening object (all stages)
+-- - pdf_info (JSONB): PDFInfo object (file path, hash, download metadata)
+-- - conceptual_analysis (JSONB): ConceptualAnalysis object
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS papers (
-    id SERIAL PRIMARY KEY,
-    source_key VARCHAR(100) UNIQUE,
-    citekey VARCHAR(100),
+    -- ========================================
+    -- PRIMARY KEYS & IDENTIFIERS
+    -- ========================================
+    db_id SERIAL PRIMARY KEY,  -- PostgreSQL auto-increment PK for efficiency
+    id VARCHAR(36) UNIQUE NOT NULL,  -- UUID from Paper model (Python unique identifier)
+    cite_key VARCHAR(255) UNIQUE NOT NULL,  -- Bibtex-style cite key (globally unique)
+    source_key VARCHAR(255),  -- Original ID from discovery source
+    
+    -- External identifiers
+    doi VARCHAR(255),  -- DOI (can have duplicates if papers share DOI)
+    arxiv_id VARCHAR(100),
+    pmid VARCHAR(50),
+    isbn VARCHAR(50),
+    issn VARCHAR(50),
+    url TEXT,
     
     -- ========================================
-    -- ORIGINAL FIELDS (unchanged)
+    -- BIBLIOGRAPHIC DATA (from Pydantic model)
     -- ========================================
-    file_path VARCHAR(500) UNIQUE,
+    title VARCHAR(1000),
+    abstract TEXT,  -- Long text
+    authors JSONB,  -- [{given_name, family_name, full_name, affiliation, orcid, email}]
+    keywords TEXT[],  -- Array of keywords
+    topics TEXT[],  -- Array of topic tags
+    year INTEGER,
+    journal VARCHAR(500),
+    journal_abbreviation VARCHAR(255),
+    booktitle VARCHAR(500),  -- For conference papers
+    publisher VARCHAR(255),
+    volume VARCHAR(50),
+    issue VARCHAR(100),
+    pages VARCHAR(100),
+    paper_type VARCHAR(50),  -- 'journal_article', 'conference_paper', 'book', etc.
+    language VARCHAR(10) DEFAULT 'en',
+    publication_date TIMESTAMP,
+    
+    -- ========================================
+    -- DISCOVERY & IMPORT METADATA
+    -- ========================================
+    discovery JSONB,  -- {method, iteration, source_database, import_batch_id, discovered_at, record_update}
+    
+    -- ========================================
+    -- SCREENING & DECISION DATA
+    -- ========================================
+    screening JSONB,  -- {current_stage, final_decision, final_decision_at, ...all stages...}
+    
+    -- ========================================
+    -- PDF & FILE INFO
+    -- ========================================
+    pdf_info JSONB,  -- {file_path, file_name, file_size_bytes, file_hash, download_source, download_url, downloaded_at}
+    
+    -- ========================================
+    -- ANALYSIS DATA
+    -- ========================================
+    conceptual_analysis JSONB,  -- {camo_statements, theoretical_frameworks, key_constructs, ...}
+    
+    -- ========================================
+    -- VALIDATION & AUDIT
+    -- ========================================
+    manually_validated BOOLEAN DEFAULT FALSE,
+    validation_notes TEXT,
+    validated_by VARCHAR(255),
+    validated_at TIMESTAMP,
+    raw_bibtex TEXT,
+    raw_json JSONB,
+    
+    -- ========================================
+    -- TIMESTAMPS
+    -- ========================================
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Legacy fields (kept for backward compatibility during migration)
+    file_path VARCHAR(500),
     file_name VARCHAR(255),
     directory VARCHAR(500),
     size_bytes BIGINT,
     created_time TIMESTAMP,
     modified_time TIMESTAMP,
     accessed_time TIMESTAMP,
-
     tags TEXT,
-    title VARCHAR(500),
-    year INTEGER,
     title_details JSONB,
     analysis JSONB,
-    indexed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    -- ========================================
-    -- NEW FIELDS - Stage 1: Enhanced Metadata
-    -- ========================================
-    authors JSONB,  -- NEW: [{last_name, first_name, initials, order}]
-    journal VARCHAR(500),  -- NEW
-    journal_iso VARCHAR(500),  -- NEW
-    volume VARCHAR(50),  -- NEW
-    issue VARCHAR(100),  -- NEW
-    pages VARCHAR(100),  -- NEW
-    doi VARCHAR(255),  -- NEW
-    publisher VARCHAR(255),  -- NEW
-    abstract TEXT,  -- NEW
-    keywords TEXT[],  -- NEW
-    keywords_extra TEXT[],  -- NEW
-    paper_type VARCHAR(50),  -- NEW: 'journal_article', 'conference_paper', etc.
-    source_type VARCHAR(100),  -- NEW: 'file', 'crossref', 'arxiv', etc.
-    discovery_method VARCHAR(100),  -- NEW: 'manual_upload', 'api_import', 'web_scrape', etc.
-        
-    source_details JSONB,  -- NEW: {source_name, source_url, retrieval_date}
-    -- ========================================
-    -- NEW FIELDS - Processing Status Tracking
-    -- ========================================
-    processing_status VARCHAR(50) DEFAULT 'pending',  -- NEW: 'pending', 'metadata_extracted', 'references_extracted', 'analyzed', 'embedded', 'complete', 'error'
-    metadata_extracted_at TIMESTAMP,  -- NEW
-    references_extracted_at TIMESTAMP,  -- NEW
-    analysis_completed_at TIMESTAMP,  -- NEW
-    embedding_completed_at TIMESTAMP,  -- NEW
-    
-    -- ========================================
-    -- NEW FIELDS - Error Tracking
-    -- ========================================
-    last_error TEXT,  -- NEW
-    error_count INTEGER DEFAULT 0,  -- NEW
-    
-    -- ========================================
-    -- NEW FIELDS - Timestamps
-    -- ========================================
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  -- NEW
+    indexed_at TIMESTAMP,
+    processing_status VARCHAR(50) DEFAULT 'pending',
+    metadata_extracted_at TIMESTAMP,
+    references_extracted_at TIMESTAMP,
+    analysis_completed_at TIMESTAMP,
+    embedding_completed_at TIMESTAMP,
+    last_error TEXT,
+    error_count INTEGER DEFAULT 0
 );
 
--- Original indexes
+-- ========================================
+-- INDEXES (Optimized for common queries)
+-- ========================================
+
+-- Unique constraints
+CREATE UNIQUE INDEX IF NOT EXISTS idx_papers_id ON papers(id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_papers_cite_key ON papers(cite_key);
+
+-- Lookups by identifier
+CREATE INDEX IF NOT EXISTS idx_papers_source_key ON papers(source_key);
+CREATE INDEX IF NOT EXISTS idx_papers_doi ON papers(doi);
+CREATE INDEX IF NOT EXISTS idx_papers_arxiv_id ON papers(arxiv_id);
+
+-- Bibliographic lookups
+CREATE INDEX IF NOT EXISTS idx_papers_title ON papers(title);
+CREATE INDEX IF NOT EXISTS idx_papers_year ON papers(year);
+CREATE INDEX IF NOT EXISTS idx_papers_journal ON papers(journal);
+CREATE INDEX IF NOT EXISTS idx_papers_paper_type ON papers(paper_type);
+
+-- JSONB indexes
+CREATE INDEX IF NOT EXISTS idx_papers_authors_gin ON papers USING gin(authors);
+CREATE INDEX IF NOT EXISTS idx_papers_keywords_gin ON papers USING gin(keywords);
+CREATE INDEX IF NOT EXISTS idx_papers_topics_gin ON papers USING gin(topics);
+CREATE INDEX IF NOT EXISTS idx_papers_discovery_gin ON papers USING gin(discovery);
+CREATE INDEX IF NOT EXISTS idx_papers_screening_gin ON papers USING gin(screening);
+
+-- Full-text search
+CREATE INDEX IF NOT EXISTS idx_papers_title_fts ON papers 
+    USING gin(to_tsvector('english', COALESCE(title, '')));
+CREATE INDEX IF NOT EXISTS idx_papers_abstract_fts ON papers 
+    USING gin(to_tsvector('english', COALESCE(abstract, '')));
+
+-- Timestamps
+CREATE INDEX IF NOT EXISTS idx_papers_created_at ON papers(created_at);
+CREATE INDEX IF NOT EXISTS idx_papers_updated_at ON papers(updated_at);
+
+-- Legacy indexes
 CREATE INDEX IF NOT EXISTS idx_file_name ON papers(file_name);
 CREATE INDEX IF NOT EXISTS idx_directory ON papers(directory);
-CREATE INDEX IF NOT EXISTS idx_tags ON papers(tags);
-CREATE INDEX IF NOT EXISTS idx_title ON papers(title);
-CREATE INDEX IF NOT EXISTS idx_citekey ON papers(citekey);
-CREATE INDEX IF NOT EXISTS idx_year ON papers(year);
-
--- NEW indexes
-CREATE INDEX IF NOT EXISTS idx_papers_journal ON papers(journal);
-CREATE INDEX IF NOT EXISTS idx_papers_doi ON papers(doi);
 CREATE INDEX IF NOT EXISTS idx_papers_status ON papers(processing_status);
-CREATE INDEX IF NOT EXISTS idx_papers_paper_type ON papers(paper_type);
-CREATE INDEX IF NOT EXISTS idx_papers_source_type ON papers(source_type);
-CREATE INDEX IF NOT EXISTS idx_papers_authors_gin ON papers USING gin(authors);
-CREATE INDEX IF NOT EXISTS idx_papers_keywords ON papers USING gin(keywords);
-
--- NEW full-text search indexes
-CREATE INDEX IF NOT EXISTS idx_papers_title_fts ON papers USING gin(to_tsvector('english', COALESCE(title, '')));
-CREATE INDEX IF NOT EXISTS idx_papers_abstract_fts ON papers USING gin(to_tsvector('english', COALESCE(abstract, '')));
 
 -- ============================================================================
--- STAGE 2: REFERENCES (Enhanced from original)
+-- PAPER SCREENING TABLE (Multi-stage screening workflow)
+-- ============================================================================
 
--- -- merge with paper database?
--- -- ============================================================================
-
--- CREATE TABLE IF NOT EXISTS "references" (
---     id SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS paper_screening (
+    id SERIAL PRIMARY KEY,
+    paper_id INTEGER NOT NULL REFERENCES papers(db_id) ON DELETE CASCADE,
     
---     -- ========================================
---     -- ORIGINAL FIELDS (unchanged)
---     -- ========================================
---     source_paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
---     citekey VARCHAR(255) NOT NULL,
---     reference_type VARCHAR(100),
---     authors JSONB,
---     year VARCHAR(50),
---     title TEXT,
---     source_type VARCHAR(100),
---     source_name TEXT,
---     volume VARCHAR(50),
---     issue VARCHAR(100),
---     pages_start VARCHAR(50),
---     pages_end VARCHAR(50),
---     pages_range VARCHAR(100),
---     publisher TEXT,
---     location VARCHAR(255),
---     doi VARCHAR(255),
---     url TEXT,
---     arxiv_id VARCHAR(100),
---     ssrn_id VARCHAR(100),
---     isbn VARCHAR(50),
---     raw_citation TEXT,
---     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- Current screening status
+    screening_stage VARCHAR(50) NOT NULL DEFAULT 'unscreened',
+    screening_stage_updated_at TIMESTAMP,
+
+    -- ========================================
+    -- STAGE 0: Article types
+    -- ========================================
+    stage0_processed_at TIMESTAMP,
+    stage0_exclusion_reason VARCHAR(255),
+    kept_paper_id VARCHAR(36),
+
+    -- ========================================
+    -- STAGE 1: Coarse Filter (Rule-based)
+    -- ========================================
+    stage1_processed_at TIMESTAMP,
+    stage1_score INTEGER,
+    stage1_exclusion_reason VARCHAR(255),
+    stage1_matched_keywords TEXT[],
+    stage1_excluded_keywords TEXT[],
     
---     -- ========================================
---     -- NEW FIELDS
---     -- ========================================
---     reference_order INTEGER,  -- NEW: Order in original paper's reference list
---     editors JSONB,  -- NEW: For book chapters
---     edition VARCHAR(50),  -- NEW
---     links_to_paper_id INTEGER REFERENCES papers(id),  -- NEW: Links to papers in our DB
---     parsing_quality VARCHAR(50) DEFAULT 'success',  -- NEW: 'success', 'partial', 'failed'
---     parsing_issues TEXT,  -- NEW
---     confidence_score DECIMAL(3,2),  -- NEW: 0.00 to 1.00
---     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP  -- NEW
--- );
+    -- ========================================
+    -- STAGE 2: Semantic Filter (Embedding-based)
+    -- ========================================
+    stage2_processed_at TIMESTAMP,
+    semantic_similarity DECIMAL(5,4) CHECK (semantic_similarity BETWEEN 0 AND 1),
+    stage2_exclusion_reason VARCHAR(255),
+    semantic_embedding vector(768),
+    
+    -- ========================================
+    -- STAGE 3: LLM Classification
+    -- ========================================
+    stage3_processed_at TIMESTAMP,
+    llm_decision VARCHAR(50),
+    llm_confidence DECIMAL(3,2) CHECK (llm_confidence BETWEEN 0 AND 1),
+    llm_reasoning TEXT,
+    llm_model_version VARCHAR(100),
+    llm_tokens_used INTEGER,
+    
+    -- ========================================
+    -- STAGE 4: Cluster Validation
+    -- ========================================
+    stage4_processed_at TIMESTAMP,
+    cluster_id INTEGER,
+    cluster_confidence DECIMAL(3,2),
+    distance_to_centroid DECIMAL(5,4),
+    is_outlier BOOLEAN DEFAULT FALSE,
+    outlier_review_required BOOLEAN DEFAULT FALSE,
+    
+    -- ========================================
+    -- FINAL DECISION
+    -- ========================================
+    final_decision VARCHAR(50),
+    final_decision_method VARCHAR(50),
+    final_decision_by VARCHAR(100),
+    final_decision_at TIMESTAMP,
+    
+    exclusion_reason TEXT,
+    inclusion_justification TEXT,
+    reviewer_notes TEXT,
+    
+    needs_manual_review BOOLEAN DEFAULT FALSE,
+    manual_review_reason TEXT,
+    manual_review_priority INTEGER CHECK (manual_review_priority BETWEEN 1 AND 5),
+    
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    UNIQUE(paper_id)
+);
 
--- -- Original indexes
--- CREATE INDEX IF NOT EXISTS idx_references_source_paper ON "references"(source_paper_id);
--- CREATE INDEX IF NOT EXISTS idx_references_citekey ON "references"(citekey);
-
--- -- NEW indexes
--- CREATE INDEX IF NOT EXISTS idx_references_doi ON "references"(doi);
--- CREATE INDEX IF NOT EXISTS idx_references_year ON "references"(year);
--- CREATE INDEX IF NOT EXISTS idx_references_type ON "references"(reference_type);
--- CREATE INDEX IF NOT EXISTS idx_references_links_to ON "references"(links_to_paper_id);
--- CREATE INDEX IF NOT EXISTS idx_references_authors_gin ON "references" USING gin(authors);
--- CREATE INDEX IF NOT EXISTS idx_references_title_fts ON "references" USING gin(to_tsvector('english', COALESCE(title, '')));
+CREATE INDEX IF NOT EXISTS idx_screening_paper ON paper_screening(paper_id);
+CREATE INDEX IF NOT EXISTS idx_screening_stage ON paper_screening(screening_stage);
+CREATE INDEX IF NOT EXISTS idx_screening_final_decision ON paper_screening(final_decision);
 
 -- ============================================================================
--- CITATION NETWORK (Enhanced from original)
+-- CITATION EDGES TABLE
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS citation_edges (
     id SERIAL PRIMARY KEY,
-    
-    -- ========================================
-    -- ORIGINAL FIELDS (unchanged)
-    -- ========================================
-    citing_paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
-    cited_paper_id INTEGER REFERENCES papers(id) ON DELETE SET NULL,  -- NEW: If we have both papers in DB
-
+    citing_paper_id INTEGER NOT NULL REFERENCES papers(db_id) ON DELETE CASCADE,
+    cited_paper_id INTEGER REFERENCES papers(db_id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
     
     UNIQUE(citing_paper_id, cited_paper_id)
 );
 
--- Original indexes
 CREATE INDEX IF NOT EXISTS idx_citation_edges_citing ON citation_edges(citing_paper_id);
 CREATE INDEX IF NOT EXISTS idx_citation_edges_cited ON citation_edges(cited_paper_id);
 CREATE INDEX IF NOT EXISTS idx_citation_edges_pair ON citation_edges(citing_paper_id, cited_paper_id);
 
--- Drop the old citation_metadata table if it exists (replaced by fields in references)
-DROP TABLE IF EXISTS citation_metadata;
-
 -- ============================================================================
--- STAGE 3: DEEP ANALYSIS (NEW TABLE)
+-- PAPER ANALYSIS TABLE (Deep analysis results)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS paper_analysis (
     id SERIAL PRIMARY KEY,
-    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+    paper_id INTEGER NOT NULL REFERENCES papers(db_id) ON DELETE CASCADE,
     
-    -- Analysis version (in case you reprocess with better LLM)
     analysis_version INTEGER DEFAULT 1,
-    model_used VARCHAR(100), -- e.g., 'claude-sonnet-4.5', 'gpt-4'
+    model_used VARCHAR(100),
     
-    -- Deep analysis fields (JSONB for flexibility)
     summary TEXT,
-    summary_structured JSONB, -- {paragraph_1, paragraph_2}
+    summary_structured JSONB,
     
     research_question TEXT,
-    research_questions JSONB, -- Array if multiple
+    research_questions JSONB,
     
-    methodology JSONB, -- {description, empirical_base, methodology_class, data_collection, analytical_approach}
+    methodology JSONB,
+    key_findings JSONB,
+    results JSONB,
     
-    key_findings JSONB, -- Array of main findings
+    theoretical_frameworks JSONB,
+    key_concepts JSONB,
     
-    results JSONB, -- {key_findings, conclusion, limitations}
-    
-    theoretical_frameworks JSONB, -- Array of frameworks used
-    
-    key_concepts JSONB, -- [{term, definition}]
-    
-    implications JSONB, -- {theoretical, practical, policy}
-    
+    implications JSONB,
     contributions TEXT,
+    limitations JSONB,
+    future_research JSONB,
     
-    limitations JSONB, -- Array of limitations
-    
-    future_research JSONB, -- Array of future research directions
-    
-    -- Full analysis blob (keep everything)
     full_analysis JSONB,
     
-    -- Quality indicators
     analysis_confidence DECIMAL(3,2),
     extraction_notes TEXT,
     
-    -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
@@ -238,43 +303,35 @@ CREATE TABLE IF NOT EXISTS paper_analysis (
 CREATE INDEX IF NOT EXISTS idx_analysis_paper ON paper_analysis(paper_id);
 CREATE INDEX IF NOT EXISTS idx_analysis_version ON paper_analysis(paper_id, analysis_version);
 CREATE INDEX IF NOT EXISTS idx_analysis_model ON paper_analysis(model_used);
-
--- Full-text search on analysis fields
-CREATE INDEX IF NOT EXISTS idx_analysis_summary_fts ON paper_analysis USING gin(to_tsvector('english', COALESCE(summary, '')));
-CREATE INDEX IF NOT EXISTS idx_analysis_findings_fts ON paper_analysis USING gin(to_tsvector('english', COALESCE(key_findings::text, '')));
+CREATE INDEX IF NOT EXISTS idx_analysis_summary_fts ON paper_analysis 
+    USING gin(to_tsvector('english', COALESCE(summary, '')));
 
 -- ============================================================================
--- STAGE 4: CHUNKS (NEW TABLE)
+-- PAPER CHUNKS TABLE (For chunking strategy)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS paper_chunks (
     id SERIAL PRIMARY KEY,
-    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+    paper_id INTEGER NOT NULL REFERENCES papers(db_id) ON DELETE CASCADE,
     
-    -- Chunk identification
     chunk_index INTEGER NOT NULL,
-    chunk_type VARCHAR(50), -- 'abstract', 'introduction', 'section', 'paragraph', 'conclusion', 'full_text'
+    chunk_type VARCHAR(50),
     
-    -- Content
     content TEXT NOT NULL,
     content_length INTEGER,
     token_count INTEGER,
     
-    -- Location in paper
     section_title TEXT,
     page_numbers INTEGER[],
     line_start INTEGER,
     line_end INTEGER,
     
-    -- Chunking strategy metadata
-    chunking_strategy VARCHAR(50), -- 'hybrid', 'section', 'fixed', 'semantic'
-    chunk_size_target INTEGER, -- Target size used
-    overlap_size INTEGER, -- Overlap with previous chunk
+    chunking_strategy VARCHAR(50),
+    chunk_size_target INTEGER,
+    overlap_size INTEGER,
     
-    -- Additional context
-    metadata JSONB, -- Additional chunk-specific metadata
+    metadata JSONB,
     
-    -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     UNIQUE(paper_id, chunk_index)
@@ -283,179 +340,68 @@ CREATE TABLE IF NOT EXISTS paper_chunks (
 CREATE INDEX IF NOT EXISTS idx_chunks_paper ON paper_chunks(paper_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_type ON paper_chunks(chunk_type);
 CREATE INDEX IF NOT EXISTS idx_chunks_section ON paper_chunks(section_title);
-
--- Full-text search on chunk content
-CREATE INDEX IF NOT EXISTS idx_chunks_content_fts ON paper_chunks USING gin(to_tsvector('english', content));
+CREATE INDEX IF NOT EXISTS idx_chunks_content_fts ON paper_chunks 
+    USING gin(to_tsvector('english', content));
 
 -- ============================================================================
--- STAGE 5: EMBEDDINGS (NEW TABLES)
+-- EMBEDDINGS TABLES
 -- ============================================================================
 
--- Chunk-level embeddings (for precise section search)
 CREATE TABLE IF NOT EXISTS chunk_embeddings (
     id SERIAL PRIMARY KEY,
     chunk_id INTEGER NOT NULL REFERENCES paper_chunks(id) ON DELETE CASCADE,
     
-    -- Vector embedding (adjust dimension based on model)
-    embedding vector(768), -- For sentence-transformers all-mpnet-base-v2
-    -- embedding vector(1536), -- For OpenAI ada-002 (uncomment if using)
-    -- embedding vector(384), -- For all-MiniLM-L6-v2 (uncomment if using)
+    embedding vector(768),
     
-    -- Embedding metadata
     model_name VARCHAR(100) NOT NULL,
     model_dimension INTEGER NOT NULL,
     embedding_version INTEGER DEFAULT 1,
     
-    -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     UNIQUE(chunk_id, model_name, embedding_version)
 );
 
--- Vector similarity search index
 CREATE INDEX IF NOT EXISTS idx_chunk_embeddings_vector 
-ON chunk_embeddings USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
-
+    ON chunk_embeddings USING ivfflat (embedding vector_cosine_ops)
+    WITH (lists = 100);
 CREATE INDEX IF NOT EXISTS idx_chunk_embeddings_chunk ON chunk_embeddings(chunk_id);
 CREATE INDEX IF NOT EXISTS idx_chunk_embeddings_model ON chunk_embeddings(model_name);
 
--- Paper-level embeddings (for paper similarity)
 CREATE TABLE IF NOT EXISTS paper_embeddings (
     id SERIAL PRIMARY KEY,
-    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+    paper_id INTEGER NOT NULL REFERENCES papers(db_id) ON DELETE CASCADE,
     
-    -- Vector embedding
-    embedding vector(768), -- Adjust dimension based on model
+    embedding vector(768),
     
-    -- How was paper-level embedding created?
-    embedding_method VARCHAR(50), -- 'abstract', 'summary', 'aggregate_chunks', 'full_text'
-    
-    -- Embedding metadata
+    embedding_method VARCHAR(50),
     model_name VARCHAR(100) NOT NULL,
     model_dimension INTEGER NOT NULL,
     embedding_version INTEGER DEFAULT 1,
     
-    -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     UNIQUE(paper_id, model_name, embedding_method, embedding_version)
 );
 
--- Vector similarity search index
 CREATE INDEX IF NOT EXISTS idx_paper_embeddings_vector 
-ON paper_embeddings USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
-
+    ON paper_embeddings USING ivfflat (embedding vector_cosine_ops)
+    WITH (lists = 100);
 CREATE INDEX IF NOT EXISTS idx_paper_embeddings_paper ON paper_embeddings(paper_id);
 CREATE INDEX IF NOT EXISTS idx_paper_embeddings_model ON paper_embeddings(model_name);
 
 -- ============================================================================
--- STAGE 6: PAPER SCREENING
+-- UTILITY TABLES
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS paper_screening (
-    id SERIAL PRIMARY KEY,
-    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
-    
-    -- Current screening status
-    screening_stage VARCHAR(50) NOT NULL DEFAULT 'unscreened',
-        -- 'unscreened', 'stage0_pass', 'stage0_fail', 'stage1_pass', 'stage1_fail', 
-        -- 'stage2_pass', 'stage2_fail', 'stage3_review', 'stage4_validated', 
-        -- 'included', 'excluded'
-    screening_stage_updated_at TIMESTAMP,
-
-    -- ========================================
-    -- STAGE 0: Article types
-    -- ========================================
-    stage0_processed_at TIMESTAMP,
-    stage0_exclusion_reason VARCHAR(255),  -- duplicate, wrong paper_type, wrong method
-    kept_paper_id INTEGER,  -- original for duplicates
-
-    -- ========================================
-    -- STAGE 1: Coarse Filter (Rule-based)
-    -- ========================================
-    stage1_processed_at TIMESTAMP,
-    stage1_score INTEGER,  -- Keyword match count
-    stage1_exclusion_reason VARCHAR(255),
-    stage1_matched_keywords TEXT[],  -- Keywords that matched
-    stage1_excluded_keywords TEXT[],  -- Keywords that triggered exclusion
-    
-    -- ========================================
-    -- STAGE 2: Semantic Filter (Embedding-based)
-    -- ========================================
-    stage2_processed_at TIMESTAMP,
-    semantic_similarity DECIMAL(5,4) CHECK (semantic_similarity BETWEEN 0 AND 1),
-        -- Similarity to research question (0-1)
-    stage2_exclusion_reason VARCHAR(255),
-    semantic_embedding vector(768),  -- Store the embedding for reuse
-    
-    -- ========================================
-    -- STAGE 3: LLM Classification (Borderline papers)
-    -- ========================================
-    stage3_processed_at TIMESTAMP,
-    llm_decision VARCHAR(50),  -- 'INCLUDE', 'EXCLUDE', 'UNCERTAIN'
-    llm_confidence DECIMAL(3,2) CHECK (llm_confidence BETWEEN 0 AND 1),
-    llm_reasoning TEXT,
-    llm_model_version VARCHAR(100),  -- Track which model was used
-    llm_tokens_used INTEGER,
-    
-    -- ========================================
-    -- STAGE 4: Cluster Validation (Post-inclusion check)
-    -- ========================================
-    stage4_processed_at TIMESTAMP,
-    cluster_id INTEGER,  -- Assigned cluster (could FK to paper_clusters if you have it)
-    cluster_confidence DECIMAL(3,2),  -- 1 / (1 + distance_to_centroid)
-    distance_to_centroid DECIMAL(5,4),
-    is_outlier BOOLEAN DEFAULT FALSE,
-    outlier_review_required BOOLEAN DEFAULT FALSE,
-    
-    -- ========================================
-    -- FINAL DECISION
-    -- ========================================
-    final_decision VARCHAR(50),  -- 'included', 'excluded', 'pending_review'
-    final_decision_method VARCHAR(50),  -- 'automated', 'manual', 'llm_assisted'
-    final_decision_by VARCHAR(100),  -- Reviewer name/ID
-    final_decision_at TIMESTAMP,
-    
-    -- Rationale
-    exclusion_reason TEXT,  -- Detailed reason if excluded
-    inclusion_justification TEXT,  -- Why included despite flags
-    reviewer_notes TEXT,
-    
-    -- Manual review flags
-    needs_manual_review BOOLEAN DEFAULT FALSE,
-    manual_review_reason TEXT,
-    manual_review_priority INTEGER CHECK (manual_review_priority BETWEEN 1 AND 5),
-        -- 1=urgent, 5=low priority
-    
-    -- Audit trail
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    UNIQUE(paper_id)  -- One screening record per paper
-);
-
--- Indexes
-CREATE INDEX idx_screening_paper ON paper_screening(paper_id);
-CREATE INDEX idx_screening_stage ON paper_screening(screening_stage);
-CREATE INDEX idx_screening_final_decision ON paper_screening(final_decision);
-
-
--- ============================================================================
--- ADDITIONAL TABLES
--- ============================================================================
-
--- Tags table (from your original schema)
 CREATE TABLE IF NOT EXISTS tags (
     id SERIAL PRIMARY KEY,
     tag_name VARCHAR(255) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Paper-Tag junction table (NEW)
 CREATE TABLE IF NOT EXISTS paper_tags (
-    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+    paper_id INTEGER NOT NULL REFERENCES papers(db_id) ON DELETE CASCADE,
     tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (paper_id, tag_id)
@@ -464,27 +410,22 @@ CREATE TABLE IF NOT EXISTS paper_tags (
 CREATE INDEX IF NOT EXISTS idx_paper_tags_paper ON paper_tags(paper_id);
 CREATE INDEX IF NOT EXISTS idx_paper_tags_tag ON paper_tags(tag_id);
 
--- Processing logs (track what happened during processing) - NEW
 CREATE TABLE IF NOT EXISTS processing_logs (
     id SERIAL PRIMARY KEY,
-    paper_id INTEGER REFERENCES papers(id) ON DELETE CASCADE,
+    paper_id INTEGER REFERENCES papers(db_id) ON DELETE CASCADE,
     
-    stage VARCHAR(50) NOT NULL, -- 'metadata', 'references', 'analysis', 'chunking', 'embedding'
-    status VARCHAR(50) NOT NULL, -- 'started', 'completed', 'failed', 'skipped'
+    stage VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
     
-    -- Details
     message TEXT,
     error_details TEXT,
     
-    -- Performance metrics
     duration_seconds DECIMAL(10,2),
     tokens_used INTEGER,
     cost_usd DECIMAL(10,4),
     
-    -- Model info
     model_used VARCHAR(100),
     
-    -- Timestamps
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -493,30 +434,25 @@ CREATE INDEX IF NOT EXISTS idx_processing_logs_stage ON processing_logs(stage);
 CREATE INDEX IF NOT EXISTS idx_processing_logs_status ON processing_logs(status);
 CREATE INDEX IF NOT EXISTS idx_processing_logs_created ON processing_logs(created_at);
 
--- Clusters table (for topic modeling results) - NEW
 CREATE TABLE IF NOT EXISTS paper_clusters (
     id SERIAL PRIMARY KEY,
     cluster_name VARCHAR(255),
     cluster_description TEXT,
     
-    -- Clustering metadata
-    clustering_method VARCHAR(50), -- 'kmeans', 'hdbscan', 'hierarchical'
+    clustering_method VARCHAR(50),
     clustering_parameters JSONB,
     
-    -- Cluster statistics
     paper_count INTEGER,
     avg_year DECIMAL(6,2),
     top_keywords TEXT[],
     
-    -- Cluster centroid (average embedding)
     centroid_embedding vector(768),
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Paper-Cluster junction - NEW
 CREATE TABLE IF NOT EXISTS paper_cluster_assignments (
-    paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+    paper_id INTEGER NOT NULL REFERENCES papers(db_id) ON DELETE CASCADE,
     cluster_id INTEGER NOT NULL REFERENCES paper_clusters(id) ON DELETE CASCADE,
     
     distance_to_centroid DECIMAL(10,6),
@@ -530,43 +466,40 @@ CREATE INDEX IF NOT EXISTS idx_cluster_assignments_paper ON paper_cluster_assign
 CREATE INDEX IF NOT EXISTS idx_cluster_assignments_cluster ON paper_cluster_assignments(cluster_id);
 
 -- ============================================================================
--- VIEWS (Useful queries as views) - NEW
+-- VIEWS
 -- ============================================================================
 
--- Papers with full citation counts
 CREATE OR REPLACE VIEW papers_with_citations AS
 SELECT 
     p.*,
-    COUNT(DISTINCT ce.id) as citation_count,
+    COUNT(DISTINCT ce.id) as citation_count
 FROM papers p
-LEFT JOIN citation_edges ce ON p.id = ce.cited_paper_id
-LEFT JOIN papers ref ON ref.id = ce.citing_paper_id
-GROUP BY p.id;
+LEFT JOIN citation_edges ce ON p.db_id = ce.cited_paper_id
+GROUP BY p.db_id;
 
--- Paper processing status overview
 CREATE OR REPLACE VIEW processing_status_overview AS
 SELECT 
     processing_status,
     COUNT(*) as paper_count,
-    AVG(EXTRACT(EPOCH FROM (COALESCE(updated_at, indexed_at) - indexed_at))) as avg_processing_time_seconds
+    AVG(EXTRACT(EPOCH FROM (COALESCE(updated_at, indexed_at) - indexed_at))) 
+        as avg_processing_time_seconds
 FROM papers
 GROUP BY processing_status;
 
--- Most cited papers in collection
 CREATE OR REPLACE VIEW most_cited_papers AS
 SELECT 
+    p.db_id,
     p.id,
-    p.citekey,
+    p.cite_key,
     p.title,
     p.year,
     p.authors,
     COUNT(ce.id) as times_cited
 FROM papers p
-JOIN citation_edges ce ON p.id = ce.cited_paper_id
-GROUP BY p.id, p.citekey, p.title, p.year, p.authors
+JOIN citation_edges ce ON p.db_id = ce.cited_paper_id
+GROUP BY p.db_id, p.id, p.cite_key, p.title, p.year, p.authors
 ORDER BY times_cited DESC;
 
--- Papers by year
 CREATE OR REPLACE VIEW papers_by_year AS
 SELECT 
     year,
@@ -578,10 +511,9 @@ GROUP BY year
 ORDER BY year DESC;
 
 -- ============================================================================
--- FUNCTIONS - NEW
+-- FUNCTIONS & TRIGGERS
 -- ============================================================================
 
--- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -590,24 +522,21 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to auto-update updated_at on papers
 DROP TRIGGER IF EXISTS trigger_papers_updated_at ON papers;
 CREATE TRIGGER trigger_papers_updated_at
     BEFORE UPDATE ON papers
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Trigger for references
--- DROP TRIGGER IF EXISTS trigger_references_updated_at ON "references";
--- CREATE TRIGGER trigger_references_updated_at
---     BEFORE UPDATE ON "references"
---     FOR EACH ROW
---     EXECUTE FUNCTION update_updated_at_column();
-
--- Trigger for paper_analysis
 DROP TRIGGER IF EXISTS trigger_analysis_updated_at ON paper_analysis;
 CREATE TRIGGER trigger_analysis_updated_at
     BEFORE UPDATE ON paper_analysis
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS trigger_screening_updated_at ON paper_screening;
+CREATE TRIGGER trigger_screening_updated_at
+    BEFORE UPDATE ON paper_screening
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
@@ -621,21 +550,9 @@ GRANT USAGE ON SCHEMA public TO pdfuser;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO pdfuser;
 
 -- ============================================================================
--- STATISTICS
--- ============================================================================
-
--- Analyze tables for query optimization
-ANALYZE papers;
--- ANALYZE "references";
-ANALYZE paper_analysis;
-ANALYZE paper_chunks;
-ANALYZE chunk_embeddings;
-ANALYZE paper_embeddings;
-
--- ============================================================================
 -- INITIALIZATION COMPLETE
 -- ============================================================================
 
-SELECT 'PDF database initialized successfully' as status;
-SELECT 'Extended papers table with new fields for multi-stage processing' as summary;
-SELECT 'New tables: paper_analysis, paper_chunks, chunk_embeddings, paper_embeddings, processing_logs, paper_clusters' as new_tables;
+SELECT 'PostgreSQL database initialized successfully (v3.1.0+)' as status;
+SELECT 'Main papers table aligned with Pydantic Paper model' as summary;
+SELECT 'Multi-stage screening, analysis, chunks, embeddings, and clustering support enabled' as features;

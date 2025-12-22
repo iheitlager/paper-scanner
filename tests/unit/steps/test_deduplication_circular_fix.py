@@ -13,7 +13,7 @@ from pathlib import Path
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Author, Paper, PaperType
 from paper_scanner.steps.deduplication import DeduplicationStep
-from paper_scanner.core.enum import StepStatus
+
 
 class TestDeduplicationCircularFix:
     """Test suite for deduplication circular dependency fix."""

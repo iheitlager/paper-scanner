@@ -22,10 +22,10 @@ import argparse
 import sys
 from pathlib import Path
 
+from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich import box
 
 from paper_scanner.cli.executor import StepExecutor
 from paper_scanner.core.enum import StepStatus

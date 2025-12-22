@@ -16,8 +16,9 @@ from rich.console import Console
 from paper_scanner import __version__
 from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.cli.tasks import (execute_cache_clear, execute_cache_info,
-                                     execute_info_steps, execute_repl,
-                                     execute_run, execute_validate)
+                                     execute_db_stats, execute_db_clear,
+                                     execute_info_steps,
+                                     execute_repl, execute_run, execute_validate)
 from paper_scanner.steps.base import BaseStep
 
 # Load environment variables from .env file
@@ -409,6 +410,64 @@ def main():
         help="Enable verbose output"
     )
     
+    # ===== DB COMMAND =====
+    db_parser = subparsers.add_parser(
+        "db",
+        help="Database management commands"
+    )
+    
+    db_subparsers = db_parser.add_subparsers(dest="db_command", help="Database commands")
+    
+    stats_parser = db_subparsers.add_parser(
+        "stats",
+        help="Show database statistics"
+    )
+    
+    stats_parser.add_argument(
+        "--database-url",
+        type=str,
+        default=None,
+        help="PostgreSQL connection URL (optional, will use env var if not provided)"
+    )
+    
+    stats_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output"
+    )
+    
+    # ===== CLEAR SUBCOMMAND =====
+    clear_parser = db_subparsers.add_parser(
+        "clear",
+        help="Clear records from database tables"
+    )
+    
+    clear_parser.add_argument(
+        "target",
+        nargs="?",
+        default="all",
+        help="Table to clear: 'all' or specific table name (default: all)"
+    )
+    
+    clear_parser.add_argument(
+        "--database-url",
+        type=str,
+        default=None,
+        help="PostgreSQL connection URL (optional, will use env var if not provided)"
+    )
+    
+    clear_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable verbose output"
+    )
+    
+    clear_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be cleared without actually doing it"
+    )
+    
     args = parser.parse_args()
     
     # Handle no command provided
@@ -491,6 +550,31 @@ def main():
                     args.target,
                     cache_dir=args.cache_dir,
                     verbose=args.verbose,
+                )
+                sys.exit(exit_code)
+        
+        elif args.command == "db":
+            if not args.db_command:
+                db_parser.print_help()
+                sys.exit(1)
+            
+            if args.db_command == "stats":
+                exit_code = execute_db_stats(
+                    database_url=args.database_url,
+                    cache_dir=None,
+                    console=console,
+                    verbose=args.verbose,
+                )
+                sys.exit(exit_code)
+            
+            elif args.db_command == "clear":
+                exit_code = execute_db_clear(
+                    target=args.target,
+                    database_url=args.database_url,
+                    cache_dir=None,
+                    console=console,
+                    verbose=args.verbose,
+                    dry_run=args.dry_run,
                 )
                 sys.exit(exit_code)
     

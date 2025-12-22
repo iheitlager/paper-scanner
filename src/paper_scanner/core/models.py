@@ -664,38 +664,3 @@ class Paper(BaseModel):
         """Simplified repr to avoid infinite recursion with circular references"""
         title_preview = self.title[:40] + "..." if self.title and len(self.title) > 40 else self.title or "N/A"
         return f"Paper(id={self.id!r}, cite_key={self.cite_key!r}, title={title_preview!r}, year={self.year})"
-# ============================================================================
-# COLLECTION/BATCH MODEL
-# ============================================================================
-
-class PaperCollection(BaseModel):
-    """Collection of papers (for batch processing)"""
-
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    description: Optional[str] = None
-
-    papers: List[Paper] = Field(default_factory=list)
-
-    # Statistics
-    total_count: int = 0
-    included_count: int = 0
-    excluded_count: int = 0
-    pending_count: int = 0
-    
-    # Metadata
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
-    def update_statistics(self):
-        """Recalculate statistics"""
-        self.total_count = len(self.papers)
-        self.included_count = sum(1 for p in self.papers if p.is_included)
-        self.excluded_count = sum(
-            1 for p in self.papers 
-            if p.screening.final_decision == ScreeningDecision.EXCLUDED
-        )
-        self.pending_count = sum(
-            1 for p in self.papers 
-            if p.screening.final_decision == ScreeningDecision.PENDING
-        )
