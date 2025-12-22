@@ -24,7 +24,6 @@ console = Console(file=sys.stderr)
 handler_classes = {
     "crossref": CrossrefHandler,
     "openalex": OpenAlexHandler,
-    "core": COREHandler,
     "publisher": PublisherHandler,
     # Add others as implemented
 }

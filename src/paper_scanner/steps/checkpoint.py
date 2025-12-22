@@ -126,7 +126,10 @@ def _deserialize_papers(data: List[Dict[str, Any]]) -> List[Paper]:
 
 def load_checkpoint(checkpoint_file: Path) -> tuple[List[Paper], int]:
     """
-    Load papers from a checkpoint file
+    Load papers from a checkpoint file with duplicate reference restoration.
+    
+    The checkpoint JSON stores duplicate_of as ID strings. When papers are deserialized
+    individually, these references are lost. This function restores them in a second pass.
     
     Args:
         checkpoint_file: Path to checkpoint file
@@ -137,7 +140,22 @@ def load_checkpoint(checkpoint_file: Path) -> tuple[List[Paper], int]:
     with open(checkpoint_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    papers = _deserialize_papers(data.get("papers", []))
+    # First pass: deserialize all papers
+    papers_data = data.get("papers", [])
+    papers = _deserialize_papers(papers_data)
+    
+    # Second pass: restore duplicate_of references from raw JSON
+    # Create a map of paper ID to paper object for quick lookup
+    id_to_paper = {p.id: p for p in papers}
+    
+    for raw_paper_data, paper in zip(papers_data, papers):
+        # Check if the raw JSON has a duplicate_of ID
+        if raw_paper_data.get("duplicate_of") and isinstance(raw_paper_data.get("duplicate_of"), str):
+            duplicate_of_id = raw_paper_data["duplicate_of"]
+            if duplicate_of_id in id_to_paper:
+                # Restore the reference to the actual Paper object
+                paper.duplicate_of = id_to_paper[duplicate_of_id]
+    
     step_index = data.get("step_index", 0)
     
     return papers, step_index

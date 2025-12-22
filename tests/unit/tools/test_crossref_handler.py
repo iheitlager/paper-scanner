@@ -222,3 +222,23 @@ class TestCrossrefBackwardCompatibility:
         citations, cache_hit = handler.fetch_citations(doi)
         assert len(citations) >= 0
         assert cache_hit is False
+
+
+class TestCrossrefHandlerExcludedMethods:
+    """Test that CrossrefHandler explicitly excludes forward citations."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create a CrossrefHandler instance."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield CrossrefHandler(cache_dir=Path(tmpdir))
+
+    def test_fetch_cited_by_not_implemented(self, handler):
+        """Test that fetch_cited_by raises NotImplementedError."""
+        with pytest.raises(NotImplementedError, match="CrossrefHandler does not support forward citations"):
+            handler.fetch_cited_by("10.1234/test")
+
+    def test_fetch_pdf_not_implemented(self, handler):
+        """Test that fetch_pdf raises NotImplementedError."""
+        with pytest.raises(NotImplementedError, match="CrossrefHandler only provides metadata and citations"):
+            handler.fetch_pdf("10.1234/test")

@@ -6,7 +6,7 @@ leveraging institutional access (e.g., via VPN) where available.
 """
 
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple, List
 import sys
 import re
 from datetime import datetime
@@ -151,14 +151,6 @@ class PublisherHandler(BaseFetcherHandler):
         """Not implemented - use fetch_pdf instead."""
         raise NotImplementedError("PublisherHandler uses fetch_pdf directly")
 
-    def fetch_paper(self, doi: str) -> tuple:
-        """Not implemented - publisher handler only downloads PDFs."""
-        raise NotImplementedError("PublisherHandler only downloads PDFs via fetch_pdf")
-
-    def fetch_citations(self, doi: str) -> tuple:
-        """Not implemented - publisher handler only downloads PDFs."""
-        raise NotImplementedError("PublisherHandler only downloads PDFs via fetch_pdf")
-
     def _resolve_doi_to_landing_page(self, doi: str) -> Optional[str]:
         """
         Resolve DOI to publisher landing page.
@@ -250,7 +242,7 @@ class PublisherHandler(BaseFetcherHandler):
                 match = re.search(pattern, doi)
                 if not match:
                     return None
-                
+
                 # If doi_extract_group is specified, extract that group; otherwise use full DOI
                 if "doi_extract_group" in template:
                     extracted_value = match.group(template["doi_extract_group"])
@@ -311,7 +303,7 @@ class PublisherHandler(BaseFetcherHandler):
                 if self.debug:
                     console.print(f"  [yellow]Could not resolve DOI: {doi}[/yellow]")
                 return None
-            
+
             publisher_key = self._detect_publisher(landing_url, doi)
 
         if not publisher_key:
@@ -374,3 +366,24 @@ class PublisherHandler(BaseFetcherHandler):
             if self.debug:
                 console.print(f"  [yellow]Failed to download from {publisher_name}: {e}[/yellow]")
             return None
+
+
+    ###################################################################################
+    # Not implemented methods for citations fetching
+    # PublisherHandler only downloads PDFs via fetch_pdf
+    ###################################################################################  
+    def fetch_cited_by(self, doi: str, limit: int = 100) -> Tuple[List[Citation], bool]:
+        """Not implemented - publisher handler only downloads PDFs."""
+        raise NotImplementedError("PublisherHandler only downloads PDFs via fetch_pdf")
+
+    def fetch_metadata(self, doi: str) -> Optional[Dict[str, Any]]:
+        """Not implemented - publisher handler only downloads PDFs."""
+        raise NotImplementedError("PublisherHandler only downloads PDFs via fetch_pdf")
+
+    def fetch_paper(self, doi: str) -> Tuple[Optional[Dict[str, Any]], bool]:
+        """Not implemented - publisher handler only downloads PDFs."""
+        raise NotImplementedError("PublisherHandler only downloads PDFs via fetch_pdf")
+
+    def fetch_citations(self, doi: str) -> Tuple[List[Citation], bool]:
+        """Not implemented - publisher handler only downloads PDFs."""
+        raise NotImplementedError("PublisherHandler only downloads PDFs via fetch_pdf")

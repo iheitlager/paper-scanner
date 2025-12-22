@@ -487,13 +487,10 @@ class CrossrefHandler(BaseFetcherHandler):
         return None
 
     def fetch_cited_by(self, doi: str) -> Tuple[List[Citation], bool]:
-        """
-        Fetch backward citations for a given DOI.
-
-        Args:
-            doi: Digital Object Identifier
-
-        Returns:
-            Tuple of (citations list, cache_hit: bool)
-        """
+        """Not implemented - CrossrefHandler does not support forward citations.."""
         raise NotImplementedError("CrossrefHandler does not support forward citations.")
+
+    def fetch_pdf(self, doi: str, timeout: int = 30):
+        """Not implemented - CrossrefHandler only provides metadata and citations."""
+        raise NotImplementedError("CrossrefHandler only provides metadata and citations via fetch_metadata and fetch_citations")
+

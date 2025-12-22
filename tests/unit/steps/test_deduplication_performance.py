@@ -6,7 +6,8 @@ Verifies that indexed lookups are actually being used
 
 import time
 import pytest
-from paper_scanner.steps.deduplication import execute, _doi_exact_match
+from pathlib import Path
+from paper_scanner.steps.deduplication import DeduplicationStep, _doi_exact_match
 from paper_scanner.core.models import Paper, Author, PaperType
 from paper_scanner.core.database import PapersDatabase
 
@@ -73,9 +74,16 @@ def test_deduplication_with_large_dataset():
         ]
     }
     
+    # Instantiate the step with base class requirements
+    step = DeduplicationStep(
+        general_config={},
+        db=papers_db,
+        cache_dir=Path("/tmp")
+    )
+    
     # Time the full deduplication
     start = time.time()
-    result = execute(config, papers_db)
+    result = step.execute(config=config)
     elapsed = time.time() - start
     
     # Should find duplicates

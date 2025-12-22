@@ -11,8 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Deduplication test suite**: Updated all test files (`test_deduplication.py`, `test_deduplication_performance.py`, `test_deduplication_circular_fix.py`) to follow new BaseStep class pattern with proper instantiation and method signatures
+
 ### Fixed
 
+- Fixed checkpoint restore to maintain duplicate_of references: Added second-pass restoration in `load_checkpoint()` that rebuilds Paper object references from JSON ID strings, ensuring duplicate relationships are preserved when resuming from checkpoints
 - Fixed `load_initial_definition()` in REPLSession to properly raise FileNotFoundError when definition file is not found instead of silently returning False
 
 ## [2.7.0] - 2025-12-21

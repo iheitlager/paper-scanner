@@ -348,6 +348,8 @@ class TestPatternBasedPublisherDetection:
         """Test full fetch_pdf flow for MDPI using DOI pattern detection."""
         handler = PublisherHandler(cache_dir=tmp_path)
 
+
+
         with patch("paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler.requests.Session.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -362,3 +364,35 @@ class TestPatternBasedPublisherDetection:
             assert pdf_info is not None
             assert pdf_info.download_source == "publisher"
             assert "mdpi" in pdf_info.download_url.lower()
+
+
+class TestPublisherHandlerExcludedMethods:
+    r"""Test that PublisherHandler explicitly excludes non-PDF methods."""
+
+    def test_fetch_cited_by_not_implemented(self, tmp_path):
+        """Test that fetch_cited_by raises NotImplementedError."""
+        handler = PublisherHandler(cache_dir=tmp_path)
+        
+        with pytest.raises(NotImplementedError, match="PublisherHandler only downloads PDFs via fetch_pdf"):
+            handler.fetch_cited_by("10.1234/test")
+
+    def test_fetch_metadata_not_implemented(self, tmp_path):
+        """Test that fetch_metadata raises NotImplementedError."""
+        handler = PublisherHandler(cache_dir=tmp_path)
+        
+        with pytest.raises(NotImplementedError, match="PublisherHandler only downloads PDFs via fetch_pdf"):
+            handler.fetch_metadata("10.1234/test")
+
+    def test_fetch_paper_not_implemented(self, tmp_path):
+        """Test that fetch_paper raises NotImplementedError."""
+        handler = PublisherHandler(cache_dir=tmp_path)
+        
+        with pytest.raises(NotImplementedError, match="PublisherHandler only downloads PDFs via fetch_pdf"):
+            handler.fetch_paper("10.1234/test")
+
+    def test_fetch_citations_not_implemented(self, tmp_path):
+        """Test that fetch_citations raises NotImplementedError."""
+        handler = PublisherHandler(cache_dir=tmp_path)
+        
+        with pytest.raises(NotImplementedError, match="PublisherHandler only downloads PDFs via fetch_pdf"):
+            handler.fetch_citations("10.1234/test")

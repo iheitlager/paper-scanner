@@ -87,6 +87,97 @@ class TestValidate:
         assert is_valid is False
         assert any("fix_cite_key" in err for err in errors)
 
+    def test_validate_valid_limit_parameter(self):
+        """Test validation with valid limit parameter"""
+        config = {
+            "limit": 25,
+            "imports": [{"file_path": "test.bib"}]
+        }
+        is_valid, errors = BibtexImportStep.validate(config)
+        assert is_valid is True
+        assert len(errors) == 0
+
+    def test_validate_invalid_limit_not_positive(self):
+        """Test validation fails with non-positive limit"""
+        config = {
+            "limit": 0,
+            "imports": [{"file_path": "test.bib"}]
+        }
+        is_valid, errors = BibtexImportStep.validate(config)
+        assert is_valid is False
+        assert any("limit" in err for err in errors)
+
+    def test_validate_invalid_limit_not_integer(self):
+        """Test validation fails with non-integer limit"""
+        config = {
+            "limit": "25",
+            "imports": [{"file_path": "test.bib"}]
+        }
+        is_valid, errors = BibtexImportStep.validate(config)
+        assert is_valid is False
+        assert any("limit" in err for err in errors)
+
+    def test_validate_valid_randomize_parameter(self):
+        """Test validation with valid randomize parameter"""
+        config = {
+            "randomize": True,
+            "imports": [{"file_path": "test.bib"}]
+        }
+        is_valid, errors = BibtexImportStep.validate(config)
+        assert is_valid is True
+        assert len(errors) == 0
+
+    def test_validate_invalid_randomize_not_boolean(self):
+        """Test validation fails with non-boolean randomize"""
+        config = {
+            "randomize": "true",
+            "imports": [{"file_path": "test.bib"}]
+        }
+        is_valid, errors = BibtexImportStep.validate(config)
+        assert is_valid is False
+        assert any("randomize" in err for err in errors)
+
+    def test_validate_valid_random_seed_parameter(self):
+        """Test validation with valid random_seed parameter"""
+        config = {
+            "random_seed": 42,
+            "imports": [{"file_path": "test.bib"}]
+        }
+        is_valid, errors = BibtexImportStep.validate(config)
+        assert is_valid is True
+        assert len(errors) == 0
+
+    def test_validate_invalid_random_seed_not_integer(self):
+        """Test validation fails with non-integer random_seed"""
+        config = {
+            "random_seed": "42",
+            "imports": [{"file_path": "test.bib"}]
+        }
+        is_valid, errors = BibtexImportStep.validate(config)
+        assert is_valid is False
+        assert any("random_seed" in err for err in errors)
+
+    def test_validate_full_complex_config(self):
+        """Test validation with full complex config including all parameters"""
+        config = {
+            "limit": 25,
+            "randomize": True,
+            "random_seed": 42,
+            "imports": [
+                {
+                    "name": "Scopus Dataset",
+                    "file_path": "data/bib/scopus.bib",
+                    "source_type": "scopus",
+                    "fix_cite_key": False,
+                    "expected_count": 19
+                }
+            ],
+            "type_mapping_config_path": "/path/to/config.yaml"
+        }
+        is_valid, errors = BibtexImportStep.validate(config)
+        assert is_valid is True
+        assert len(errors) == 0
+
 
 class TestFixCiteKeyCollisions:
     """Tests for _fix_cite_key_collisions function"""
@@ -353,6 +444,80 @@ class TestExecute:
         db_papers = papers_db.to_list()
         cite_keys = [p.cite_key for p in db_papers]
         assert len(cite_keys) == len(set(cite_keys))  # All unique
+
+    def test_execute_randomize_with_seed(self, temp_cache_dir):
+        """Test execute with randomization and seed"""
+        sample_bib = Path(__file__).parent.parent.parent / "data" / "scopus_sample_20.bib"
+        config = {
+            "randomize": True,
+            "random_seed": 42,
+            "limit": 2,
+            "imports": [
+                {
+                    "name": "Test Import",
+                    "file_path": str(sample_bib),
+                    "source_type": "scopus"
+                }
+            ]
+        }
+        
+        # Execute first time with seed
+        papers_db1 = PapersDatabase()
+        step1 = BibtexImportStep(general_config={}, db=papers_db1, cache_dir=temp_cache_dir)
+        result1 = step1.execute(config, verbose=False)
+        papers1 = papers_db1.to_list()
+        titles1 = sorted([p.title for p in papers1])
+        
+        # Execute again with same seed (new database instance)
+        papers_db2 = PapersDatabase()
+        step2 = BibtexImportStep(general_config={}, db=papers_db2, cache_dir=temp_cache_dir)
+        result2 = step2.execute(config, verbose=False)
+        papers2 = papers_db2.to_list()
+        titles2 = sorted([p.title for p in papers2])
+        
+        # With same seed, should get same papers (though order may differ due to sorting)
+        assert titles1 == titles2, "Same seed should produce same set of papers"
+        assert len(papers1) == 2, "Should have limited to 2 papers"
+        assert result1["papers_imported"] == 2
+        assert result2["papers_imported"] == 2
+
+    def test_execute_randomize_different_seeds(self, temp_cache_dir):
+        """Test that different seeds produce different orders"""
+        sample_bib = Path(__file__).parent.parent.parent / "data" / "scopus_sample_20.bib"
+        
+        # Execute with seed 42
+        config1 = {
+            "randomize": True,
+            "random_seed": 42,
+            "limit": 5,
+            "imports": [{"name": "Test", "file_path": str(sample_bib), "source_type": "scopus"}]
+        }
+        papers_db1 = PapersDatabase()
+        step1 = BibtexImportStep(general_config={}, db=papers_db1, cache_dir=temp_cache_dir)
+        result1 = step1.execute(config1, verbose=False)
+        papers1 = papers_db1.to_list()
+        titles1 = [p.title for p in papers1]
+        
+        # Execute with different seed
+        config2 = {
+            "randomize": True,
+            "random_seed": 123,
+            "limit": 5,
+            "imports": [{"name": "Test", "file_path": str(sample_bib), "source_type": "scopus"}]
+        }
+        papers_db2 = PapersDatabase()
+        step2 = BibtexImportStep(general_config={}, db=papers_db2, cache_dir=temp_cache_dir)
+        result2 = step2.execute(config2, verbose=False)
+        papers2 = papers_db2.to_list()
+        titles2 = [p.title for p in papers2]
+        
+        # Both should import 5 papers
+        assert len(titles1) == 5 and len(titles2) == 5
+        assert result1["papers_imported"] == 5
+        assert result2["papers_imported"] == 5
+        # Orders should be different due to different seeds
+        # (probabilistically true for most seeds)
+        assert titles1 != titles2 or len(set(titles1)) < 5
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

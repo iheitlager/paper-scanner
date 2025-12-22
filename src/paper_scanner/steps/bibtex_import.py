@@ -4,6 +4,7 @@ BibTeX import step for paper scanner
 Sequentially imports BibTeX files and adds papers to the database
 """
 
+import random
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -69,55 +70,66 @@ class BibtexImportStep(BaseStep):
     def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
         Validate bibtex_import step configuration.
-        
+
         Args:
             config: Step configuration
-            
+
         Returns:
             Tuple of (is_valid, error_messages)
         """
         errors = []
 
-        # Check imports list
-        limit = config.get("limit")
-        if limit and (not isinstance(limit, int) or limit <= 0):
-            errors.append("'limit' must be a positive integer")
+        for key in config.keys():
+            if key == "limit":
+                limit = config["limit"]
+                if not isinstance(limit, int) or limit <= 0:
+                    errors.append("'limit' must be a positive integer")
+            elif key == "randomize":
+                randomize = config["randomize"]
+                if not isinstance(randomize, bool):
+                    errors.append("'randomize' must be a boolean")
+            elif key == "random_seed":
+                seed = config["random_seed"]
+                if not isinstance(seed, int):
+                    errors.append("'random_seed' must be an integer")
+            elif key == "imports":
+                imports = config.get("imports", [])
+                if not isinstance(imports, list):
+                    errors.append("'imports' must be a list")
+                else:
+                    for i, imp in enumerate(imports):
+                        if not isinstance(imp, dict):
+                            errors.append(f"Import {i} must be a dictionary")
+                            continue
 
-        imports = config.get("imports", [])
-        if not isinstance(imports, list):
-            errors.append("'imports' must be a list")
-        else:
-            for i, imp in enumerate(imports):
-                if not isinstance(imp, dict):
-                    errors.append(f"Import {i} must be a dictionary")
-                    continue
-                
-                # Check required fields
-                if "file_path" not in imp:
-                    errors.append(f"Import {i} missing required field 'file_path'")
-                elif not isinstance(imp["file_path"], str):
-                    errors.append(f"Import {i} 'file_path' must be a string")
-                
-                if "source_type" in imp:
-                    source_type = imp["source_type"]
-                    if source_type not in VALID_SOURCE_TYPES:
-                        errors.append(f"Import {i} 'source_type' must be one of {VALID_SOURCE_TYPES}, got '{source_type}'")
-                
-                if "expected_count" in imp:
-                    expected = imp["expected_count"]
-                    if not isinstance(expected, int) or expected < 0:
-                        errors.append(f"Import {i} 'expected_count' must be a non-negative integer")
-                
-                if "fix_cite_key" in imp:
-                    fix_cite_key = imp["fix_cite_key"]
-                    if not isinstance(fix_cite_key, bool):
-                        errors.append(f"Import {i} 'fix_cite_key' must be a boolean")
-        
-        # Check type_mapping_config_path
-        if "type_mapping_config_path" in config and not isinstance(config["type_mapping_config_path"], str):
-            errors.append("'type_mapping_config_path' must be a string")
-        
+                        # Check required fields
+                        if "file_path" not in imp:
+                            errors.append(f"Import {i} missing required field 'file_path'")
+                        elif not isinstance(imp["file_path"], str):
+                            errors.append(f"Import {i} 'file_path' must be a string")
+
+                        if "source_type" in imp:
+                            source_type = imp["source_type"]
+                            if source_type not in VALID_SOURCE_TYPES:
+                                errors.append(f"Import {i} 'source_type' must be one of {VALID_SOURCE_TYPES}, got '{source_type}'")
+
+                        if "expected_count" in imp:
+                            expected = imp["expected_count"]
+                            if not isinstance(expected, int) or expected < 0:
+                                errors.append(f"Import {i} 'expected_count' must be a non-negative integer")
+
+                        if "fix_cite_key" in imp:
+                            fix_cite_key = imp["fix_cite_key"]
+                            if not isinstance(fix_cite_key, bool):
+                                errors.append(f"Import {i} 'fix_cite_key' must be a boolean")
+            elif key == "type_mapping_config_path":
+                if not isinstance(config["type_mapping_config_path"], str):
+                    errors.append("'type_mapping_config_path' must be a string")
+            else:
+                errors.append(f"Unknown configuration key: '{key}'")
+
         return len(errors) == 0, errors
+
 
     def execute(
         self,
@@ -138,21 +150,23 @@ class BibtexImportStep(BaseStep):
         Returns:
             Dictionary with execution results
         """
-        limit = config.get("limit")
+        randomize = config.get("randomize", False)
+        random_seed = config.get("random_seed", None)
+        limit = config.get("limit", None)
         imports = config.get("imports", [])
         type_mapping_config_path = config.get("type_mapping_config_path")
         
         # Load type mapping configuration
         type_mapping_config = None
         if type_mapping_config_path:
-            if verbose:
-                console.print(f"[cyan]Loading type mapping config from:[/cyan] {type_mapping_config_path}")
+            if debug:
+                console.print(f"[dim]Loading type mapping config from:[/dim] {type_mapping_config_path}")
             type_mapping_config = load_type_mapping_config(type_mapping_config_path)
         else:
             # Use default location
             type_mapping_config = load_type_mapping_config()
-            if verbose:
-                console.print("[cyan]Using default type mapping configuration[/cyan]")
+            if debug:
+                console.print("[dim]Using default type mapping configuration[/dim]")
         
         results = {
             "step": "bibtex_import",
@@ -180,10 +194,10 @@ class BibtexImportStep(BaseStep):
                         console.print(f"  [red]✗ {name}: {error_msg}[/red]")
                     continue
                 
-                if verbose:
-                    console.print(f"\n  [bold cyan]Processing:[/bold cyan] {name}")
-                    console.print(f"    [yellow]File:[/yellow] {file_path}")
-                    console.print(f"    [yellow]Source:[/yellow] {source_type}")
+                if debug:
+                    console.print(f"    [dim]Processing:[/dim] {name}")
+                    console.print(f"    [dim]File:[/dim] {file_path}")
+                    console.print(f"    [dim]Source:[/dim] {source_type}")
                 
                 if not dry_run:
                     # Parse BibTeX file with type mapping config
@@ -193,8 +207,22 @@ class BibtexImportStep(BaseStep):
                         discovery_method=DiscoveryMethod.KEYWORD_SEARCH,
                         type_mapping_config=type_mapping_config
                     )
+                    
+                    # Randomize papers if limit is set
+                    if limit and randomize:
+                        if random_seed is not None:
+                            random.seed(random_seed)
+                        random.shuffle(papers)
+                        if verbose:
+                            seed_display = f" (seed={random_seed})" if random_seed is not None else ""
+                            console.print(f"    [cyan]✓ Randomized papers{seed_display}[/cyan]")
+                    
+                    # Apply limit after randomization
                     if limit:
                         papers = papers[:limit]
+                        if debug:
+                            console.print(f"    [dim]✓ Limited to {limit} papers[/dim]")
+                    
                     # Fix cite_key collisions if requested
                     if fix_cite_key:
                         fixed_count = _fix_cite_key_collisions(papers, self.db)
@@ -238,8 +266,6 @@ class BibtexImportStep(BaseStep):
             except Exception as e:
                 error_msg = f"{name}: {str(e)}"
                 results["errors"].append(error_msg)
-                if verbose:
-                    console.print(f"  [red]✗ Error: {error_msg}[/red]")
                 results["details"].append({
                     "name": name,
                     "file_path": file_path,

@@ -9,10 +9,11 @@ See: https://github.com/iheitlager/paper-scanner/issues/XXX
 """
 
 import pytest
+from pathlib import Path
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Paper, Author, PaperType
-from paper_scanner.steps.deduplication import execute
+from paper_scanner.steps.deduplication import DeduplicationStep
 
 
 class TestDeduplicationCircularFix:
@@ -57,7 +58,8 @@ class TestDeduplicationCircularFix:
                 {"method": "doi_exact", "priority": 1},
             ]
         }
-        result = execute(config, papers_db)
+        step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
+        result = step.execute(config=config)
         
         # Verify: should find exactly 5 duplicates (one per unique DOI)
         assert result['duplicates_found'] == 5, \
@@ -99,7 +101,8 @@ class TestDeduplicationCircularFix:
                 {"method": "doi_exact", "priority": 1},
             ]
         }
-        execute(config, papers_db)
+        step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
+        step.execute(config=config)
         
         # a-paper should be primary (smallest ID alphabetically)
         a_paper = papers_db.get_by_id("a-paper")
@@ -142,7 +145,8 @@ class TestDeduplicationCircularFix:
                 {"method": "doi_exact", "priority": 1},
             ]
         }
-        execute(config, papers_db)
+        step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
+        step.execute(config=config)
         
         p1 = papers_db.get_by_id("paper-1")
         p2 = papers_db.get_by_id("paper-2")
@@ -198,7 +202,8 @@ class TestDeduplicationCircularFix:
                 {"method": "doi_exact", "priority": 1},
             ]
         }
-        result = execute(config, papers_db)
+        step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
+        result = step.execute(config=config)
         
         # Should find 2 + 1 + 3 = 6 duplicates (one less per group)
         assert result['duplicates_found'] == 6, \
