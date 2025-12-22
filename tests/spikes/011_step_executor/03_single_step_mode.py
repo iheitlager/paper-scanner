@@ -169,7 +169,8 @@ def main(debug: bool = False, verbose: bool = False):
                     has_error = result.get('error') is not None
                     has_details = 'details' in result
                     explicit_status = result.get('status')
-                    step_name = result.get('step', 'Unknown')
+                    # Use the description from step_info for consistent naming
+                    step_name = step_info["description"] or result.get('step', 'Unknown')
                     
                     if explicit_status == 'ok' or (not has_error and has_details):
                         count = result.get('papers_imported') or result.get('count', 0)
@@ -188,6 +189,10 @@ def main(debug: bool = False, verbose: bool = False):
                             console.print(f"  [cyan]Processed:[/cyan] {count} items")
                 else:
                     console.print("  [red]✗ No result returned from execution[/red]")
+                
+                # Check if all steps are now completed
+                if not executor.has_next_step:
+                    console.print(f"\n[green bold]🎉 All steps completed![/green bold]\n")
                 console.print()
             
             elif cmd == "run" or cmd == "go":
@@ -286,13 +291,23 @@ def main(debug: bool = False, verbose: bool = False):
                 current_step = stats.get('current_step_index', 0)
                 total_steps = stats.get('total_steps', 0)
                 steps_executed = stats.get('steps_executed', 0)
-                duration = stats.get('total_duration_seconds', 0)
+                total_duration = stats.get('total_duration_seconds', 0)
+                step_timings = stats.get('step_timings', [])
                 
                 console.print(f"  [cyan]Project:[/cyan] {project_name}")
                 console.print(f"  [cyan]Papers:[/cyan] {papers_total} total ([green]{papers_unique} unique[/green], [yellow]{papers_duplicates} duplicates[/yellow])")
                 console.print(f"  [cyan]Progress:[/cyan] {current_step}/{total_steps} steps")
                 console.print(f"  [cyan]Executed:[/cyan] {steps_executed} steps")
-                console.print(f"  [cyan]Duration:[/cyan] {duration:.2f}s")
+                console.print(f"  [cyan]Total Duration:[/cyan] {total_duration:.2f}s")
+                
+                if step_timings:
+                    console.print("\n  [bold cyan]Step Timings:[/bold cyan]")
+                    for timing in step_timings:
+                        step_name = timing.get('step', 'Unknown')
+                        duration_ms = timing.get('duration_ms', 0)
+                        # Calculate percentage of total time
+                        percentage = (timing.get('duration_seconds', 0) / total_duration * 100) if total_duration > 0 else 0
+                        console.print(f"    • [green]{step_name:<25}[/green] {duration_ms:>7.0f}ms ({percentage:>5.1f}%)")
                 console.print()
             
             elif cmd == "state":

@@ -408,8 +408,6 @@ class StepExecutor:
         if latest_index is not None and latest_file:
             self._load_checkpoint_file(latest_file)
             self.current_step_index = latest_index
-            if self.verbose:
-                print(f"Loaded checkpoint: {latest_file} (resuming from step {latest_index})")
 
     def _find_latest_checkpoint(self) -> Tuple[Optional[int], Optional[Path]]:
         """
@@ -441,20 +439,15 @@ class StepExecutor:
 
     def _load_checkpoint_file(self, checkpoint_file: Path) -> None:
         """Load papers from checkpoint JSON file"""
-        try:
-            with open(checkpoint_file, "r") as f:
-                data = json.load(f)
-            
-            # Restore papers from checkpoint
-            papers = data.get("papers", [])
-            if papers:
-                from paper_scanner.core.models import Paper
-                paper_objects = [Paper(**p) for p in papers]
-                self.papers_db.from_list(paper_objects)
-        except Exception as e:
-            if self.verbose:
-                print(f"Error loading checkpoint: {e}")
-            raise
+        with open(checkpoint_file, "r") as f:
+            data = json.load(f)
+        
+        # Restore papers from checkpoint
+        papers = data.get("papers", [])
+        if papers:
+            from paper_scanner.core.models import Paper
+            paper_objects = [Paper(**p) for p in papers]
+            self.papers_db.from_list(paper_objects)
 
     def _get_project_hash(self) -> str:
         """Get deterministic project hash for checkpoint naming"""
@@ -534,9 +527,6 @@ class StepExecutor:
                 "count": 0,
             }
         except Exception as e:
-            if self.debug:
-                import traceback
-                traceback.print_exc()
             return {
                 "status": "error",
                 "error": str(e),
@@ -634,9 +624,6 @@ class StepExecutor:
             }
 
         except Exception as e:
-            if self.debug:
-                import traceback
-                traceback.print_exc()
             return {
                 "status": "error",
                 "error": f"Template '{template_name}' execution failed: {str(e)}",
@@ -702,9 +689,6 @@ class StepExecutor:
         except Exception as e:
             results_summary["status"] = "error"
             results_summary["error"] = str(e)
-            if self.debug:
-                import traceback
-                traceback.print_exc()
 
         # Add timing information
         if self.start_time:
@@ -746,9 +730,6 @@ class StepExecutor:
             with open(checkpoint_file, "w") as f:
                 json.dump(checkpoint_data, f, indent=2)
 
-            if self.verbose:
-                print(f"Saved checkpoint: {checkpoint_file}")
-
             return {
                 "status": "ok",
                 "checkpoint_file": str(checkpoint_file),
@@ -756,9 +737,6 @@ class StepExecutor:
             }
 
         except Exception as e:
-            if self.debug:
-                import traceback
-                traceback.print_exc()
             return {
                 "status": "error",
                 "error": str(e),
