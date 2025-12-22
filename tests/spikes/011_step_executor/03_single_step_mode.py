@@ -71,7 +71,7 @@ def beautiful_menu():
     console.print()
 
 
-def main(debug: bool = False, verbose: bool = False):
+def main(debug: bool = False, verbose: bool = False, timings: bool = False):
     """Interactive REPL for single-step execution."""
     beautiful_header()
     
@@ -177,7 +177,7 @@ def main(debug: bool = False, verbose: bool = False):
                         console.print(f"[blue]✓ {step_name} completed[/blue]")
                         if count > 0:
                             console.print(f"  [cyan]Processed:[/cyan] {count} items")
-                        if 'duration_seconds' in result:
+                        if timings and 'duration_seconds' in result:
                             duration = result['duration_seconds']
                             console.print(f"  [cyan]Duration:[/cyan] {duration:.2f}s")
                     else:
@@ -223,9 +223,17 @@ def main(debug: bool = False, verbose: bool = False):
                     if result and result.get('status') == 'ok':
                         count = result.get('papers_imported') or result.get('count', 0)
                         if count > 0:
-                            console.print(f"[green]✓ ({count} items)[/green]")
+                            console.print(f"[green]✓ ({count} items)", end="")
+                            if timings and 'duration_seconds' in result:
+                                console.print(f" [dim]({result['duration_seconds']:.2f}s)[/dim]")
+                            else:
+                                console.print("[/green]")
                         else:
-                            console.print("[green]✓[/green]")
+                            console.print("[green]✓[/green]", end="")
+                            if timings and 'duration_seconds' in result:
+                                console.print(f" [dim]({result['duration_seconds']:.2f}s)[/dim]")
+                            else:
+                                console.print()
                     elif result and result.get('status') == 'halted':
                         console.print(f"[yellow]⏸ halted[/yellow]")
                     elif result and result.get('status') == 'error':
@@ -241,7 +249,10 @@ def main(debug: bool = False, verbose: bool = False):
                 )
                 
                 if results["status"] == "ok":
-                    console.print(f"\n[green]✓ All steps completed![/green]\n")
+                    console.print(f"\n[green]✓ All steps completed![/green]")
+                    if timings and results.get('total_duration_seconds'):
+                        console.print(f"[cyan]Total duration:[/cyan] {results['total_duration_seconds']:.2f}s")
+                    console.print()
                 elif results["status"] == "halted":
                     console.print(f"\n[yellow]⏸ Pipeline halted[/yellow]\n")
                 else:
@@ -379,6 +390,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Show step name and type before execution"
     )
+    parser.add_argument(
+        "-t", "--timings",
+        action="store_true",
+        help="Display timing information after each step"
+    )
     args = parser.parse_args()
     
-    main(debug=args.debug, verbose=args.verbose)
+    main(debug=args.debug, verbose=args.verbose, timings=args.timings)

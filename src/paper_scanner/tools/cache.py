@@ -11,9 +11,10 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from paper_scanner.core import doi
+from paper_scanner.core.exceptions import PaperScannerError
 
 
-class CacheError(Exception):
+class CacheError(PaperScannerError):
     """Custom exception for cache-related errors."""
     pass
 

@@ -25,6 +25,12 @@ import yaml
 
 from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.exceptions import (
+    CheckpointError,
+    ConfigurationError,
+    PipelineExecutionError,
+    StepError,
+)
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
 
@@ -241,13 +247,13 @@ class StepExecutor:
             Instantiated step object (BaseStep subclass instance)
             
         Raises:
-            ValueError: If step not found or instantiation fails
+            StepError: If step not found or instantiation fails
         """
         builtin_steps = self.get_builtin_steps()
 
         if step_name not in builtin_steps:
             available = list(builtin_steps._paths.keys())
-            raise ValueError(f"Unknown step: {step_name}. Available: {available}")
+            raise StepError(f"Unknown step: {step_name}. Available: {available}")
 
         step_class = builtin_steps[step_name]
         try:
@@ -258,7 +264,7 @@ class StepExecutor:
                 cache_dir=self.cache_dir
             )
         except Exception as e:
-            raise ValueError(f"Failed to instantiate step {step_name}: {e}") from e
+            raise StepError(f"Failed to instantiate step '{step_name}': {e}") from e
     
     @staticmethod
     def parse_step_config(step_config: Dict[str, Any]) -> Tuple[str, Dict[str, Any], Optional[str]]:
@@ -272,11 +278,11 @@ class StepExecutor:
             Tuple of (step_name, step_params, description)
             
         Raises:
-            ValueError: If step configuration is invalid
+            ConfigurationError: If step configuration is invalid
         """
         step_value = step_config.get("step")
         if not step_value:
-            raise ValueError("Step configuration missing 'step' key")
+            raise ConfigurationError("Step configuration missing 'step' key")
 
         description = step_config.get("description", "")
 
@@ -288,7 +294,7 @@ class StepExecutor:
                 break
 
         if not builtin_key:
-            raise ValueError(f"Step configuration missing 'builtin.<step>' key")
+            raise ConfigurationError(f"Step configuration missing 'builtin.<step>' key")
 
         # Extract step name from builtin key
         step_name = builtin_key.replace("builtin.", "")
@@ -406,8 +412,13 @@ class StepExecutor:
         # Find latest checkpoint
         latest_index, latest_file = self._find_latest_checkpoint()
         if latest_index is not None and latest_file:
-            self._load_checkpoint_file(latest_file)
-            self.current_step_index = latest_index
+            try:
+                self._load_checkpoint_file(latest_file)
+                self.current_step_index = latest_index
+            except CheckpointError:
+                raise
+            except FileNotFoundError as e:
+                raise CheckpointError(f"Checkpoint file disappeared: {latest_file}") from e
 
     def _find_latest_checkpoint(self) -> Tuple[Optional[int], Optional[Path]]:
         """
@@ -438,16 +449,32 @@ class StepExecutor:
         return None, None
 
     def _load_checkpoint_file(self, checkpoint_file: Path) -> None:
-        """Load papers from checkpoint JSON file"""
-        with open(checkpoint_file, "r") as f:
-            data = json.load(f)
+        """
+        Load papers from checkpoint JSON file.
+        
+        Raises:
+            CheckpointError: If checkpoint file is corrupt or invalid
+            FileNotFoundError: If checkpoint file doesn't exist
+        """
+        try:
+            with open(checkpoint_file, "r") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            raise
+        except json.JSONDecodeError as e:
+            raise CheckpointError(f"Corrupt checkpoint file: {checkpoint_file}") from e
+        except IOError as e:
+            raise CheckpointError(f"Cannot read checkpoint file: {checkpoint_file}") from e
         
         # Restore papers from checkpoint
         papers = data.get("papers", [])
         if papers:
-            from paper_scanner.core.models import Paper
-            paper_objects = [Paper(**p) for p in papers]
-            self.papers_db.from_list(paper_objects)
+            try:
+                from paper_scanner.core.models import Paper
+                paper_objects = [Paper(**p) for p in papers]
+                self.papers_db.from_list(paper_objects)
+            except (TypeError, ValueError) as e:
+                raise CheckpointError(f"Invalid paper data in checkpoint: {checkpoint_file}") from e
 
     def _get_project_hash(self) -> str:
         """Get deterministic project hash for checkpoint naming"""
@@ -486,6 +513,7 @@ class StepExecutor:
 
         try:
             # Parse step config to get step name
+            # Let ConfigurationError propagate for invalid config
             step_name, step_params, description = self.parse_step_config(step_config)
 
             # Handle run-template: recursively execute template steps
@@ -520,13 +548,29 @@ class StepExecutor:
 
             return result
 
+        except (ConfigurationError, StepError):
+            # Configuration/step errors are caught and returned as error dicts
+            # (letting the REPL decide how to display them)
+            return {
+                "status": "error",
+                "error": str(e),
+                "count": 0,
+            }
         except HaltException as e:
             return {
                 "status": "halted",
                 "message": str(e),
                 "count": 0,
             }
+        except PipelineExecutionError as e:
+            # Step execution errors are caught and returned as error dicts
+            return {
+                "status": "error",
+                "error": str(e),
+                "count": 0,
+            }
         except Exception as e:
+            # Other unexpected exceptions are caught and returned
             return {
                 "status": "error",
                 "error": str(e),
@@ -623,12 +667,11 @@ class StepExecutor:
                 "template_results": template_results,
             }
 
+        except (ConfigurationError, StepError):
+            # Configuration/step errors propagate (caller can catch them)
+            raise
         except Exception as e:
-            return {
-                "status": "error",
-                "error": f"Template '{template_name}' execution failed: {str(e)}",
-                "count": total_count,
-            }
+            raise PipelineExecutionError(f"Template '{template_name}' execution failed: {e}") from e
 
     def run_all(
         self,
@@ -686,9 +729,9 @@ class StepExecutor:
                 else:
                     results_summary["steps_executed"] += 1
 
-        except Exception as e:
-            results_summary["status"] = "error"
-            results_summary["error"] = str(e)
+        except (ConfigurationError, StepError, PipelineExecutionError, CheckpointError):
+            # Let paper-scanner errors propagate
+            raise
 
         # Add timing information
         if self.start_time:
@@ -727,8 +770,13 @@ class StepExecutor:
                 "papers": papers_data,
             }
 
-            with open(checkpoint_file, "w") as f:
-                json.dump(checkpoint_data, f, indent=2)
+            try:
+                with open(checkpoint_file, "w") as f:
+                    json.dump(checkpoint_data, f, indent=2)
+            except (IOError, OSError) as e:
+                raise CheckpointError(f"Cannot write checkpoint to {checkpoint_file}: {e}") from e
+            except (TypeError, ValueError) as e:
+                raise CheckpointError(f"Cannot serialize checkpoint data: {e}") from e
 
             return {
                 "status": "ok",
@@ -736,11 +784,10 @@ class StepExecutor:
                 "papers_count": len(self.papers_db.papers),
             }
 
+        except CheckpointError:
+            raise
         except Exception as e:
-            return {
-                "status": "error",
-                "error": str(e),
-            }
+            raise CheckpointError(f"Checkpoint operation failed: {e}") from e
 
     def get_stats(self) -> Dict[str, Any]:
         """

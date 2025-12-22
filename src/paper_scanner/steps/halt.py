@@ -9,13 +9,14 @@ from typing import Any, Dict, List, Tuple
 
 from rich.console import Console
 
+from paper_scanner.core.exceptions import PaperScannerError
 from .base import BaseStep
 
 # Initialize rich console
 console = Console(file=sys.stderr)
 
 
-class HaltException(Exception):
+class HaltException(PaperScannerError):
     """Exception raised to halt pipeline execution"""
     pass
 
