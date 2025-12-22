@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - TEXT arrays for `keywords`, `topics`
   - Full-text search indexes on title and abstract
   - Multi-stage `paper_screening` table for Discovery/Screening workflow
+- **Database CLI Task** (`db` command):
+  - New `paper-processor db stats` command for database statistics overview
+  - Shows record counts for papers and citations tables
+  - Displays additional metrics: year range, validated papers, screened papers
+  - Supports custom database URL via `--database-url` flag
+  - Formatted Rich table output
 - **Enhanced README**: Added PostgreSQL integration features to documentation
 
 
