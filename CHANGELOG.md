@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2025-12-22
+
+### Added
+
+- **Unified StepExecutor**: New core execution engine (`src/paper_scanner/cli/executor.py`) that harmonizes workflow execution and interactive REPL modes
+  - Definition loading with early template validation
+  - Template support (v1: static step sequences, no parameters or nesting)
+  - Session state management (database, results, execution history)
+  - Checkpoint management (local file-based, explicit control)
+  - Single-step and batch execution modes
+  - Comprehensive statistics and timing collection
+  - Full inventory of available steps and templates
+- **RunTemplateStep builtin**: New `run-template` step for applying predefined template sequences within pipelines
+  - Enables mid-pipeline template application (e.g., after citations)
+  - Recursive template expansion for sophisticated reuse patterns
+  - v1: Static templates only (parameters and nesting planned for future versions)
+- **Executor Documentation**: 
+  - `docs/executor/explanation.md`: Architecture, three-level config model, template system, checkpoint design
+  - `docs/executor/class.md`: Complete API reference with all methods, parameters, return values, and usage examples
+  - `docs/executor/main_entry_example.py`: Example implementations (batch mode, single-step mode, template usage)
+- **Example Definition**: `src/definitions/supplier_innovation_review.yml` - Full multi-phase pipeline demonstrating templates, checkpoints, and citation expansion
+
+### Changed
+
+- **Major Breaking Change**: Steps now use new three-level configuration model (general_config, step_config, runtime flags) replacing simpler config patterns
+- **Step Registry**: Added `run-template` to `STEP_REGISTRY_PATHS` in `src/paper_scanner/cli/__init__.py`
+
+### Design Decisions (v3.0.0)
+
+- **v1 Static Templates**: No parameter injection or template nesting; enables safe scoping
+- **Local Checkpoints Only**: File-based checkpoints with deterministic naming
+- **Explicit Checkpointing in Single-Step**: Manual `executor.checkpoint()` calls prevent accidental data loss in interactive mode
+- **Early Template Validation**: All template references validated at definition load time to catch errors immediately
+- **Three-Level Configuration**: Project-level (general_config) → Step-level (step_config) → Runtime flags (verbose, dry_run, debug)
+
 ## [2.8.0] - 2025-12-22
 
 ### Added
