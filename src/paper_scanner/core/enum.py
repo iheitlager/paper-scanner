@@ -65,16 +65,30 @@ class ScreeningDecision(str, Enum):
     MANUAL_REVIEW = "manual_review"
     UNCERTAIN = "uncertain"
 
+
 class CitationDirection(str, Enum):
     """Direction of citation fetching"""
     FORWARD = "forward"
     BACKWARD = "backward"
 
+
 class StepStatus(str, Enum):
-    """Status of a processing step"""
+    """Status of a processing step
+    
+    Returned by BaseStep.execute() in StepResult.status field. Only SUCCESS, WARNING,
+    ERROR, and HALTED are in active use. READY and SKIPPED are reserved for future use.
+    
+    Values:
+        SUCCESS: Step completed successfully with no issues (value: "ok")
+        WARNING: Step completed with partial success or recoverable issues (value: "warning")
+        ERROR: Step failed to achieve its objective (value: "error")
+        HALTED: Pipeline intentionally halted via halt step (value: "halted")
+        READY: Reserved for future use (value: "ready")
+        SKIPPED: Reserved for future use (value: "skipped")
+    """
     SUCCESS = "ok"
-    ERROR = "error"
     WARNING = "warning"
+    ERROR = "error"
     HALTED = "halted"
     READY = "ready"
     SKIPPED = "skipped"

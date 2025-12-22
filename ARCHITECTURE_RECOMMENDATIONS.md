@@ -63,14 +63,15 @@ Create a new file: `src/paper_scanner/core/step_result.py`
 
 ```python
 from dataclasses import dataclass, field
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Optional
+from paper_scanner.core.enum import StepStatus
 
 @dataclass
 class StepResult:
     """Standardized result from step execution"""
     
     # Required fields
-    status: Literal["success", "warning", "error", "halted"]
+    status: StepStatus  # Use StepStatus.SUCCESS, WARNING, ERROR, or HALTED
     step: str  # Step name (set by executor)
     
     # Result details
@@ -117,41 +118,6 @@ class StepResult:
 **Simple Usage Example**:
 
 ```python
-from dataclasses import dataclass, field
-from typing import Any, Dict, Literal, Optional
-
-@dataclass
-class StepResult:
-    """Standardized result from step execution"""
-    
-    # Required
-    status: Literal["success", "warning", "error", "halted"]
-    step: str
-    
-    # Optional details
-    message: str = ""
-    description: Optional[str] = None
-    stats: Dict[str, int] = field(default_factory=dict)
-    error: Optional[str] = None
-    error_detail: Optional[str] = None
-    details: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dict for serialization if needed"""
-        return {
-            "status": self.status,
-            "step": self.step,
-            "message": self.message,
-            "description": self.description,
-            "stats": self.stats,
-            "error": self.error,
-            "error_detail": self.error_detail,
-            "details": self.details,
-            "metadata": self.metadata,
-        }
-
-
 # In a step's execute() method
 from paper_scanner.core.step_result import StepResult
 
@@ -162,7 +128,7 @@ def execute(self, config, verbose=False, dry_run=False, debug=False, callback=No
     papers = load_papers_from_file(file_path)
     
     return StepResult(
-        status="success",
+        status=StepStatus.SUCCESS,
         step="bibtex_import",
         message=f"Imported {len(papers)} papers",
         stats={"processed": len(papers), "created": len(papers)},
@@ -171,16 +137,33 @@ def execute(self, config, verbose=False, dry_run=False, debug=False, callback=No
 
 # In executor, just access fields:
 result = step.execute(config)
-if result.status == "success":
+if result.status == StepStatus.SUCCESS:
     print(f"✓ {result.message}")
     print(f"  Processed: {result.stats.get('processed', 0)}")
-elif result.status == "error":
+elif result.status == StepStatus.ERROR:
     print(f"✗ Error: {result.error}")
 ```
 
 #### Status Semantics: SUCCESS vs WARNING vs ERROR
 
 The three statuses have **clear, distinct meanings**. Crucially: **no CRITICAL status** — exceptions are reserved for fatal system failures that the executor catches and handles.
+
+##### StepStatus Enum Reference
+
+The `StepStatus` enum in `src/paper_scanner/core/enum.py` defines the allowed status values:
+
+```python
+class StepStatus(str, Enum):
+    """Status of a processing step — returned in StepResult.status"""
+    SUCCESS = "ok"      # Step completed successfully, no issues
+    WARNING = "warning" # Step completed with partial success or recoverable issues
+    ERROR = "error"     # Step failed to achieve its objective
+    HALTED = "halted"   # Pipeline intentionally halted (via halt step)
+    READY = "ready"     # (Reserved for future use)
+    SKIPPED = "skipped" # (Reserved for future use)
+```
+
+**Important**: Only `SUCCESS`, `WARNING`, `ERROR`, and `HALTED` are in active use. See decision table below for when to use each.
 
 ##### Status Definitions
 
@@ -206,7 +189,7 @@ The three statuses have **clear, distinct meanings**. Crucially: **no CRITICAL s
 ```python
 # All inputs processed without issues
 return StepResult(
-    status="success",
+    status=StepStatus.SUCCESS,
     message="Imported 42 papers from 2 BibTeX files",
     stats={"processed": 42, "created": 42, "skipped": 0, "errors": 0},
     metadata={"duration_seconds": 2.3}
@@ -226,7 +209,7 @@ Characteristics:
 ```python
 # Most work succeeded, but some items failed without halting the step
 return StepResult(
-    status="warning",
+    status=StepStatus.WARNING,
     message="Retrieved metadata: 85/100 papers successful, 15 citations unresolved",
     stats={"processed": 100, "created": 85, "errors": 15},
     details="Failed to resolve 15 citations:\n"
@@ -257,7 +240,7 @@ Characteristics:
 ```python
 # Core functionality broken; step could not complete
 return StepResult(
-    status="error",
+    status=StepStatus.ERROR,
     message="Failed to write export file",
     error="Permission denied: /home/user/exports/output.jsonl",
     error_detail="Traceback:\n"
@@ -323,7 +306,7 @@ def execute(self, config, ...):
     
     # Step completed, even though some items failed
     return StepResult(
-        status="warning" if errors > 0 else "success",
+        status=StepStatus.WARNING if errors > 0 else StepStatus.SUCCESS,
         stats={"processed": len(papers), "errors": errors}
     )
 ```
@@ -431,13 +414,13 @@ if api_response.status == 401:
 try:
     result = step.execute(..., callback=callback)
     
-    if result.status == "success":
+    if result.status == StepStatus.SUCCESS:
         # ✅ Step completed successfully
         console.print(f"[green]ok[/green]: [{step_name}]")
         results["steps_executed"].append(result)
         # Continue to next step
         
-    elif result.status == "warning":
+    elif result.status == StepStatus.WARNING:
         # ⚠️  Step completed but with issues
         console.print(f"[yellow]warning[/yellow]: [{step_name}] {result.message}")
         if result.details:
@@ -446,7 +429,7 @@ try:
         results["warnings"].append(result)
         # Continue to next step (but operator should review)
         
-    elif result.status == "error":
+    elif result.status == StepStatus.ERROR:
         # ❌ Step failed to achieve its objective
         console.print(f"[red]error[/red]: [{step_name}] {result.message}")
         if result.error_detail and debug:
@@ -560,26 +543,50 @@ class StepCallback(Protocol):
     """Callback interface for steps to report progress/messages"""
     
     def on_event(self, event: StepEvent) -> None:
-        """Called when step emits an event"""
+        """Called when step emits an event (warning, error, info)"""
         ...
     
     def on_progress(self, current: int, total: int, message: str = "") -> None:
-        """Called to report progress"""
+        """Called to report progress during iteration
+        
+        Args:
+            current: Current item count
+            total: Total items to process
+            message: Optional status message (e.g., "Processing paper 1")
+        """
         ...
 ```
 
 **Usage in steps**:
+
+Callback should be initialized in `__init__` and stored as instance variable:
+
 ```python
+from paper_scanner.core.step_callback import StepCallback, NullCallback
+from paper_scanner.core.step_result import StepResult
+
 class BibtexImportStep(BaseStep):
-    def execute(self, step_config, verbose=False, dry_run=False, debug=False, callback=None):
+    def __init__(
+        self,
+        general_config: Dict[str, Any],
+        db: PapersDatabase,
+        cache_dir: Path,
+        callback: Optional[StepCallback] = None,
+    ):
+        super().__init__(general_config, db, cache_dir)
+        # Store callback as instance variable (allow injection for testing)
         self.callback = callback or NullCallback()  # Default no-op
+    
+    def execute(self, step_config, verbose=False, dry_run=False, debug=False, callback=None):
+        # Use instance callback if no override provided
+        cb = callback or self.callback
         
         # ... iteration ...
         for i, paper in enumerate(papers):
-            self.callback.on_progress(i+1, len(papers), f"Importing {paper.title}")
+            cb.on_progress(i+1, len(papers), f"Importing {paper.title}")
             # ... process ...
             if warning:
-                self.callback.on_event(StepEvent(EventType.WARNING, msg))
+                cb.on_event(StepEvent(EventType.WARNING, msg))
         
         return StepResult(status="success", stats={"processed": len(papers)})
 ```
@@ -727,7 +734,7 @@ def execute(self, config, verbose=False, dry_run=False, debug=False, callback=No
     
     # Return WARNING status because some papers were not fully processed
     return StepResult(
-        status="warning" if stats["errors"] > 0 else "success",
+        status=StepStatus.WARNING if stats["errors"] > 0 else StepStatus.SUCCESS,
         message=f"Fetched metadata for {stats['created']}/{stats['processed']} papers",
         stats=stats,
         details="Failed to fetch:\n" + "\n".join(failed_details) if failed_details else None
@@ -756,7 +763,7 @@ def execute(self, config, verbose=False, dry_run=False, debug=False, callback=No
     except PermissionError as e:
         # This is a SYSTEM failure, not a data issue → return ERROR status
         return StepResult(
-            status="error",
+            status=StepStatus.ERROR,
             message=f"Cannot write to output file",
             error=f"Permission denied: {output_file}",
             error_detail=f"{type(e).__name__}: {str(e)}\n  Check directory permissions",
@@ -772,7 +779,7 @@ def execute(self, config, verbose=False, dry_run=False, debug=False, callback=No
                 f.write(json.dumps(paper.to_dict()) + '\n')
         
         return StepResult(
-            status="success",
+            status=StepStatus.SUCCESS,
             message=f"Exported {len(papers)} papers",
             stats={"processed": len(papers), "created": len(papers)}
         )
@@ -780,7 +787,7 @@ def execute(self, config, verbose=False, dry_run=False, debug=False, callback=No
     except Exception as e:
         # Unexpected failure during export
         return StepResult(
-            status="error",
+            status=StepStatus.ERROR,
             message="Export failed unexpectedly",
             error=str(e),
             error_detail=traceback.format_exc(),
@@ -813,7 +820,7 @@ def execute(self, config, verbose=False, dry_run=False, debug=False, callback=No
             self.db.mark_duplicates(dup_group)  # ← Could raise if connection lost
             
         return StepResult(
-            status="success",
+            status=StepStatus.SUCCESS,
             message=f"Marked {len(duplicates)} duplicate groups",
             stats={"processed": len(papers), "created": len(duplicates)}
         )
@@ -887,7 +894,7 @@ def execute(self, config, verbose=False, dry_run=False, debug=False, callback=No
                 raise
     
     # Mixed result - some succeeded, some failed
-    status = "success" if stats["errors"] == 0 else "warning"
+    status = StepStatus.SUCCESS if stats["errors"] == 0 else StepStatus.WARNING
     
     return StepResult(
         status=status,
@@ -904,7 +911,6 @@ Details: 10 papers skipped due to LLM timeouts
 ```
 
 Details: 10 papers skipped due to LLM timeouts
-```
 
 ---
 
@@ -1031,7 +1037,7 @@ class BibtexImportStep(BaseStep):
         
         # Return structured result
         return StepResult(
-            status="success" if stats["errors"] == 0 else "warning",
+            status=StepStatus.SUCCESS if stats["errors"] == 0 else StepStatus.WARNING,
             step="bibtex_import",
             message=f"Imported {stats['created']} papers, skipped {stats['skipped']}",
             stats=stats,
@@ -1081,3 +1087,200 @@ class BibtexImportStep(BaseStep):
 4. **Monitoring**: Structured data ready for metrics/logging
 5. **Maintainability**: Consistent patterns across all steps
 6. **Extensibility**: Easy to add new event types or callbacks
+
+---
+
+## Design Patterns Reference: Similar Approaches in Other Systems
+
+This architecture follows proven patterns used in production systems. Here's how other projects apply the same principles:
+
+### 1. **Ansible - Task Result Standardization**
+
+[Ansible](https://www.ansible.com/) uses a similar standardized result schema for all modules:
+
+```python
+# Ansible module result format (YAML)
+{
+    "changed": bool,           # Similar to our stats tracking
+    "failed": bool,            # Similar to status=ERROR
+    "rc": int,                 # Exit code
+    "stdout": str,             # Similar to message
+    "stderr": str,             # Error details
+    "msg": str,                # Human-readable message
+    "warning": [str],          # Array of warnings (our callback system)
+}
+```
+
+**Key learnings**:
+- All tasks return same schema → predictable executor
+- Separate `changed` flag from `failed` → clear intent
+- Warnings collected separately → operator visibility
+- Callbacks for progress → long-running tasks stay responsive
+
+### 2. **Apache Airflow - Task Status & Callbacks**
+
+[Airflow](https://airflow.apache.org/) defines explicit task states and callback handlers:
+
+```python
+# Airflow task states (similar to our StepStatus)
+class State:
+    SUCCESS = "success"
+    FAILED = "failed"
+    UPSTREAM_FAILED = "upstream_failed"
+    SKIPPED = "skipped"
+    QUEUED = "queued"
+    RUNNING = "running"
+    SENSING = "sensing"
+
+# Callback pattern (similar to our StepCallback)
+def on_success_callback(context):
+    """Called when task succeeds"""
+    task = context['task_instance']
+    print(f"Task {task.task_id} succeeded")
+
+def on_failure_callback(context):
+    """Called when task fails"""
+    task = context['task_instance']
+    exception = context['exception']
+```
+
+**Key learnings**:
+- Discrete task states → clear semantics
+- On-success/on-failure callbacks → decoupled from task logic
+- Context passed to callbacks → full visibility
+- Catch all exceptions → handle systematically
+
+### 3. **Kubernetes Operators - Status Fields & Reconciliation**
+
+[Kubernetes](https://kubernetes.io/) operator pattern uses status fields to track resource state:
+
+```python
+# Custom Resource status (similar to StepResult)
+status:
+    phase: "Running" | "Succeeded" | "Failed"
+    conditions:
+      - type: "Ready"
+        status: "True"
+        message: "All replicas ready"
+    observedGeneration: 42
+    replicas:
+        desired: 3
+        ready: 3
+        updated: 3
+```
+
+**Key learnings**:
+- Separate `spec` (intent) from `status` (state) → clear model
+- Multiple conditions → granular error reporting
+- observedGeneration tracking → eventual consistency
+- Structured status object → machine-readable results
+
+### 4. **GitHub Actions - Job & Step Status**
+
+[GitHub Actions](https://github.com/features/actions) uses status enums for jobs and steps:
+
+```yaml
+# Job status outputs
+status:
+  - success       # Job succeeded
+  - failure       # Job or step failed
+  - cancelled     # Workflow cancelled
+
+# Step result
+steps:
+  - name: "Build"
+    run: "npm run build"
+    id: build
+    
+# Access step result
+${{ steps.build.outcome }}     # success | failure | cancelled
+${{ steps.build.conclusion }}  # same, includes skipped
+```
+
+**Key learnings**:
+- Step ID → referencing across workflow
+- outcome vs conclusion → distinguish behavior
+- Status always available → executor doesn't guess
+- Conditional steps → continue or halt based on status
+
+### 5. **Make & Task Runners - Exit Code Pattern**
+
+Traditional build tools use simple exit code semantics:
+
+```makefile
+# Makefile - simple but effective
+.PHONY: build
+build:
+	@npm run build || exit 1  # Fail immediately
+	@npm run test || exit 1   # Exit code → status
+
+# With warnings
+@./script.sh              # Exit 0 = success
+@if [ $$? -ne 0 ]; then \
+  echo "Warning: Step had issues"; \
+  exit 0;  # Continue despite issues (like our WARNING status) \
+fi
+```
+
+**Key learnings**:
+- Exit codes map to status → universal convention
+- Small, composable steps → predictable behavior
+- Error-first pattern → fail-safe defaults
+- Pipe operators → natural error propagation
+
+### 6. **Celery - Task Status & Event Streams**
+
+[Celery](https://docs.celeryproject.io/) task status model:
+
+```python
+# Task states (similar to StepStatus)
+class States:
+    PENDING = "PENDING"      # Waiting to execute
+    RECEIVED = "RECEIVED"    # Received but not yet executing
+    STARTED = "STARTED"      # Task started
+    SUCCESS = "SUCCESS"      # Task succeeded
+    FAILURE = "FAILURE"      # Task failed
+    RETRY = "RETRY"          # Task will retry
+    REVOKED = "REVOKED"      # Task was cancelled
+
+# Event callback pattern (similar to StepCallback)
+def on_message(body):
+    """Real-time event handler"""
+    print(f"Task {body['id']}: {body['type']}")
+    
+app.control.inspect().active_queues()
+```
+
+**Key learnings**:
+- Granular state machine → precise error handling
+- Event stream callbacks → real-time visibility
+- Separate PENDING from STARTED → understand bottlenecks
+- Custom task results → structured error info
+
+---
+
+## Comparison: Our Architecture vs Others
+
+| Aspect | Ansible | Airflow | Kubernetes | GitHub Actions | Ours |
+|--------|---------|---------|-----------|-----------------|------|
+| **Standardized Result** | ✅ Module schema | ✅ Task state | ✅ Status object | ✅ Step status | ✅ StepResult |
+| **Multiple Status Types** | ✅ (changed, failed) | ✅ (8+ states) | ✅ (phases + conditions) | ✅ (success/failure/cancelled) | ✅ (SUCCESS/WARNING/ERROR/HALTED) |
+| **Callback System** | ✅ Handler plugins | ✅ on_success/on_failure | ✅ Watch handlers | ❌ Limited | ✅ StepCallback protocol |
+| **Live Progress** | ❌ No | ✅ Task logs | ✅ Events | ✅ Logs | ✅ on_progress() |
+| **Error Granularity** | ✅ (rc, stderr, msg) | ✅ (exceptions logged) | ✅ (conditions array) | ❌ Binary | ✅ (error, error_detail) |
+| **Testability** | ✅ (mocks) | ✅ (fixtures) | ✅ (test client) | ❌ Tied to GitHub | ✅ (NullCallback) |
+| **Metadata Tracking** | ⚠️ (minimal) | ✅ (logs, duration) | ✅ (observedGeneration) | ✅ (timestamps) | ✅ (metadata dict) |
+
+---
+
+## Why This Design Is Proven
+
+All these systems converge on the same patterns because:
+
+1. **Standardized Results** → Executor can't guess what went wrong; step must communicate clearly
+2. **Multiple Status Types** → Binary success/failure is too coarse; real work has nuance
+3. **Callbacks for Live Feedback** → Users need visibility during long operations
+4. **Structured Error Info** → Debugging requires context, not just exception messages
+5. **Testability** → Mocking callbacks lets you test without side effects
+
+This architecture will make `paper-scanner` align with industry best practices while remaining lightweight and easy to understand.
