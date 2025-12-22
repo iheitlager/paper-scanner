@@ -31,9 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multi-stage `paper_screening` table for Discovery/Screening workflow
 - **Enhanced README**: Added PostgreSQL integration features to documentation
 
-### Changed
 
-- Version bumped to 3.1.0
 
 ## [3.0.0] - 2025-12-22
 
@@ -98,8 +96,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Self-contained Executor**: No external callbacks needed; lazy loading minimizes startup time
 
 ## [2.8.0] - 2025-12-22
-
-### Added
 
 ### Changed
 
