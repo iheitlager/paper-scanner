@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Optional
 
 from paper_scanner.cli.executor import StepExecutor
-from paper_scanner.cli.paper_processor import StepExecutor as ProcessorExecutor
 
 
 # ==============================================================================
@@ -58,18 +57,12 @@ class BatchTaskExecutor:
             "project_name": self.project_name,
         }
         
-        # Create executor
+        # Create executor (self-contained with lazy step loading)
         executor = StepExecutor(
             general_config=general_config,
             cache_dir=self.cache_dir,
             verbose=self.verbose,
             debug=self.debug,
-            get_step_func=lambda name: ProcessorExecutor.get_step(
-                name,
-                general_config,
-                executor.papers_db,
-                executor.cache_dir
-            ),
         )
         
         # Load and execute
@@ -123,19 +116,13 @@ class REPLSession:
         self.cache_dir = cache_dir or Path.home() / ".paper-scanner"
         self.verbose = verbose
         
-        # Create executor
+        # Create executor (self-contained with lazy step loading)
         general_config = {"project_name": project_name}
         self.executor = StepExecutor(
             general_config=general_config,
             cache_dir=self.cache_dir,
             verbose=verbose,
             debug=False,
-            get_step_func=lambda name: ProcessorExecutor.get_step(
-                name,
-                general_config,
-                self.executor.papers_db,
-                self.cache_dir
-            ),
         )
         
         # Load definition and checkpoint

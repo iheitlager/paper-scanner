@@ -45,21 +45,11 @@ def general_config():
 @pytest.fixture
 def executor(general_config, temp_cache_dir):
     """Create a StepExecutor instance"""
-    def mock_get_step(step_name):
-        """Mock step instantiation"""
-        mock_step = Mock()
-        mock_step.execute.return_value = {
-            "status": "ok",
-            "count": 0,
-        }
-        return mock_step
-    
     return StepExecutor(
         general_config=general_config,
         cache_dir=temp_cache_dir,
         verbose=False,
         debug=False,
-        get_step_func=mock_get_step,
     )
 
 
@@ -295,7 +285,6 @@ class TestCheckpointManagement:
         executor2 = StepExecutor(
             general_config=executor.general_config,
             cache_dir=temp_cache_dir,
-            get_step_func=executor.get_step_func,
         )
         executor2.load_definition(sample_definition_file)
         executor2.load_checkpoint()
@@ -408,9 +397,8 @@ class TestStepExecution:
         executor.load_definition(sample_definition_file)
         
         # Mock step to raise exception
-        executor.get_step_func = lambda name: Mock(execute=Mock(side_effect=Exception("Test error")))
-        
-        result = executor.execute_step(0)
+        with patch.object(executor, 'get_step', side_effect=Exception("Test error")):
+            result = executor.execute_step(0)
         
         assert result["status"] == "error"
         assert "Test error" in result["error"]
@@ -456,9 +444,8 @@ class TestRunAll:
                 }
             return mock_step
         
-        executor.get_step_func = mock_get_step
-        
-        results = executor.run_all()
+        with patch.object(executor, 'get_step', side_effect=mock_get_step):
+            results = executor.run_all()
         
         assert results["status"] == "error"
         assert results["steps_executed"] == 1

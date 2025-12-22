@@ -10,7 +10,6 @@ This is the foundation for all executor patterns.
 from pathlib import Path
 
 from paper_scanner.cli.executor import StepExecutor
-from paper_scanner.cli.paper_processor import StepExecutor as ProcessorExecutor
 
 
 def main():
@@ -30,19 +29,12 @@ def main():
     # 2. Define cache directory for checkpoints
     cache_dir = Path.home() / ".paper-scanner" / "spike-011"
     
-    # 3. Create executor with step instantiation function
-    # The get_step_func is critical - it's how the executor instantiates steps
+    # 3. Create executor (self-contained with lazy step loading)
     executor = StepExecutor(
         general_config=general_config,
         cache_dir=cache_dir,
         verbose=True,
         debug=False,
-        get_step_func=lambda name: ProcessorExecutor.get_step(
-            name, 
-            general_config, 
-            executor.papers_db,  # Shared database
-            executor.cache_dir
-        ),
     )
     
     print(f"\n✓ Executor created")

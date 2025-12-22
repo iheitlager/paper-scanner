@@ -12,7 +12,6 @@ The executor provides two main methods for introspection:
 from pathlib import Path
 
 from paper_scanner.cli.executor import StepExecutor
-from paper_scanner.cli.paper_processor import StepExecutor as ProcessorExecutor
 
 
 def main():
@@ -32,17 +31,11 @@ def main():
     cache_dir = Path.home() / ".paper-scanner" / "spike-011"
     definition_file = Path(__file__).parent / "test_definition.yml"
     
-    # Create and load
+    # Create and load (self-contained with lazy step loading)
     executor = StepExecutor(
         general_config=general_config,
         cache_dir=cache_dir,
         verbose=False,
-        get_step_func=lambda name: ProcessorExecutor.get_step(
-            name, 
-            general_config, 
-            executor.papers_db,
-            executor.cache_dir
-        ),
     )
     
     executor.load_definition(definition_file)

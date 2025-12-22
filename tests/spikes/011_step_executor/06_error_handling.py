@@ -14,7 +14,6 @@ Error scenarios covered:
 from pathlib import Path
 
 from paper_scanner.cli.executor import StepExecutor
-from paper_scanner.cli.paper_processor import StepExecutor as ProcessorExecutor
 
 
 def test_missing_definition():
@@ -30,12 +29,6 @@ def test_missing_definition():
         general_config=general_config,
         cache_dir=cache_dir,
         verbose=True,
-        get_step_func=lambda name: ProcessorExecutor.get_step(
-            name, 
-            general_config, 
-            executor.papers_db,
-            executor.cache_dir
-        ),
     )
     
     try:
@@ -66,12 +59,6 @@ def test_invalid_yaml():
             general_config=general_config,
             cache_dir=cache_dir,
             verbose=True,
-            get_step_func=lambda name: ProcessorExecutor.get_step(
-                name, 
-                general_config, 
-                executor.papers_db,
-                executor.cache_dir
-            ),
         )
         
         try:
@@ -127,12 +114,6 @@ def test_undefined_template_reference():
             general_config=general_config,
             cache_dir=cache_dir,
             verbose=True,
-            get_step_func=lambda name: ProcessorExecutor.get_step(
-                name, 
-                general_config, 
-                executor.papers_db,
-                executor.cache_dir
-            ),
         )
         
         try:
@@ -180,12 +161,6 @@ def test_step_execution_error():
             cache_dir=cache_dir,
             verbose=True,
             debug=False,
-            get_step_func=lambda name: ProcessorExecutor.get_step(
-                name, 
-                general_config, 
-                executor.papers_db,
-                executor.cache_dir
-            ),
         )
         
         executor.load_definition(temp_path)
@@ -219,12 +194,6 @@ def test_checkpoint_error_recovery():
         general_config=general_config,
         cache_dir=cache_dir,
         verbose=True,
-        get_step_func=lambda name: ProcessorExecutor.get_step(
-            name, 
-            general_config, 
-            executor.papers_db,
-            executor.cache_dir
-        ),
     )
     
     # Create invalid checkpoint file

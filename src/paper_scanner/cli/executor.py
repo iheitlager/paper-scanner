@@ -9,21 +9,76 @@ Three-level configuration model:
 1. general_config: Project-level settings (project_name, cache_dir, etc.)
 2. step_config: Step-specific parameters from YAML or runtime
 3. Runtime flags: verbose, dry_run, debug (passed during execution)
+
+Self-contained with integrated step discovery and lazy loading.
 """
 
 import hashlib
-import inspect
+import importlib
 import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 import yaml
 
+from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
+
+
+class LazyStepRegistry(dict):
+    """Dictionary that lazy-loads step classes on access"""
+    
+    def __init__(self, registry_paths: Dict[str, str]):
+        """
+        Initialize registry with module paths.
+        
+        Args:
+            registry_paths: Dict mapping step_name -> "module_path:ClassName"
+        """
+        self._paths = registry_paths
+        self._loaded: Dict[str, Type[BaseStep]] = {}
+        # Initialize dict with keys from paths (but don't load values yet)
+        super().__init__({key: None for key in registry_paths.keys()})
+    
+    def __getitem__(self, key: str) -> Type[BaseStep]:
+        """Get a step class, lazy-loading if necessary"""
+        if key not in self._paths:
+            raise KeyError(f"Unknown step: {key}")
+        
+        # Return cached version if already loaded
+        if key in self._loaded:
+            return self._loaded[key]
+        
+        # Load and cache the step class
+        path_str = self._paths[key]
+        module_path, class_name = path_str.split(":")
+        module = importlib.import_module(module_path)
+        step_class = getattr(module, class_name)
+        self._loaded[key] = step_class
+        # Update the dict value too
+        super().__setitem__(key, step_class)
+        return step_class
+    
+    def get(self, key: str, default=None):
+        """Get with default value, lazy-loading if necessary"""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+    
+    def items(self):
+        """Return items, lazy-loading all values first"""
+        for key in self._paths.keys():
+            yield key, self[key]
+    
+    def values(self):
+        """Return values, lazy-loading all values first"""
+        for key in self._paths.keys():
+            yield self[key]
 
 
 class StepExecutor:
@@ -36,7 +91,13 @@ class StepExecutor:
     - Step execution (single or batch mode)
     - Checkpoint management (local files only)
     - Statistics and timing collection
+    - Step discovery and lazy instantiation
+    
+    Self-contained with no external step executor dependencies.
     """
+    
+    # Class-level lazy registry (created on first access)
+    _step_registry: Optional[LazyStepRegistry] = None
 
     def __init__(
         self,
@@ -44,7 +105,6 @@ class StepExecutor:
         cache_dir: Optional[Path] = None,
         verbose: bool = False,
         debug: bool = False,
-        get_step_func=None,
     ):
         """
         Initialize executor with project configuration.
@@ -54,8 +114,6 @@ class StepExecutor:
             cache_dir: Cache directory for checkpoints (default: ~/.paper-scanner)
             verbose: Enable verbose output
             debug: Enable debug output
-            get_step_func: Function to instantiate steps by name
-                          Signature: get_step_func(step_name) -> BaseStep instance
         """
         self.general_config = general_config
         self.cache_dir = cache_dir or Path.home() / ".paper-scanner"
@@ -63,7 +121,6 @@ class StepExecutor:
         
         self.verbose = verbose
         self.debug = debug
-        self.get_step_func = get_step_func
 
         # Session state
         self.papers_db = PapersDatabase()
@@ -79,6 +136,105 @@ class StepExecutor:
         # Statistics
         self.start_time: Optional[float] = None
         self.step_timings: List[Dict[str, Any]] = []
+    
+    @classmethod
+    def get_builtin_steps(cls) -> Dict[str, Type[BaseStep]]:
+        """
+        Get the lazy-loading step registry.
+        
+        Steps are only imported when actually accessed.
+        This significantly speeds up CLI commands that don't use all steps.
+        
+        Returns:
+            LazyStepRegistry that loads steps on demand
+        """
+        if cls._step_registry is None:
+            cls._step_registry = LazyStepRegistry(STEP_REGISTRY_PATHS)
+        return cls._step_registry
+    
+    def get_step(self, step_name: str) -> BaseStep:
+        """
+        Get a step instance by name.
+
+        Args:
+            step_name: Name of the step (e.g., "bibtex_import")
+
+        Returns:
+            Instantiated step object (BaseStep subclass instance)
+            
+        Raises:
+            ValueError: If step not found or instantiation fails
+        """
+        builtin_steps = self.get_builtin_steps()
+
+        if step_name not in builtin_steps:
+            available = list(builtin_steps._paths.keys())
+            raise ValueError(f"Unknown step: {step_name}. Available: {available}")
+
+        step_class = builtin_steps[step_name]
+        try:
+            # Instantiate the step with required dependencies
+            return step_class(
+                general_config=self.general_config,
+                db=self.papers_db,
+                cache_dir=self.cache_dir
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to instantiate step {step_name}: {e}") from e
+    
+    @staticmethod
+    def parse_step_config(step_config: Dict[str, Any]) -> Tuple[str, Dict[str, Any], Optional[str]]:
+        """
+        Parse Ansible-style step configuration.
+
+        Args:
+            step_config: Raw step configuration from YAML
+
+        Returns:
+            Tuple of (step_name, step_params, description)
+            
+        Raises:
+            ValueError: If step configuration is invalid
+        """
+        step_value = step_config.get("step")
+        if not step_value:
+            raise ValueError("Step configuration missing 'step' key")
+
+        description = step_config.get("description", "")
+
+        # Find the builtin key to determine actual step name
+        builtin_key = None
+        for key in step_config.keys():
+            if key.startswith("builtin."):
+                builtin_key = key
+                break
+
+        if not builtin_key:
+            raise ValueError(f"Step configuration missing 'builtin.<step>' key")
+
+        # Extract step name from builtin key
+        step_name = builtin_key.replace("builtin.", "")
+
+        # If step_value contains spaces or is not a valid step name, use it as description
+        builtin_steps = StepExecutor.get_builtin_steps()
+        if " " in step_value or step_value not in builtin_steps._paths:
+            if not description:
+                description = step_value
+        else:
+            step_name = step_value
+
+        # Get step params from builtin key
+        step_params = step_config.get(builtin_key, {})
+
+        # Also accept step-specific params at root level for convenience
+        if not step_params:
+            step_params = {
+                k: v
+                for k, v in step_config.items()
+                if k not in ("step", "description") and not k.startswith("builtin.")
+            }
+
+        return step_name, step_params, description
 
     def load_definition(self, definition_file: Path) -> bool:
         """
@@ -143,8 +299,10 @@ class StepExecutor:
         """
         def check_step_templates(step: Dict[str, Any]) -> None:
             """Recursively check for template references in a step"""
-            if "builtin.run-template" in step:
-                template_name = step["builtin.run-template"].get("template")
+            # Check for run-template references
+            step_name, step_params, _ = self.parse_step_config(step)
+            if step_name == "run-template":
+                template_name = step_params.get("template")
                 if template_name and template_name not in self.templates:
                     raise ValueError(
                         f"Referenced template '{template_name}' not found. "
@@ -264,7 +422,7 @@ class StepExecutor:
 
         try:
             # Parse step config to get step name
-            step_name, step_params, description = self._parse_step_config(step_config)
+            step_name, step_params, description = self.parse_step_config(step_config)
 
             # Handle run-template: recursively execute template steps
             if step_name == "run-template":
@@ -314,33 +472,6 @@ class StepExecutor:
                 "count": 0,
             }
 
-    def _parse_step_config(self, step_config: Dict[str, Any]) -> Tuple[str, Dict[str, Any], Optional[str]]:
-        """
-        Parse Ansible-style step configuration.
-
-        Returns:
-            Tuple of (step_name, step_params, description)
-        """
-        if "step" not in step_config:
-            raise ValueError("Step configuration missing 'step' key")
-
-        description = step_config.get("description")
-
-        # Find the builtin key
-        builtin_key = None
-        for key in step_config.keys():
-            if key.startswith("builtin."):
-                builtin_key = key
-                break
-
-        if not builtin_key:
-            raise ValueError("Step configuration missing 'builtin.<step>' key")
-
-        step_name = builtin_key.replace("builtin.", "")
-        step_params = step_config.get(builtin_key, {})
-
-        return step_name, step_params, description
-
     def _execute_builtin_step(
         self,
         step_name: str,
@@ -349,11 +480,8 @@ class StepExecutor:
         dry_run: bool,
     ) -> Dict[str, Any]:
         """Execute a builtin step"""
-        if not self.get_step_func:
-            raise ValueError("get_step_func not configured")
-
         # Get step instance
-        step_instance = self.get_step_func(step_name)
+        step_instance = self.get_step(step_name)
 
         # For checkpoint steps, inject metadata
         if step_name == "checkpoint":
@@ -406,7 +534,7 @@ class StepExecutor:
         try:
             for template_step in template_steps:
                 # Parse and execute each template step
-                step_name, step_params, step_desc = self._parse_step_config(template_step)
+                step_name, step_params, step_desc = self.parse_step_config(template_step)
 
                 if step_name == "run-template":
                     # Nested template call
@@ -551,14 +679,8 @@ class StepExecutor:
         Returns:
             Statistics dictionary with timings, counts, and inventory
         """
-        # Get available steps
-        available_steps = []
-        if self.get_step_func:
-            try:
-                from paper_scanner.cli import STEP_REGISTRY_PATHS
-                available_steps = list(STEP_REGISTRY_PATHS.keys())
-            except Exception:
-                pass
+        # Get available steps from the lazy registry
+        available_steps = list(self.get_builtin_steps()._paths.keys())
 
         stats = {
             "project_name": self.general_config.get("project_name"),
