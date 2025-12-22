@@ -281,7 +281,7 @@ def main():
     )
     
     run_parser.add_argument(
-        "--debug",
+        "-d", "--debug",
         action="store_true",
         help="Enable debug output for detailed step information"
     )

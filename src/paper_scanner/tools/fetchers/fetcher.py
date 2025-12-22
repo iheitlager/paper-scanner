@@ -21,6 +21,8 @@ from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import \
     OpenAlexHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import \
     PublisherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.semantic_scholar_handler import \
+    SemanticScholarHandler
 
 console = Console(file=sys.stderr)
 
@@ -28,6 +30,7 @@ console = Console(file=sys.stderr)
 handler_classes = {
     "crossref": CrossrefHandler,
     "openalex": OpenAlexHandler,
+    "semanticscholar": SemanticScholarHandler,
     "publisher": PublisherHandler,
     # Add others as implemented
 }

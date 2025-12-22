@@ -156,7 +156,7 @@ class RetrieveMetadataStep(BaseStep):
         if results["errors"]:
             console.print(f" [red]✗[/red] [red]Errors: {len(results['errors'])}[/red]")
 
-        results["status"] = StepStatus.ERROR if len(results['errors']) == 0 else 'completed_with_errors' 
+        results["status"] = StepStatus.SUCCESS if len(results['errors']) == 0 else StepStatus.ERROR 
         return results
 
 
