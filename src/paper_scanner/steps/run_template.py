@@ -41,6 +41,10 @@ class RunTemplateStep(BaseStep):
 
         if "template" not in config:
             errors.append("Missing required 'template' parameter")
+        else:
+            template = config.get("template")
+            if not template or (isinstance(template, str) and not template.strip()):
+                errors.append("Template name cannot be empty")
 
         return len(errors) == 0, errors
 

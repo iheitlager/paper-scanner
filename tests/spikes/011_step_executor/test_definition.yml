@@ -1,0 +1,78 @@
+# Test definition for 011_step_executor spike
+# Based on Scopus sample dataset (20 papers)
+
+project:
+  name: "Spike 011 - StepExecutor Trial (Scopus Sample)"
+  researcher: "Ilja Heitlager"
+  institution: "TU Eindhoven"
+
+# Templates define reusable sequences of steps
+templates:
+  - template: "basic_screening"
+    description: "Basic screening workflow"
+    steps:
+      - step: "Deduplication"
+        builtin.deduplication:
+          methods:
+            - method: "doi_exact"
+              priority: 1
+            - method: "title_similarity"
+              priority: 2
+              threshold: 0.90
+
+      - step: "Keyword Screening"
+        builtin.keyword_screening:
+          exclusion_keywords:
+            domains:
+              - "medical"
+              - "healthcare"
+
+  - template: "advanced_analysis"
+    description: "Advanced analysis workflow"
+    steps:
+      - step: "Semantic Screening"
+        builtin.semantic_screening:
+          model: "embeddings"
+          threshold: 0.85
+
+      - step: "Summarization"
+        builtin.summarize:
+          style: "research_questions"
+          max_length: 500
+
+# Main pipeline steps
+steps:
+  - step: "Input - Load Papers"
+    description: "Load papers from Scopus BibTeX file"
+    builtin.input:
+      source: "bibtex"
+      file: "tests/data/scopus_sample_20.bib"
+
+  - step: "Load Files"
+    description: "Load PDF files for papers"
+    builtin.load_files:
+      input_dir: "./papers"
+      recursive: true
+
+  - step: "Retrieve Metadata"
+    description: "Retrieve missing metadata via CrossRef"
+    builtin.retrieve_metadata:
+      use_crossref: true
+      update_existing: false
+
+  - step: "Apply Basic Screening Template"
+    description: "Execute template: basic_screening"
+    builtin.run-template:
+      template: "basic_screening"
+
+  - step: "Export Results"
+    description: "Export processed papers"
+    builtin.export:
+      format: "json"
+      output_path: "processed_papers.json"
+      include_duplicates: false
+
+  - step: "Generate Summary"
+    description: "Generate project summary report"
+    builtin.echo:
+      message: "Pipeline execution complete"

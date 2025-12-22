@@ -509,21 +509,11 @@ class StepExecutor:
             checkpoint_name = f"checkpoint_{project_hash}_step_{self.current_step_index:03d}.json"
             checkpoint_file = checkpoints_dir / checkpoint_name
 
-            # Serialize papers to JSON
-            papers_data = [
-                {
-                    "id": p.id,
-                    "title": p.title,
-                    "authors": p.authors,
-                    "year": p.year,
-                    "doi": p.doi,
-                    "batch_id": p.batch_id,
-                    "file_path": p.file_path,
-                    "tags": p.tags,
-                    "duplicate_of": p.duplicate_of,
-                }
-                for p in self.papers_db.papers
-            ]
+            # Serialize papers to JSON - use model_dump() for proper Pydantic serialization
+            papers_data = []
+            for p in self.papers_db.papers:
+                paper_dict = p.model_dump(mode='json')
+                papers_data.append(paper_dict)
 
             checkpoint_data = {
                 "project_name": self.general_config.get("project_name"),

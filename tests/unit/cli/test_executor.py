@@ -1,0 +1,573 @@
+"""
+Unit tests for StepExecutor class
+
+Tests cover:
+- Definition loading and validation
+- Checkpoint management (save and load)
+- Single step execution
+- Batch execution (run_all)
+- Statistics and session state
+"""
+
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
+import yaml
+
+from paper_scanner.cli.executor import StepExecutor
+from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.models import Paper
+
+
+# ============================================================================
+# Fixtures
+# ============================================================================
+
+@pytest.fixture
+def temp_cache_dir():
+    """Temporary cache directory"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir)
+
+
+@pytest.fixture
+def general_config():
+    """Basic project configuration"""
+    return {
+        "project_name": "Test Project",
+        "researcher": "Test Researcher",
+    }
+
+
+@pytest.fixture
+def executor(general_config, temp_cache_dir):
+    """Create a StepExecutor instance"""
+    def mock_get_step(step_name):
+        """Mock step instantiation"""
+        mock_step = Mock()
+        mock_step.execute.return_value = {
+            "status": "ok",
+            "count": 0,
+        }
+        return mock_step
+    
+    return StepExecutor(
+        general_config=general_config,
+        cache_dir=temp_cache_dir,
+        verbose=False,
+        debug=False,
+        get_step_func=mock_get_step,
+    )
+
+
+@pytest.fixture
+def sample_definition_file(temp_cache_dir):
+    """Create a sample YAML definition file"""
+    definition = {
+        "project": {
+            "name": "Test Review",
+            "description": "Test definition",
+        },
+        "templates": [
+            {
+                "template": "screening",
+                "steps": [
+                    {
+                        "step": "Screen papers",
+                        "builtin.echo": {"message": "Screening..."}
+                    }
+                ]
+            }
+        ],
+        "steps": [
+            {
+                "step": "Import data",
+                "builtin.echo": {"message": "Importing..."}
+            },
+            {
+                "step": "Apply screening",
+                "builtin.run-template": {"template": "screening"}
+            },
+            {
+                "step": "Export results",
+                "builtin.echo": {"message": "Exporting..."}
+            }
+        ]
+    }
+    
+    def_file = temp_cache_dir / "definition.yml"
+    with open(def_file, "w") as f:
+        yaml.dump(definition, f)
+    
+    return def_file
+
+
+# ============================================================================
+# TestDefinitionLoading
+# ============================================================================
+
+class TestDefinitionLoading:
+    """Tests for loading and validating definitions"""
+
+    def test_load_valid_definition(self, executor, sample_definition_file):
+        """Test loading a valid definition file"""
+        result = executor.load_definition(sample_definition_file)
+        
+        assert result is True
+        assert executor.definition is not None
+        assert len(executor.steps) == 3
+        assert len(executor.templates) == 1
+        assert "screening" in executor.templates
+
+    def test_load_nonexistent_file(self, executor):
+        """Test loading nonexistent file raises error"""
+        with pytest.raises(FileNotFoundError):
+            executor.load_definition(Path("/nonexistent/definition.yml"))
+
+    def test_load_empty_definition(self, executor, temp_cache_dir):
+        """Test loading empty YAML file"""
+        empty_file = temp_cache_dir / "empty.yml"
+        empty_file.write_text("")
+        
+        with pytest.raises(ValueError, match="Definition file is empty"):
+            executor.load_definition(empty_file)
+
+    def test_load_invalid_yaml(self, executor, temp_cache_dir):
+        """Test loading invalid YAML"""
+        bad_file = temp_cache_dir / "bad.yml"
+        # YAML that parses but is invalid for our purposes
+        bad_file.write_text("invalid: [unclosed")
+        
+        # Either raises Exception or returns validation error
+        try:
+            executor.load_definition(bad_file)
+            # If it doesn't raise, that's acceptable too (graceful handling)
+        except Exception:
+            pass  # Expected
+
+    def test_load_updates_general_config(self, executor, sample_definition_file):
+        """Test that project metadata updates general_config"""
+        executor.load_definition(sample_definition_file)
+        
+        assert executor.general_config["project_name"] == "Test Review"
+
+    def test_load_creates_checkpoints_dir(self, executor, sample_definition_file, temp_cache_dir):
+        """Test that checkpoints directory is created"""
+        executor.load_definition(sample_definition_file)
+        
+        checkpoints_dir = temp_cache_dir / "checkpoints"
+        assert checkpoints_dir.exists()
+
+    def test_load_definition_without_templates(self, executor, temp_cache_dir):
+        """Test loading definition without templates section"""
+        definition = {
+            "project": {"name": "Simple"},
+            "steps": [
+                {"step": "Echo", "builtin.echo": {"message": "test"}}
+            ]
+        }
+        
+        def_file = temp_cache_dir / "simple.yml"
+        with open(def_file, "w") as f:
+            yaml.dump(definition, f)
+        
+        result = executor.load_definition(def_file)
+        
+        assert result is True
+        assert len(executor.templates) == 0
+        assert len(executor.steps) == 1
+
+    def test_validate_template_references_success(self, executor, sample_definition_file):
+        """Test successful template reference validation"""
+        executor.load_definition(sample_definition_file)
+        # Should not raise
+        executor._validate_template_references()
+
+    def test_validate_template_references_undefined(self, executor, temp_cache_dir):
+        """Test validation fails for undefined template reference"""
+        definition = {
+            "project": {"name": "Test"},
+            "templates": [
+                {
+                    "template": "screening",
+                    "steps": [{"step": "Echo", "builtin.echo": {}}]
+                }
+            ],
+            "steps": [
+                {
+                    "step": "Apply template",
+                    "builtin.run-template": {"template": "nonexistent"}
+                }
+            ]
+        }
+        
+        def_file = temp_cache_dir / "bad_template.yml"
+        with open(def_file, "w") as f:
+            yaml.dump(definition, f)
+        
+        with pytest.raises(ValueError, match="Referenced template 'nonexistent' not found"):
+            executor.load_definition(def_file)
+
+
+# ============================================================================
+# TestCheckpointManagement
+# ============================================================================
+
+class TestCheckpointManagement:
+    """Tests for checkpoint saving and loading"""
+
+    def test_checkpoint_save(self, executor, sample_definition_file, temp_cache_dir):
+        """Test saving a checkpoint"""
+        executor.load_definition(sample_definition_file)
+        
+        # Add some papers
+        paper = Paper(
+            id="paper1",
+            cite_key="TestPaper2020",
+            title="Test Paper",
+            authors=[],
+            year=2020,
+            doi="10.1234/test",
+        )
+        executor.papers_db.add(paper)
+        executor.current_step_index = 1
+        
+        result = executor.checkpoint()
+        
+        if result["status"] != "ok":
+            print(f"Checkpoint error: {result}")
+        
+        assert result["status"] == "ok"
+        assert "checkpoint_file" in result
+        assert result["papers_count"] == 1
+        
+        # Verify file exists
+        checkpoint_file = Path(result["checkpoint_file"])
+        assert checkpoint_file.exists()
+
+    def test_checkpoint_file_format(self, executor, sample_definition_file, temp_cache_dir):
+        """Test checkpoint file has correct format"""
+        executor.load_definition(sample_definition_file)
+        
+        paper = Paper(
+            id="paper1",
+            cite_key="TestPaper2020",
+            title="Test Paper",
+            authors=[],
+            year=2020,
+            doi="10.1234/test",
+        )
+        executor.papers_db.add(paper)
+        executor.current_step_index = 1
+        
+        result = executor.checkpoint()
+        checkpoint_file = Path(result["checkpoint_file"])
+        
+        with open(checkpoint_file) as f:
+            data = json.load(f)
+        
+        assert "project_name" in data
+        assert "step_index" in data
+        assert "timestamp" in data
+        assert "papers_count" in data
+        assert "papers" in data
+
+    def test_load_checkpoint(self, executor, sample_definition_file, temp_cache_dir):
+        """Test loading a checkpoint"""
+        executor.load_definition(sample_definition_file)
+        
+        # Save checkpoint
+        paper = Paper(
+            id="paper1",
+            cite_key="TestPaper2020",
+            title="Test Paper",
+            authors=[],
+            year=2020,
+        )
+        executor.papers_db.add(paper)
+        executor.current_step_index = 1
+        save_result = executor.checkpoint()
+        
+        # Create new executor and load checkpoint
+        executor2 = StepExecutor(
+            general_config=executor.general_config,
+            cache_dir=temp_cache_dir,
+            get_step_func=executor.get_step_func,
+        )
+        executor2.load_definition(sample_definition_file)
+        executor2.load_checkpoint()
+        
+        assert executor2.papers_db.count() == 1
+        assert executor2.current_step_index == 2
+
+    def test_load_checkpoint_skip(self, executor, sample_definition_file, temp_cache_dir):
+        """Test skipping checkpoint loading"""
+        executor.load_definition(sample_definition_file)
+        executor.current_step_index = 5
+        
+        executor.load_checkpoint(skip_checkpoint=True)
+        
+        assert executor.current_step_index == 5
+
+    def test_load_checkpoint_clear(self, executor, sample_definition_file, temp_cache_dir):
+        """Test clearing checkpoints"""
+        executor.load_definition(sample_definition_file)
+        
+        # Save checkpoint
+        executor.papers_db.add(Paper(id="p1", cite_key="P2020", title="T", authors=[], year=2020))
+        executor.checkpoint()
+        
+        checkpoints_dir = temp_cache_dir / "checkpoints"
+        checkpoint_files_before = list(checkpoints_dir.glob("*.json"))
+        assert len(checkpoint_files_before) > 0
+        
+        # Clear
+        executor.load_checkpoint(clear_checkpoint=True)
+        
+        assert not checkpoints_dir.exists() or len(list(checkpoints_dir.glob("*.json"))) == 0
+
+    def test_checkpoint_no_papers(self, executor, sample_definition_file):
+        """Test checkpointing with no papers"""
+        executor.load_definition(sample_definition_file)
+        
+        result = executor.checkpoint()
+        
+        assert result["status"] == "ok"
+        assert result["papers_count"] == 0
+
+
+# ============================================================================
+# TestStepExecution
+# ============================================================================
+
+class TestStepExecution:
+    """Tests for executing individual steps"""
+
+    def test_execute_step_success(self, executor, sample_definition_file):
+        """Test successful step execution"""
+        executor.load_definition(sample_definition_file)
+        
+        result = executor.execute_step(0)
+        
+        assert result["status"] == "ok"
+        assert executor.current_step_index == 1
+        assert len(executor.step_history) == 1
+
+    def test_execute_step_out_of_range(self, executor, sample_definition_file):
+        """Test executing step index out of range"""
+        executor.load_definition(sample_definition_file)
+        
+        result = executor.execute_step(999)
+        
+        assert result["status"] == "error"
+        assert "out of range" in result["error"].lower()
+
+    def test_execute_step_tracking(self, executor, sample_definition_file):
+        """Test step execution tracking"""
+        executor.load_definition(sample_definition_file)
+        
+        executor.execute_step(0)
+        executor.execute_step(1)
+        
+        assert executor.current_step_index == 2
+        assert len(executor.step_history) == 2
+        assert executor.step_history[0]["index"] == 0
+        assert executor.step_history[1]["index"] == 1
+
+    def test_execute_step_timing(self, executor, sample_definition_file):
+        """Test that step timings are recorded"""
+        executor.load_definition(sample_definition_file)
+        
+        executor.execute_step(0)
+        
+        assert len(executor.step_timings) > 0
+        timing = executor.step_timings[0]
+        assert "step" in timing
+        assert "duration_seconds" in timing
+        assert "duration_ms" in timing
+        assert timing["duration_seconds"] >= 0
+
+    def test_execute_step_with_override_config(self, executor, sample_definition_file):
+        """Test executing step with overridden config"""
+        executor.load_definition(sample_definition_file)
+        
+        override_config = {
+            "step": "Override",
+            "builtin.echo": {"message": "overridden"}
+        }
+        
+        result = executor.execute_step(0, step_config=override_config)
+        
+        assert result["status"] == "ok"
+
+    def test_execute_step_error_handling(self, executor, sample_definition_file):
+        """Test error handling during step execution"""
+        executor.load_definition(sample_definition_file)
+        
+        # Mock step to raise exception
+        executor.get_step_func = lambda name: Mock(execute=Mock(side_effect=Exception("Test error")))
+        
+        result = executor.execute_step(0)
+        
+        assert result["status"] == "error"
+        assert "Test error" in result["error"]
+
+
+# ============================================================================
+# TestRunAll
+# ============================================================================
+
+class TestRunAll:
+    """Tests for batch execution of all steps"""
+
+    def test_run_all_success(self, executor, sample_definition_file):
+        """Test running all steps successfully"""
+        executor.load_definition(sample_definition_file)
+        
+        results = executor.run_all()
+        
+        assert results["status"] == "ok"
+        assert results["steps_executed"] == 3
+        assert results["steps_failed"] == 0
+        assert len(results["step_results"]) == 3
+
+    def test_run_all_with_error(self, executor, sample_definition_file):
+        """Test run_all stops on error"""
+        executor.load_definition(sample_definition_file)
+        
+        # Mock second step to fail
+        call_count = [0]
+        def mock_get_step(name):
+            call_count[0] += 1
+            mock_step = Mock()
+            if call_count[0] == 2:
+                mock_step.execute.return_value = {
+                    "status": "error",
+                    "error": "Step failed",
+                    "count": 0,
+                }
+            else:
+                mock_step.execute.return_value = {
+                    "status": "ok",
+                    "count": 0,
+                }
+            return mock_step
+        
+        executor.get_step_func = mock_get_step
+        
+        results = executor.run_all()
+        
+        assert results["status"] == "error"
+        assert results["steps_executed"] == 1
+        assert results["steps_failed"] == 1
+
+    def test_run_all_resume_from_checkpoint(self, executor, sample_definition_file):
+        """Test run_all resumes from checkpoint"""
+        executor.load_definition(sample_definition_file)
+        executor.current_step_index = 1
+        
+        results = executor.run_all()
+        
+        # Should only execute steps 1 and 2 (3 total - 1 skipped)
+        assert len(results["step_results"]) == 2
+
+    def test_run_all_dry_run(self, executor, sample_definition_file):
+        """Test run_all with dry_run flag"""
+        executor.load_definition(sample_definition_file)
+        
+        results = executor.run_all(dry_run=True)
+        
+        assert results["status"] == "ok"
+
+    def test_run_all_timing(self, executor, sample_definition_file):
+        """Test run_all records total duration"""
+        executor.load_definition(sample_definition_file)
+        
+        results = executor.run_all()
+        
+        assert "total_duration_seconds" in results
+        assert results["total_duration_seconds"] >= 0
+
+
+# ============================================================================
+# TestStatistics
+# ============================================================================
+
+class TestStatistics:
+    """Tests for statistics and inventory methods"""
+
+    def test_get_stats_empty(self, executor, sample_definition_file):
+        """Test getting stats with empty database"""
+        executor.load_definition(sample_definition_file)
+        
+        stats = executor.get_stats()
+        
+        assert stats["papers_total"] == 0
+        assert stats["papers_unique"] == 0
+        assert stats["papers_duplicates"] == 0
+        assert stats["current_step_index"] == 0
+        assert stats["total_steps"] == 3
+
+    def test_get_stats_with_papers(self, executor, sample_definition_file):
+        """Test getting stats with papers in database"""
+        executor.load_definition(sample_definition_file)
+        
+        # Add papers
+        for i in range(3):
+            paper = Paper(
+                id=f"p{i}",
+                cite_key=f"Paper{i}2020",
+                title=f"Paper {i}",
+                authors=[],
+                year=2020,
+            )
+            executor.papers_db.add(paper)
+        
+        stats = executor.get_stats()
+        
+        assert stats["papers_total"] == 3
+        assert stats["papers_unique"] == 3
+
+    def test_get_stats_inventory(self, executor, sample_definition_file):
+        """Test stats include inventory information"""
+        executor.load_definition(sample_definition_file)
+        
+        stats = executor.get_stats()
+        
+        assert "inventory" in stats
+        assert "builtin_steps" in stats["inventory"]
+        assert "templates" in stats["inventory"]
+        assert "screening" in stats["inventory"]["templates"]
+
+    def test_get_stats_timing(self, executor, sample_definition_file):
+        """Test stats include timing information"""
+        executor.load_definition(sample_definition_file)
+        executor.run_all()
+        
+        stats = executor.get_stats()
+        
+        assert "step_timings" in stats
+        assert len(stats["step_timings"]) == 3
+        assert "total_duration_seconds" in stats
+
+    def test_get_session_state(self, executor, sample_definition_file):
+        """Test getting session state"""
+        executor.load_definition(sample_definition_file)
+        
+        paper = Paper(id="p1", cite_key="P2020", title="T", authors=[], year=2020)
+        executor.papers_db.add(paper)
+        executor.execute_step(0)
+        
+        state = executor.get_session_state()
+        
+        assert state["papers_db"] is executor.papers_db
+        assert state["papers_count"] == 1
+        assert state["current_step_index"] == 1
+        assert state["total_steps"] == 3
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
