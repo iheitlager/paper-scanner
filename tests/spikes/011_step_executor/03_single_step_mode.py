@@ -28,34 +28,69 @@ from paper_scanner.cli.paper_processor import StepExecutor as ProcessorExecutor
 # Enable readline history and tab completion
 readline.parse_and_bind('tab: complete')
 
+# ANSI Colors
+class Colors:
+    HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
+    GRAY = '\033[90m'
+    
+    @staticmethod
+    def success(text):
+        return f"{Colors.GREEN}✓ {text}{Colors.END}"
+    
+    @staticmethod
+    def error(text):
+        return f"{Colors.RED}✗ {text}{Colors.END}"
+    
+    @staticmethod
+    def info(text):
+        return f"{Colors.BLUE}ℹ {text}{Colors.END}"
+    
+    @staticmethod
+    def warning(text):
+        return f"{Colors.YELLOW}⚠ {text}{Colors.END}"
 
-def print_menu():
-    """Print REPL menu options"""
-    print("""
-Commands:
-  step [N]     - Execute step N (default: next step)
-  checkpoint   - Save current state
-  stats        - Show statistics
-  state        - Show session state
-  history      - Show execution history
-  quit         - Exit
-  help         - Show this menu
 
-Keyboard:
-  CTRL-C       - Stop current operation
-  CTRL-D       - Exit REPL
-  ↑/↓          - Navigate command history
-""")
+def beautiful_header():
+    """Print a beautiful header for the REPL."""
+    print(f"\n{Colors.BOLD}{Colors.CYAN}╔══════════════════════════════════════════════════════════╗{Colors.END}")
+    print(f"{Colors.BOLD}{Colors.CYAN}║      📊 StepExecutor Interactive Mode (Single-Step)      ║{Colors.END}")
+    print(f"{Colors.BOLD}{Colors.CYAN}╚══════════════════════════════════════════════════════════╝{Colors.END}\n")
+
+
+def beautiful_menu():
+    """Print a beautifully formatted menu."""
+    print(f"{Colors.BOLD}Available Commands:{Colors.END}")
+    print(f"  {Colors.GREEN}step{Colors.END:<12} - Execute next step")
+    print(f"  {Colors.GREEN}checkpoint{Colors.END:<12} - Save checkpoint")
+    print(f"  {Colors.GREEN}stats{Colors.END:<12} - Show execution statistics")
+    print(f"  {Colors.GREEN}state{Colors.END:<12} - Show current session state")
+    print(f"  {Colors.GREEN}history{Colors.END:<12} - Show command history")
+    print(f"  {Colors.GREEN}help{Colors.END:<12} - Show this menu")
+    print(f"  {Colors.GREEN}quit{Colors.END:<12} - Exit REPL\n")
 
 
 def main():
-    """Interactive single-step execution"""
+    """Interactive REPL for single-step execution."""
+    beautiful_header()
     
-    print("=" * 60)
-    print("03_single_step_mode.py - Interactive Step-by-Step Execution")
-    print("=" * 60)
+    # Load definition
+    definition_path = Path(__file__).parent / "test_definition.yml"
     
-    # Setup
+    print(f"📂 Loading definition: {definition_path}")
+    
+    if not definition_path.exists():
+        print(f"{Colors.error(f'Definition file not found: {definition_path}')}")
+        sys.exit(1)
+    
+    # Setup config
     general_config = {
         "project_name": "Supplier Digital Innovation Review",
         "researcher": "Ilja Heitlager",
@@ -63,9 +98,8 @@ def main():
     }
     
     cache_dir = Path.home() / ".paper-scanner" / "spike-011"
-    definition_file = Path(__file__).parent / "test_definition.yml"
     
-    # Create executor
+    # Initialize executor
     executor = StepExecutor(
         general_config=general_config,
         cache_dir=cache_dir,
@@ -79,136 +113,146 @@ def main():
         ),
     )
     
-    # Load definition
-    print(f"\n1. Loading definition...")
-    executor.load_definition(definition_file)
-    print(f"   ✓ Loaded {len(executor.steps)} steps")
+    executor.load_definition(definition_path)
     
-    # Load checkpoint (resume if exists)
-    print(f"\n2. Loading checkpoint...")
-    executor.load_checkpoint()
-    print(f"   ✓ Starting from step {executor.current_step_index}")
+    if len(executor.steps) == 0:
+        print(f"{Colors.error('No steps loaded from definition')}")
+        sys.exit(1)
     
-    # Interactive loop
-    print(f"\n3. Interactive mode - type 'help' for commands\n")
-    print_menu()
+    print(f"{Colors.success(f'Loaded {len(executor.steps)} steps from definition')}\n")
+    beautiful_menu()
+    
+    command_history = []
     
     try:
         while True:
             try:
-                cmd = input(f"({executor.current_step_index}/{len(executor.steps)}) > ").strip()
+                # Calculate progress
+                progress = f"[{executor.current_step_index}/{len(executor.steps)}]"
+                prompt = f"{Colors.BOLD}{Colors.BLUE}{progress} > {Colors.END}"
+                
+                cmd = input(prompt).strip().lower()
                 
                 if not cmd:
                     continue
                 
-                if cmd == "quit" or cmd == "exit":
-                    print("\n✓ Exiting...")
-                    break
+                command_history.append(cmd)
                 
-                elif cmd == "help":
-                    print_menu()
-                
-                elif cmd.startswith("step"):
-                    # Parse optional step number
-                    parts = cmd.split()
-                    step_index = executor.current_step_index
+                # Execute commands
+                if cmd == "step":
+                    print(f"\n{Colors.info('Executing next step...')}")
+                    result = executor.execute_step(executor.current_step_index, dry_run=False)
+                    executor.current_step_index += 1
                     
-                    if len(parts) > 1:
-                        try:
-                            step_index = int(parts[1])
-                        except ValueError:
-                            print("Invalid step number")
-                            continue
-                    
-                    if step_index >= len(executor.steps):
-                        print(f"Step {step_index} out of range (0-{len(executor.steps)-1})")
-                        continue
-                    
-                    # Execute step
-                    print(f"\nExecuting step {step_index}...")
-                    result = executor.execute_step(step_index)
-                    
-                    print(f"  Status: {result['status']}")
-                    print(f"  Step: {result.get('step', 'N/A')}")
-                    if result.get('count') is not None:
-                        print(f"  Count: {result['count']}")
-                    if result.get('error'):
-                        print(f"  Error: {result['error']}")
-                    
-                    # Auto-advance if success
-                    if result['status'] == 'ok':
-                        print(f"✓ Step executed successfully")
+                    if result and result.get('status') == 'ok':
+                        step_name = result.get('step_name', 'Unknown')
+                        count = result.get('count', 0)
+                        print(f"  {Colors.success(f'{step_name} completed')}")
+                        print(f"  {Colors.CYAN}Processed:{Colors.END} {count} items")
+                        if 'duration_seconds' in result:
+                            duration = result['duration_seconds']
+                            print(f"  {Colors.CYAN}Duration:{Colors.END} {duration:.2f}s")
+                    else:
+                        error_msg = result.get('error', 'Unknown error') if result else 'No result'
+                        print(f"  {Colors.error(f'Execution failed: {error_msg}')}")
+                    print()
                 
                 elif cmd == "checkpoint":
-                    print("Saving checkpoint...")
+                    print(f"\n{Colors.info('Saving checkpoint...')}")
                     result = executor.checkpoint()
                     if result['status'] == 'ok':
-                        print(f"✓ Checkpoint saved: {result['checkpoint_file']}")
-                        print(f"  Papers saved: {result['papers_count']}")
+                        print(f"  {Colors.success('Checkpoint saved')}")
+                        ckpt_file = result.get('checkpoint_file', 'N/A')
+                        papers_count = result.get('papers_count', 0)
+                        print(f"  {Colors.CYAN}📁 File:{Colors.END} {ckpt_file}")
+                        print(f"  {Colors.CYAN}📰 Papers:{Colors.END} {papers_count} saved")
                     else:
-                        print(f"✗ Checkpoint failed: {result.get('error')}")
+                        error_msg = result.get('error', 'Unknown error')
+                        print(f"  {Colors.error(f'Checkpoint failed: {error_msg}')}")
+                    print()
                 
                 elif cmd == "stats":
                     stats = executor.get_stats()
-                    print(f"\nStatistics:")
-                    print(f"  Project: {stats['project_name']}")
-                    print(f"  Papers total: {stats['papers_total']}")
-                    print(f"  Papers unique: {stats['papers_unique']}")
-                    print(f"  Papers duplicates: {stats['papers_duplicates']}")
-                    print(f"  Current step: {stats['current_step_index']}/{stats['total_steps']}")
-                    print(f"  Steps executed: {stats['steps_executed']}")
-                    print(f"  Total duration: {stats['total_duration_seconds']:.2f}s")
+                    print(f"\n{Colors.BOLD}📊 Statistics:{Colors.END}")
+                    
+                    project_name = stats.get('project_name', 'N/A')
+                    papers_total = stats.get('papers_total', 0)
+                    papers_unique = stats.get('papers_unique', 0)
+                    papers_duplicates = stats.get('papers_duplicates', 0)
+                    current_step = stats.get('current_step_index', 0)
+                    total_steps = stats.get('total_steps', 0)
+                    steps_executed = stats.get('steps_executed', 0)
+                    duration = stats.get('total_duration_seconds', 0)
+                    
+                    print(f"  {Colors.CYAN}Project:{Colors.END} {project_name}")
+                    print(f"  {Colors.CYAN}Papers:{Colors.END} {papers_total} total " +
+                          f"({Colors.GREEN}{papers_unique} unique{Colors.END}, " +
+                          f"{Colors.YELLOW}{papers_duplicates} duplicates{Colors.END})")
+                    print(f"  {Colors.CYAN}Progress:{Colors.END} {current_step}/{total_steps} steps")
+                    print(f"  {Colors.CYAN}Executed:{Colors.END} {steps_executed} steps")
+                    print(f"  {Colors.CYAN}Duration:{Colors.END} {duration:.2f}s")
+                    print()
                 
                 elif cmd == "state":
                     state = executor.get_session_state()
-                    print(f"\nSession State:")
-                    print(f"  Papers in DB: {state['papers_count']}")
-                    print(f"  Current step: {state['current_step_index']}")
-                    print(f"  Total steps: {state['total_steps']}")
-                    print(f"  Last results: {state['results']}")
+                    print(f"\n{Colors.BOLD}🎯 Session State:{Colors.END}")
+                    
+                    papers_count = state.get('papers_count', 0)
+                    current_step_idx = state.get('current_step_index', 0)
+                    total_steps_val = state.get('total_steps', 0)
+                    
+                    print(f"  {Colors.CYAN}Papers in DB:{Colors.END} {papers_count}")
+                    print(f"  {Colors.CYAN}Current step:{Colors.END} {current_step_idx}")
+                    print(f"  {Colors.CYAN}Total steps:{Colors.END} {total_steps_val}")
+                    
+                    if state.get('results'):
+                        status_val = state['results'].get('status', 'N/A')
+                        print(f"  {Colors.CYAN}Last result status:{Colors.END} {status_val}")
+                    print()
                 
                 elif cmd == "history":
-                    history = executor.step_history
-                    print(f"\nExecution History ({len(history)} entries):")
-                    for entry in history:
-                        print(f"  [{entry['index']}] {entry['step']}")
-                        print(f"      Status: {entry['status']}, Duration: {entry['duration_seconds']:.2f}s")
+                    print(f"\n{Colors.BOLD}📜 Command History:{Colors.END}")
+                    for i, h in enumerate(command_history[-10:], 1):
+                        print(f"  {i:2}. {h}")
+                    print()
+                
+                elif cmd == "help":
+                    beautiful_menu()
+                
+                elif cmd == "quit":
+                    # Calculate final stats
+                    stats = executor.get_stats()
+                    total_steps_val = len(executor.steps)
+                    steps_executed = stats.get('steps_executed', 0)
+                    percentage = (steps_executed / total_steps_val * 100) if total_steps_val > 0 else 0
+                    
+                    print(f"\n{Colors.BOLD}{Colors.CYAN}╔══════════════════════════════════════════════════════════╗{Colors.END}")
+                    print(f"{Colors.BOLD}{Colors.CYAN}║                   📈 Final Summary                        ║{Colors.END}")
+                    print(f"{Colors.BOLD}{Colors.CYAN}╠══════════════════════════════════════════════════════════╣{Colors.END}")
+                    print(f"{Colors.CYAN}║  Steps Completed:     {steps_executed}/{total_steps_val} ({percentage:5.1f}%)                        {Colors.END}║")
+                    print(f"{Colors.CYAN}║  Total Duration:      {stats.get('total_duration_seconds', 0):.2f}s                                  {Colors.END}║")
+                    print(f"{Colors.CYAN}║  Papers Processed:    {stats.get('papers_total', 0)}                                      {Colors.END}║")
+                    print(f"{Colors.BOLD}{Colors.CYAN}╚══════════════════════════════════════════════════════════╝{Colors.END}\n")
+                    break
                 
                 else:
-                    print(f"Unknown command: {cmd}")
-                    print("Type 'help' for available commands")
-            
-            except EOFError:
-                # CTRL-D pressed
-                print("\n\n✓ EOF received - exiting...")
-                break
+                    print(f"{Colors.warning(f'Unknown command: {cmd}')}")
+                    print(f"Type '{Colors.GREEN}help{Colors.END}' for available commands.\n")
             
             except KeyboardInterrupt:
-                # CTRL-C pressed
-                print("\n⚠️  Interrupted (CTRL-C) - type 'help' for commands or 'quit' to exit")
+                print(f"\n{Colors.warning('Operation cancelled by user')}")
             
-            except Exception as e:
-                print(f"Error: {e}")
-                if executor.debug:
-                    import traceback
-                    traceback.print_exc()
+            except EOFError:
+                print(f"\n{Colors.info('EOF received')}")
+                break
     
     except KeyboardInterrupt:
-        # CTRL-C in outer try
-        print("\n\n✓ Interrupted - cleaning up...")
+        print(f"\n{Colors.warning('Exiting...')}")
+        sys.exit(0)
     
     except EOFError:
-        # CTRL-D in outer try
-        print("\n\n✓ EOF received - cleaning up...")
-    
-    # Final summary
-    print(f"\n" + "=" * 60)
-    stats = executor.get_stats()
-    print(f"Session summary:")
-    print(f"  Steps executed: {stats.get('steps_executed', 0)}/{stats.get('total_steps', 0)}")
-    print(f"  Total duration: {stats.get('total_duration_seconds', 0):.2f}s")
-    print(f"  Papers in DB: {stats.get('papers_unique', 0)} unique")
-    print("=" * 60)
+        print(f"\n{Colors.info('Goodbye!')}")
+        sys.exit(0)
 
 
 if __name__ == "__main__":

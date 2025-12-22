@@ -44,9 +44,12 @@ templates:
 steps:
   - step: "Input - Load Papers"
     description: "Load papers from Scopus BibTeX file"
-    builtin.input:
-      source: "bibtex"
-      file: "tests/data/scopus_sample_20.bib"
+    builtin.bibtex_import:
+      batch_id: "scopus_sample_001"
+      imports:
+        - name: "Scopus Sample 20"
+          file_path: "tests/data/scopus_sample_20.bib"
+          source_type: "scopus"
 
   - step: "Load Files"
     description: "Load PDF files for papers"
@@ -71,6 +74,7 @@ steps:
       format: "json"
       output_path: "processed_papers.json"
       include_duplicates: false
+      overwrite: true
 
   - step: "Generate Summary"
     description: "Generate project summary report"
