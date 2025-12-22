@@ -14,6 +14,7 @@ from rich.console import Console
 from ..io.bibtex import papers_to_bibtex
 from ..io.json import papers_to_jsonl
 from .base import BaseStep
+from paper_scanner.core.enum import StepStatus
 
 # Initialize rich console
 console = Console(file=sys.stderr)
