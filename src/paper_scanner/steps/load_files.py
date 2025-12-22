@@ -10,17 +10,16 @@ Processes PDF files:
 6. Updates PDFInfo with file details
 """
 
+import shutil
 import sys
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime
-from rich.console import Console
-import shutil
-import logging
 
-from ..core.models import Paper, PDFInfo, Discovery, Screening
+from rich.console import Console
+
 from paper_scanner.tools.cache import PDFCache
+
 from ..core.enum import DiscoveryMethod
+from ..core.models import Discovery, Paper, PDFInfo, Screening
 from ..tools.documents import FileReader
 from .base import BaseStep
 

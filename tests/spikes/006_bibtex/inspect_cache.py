@@ -15,13 +15,12 @@ import json
 import random
 import sys
 from collections import defaultdict
-from datetime import datetime
 from pathlib import Path
-from typing import Tuple, Dict, Any, List, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 from rich.text import Text
 
 

@@ -11,21 +11,16 @@ Tests cover:
 """
 
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import MagicMock
 
-from paper_scanner.core.models import Paper, Author, KeywordScreening, ProcessingMetadata
-from paper_scanner.core.enum import PaperType, ScreeningDecision
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.steps.keyword_screening import (
-    KeywordScreeningStep,
-    _normalize_text,
-    _check_keyword_match,
-    _get_field_matches,
-    _parse_keyword_config,
-    _screen_paper
-)
-
+from paper_scanner.core.enum import PaperType
+from paper_scanner.core.models import Author, KeywordScreening, Paper
+from paper_scanner.steps.keyword_screening import (KeywordScreeningStep,
+                                                   _check_keyword_match,
+                                                   _get_field_matches,
+                                                   _normalize_text,
+                                                   _parse_keyword_config,
+                                                   _screen_paper)
 
 # ============================================================================
 # FIXTURES

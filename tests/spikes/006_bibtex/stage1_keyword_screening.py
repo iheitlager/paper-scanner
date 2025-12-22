@@ -22,12 +22,12 @@ Usage:
 import argparse
 import logging
 import re
-from typing import Dict, List, Optional, Tuple
 from datetime import datetime
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from psycopg2.extensions import connection as PsycopgConnection
+from typing import Dict, List, Optional, Tuple
 
+import psycopg2
+from psycopg2.extensions import connection as PsycopgConnection
+from psycopg2.extras import RealDictCursor
 
 # Configure logging
 logging.basicConfig(

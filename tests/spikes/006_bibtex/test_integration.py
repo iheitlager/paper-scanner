@@ -5,10 +5,10 @@ Integration test: Load BibTeX papers into PostgreSQL.
 This script loads a sample of papers from a BibTeX file into the database.
 """
 
-import sys
-from pathlib import Path
 import logging
 import os
+import sys
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 

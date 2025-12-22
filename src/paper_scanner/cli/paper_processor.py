@@ -5,18 +5,20 @@ Processes YAML definition files and executes sequential steps
 """
 
 import argparse
-import sys
 import signal
+import sys
 from pathlib import Path
-from typing import Dict, Any, Type, Optional
+from typing import Any, Dict, Optional, Type
 
+from dotenv import load_dotenv
 from rich.console import Console
 
 from paper_scanner import __version__
 from paper_scanner.cli import STEP_REGISTRY_PATHS
-from paper_scanner.cli.tasks import execute_run, execute_validate, execute_cache_clear, execute_cache_info, execute_info_steps, execute_repl
+from paper_scanner.cli.tasks import (execute_cache_clear, execute_cache_info,
+                                     execute_info_steps, execute_repl,
+                                     execute_run, execute_validate)
 from paper_scanner.steps.base import BaseStep
-from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
@@ -199,7 +201,7 @@ class StepExecutor(metaclass=_StepExecutorMeta):
             step_params = {
                 k: v
                 for k, v in step_config.items()
-                if k not in ["step", "description"] and not k.startswith("builtin.")
+                if k not in ("step", "description") and not k.startswith("builtin.")
             }
 
         return step_name, step_params, description

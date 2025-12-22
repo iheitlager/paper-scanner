@@ -11,16 +11,16 @@ Example:
 """
 
 import argparse
-from datetime import datetime
-import sys
 import signal
+import sys
+from datetime import datetime
 from pathlib import Path
 from pprint import pprint
 
-from paper_scanner.io.bibtex import bibtex_file_to_papers
-from paper_scanner.io.json import papers_to_jsonl
 from paper_scanner.core.enum import DiscoveryMethod
 from paper_scanner.core.models import Discovery
+from paper_scanner.io.bibtex import bibtex_file_to_papers
+from paper_scanner.io.json import papers_to_jsonl
 
 # Handle broken pipe gracefully (when piping to head, wc, etc.)
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)

@@ -4,13 +4,14 @@ Database summary step for paper scanner
 Outputs database statistics and relevant facts
 """
 import sys
-from typing import Dict, Any, List, Tuple
 from collections import Counter
+from typing import Any, List
+
 from rich.console import Console
 from rich.table import Table
 
-from ..core.models import Paper
 from ..core.enum import ScreeningDecision
+from ..core.models import Paper
 from .base import BaseStep
 
 # Initialize rich console

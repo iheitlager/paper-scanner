@@ -5,15 +5,15 @@ Updates existing paper records by DOI with field values from an external file or
 Supports replacing and appending field values.
 """
 
-import sys
-import json
-import yaml
 import copy
+import json
+import sys
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+import yaml
 from rich.console import Console
 
-from ..core.database import PapersDatabase
 from ..core.models import Paper
 from .base import BaseStep
 
@@ -46,7 +46,7 @@ def _load_patches_from_file(file_path: Path) -> List[Dict[str, Any]]:
         raise IOError(f"Failed to read file {file_path}: {e}")
 
     # Determine format by extension
-    if file_path.suffix.lower() in ['.yaml', '.yml']:
+    if file_path.suffix.lower() in ('.yaml', '.yml'):
         try:
             data = yaml.safe_load(content)
         except yaml.YAMLError as e:

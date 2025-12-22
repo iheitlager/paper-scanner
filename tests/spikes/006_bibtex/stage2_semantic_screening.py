@@ -29,7 +29,6 @@ Usage:
 import argparse
 import logging
 import os
-import sys
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
@@ -37,8 +36,8 @@ import numpy as np
 import psycopg2
 from dotenv import load_dotenv
 from pgvector.psycopg2 import register_vector
-from psycopg2.extras import RealDictCursor
 from psycopg2.extensions import connection as PsycopgConnection
+from psycopg2.extras import RealDictCursor
 from scipy.spatial.distance import cosine
 from sentence_transformers import SentenceTransformer
 

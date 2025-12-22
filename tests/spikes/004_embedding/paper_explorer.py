@@ -1191,7 +1191,7 @@ Focus on insights and connections between papers."""
                 console.print()
                 cmd = Prompt.ask("[bold cyan]paper-explorer>[/bold cyan]", default="help").strip().lower()
 
-                if cmd in ["quit", "q", "exit"]:
+                if cmd in ("quit", "q", "exit"):
                     console.print("[yellow]Goodbye! 👋[/yellow]")
                     break
 

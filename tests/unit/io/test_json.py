@@ -10,37 +10,29 @@ Tests complete round-trip conversion (Paper ↔ JSON) including:
 """
 
 import json
-import tempfile
-from pathlib import Path
 from datetime import datetime
 from typing import List
 
 import pytest
 
-from paper_scanner.core.models import (
-    Paper, Author, Embedding, Citation, TextChunk, Discovery,
-    Screening, Categorization, KeywordScreening, SemanticScreening,
-    DeduplicationResult, PDFInfo, CAMOStatement, ConceptualAnalysis,
-    ProcessingMetadata, PaperCollection,
-    PaperType, StudyType, QualityTier, DiscoveryMethod, ScreeningDecision
-)
-from paper_scanner.io.json import (
-    paper_to_dict, paper_to_json, papers_to_json,
-    paper_to_json_file, papers_to_json_file,
-    dict_to_paper, json_to_paper, json_to_papers,
-    json_file_to_paper, json_file_to_papers,
-    papers_to_jsonl, papers_to_jsonl_file,
-    jsonl_to_papers, jsonl_file_to_papers,
-    stream_jsonl_file,
-    collection_to_dict, collection_to_json, collection_to_json_file,
-    dict_to_collection, json_to_collection, json_file_to_collection,
-    paper_to_dict_minimal, paper_to_dict_bibliographic,
-    paper_to_dict_screening, paper_to_dict_camo,
-    papers_to_json_partial,
-    validate_json_schema, validate_json_file,
-    verify_round_trip, PaperJSONEncoder
-)
-
+from paper_scanner.core.models import (Author, Discovery, DiscoveryMethod,
+                                       Paper, PaperCollection, Screening,
+                                       ScreeningDecision)
+from paper_scanner.io.json import (PaperJSONEncoder, collection_to_dict,
+                                   collection_to_json, collection_to_json_file,
+                                   dict_to_collection, dict_to_paper,
+                                   json_file_to_collection, json_file_to_paper,
+                                   json_file_to_papers, json_to_collection,
+                                   json_to_paper, json_to_papers,
+                                   jsonl_file_to_papers, jsonl_to_papers,
+                                   paper_to_dict, paper_to_dict_bibliographic,
+                                   paper_to_dict_camo, paper_to_dict_minimal,
+                                   paper_to_dict_screening, paper_to_json,
+                                   paper_to_json_file, papers_to_json,
+                                   papers_to_json_file, papers_to_json_partial,
+                                   papers_to_jsonl, papers_to_jsonl_file,
+                                   stream_jsonl_file, validate_json_file,
+                                   validate_json_schema, verify_round_trip)
 
 # ============================================================================
 # FIXTURES

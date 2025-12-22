@@ -4,14 +4,12 @@ Tests for CitationsStep validation and forward citations configuration
 Tests the validate() method and forward citations extraction configuration.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
-from pathlib import Path
 import tempfile
+from pathlib import Path
+
+import pytest
 
 from paper_scanner.steps.citations import CitationsStep
-from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.enum import PaperType
 
 
 class TestValidateForwardConfig:

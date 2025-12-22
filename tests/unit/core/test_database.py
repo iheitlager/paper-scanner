@@ -5,10 +5,9 @@ Tests CRUD operations, indexing, duplicate handling, and filtering.
 """
 
 import pytest
-from datetime import datetime, timezone
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Paper, Author
+from paper_scanner.core.models import Author, Paper
 
 
 @pytest.fixture

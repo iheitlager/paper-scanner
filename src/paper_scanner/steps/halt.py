@@ -5,11 +5,10 @@ Stops the pipeline execution at this step without error
 """
 
 import sys
-from typing import Dict, Any, List, Tuple
+from typing import Any, Dict, List, Tuple
+
 from rich.console import Console
 
-from ..core.models import Paper
-from ..core.database import PapersDatabase
 from .base import BaseStep
 
 # Initialize rich console

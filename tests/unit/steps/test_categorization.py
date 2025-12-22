@@ -5,22 +5,18 @@ Tests the CategorizationStep class including validation and execution.
 """
 
 import pytest
-from pathlib import Path
 
-from paper_scanner.steps.categorization import (
-    CategorizationStep,
-    _normalize_text,
-    _normalize_paper_type,
-    _check_paper_type,
-    _is_review_paper,
-    _is_conceptual_paper,
-    _assign_quality_tier,
-    _categorize_paper,
-)
-from paper_scanner.core.models import Paper, Author
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.enum import PaperType, StudyType, QualityTier
-
+from paper_scanner.core.enum import PaperType, QualityTier, StudyType
+from paper_scanner.core.models import Author, Paper
+from paper_scanner.steps.categorization import (CategorizationStep,
+                                                _assign_quality_tier,
+                                                _categorize_paper,
+                                                _check_paper_type,
+                                                _is_conceptual_paper,
+                                                _is_review_paper,
+                                                _normalize_paper_type,
+                                                _normalize_text)
 
 # ============================================================================
 # FIXTURES

@@ -64,9 +64,14 @@ lint: ## Lint code with ruff
 	@echo "Linting with ruff..."
 	uv run ruff check src/ tests/
 
+imports: ## Sort imports with isort
+	@echo "Sorting imports with isort..."
+	uv run ruff check --select F401 --fix .  || true
+	uv run isort src/ tests/
+
 format: ## Format code with ruff
 	@echo "Formatting with ruff..."
-	uv run ruff check --fix src/ tests/
+	uv run ruff check --fix src/ tests/ 
 	uv run ruff format src/ tests/
 
 type-check: ## Run type checks with mypy

@@ -4,14 +4,16 @@ Tests for the retrieve_metadata step
 Tests metadata retrieval, API fetching, and cache handling
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, Mock
-from datetime import datetime, timezone
+from datetime import datetime
+from unittest.mock import MagicMock, patch
 
-from paper_scanner.steps.retrieve_metadata import RetrieveMetadataStep, _merge_paper_metadata
+import pytest
+
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Paper, Author, OpenAccessStatus
 from paper_scanner.core.enum import PaperType
+from paper_scanner.core.models import Author, OpenAccessStatus, Paper
+from paper_scanner.steps.retrieve_metadata import (RetrieveMetadataStep,
+                                                   _merge_paper_metadata)
 
 
 class TestValidate:

@@ -4,11 +4,12 @@ Quick validation that both WOS and Scopus papers can be serialized without error
 """
 
 import sys
+
 sys.path.insert(0, '/Users/iheitlager/wc/paper-scanner/tests/spikes/006_bibtex')
 
-from load_bibtex import BibtexReader
 from pathlib import Path
-import json
+
+from load_bibtex import BibtexReader
 
 
 def validate_paper_to_dict(paper, source):

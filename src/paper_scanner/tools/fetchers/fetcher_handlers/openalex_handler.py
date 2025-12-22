@@ -6,17 +6,17 @@ API docs: https://docs.openalex.org/
 """
 import sys
 from pathlib import Path
-from typing import Optional, Dict, Any, List
-from urllib.parse import quote
+from typing import Any, Dict, List, Optional
 
 import requests
 from rich.console import Console
 
-from paper_scanner.core.models import OpenAccessStatus, Citation
-from paper_scanner.core.enum import PaperType, CitationDirection
-from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
-from paper_scanner.tools.documents.abstract_parser import AbstractParser
 from paper_scanner.core.doi import DOI
+from paper_scanner.core.enum import CitationDirection, PaperType
+from paper_scanner.core.models import Citation, OpenAccessStatus
+from paper_scanner.tools.documents.abstract_parser import AbstractParser
+from paper_scanner.tools.fetchers.fetcher_handlers.base import \
+    BaseFetcherHandler
 
 console = Console(file=sys.stderr)
 

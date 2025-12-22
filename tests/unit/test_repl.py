@@ -4,16 +4,15 @@ Unit tests for REPL functionality
 Tests macro command parsing, state management, and integration with paper_scanner
 """
 
-import pytest
 import tempfile
-import json
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import patch
+
+import pytest
 
 from paper_scanner.cli.tasks.repl import REPLSession
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Paper
-from paper_scanner.definition import Definition
 
 
 class TestREPLSessionInit:

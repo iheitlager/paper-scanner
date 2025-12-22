@@ -10,11 +10,8 @@ This demonstrates:
 - Summary and export to multiple formats
 """
 
-from paper_scanner.definition import (
-    Definition,
-    BibtexSource,
-    DeduplicationMethod,
-)
+from paper_scanner.definition import (BibtexSource, DeduplicationMethod,
+                                      Definition)
 
 
 def main():

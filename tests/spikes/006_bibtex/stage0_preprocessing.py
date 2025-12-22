@@ -22,13 +22,13 @@ import argparse
 import logging
 import os
 import sys
-from datetime import datetime
-from typing import Optional, Dict, Set, Tuple, List
 from collections import defaultdict
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 
 import psycopg2
-from psycopg2.extras import RealDictCursor, Json
 from dotenv import load_dotenv
+from psycopg2.extras import RealDictCursor
 
 # Configure logging
 logging.basicConfig(

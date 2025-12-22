@@ -5,16 +5,18 @@ Downloads PDF files for papers where PDFInfo is None or file_path is None/empty.
 Supports multiple sources (unpaywall, crossref) with retry logic and error handling.
 """
 
-import sys
 import json
 import shutil
+import sys
 from pathlib import Path
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple
+
 from rich.console import Console
 
 from paper_scanner.core.doi import DOI
 from paper_scanner.core.models import PDFInfo
 from paper_scanner.tools.fetchers.fetcher import Fetcher
+
 from .base import BaseStep
 
 console = Console(file=sys.stderr)

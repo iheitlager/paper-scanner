@@ -5,12 +5,10 @@ Tests the HaltStep class including validation and execution.
 """
 
 import pytest
-from pathlib import Path
 
-from paper_scanner.steps.halt import HaltStep, HaltException
-from paper_scanner.core.models import Paper, Author
 from paper_scanner.core.database import PapersDatabase
-
+from paper_scanner.core.models import Author, Paper
+from paper_scanner.steps.halt import HaltException, HaltStep
 
 # ============================================================================
 # FIXTURES

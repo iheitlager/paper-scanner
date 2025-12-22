@@ -18,14 +18,14 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, asdict, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Callable
+from typing import Any, Dict, List, Optional
+
 import yaml
 
-from paper_scanner.core.database import PapersDatabase
 from paper_scanner.cli.paper_processor import StepExecutor
-
+from paper_scanner.core.database import PapersDatabase
 
 # ============================================================================
 # Base Step Class

@@ -4,16 +4,15 @@ Database output step for paper scanner
 Exports papers database to various formats (JSONL, BibTeX)
 """
 
+import json
 import sys
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
-import json
+from typing import Any, Dict, List, Tuple
+
 from rich.console import Console
 
-from ..io.json import papers_to_jsonl
 from ..io.bibtex import papers_to_bibtex
-from ..core.models import Paper
-from ..core.database import PapersDatabase
+from ..io.json import papers_to_jsonl
 from .base import BaseStep
 
 # Initialize rich console
@@ -67,7 +66,7 @@ class ExportStep(BaseStep):
         if "overwrite" in config and not isinstance(config["overwrite"], bool):
             errors.append("'overwrite' must be a boolean")
 
-        if "doi" in config and config['doi']not in ['only', 'true', 'false', 'none']:
+        if "doi" in config and config['doi']not in ('only', 'true', 'false', 'none'):
             errors.append("'doi' must be either only, true, false, or none")
 
         # Check duplicates option
@@ -152,7 +151,7 @@ class ExportStep(BaseStep):
                 console.print(f"  [red]✗ Error: {error_msg}[/red]")
             return results
         
-        if output_format not in ["jsonl", "bibtex", "json"]:
+        if output_format not in ("jsonl", "bibtex", "json"):
             error_msg = f"Unsupported format: {output_format}. Supported: jsonl, json, bibtex"
             results["status"] = "error"
             results["error"] = error_msg

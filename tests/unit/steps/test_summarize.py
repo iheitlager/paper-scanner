@@ -6,11 +6,9 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Author, Paper, PaperType
-from paper_scanner.steps.summarize import (
-    SummarizeStep,
-    _filter_by_duplicates,
-    _generate_field_table,
-)
+from paper_scanner.steps.summarize import (SummarizeStep,
+                                           _filter_by_duplicates,
+                                           _generate_field_table)
 
 
 @pytest.fixture

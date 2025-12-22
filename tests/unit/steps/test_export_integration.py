@@ -4,17 +4,15 @@ Integration test: Verify papers_to_jsonl correctly serializes Paper references
 through the export chain (export.py → papers_to_jsonl → paper_to_dict)
 """
 
-import sys
-from pathlib import Path
 import json
+import sys
 import tempfile
+from pathlib import Path
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from paper_scanner.core.models import (
-    Paper, Author, Discovery, DiscoveryMethod
-)
+from paper_scanner.core.models import Author, Discovery, DiscoveryMethod, Paper
 from paper_scanner.io.json import papers_to_jsonl
 
 

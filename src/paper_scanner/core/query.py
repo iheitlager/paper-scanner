@@ -5,7 +5,8 @@ Provides a builder pattern for constructing complex queries with filters,
 sorting, and limiting, with lazy evaluation until terminal operations.
 """
 
-from typing import List, Callable, Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, List, Optional
+
 from paper_scanner.core.models import Paper
 
 if TYPE_CHECKING:

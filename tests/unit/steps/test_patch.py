@@ -2,18 +2,17 @@
 Unit tests for patch step
 """
 
-import pytest
+import json
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, MagicMock
-from io import StringIO
-import json
+
+import pytest
 import yaml
 
-from paper_scanner.steps.patch import PatchStep, _load_patches_from_file, _apply_patch_to_paper
-from paper_scanner.core.models import Paper, Author
 from paper_scanner.core.database import PapersDatabase
-
+from paper_scanner.core.models import Author, Paper
+from paper_scanner.steps.patch import (PatchStep, _apply_patch_to_paper,
+                                       _load_patches_from_file)
 
 # ============================================================================
 # FIXTURES

@@ -5,17 +5,16 @@ Reads JSON Lines from file or stdin and adds papers to the database.
 Supports both file-based import and stdin streaming.
 """
 
-import sys
 import json
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple, Union
+import sys
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
 from rich.console import Console
 
-from ..io.json import dict_to_paper
-from ..core.models import Paper
-from ..core.database import PapersDatabase
 from ..core.enum import DiscoveryMethod
+from ..io.json import dict_to_paper
 from .base import BaseStep
 
 # Initialize rich console

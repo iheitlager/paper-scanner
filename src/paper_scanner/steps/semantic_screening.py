@@ -16,11 +16,11 @@ Outputs semantic screening results to screening.semantic_screening with:
 """
 
 import logging
-import sys
 import os
+import sys
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 from rich.console import Console
@@ -28,7 +28,6 @@ from scipy.spatial.distance import cosine
 
 from ..core.enum import ScreeningDecision
 from ..core.models import Paper, ProcessingMetadata, SemanticScreening
-from ..core.database import PapersDatabase
 from .base import BaseStep
 
 # Suppress verbose logging from transformers/sentence-transformers
@@ -74,7 +73,7 @@ class SemanticScreeningStep(BaseStep):
                 errors.append("'thresholds' must be a dictionary")
             else:
                 # Validate threshold values
-                for threshold_name in ["auto_include", "manual_review", "auto_exclude"]:
+                for threshold_name in ("auto_include", "manual_review", "auto_exclude"):
                     if threshold_name in thresholds:
                         val = thresholds[threshold_name]
                         if not isinstance(val, (int, float)):

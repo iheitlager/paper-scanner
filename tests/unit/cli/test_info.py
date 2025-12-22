@@ -4,9 +4,8 @@ Tests for the info CLI task
 Tests the info steps command for displaying available steps and documentation
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
 from io import StringIO
+from unittest.mock import patch
 
 from rich.console import Console
 

@@ -4,14 +4,11 @@ Tests for paper_processor CLI module
 
 import pytest
 
-from paper_scanner.cli.paper_processor import (
-    StepExecutor,
-    _discover_steps,
-)
+from paper_scanner.cli.paper_processor import StepExecutor, _discover_steps
 
 parse_step_config = StepExecutor.parse_step_config
-from paper_scanner.core.models import Paper, Author
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.models import Author, Paper
 
 
 class TestStepDiscovery:
@@ -45,15 +42,16 @@ class TestStepDiscovery:
 
     def test_step_modules_have_execute_function(self):
         """Test that discovered step modules have BaseStep subclass with execute method"""
-        from pathlib import Path
-        from paper_scanner.core.database import PapersDatabase
         import tempfile
+        from pathlib import Path
+
+        from paper_scanner.core.database import PapersDatabase
 
         steps = _discover_steps()
 
         # Try to load a few steps and verify they have execute
         with tempfile.TemporaryDirectory() as tmpdir:
-            for step_name in ["echo", "halt", "checkpoint"]:
+            for step_name in ("echo", "halt", "checkpoint"):
                 if step_name in steps:
                     # Instantiate the step
                     step = StepExecutor.get_step(step_name, {}, PapersDatabase(), Path(tmpdir))
@@ -66,10 +64,11 @@ class TestStepExecutor:
 
     def test_get_step_returns_basestep_instance(self):
         """Test that get_step returns a BaseStep instance with execute method"""
+        import tempfile
         from pathlib import Path
+
         from paper_scanner.core.database import PapersDatabase
         from paper_scanner.steps.base import BaseStep
-        import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
             step = StepExecutor.get_step("echo", {}, PapersDatabase(), Path(tmpdir))
@@ -80,9 +79,10 @@ class TestStepExecutor:
 
     def test_get_step_raises_for_unknown_step(self):
         """Test that get_step raises error for unknown step"""
-        from pathlib import Path
-        from paper_scanner.core.database import PapersDatabase
         import tempfile
+        from pathlib import Path
+
+        from paper_scanner.core.database import PapersDatabase
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(ValueError) as exc_info:
@@ -93,9 +93,10 @@ class TestStepExecutor:
 
     def test_get_step_shows_available_steps_in_error(self):
         """Test that error message shows available steps"""
-        from pathlib import Path
-        from paper_scanner.core.database import PapersDatabase
         import tempfile
+        from pathlib import Path
+
+        from paper_scanner.core.database import PapersDatabase
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(ValueError) as exc_info:
@@ -109,9 +110,10 @@ class TestStepExecutor:
 
     def test_known_steps_are_accessible(self):
         """Test that all discovered steps can be retrieved"""
-        from pathlib import Path
-        from paper_scanner.core.database import PapersDatabase
         import tempfile
+        from pathlib import Path
+
+        from paper_scanner.core.database import PapersDatabase
 
         with tempfile.TemporaryDirectory() as tmpdir:
             steps = StepExecutor.BUILTIN_STEPS
@@ -198,8 +200,8 @@ class TestStepExecutorIntegration:
 
     def test_execute_echo_step(self):
         """Test executing echo step"""
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
 
         config = {"message": "test message"}
 
@@ -213,8 +215,8 @@ class TestStepExecutorIntegration:
 
     def test_execute_step_with_papers(self):
         """Test executing step with papers database"""
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
 
         # Create some test papers
         papers_db = PapersDatabase()
@@ -326,8 +328,8 @@ class TestStepExecutorErrorHandling:
 
     def test_get_step_with_none(self):
         """Test get_step with None raises appropriate error"""
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises((ValueError, TypeError)):
@@ -335,8 +337,8 @@ class TestStepExecutorErrorHandling:
 
     def test_get_step_with_empty_string(self):
         """Test get_step with empty string raises error"""
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(ValueError):
@@ -348,7 +350,7 @@ class TestStepExecutorErrorHandling:
 
         # Should work with first found
         step_name, params, _ = parse_step_config(config)
-        assert step_name in ["echo", "halt"]
+        assert step_name in ("echo", "halt")
 
     def test_parse_config_with_invalid_types(self):
         """Test parsing config with invalid parameter types"""

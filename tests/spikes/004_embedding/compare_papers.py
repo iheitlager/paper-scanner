@@ -22,7 +22,7 @@ def compare_papers(citekey1, citekey2):
 
     # Get both papers
     papers = {}
-    for citekey in [citekey1, citekey2]:
+    for citekey in (citekey1, citekey2):
         cursor.execute(
             """
             SELECT 

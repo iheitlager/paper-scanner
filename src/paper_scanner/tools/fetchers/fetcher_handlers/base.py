@@ -5,17 +5,18 @@ Each API (Crossref, OpenAlex, etc.) implements this interface to provide
 consistent metadata extraction and translation to Paper model.
 """
 
-from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Optional, Tuple, Dict, Any, List
-from datetime import datetime
-
-from paper_scanner.core.models import Paper, Citation, PDFInfo
-from paper_scanner.tools.cache import JSONFileCache
-from paper_scanner.core.doi import DOI
-
 import sys
+from abc import ABC, abstractmethod
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
 from rich.console import Console
+
+from paper_scanner.core.doi import DOI
+from paper_scanner.core.models import Citation, Paper, PDFInfo
+from paper_scanner.tools.cache import JSONFileCache
+
 console = Console(file=sys.stderr)
 
 class BaseFetcherHandler(ABC):
@@ -311,6 +312,7 @@ class BaseFetcherHandler(ABC):
             PDFInfo with file path and metadata, or None if not found
         """
         import tempfile
+
         import requests
 
         # Get metadata (uses cache)
@@ -364,8 +366,8 @@ class BaseFetcherHandler(ABC):
         Returns:
             Paper model instance
         """
-        from paper_scanner.core.models import Discovery
         from paper_scanner.core.enum import DiscoveryMethod
+        from paper_scanner.core.models import Discovery
 
         # Extract fields
         title = self._extract_title(api_data)

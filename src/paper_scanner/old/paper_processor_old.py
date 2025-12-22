@@ -29,12 +29,9 @@ from colorama import Fore, Style, init
 from dotenv import load_dotenv
 
 # Import handler registry
-from paper_scanner.models.base import (
-    get_all_models,
-    get_handler,
-    get_models_by_group,
-    initialize_handlers,
-)
+from paper_scanner.models.base import (get_all_models, get_handler,
+                                       get_models_by_group,
+                                       initialize_handlers)
 
 # Initialize colorama for cross-platform color support
 init(autoreset=True)

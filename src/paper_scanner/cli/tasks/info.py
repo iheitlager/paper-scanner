@@ -4,14 +4,12 @@ Info steps task - Display available steps and their documentation
 Shows which steps are available and what they do based on their docstrings.
 """
 
-import sys
 import importlib
-from typing import Dict, Type, Optional
+import sys
+from typing import Dict, Optional, Type
 
 from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
-from rich.syntax import Syntax
 
 from paper_scanner.steps.base import BaseStep
 

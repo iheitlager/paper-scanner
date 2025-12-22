@@ -5,18 +5,19 @@ Resolves DOIs to publisher landing pages and downloads PDFs directly,
 leveraging institutional access (e.g., via VPN) where available.
 """
 
-from pathlib import Path
-from typing import Optional, Dict, Any, Tuple, List
-import sys
 import re
+import sys
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from rich.console import Console
 
-from paper_scanner.core.models import PDFInfo, Citation
-from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.core.doi import DOI
+from paper_scanner.core.models import Citation, PDFInfo
+from paper_scanner.tools.fetchers.fetcher_handlers.base import \
+    BaseFetcherHandler
 
 console = Console(file=sys.stderr)
 

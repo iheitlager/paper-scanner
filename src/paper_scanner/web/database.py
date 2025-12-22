@@ -17,10 +17,7 @@ from psycopg2 import OperationalError, connect
 from psycopg2.extensions import connection as PsycopgConnection
 from psycopg2.extras import RealDictCursor
 
-from .exceptions import (
-    DatabaseException,
-    InvalidDataException,
-)
+from .exceptions import DatabaseException, InvalidDataException
 
 # Logging
 logger = logging.getLogger(__name__)

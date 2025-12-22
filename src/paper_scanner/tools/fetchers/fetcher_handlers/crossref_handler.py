@@ -6,15 +6,16 @@ API docs: https://github.com/CrossRef/rest-api-doc
 """
 
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
-from paper_scanner.core.models import OpenAccessStatus, Citation
-from paper_scanner.core.enum import PaperType, CitationDirection
-from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
-from paper_scanner.tools.documents.abstract_parser import AbstractParser
 from paper_scanner.core.doi import DOI
+from paper_scanner.core.enum import CitationDirection, PaperType
+from paper_scanner.core.models import Citation, OpenAccessStatus
+from paper_scanner.tools.documents.abstract_parser import AbstractParser
+from paper_scanner.tools.fetchers.fetcher_handlers.base import \
+    BaseFetcherHandler
 
 # Polite pool per Crossref requirements
 CROSSREF_API_URL = "https://api.crossref.org"

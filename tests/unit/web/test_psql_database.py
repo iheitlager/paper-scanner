@@ -16,7 +16,8 @@ import pytest
 from psycopg2 import OperationalError
 
 from paper_scanner.web.database import DatabaseManager
-from paper_scanner.web.exceptions import DatabaseException, InvalidDataException
+from paper_scanner.web.exceptions import (DatabaseException,
+                                          InvalidDataException)
 
 
 class TestDatabaseManagerInit:

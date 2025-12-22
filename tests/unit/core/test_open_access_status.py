@@ -4,8 +4,9 @@ Unit tests for OpenAccessStatus model
 Tests for paper_scanner.core.models.OpenAccessStatus
 """
 
-import pytest
 from datetime import datetime, timezone
+
+import pytest
 from pydantic import ValidationError
 
 from paper_scanner.core.models import OpenAccessStatus

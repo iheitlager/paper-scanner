@@ -16,15 +16,14 @@ Process:
 """
 
 import sys
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime
-from pprint import pformat
+from typing import Any, Dict, List, Tuple
+
 from rich.console import Console
-import logging
 
 from paper_scanner.core.models import Paper
 from paper_scanner.tools.fetchers.fetcher import Fetcher
+
 from .base import BaseStep
 
 console = Console(file=sys.stderr)

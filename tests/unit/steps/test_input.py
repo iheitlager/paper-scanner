@@ -4,19 +4,16 @@ Unit tests for the input step.
 Tests reading JSON Lines from files and stdin with proper validation and error handling.
 """
 
-import json
 import tempfile
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 from io import StringIO
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from paper_scanner.steps.input import InputStep
-from paper_scanner.core.models import Paper, Author
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import DiscoveryMethod
-
+from paper_scanner.steps.input import InputStep
 
 # ============================================================================
 # FIXTURES

@@ -4,15 +4,15 @@ Tests for the citations step
 Tests backward citations extraction, resolution, and database updates
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, Mock
-from datetime import datetime, timezone
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from paper_scanner.steps.citations import CitationsStep
+import pytest
+
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Paper, Citation, Discovery, DiscoveryMethod, Author
-from paper_scanner.core.enum import PaperType, CitationDirection
+from paper_scanner.core.enum import CitationDirection, PaperType
+from paper_scanner.core.models import (Citation, Discovery, DiscoveryMethod,
+                                       Paper)
+from paper_scanner.steps.citations import CitationsStep
 
 
 class TestValidate:

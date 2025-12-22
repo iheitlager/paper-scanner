@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 
 from paper_scanner.core import doi
 
+
 class CacheError(Exception):
     """Custom exception for cache-related errors."""
     pass

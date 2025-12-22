@@ -2,19 +2,16 @@
 Tests for BibTeX paper type evaluation and mapping
 """
 
-import pytest
 from pathlib import Path
 
-from paper_scanner.io.bibtex import (
-    load_type_mapping_config,
-    evaluate_paper_type,
-    bibtex_file_to_papers,
-    bibtex_to_papers,
-    infer_bibtex_type,
-    paper_to_bibtex_entry
-)
-from paper_scanner.core.models import Paper, Discovery, DiscoveryMethod
+import pytest
+
 from paper_scanner.core.enum import PaperType
+from paper_scanner.core.models import Discovery, DiscoveryMethod, Paper
+from paper_scanner.io.bibtex import (bibtex_file_to_papers,
+                                     evaluate_paper_type, infer_bibtex_type,
+                                     load_type_mapping_config,
+                                     paper_to_bibtex_entry)
 
 
 class TestTypeMapping:

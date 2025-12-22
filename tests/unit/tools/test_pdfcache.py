@@ -11,11 +11,13 @@ Tests the PDFCache class including:
 - Edge cases
 """
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
-from paper_scanner.tools.cache import PDFCache, CacheError
+from unittest.mock import patch
+
+import pytest
+
 from paper_scanner.core import doi
+from paper_scanner.tools.cache import CacheError, PDFCache
 
 
 class TestPDFCacheInitialization:

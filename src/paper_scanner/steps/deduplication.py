@@ -5,15 +5,15 @@ Identifies and marks duplicate papers using multiple matching methods
 Records audit trail in screening.deduplication for full traceability
 """
 
-import time
 import sys
-from typing import Dict, Any, List, Optional, Tuple
-from difflib import SequenceMatcher
+import time
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
+from typing import Any, Dict, List, Optional, Tuple
+
 from rich.console import Console
 
-from ..core.models import Paper, DeduplicationResult, ProcessingMetadata
-from ..core.database import PapersDatabase
+from ..core.models import DeduplicationResult, Paper, ProcessingMetadata
 from .base import BaseStep
 
 # Initialize rich console

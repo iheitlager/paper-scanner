@@ -7,8 +7,7 @@ structure and running step-specific validation.
 
 import sys
 from pathlib import Path
-from typing import Dict, Any, Tuple, List, Optional
-import importlib
+from typing import Dict, List, Optional, Tuple
 
 import yaml
 from rich.console import Console
@@ -119,7 +118,7 @@ def validate_definition_file(
                 step_params = {
                     k: v
                     for k, v in step_config.items()
-                    if k not in ["step", "description"] and not k.startswith("builtin.")
+                    if k not in ("step", "description") and not k.startswith("builtin.")
                 }
 
             # Print parameters if verbose

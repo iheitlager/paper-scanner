@@ -4,13 +4,14 @@ Unit tests for PaperStep
 Tests validation, paper creation, DOI handling, and cite_key generation.
 """
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
-from paper_scanner.steps.paper import PaperStep
+import pytest
+
+from paper_scanner.core.enum import DiscoveryMethod, PaperType
 from paper_scanner.core.models import Paper
-from paper_scanner.core.enum import PaperType, StudyType, DiscoveryMethod
+from paper_scanner.steps.paper import PaperStep
 
 
 class TestPaperStepValidation:

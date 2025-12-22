@@ -9,10 +9,11 @@ This demonstrates:
 - Scalable research review workflows
 """
 
-from paper_scanner.definition import Definition, BibtexSource, create_standard_pipeline
-from typing import List, Dict
 from dataclasses import dataclass
-from datetime import datetime
+from typing import Dict, List
+
+from paper_scanner.definition import (BibtexSource, Definition,
+                                      create_standard_pipeline)
 
 
 @dataclass

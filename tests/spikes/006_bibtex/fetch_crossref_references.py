@@ -9,24 +9,21 @@ This script:
 4. Creates citation edges linking the original papers to the new references
 """
 
-import hashlib
 import json
 import os
-import re
-import sys
 import time
-from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import psycopg2
-import requests
-from psycopg2.extras import Json, RealDictCursor
+from psycopg2.extras import RealDictCursor
 from rich.console import Console
 from rich.logging import RichHandler
 
 from paper_scanner import __version__
 from paper_scanner.tools.cache import JSONFileCache
-from paper_scanner.tools.fetchers import CrossrefReferenceFetcher, PoliteCrossrefClient, CROSSREF_EMAIL, CROSSREF_API_BASE
+from paper_scanner.tools.fetchers import (CROSSREF_EMAIL,
+                                          CrossrefReferenceFetcher)
 
 # Configure rich console with colored output
 console = Console()
@@ -36,6 +33,7 @@ _cache_instance = JSONFileCache()
 
 # Configure rich logging with colors and better formatting
 import logging
+
 
 # Create custom RichHandler that shows path only in verbose mode
 class VerboseRichHandler(RichHandler):

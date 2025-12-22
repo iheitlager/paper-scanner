@@ -5,8 +5,8 @@ This task handles cache operations like clearing checkpoints and other
 cache management functions.
 """
 
-import sys
 import shutil
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -29,7 +29,7 @@ def _get_dir_size(path: Path) -> int:
 
 def _format_size(size_bytes: int) -> str:
     """Format bytes to human-readable size"""
-    for unit in ["B", "KB", "MB", "GB"]:
+    for unit in ("B", "KB", "MB", "GB"):
         if size_bytes < 1024:
             return f"{size_bytes:.1f}{unit}"
         size_bytes /= 1024

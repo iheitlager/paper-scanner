@@ -4,13 +4,10 @@ Tests for CORE handler PDF fetching.
 Tests CORE API handler's fetch_pdf implementation.
 """
 
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-from datetime import datetime
-import pytest
+from unittest.mock import MagicMock, patch
 
-from paper_scanner.core.models import PDFInfo
-from paper_scanner.tools.fetchers.fetcher_handlers.core_handler import COREHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.core_handler import \
+    COREHandler
 
 
 class TestCOREHandlerPDFFetching:

@@ -4,13 +4,13 @@ Test script for dual-source BibTeX loader (WOS and Scopus).
 """
 
 import sys
-import os
 
 # Add parent directory to path
 sys.path.insert(0, '/Users/iheitlager/wc/paper-scanner/tests/spikes/006_bibtex')
 
-from load_bibtex import BibtexReader, WOSTranslator, ScopusTranslator
 from pathlib import Path
+
+from load_bibtex import BibtexReader
 
 
 def test_wos_loader():
@@ -107,7 +107,7 @@ def test_json_serialization():
     print("="*80)
     
     from psycopg2.extras import Json
-    
+
     # Create sample author data
     authors = [
         {'first_name': 'John', 'last_name': 'Doe', 'initials': 'J'},

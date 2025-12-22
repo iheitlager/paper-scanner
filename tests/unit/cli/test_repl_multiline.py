@@ -1,6 +1,5 @@
 """Tests for REPL multiline Python code handling."""
 
-import pytest
 from paper_scanner.cli.tasks.repl import _is_code_complete
 
 

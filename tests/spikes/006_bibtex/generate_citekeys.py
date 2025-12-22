@@ -29,7 +29,6 @@ import os
 import random
 import string
 import sys
-from typing import Optional
 
 import psycopg2
 from dotenv import load_dotenv

@@ -5,20 +5,17 @@ BibTeX ↔ Pydantic conversion functions
 Handles import/export of papers from/to BibTeX format
 """
 
-from typing import List, Dict, Optional
+import re
+from pathlib import Path
+from typing import Dict, List, Optional
+
 import bibtexparser
+import yaml
+from bibtexparser.bibdatabase import BibDatabase
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.bwriter import BibTexWriter
-from bibtexparser.bibdatabase import BibDatabase
-import re
-import yaml
-from pathlib import Path
 
-from ..core.models import (
-    Paper, Author, Discovery, 
-    DiscoveryMethod, PaperType
-)
-
+from ..core.models import Author, Discovery, DiscoveryMethod, Paper, PaperType
 
 # ============================================================================
 # TYPE MAPPING CONFIGURATION
@@ -135,7 +132,7 @@ def evaluate_paper_type(
         return mapping.get('paper_type'), mapping.get('confidence', 0.5)
     
     # Strategy 4: Fallback - check common field variations
-    for field_name in ['type', 'document_type', 'article_type']:
+    for field_name in ('type', 'document_type', 'article_type'):
         if field_name in entry:
             field_value = entry[field_name].strip().lower()
             # Try to match against known types
@@ -323,7 +320,7 @@ def bibtex_entry_to_paper(
     
     # Keywords - check both 'keywords' and 'author_keywords' (Scopus uses both)
     keywords_string = ""
-    for kw in ['keyword', 'keywords', 'author_keywords', 'keywords-plus']:
+    for kw in ('keyword', 'keywords', 'author_keywords', 'keywords-plus'):
         if kw in entry:
             keywords_string += entry[kw] + ';'
     keywords = parse_keywords(keywords_string)
@@ -796,7 +793,7 @@ def export_papers_by_source(
     
     import os
     from collections import defaultdict
-    
+
     # Group papers by source_type
     papers_by_source = defaultdict(list)
     for paper in papers:
@@ -836,7 +833,7 @@ def export_papers_by_decision(
     
     import os
     from collections import defaultdict
-    
+
     # Group by decision
     papers_by_decision = defaultdict(list)
     for paper in papers:

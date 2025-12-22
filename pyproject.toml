@@ -56,6 +56,9 @@ dev = [
     "mypy>=1.8.0",
     "gunicorn>=23.0.0",
     "pdfplumber>=0.11.8",
+    "isort",
+    "refurb",
+    "vulture",
 ]
 
 local = [

@@ -4,24 +4,16 @@ Unit tests for paper_scanner.io.bibtex
 Tests for BibTeX parsing and conversion to Paper models.
 """
 
-import pytest
 from pathlib import Path
 
-from paper_scanner.io.bibtex import (
-    parse_authors,
-    parse_keywords,
-    infer_paper_type,
-    bibtex_entry_to_paper,
-    bibtex_to_papers,
-    bibtex_file_to_papers,
-)
-from paper_scanner.core.models import Author, Paper, Discovery
-from paper_scanner.core.enum import (
-    DiscoveryMethod,
-    PaperType,
-    ScreeningDecision,
-)
+import pytest
 
+from paper_scanner.core.enum import DiscoveryMethod, PaperType
+from paper_scanner.core.models import Author, Discovery, Paper
+from paper_scanner.io.bibtex import (bibtex_entry_to_paper,
+                                     bibtex_file_to_papers, bibtex_to_papers,
+                                     infer_paper_type, parse_authors,
+                                     parse_keywords)
 
 # Test data directory
 TEST_DATA_DIR = Path(__file__).parent.parent.parent / "data"

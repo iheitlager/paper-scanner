@@ -7,14 +7,13 @@ Tests validate(), config parsing, and execute() with mocked Fetcher.
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
-from typing import Dict, Any, Optional, List
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from paper_scanner.core.models import Paper, PDFInfo
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.steps.download_pdfs import DownloadPDFsStep, VALID_SOURCES
+from paper_scanner.core.models import Paper, PDFInfo
+from paper_scanner.steps.download_pdfs import DownloadPDFsStep
 
 
 class TestDownloadPDFsValidation:

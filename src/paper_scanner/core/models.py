@@ -4,19 +4,16 @@
 Core Pydantic models for Paper Scanner
 """
 
-from pydantic import BaseModel, Field, field_validator, field_serializer, ConfigDict
-from typing import Optional, List, Dict, Any
-from datetime import datetime, timezone
 import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from paper_scanner.core.enum import (
-    PaperType,
-    StudyType,
-    QualityTier,
-    DiscoveryMethod,
-    ScreeningDecision,
-    CitationDirection,
-)
+from pydantic import (BaseModel, ConfigDict, Field, field_serializer,
+                      field_validator)
+
+from paper_scanner.core.enum import (CitationDirection, DiscoveryMethod,
+                                     PaperType, QualityTier, ScreeningDecision,
+                                     StudyType)
 
 # ============================================================================
 # PROCESSING METADATA

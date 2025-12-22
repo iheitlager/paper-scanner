@@ -8,11 +8,10 @@ marking all papers as cancelled.
 See: https://github.com/iheitlager/paper-scanner/issues/XXX
 """
 
-import pytest
 from pathlib import Path
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Paper, Author, PaperType
+from paper_scanner.core.models import Author, Paper, PaperType
 from paper_scanner.steps.deduplication import DeduplicationStep
 
 

@@ -3,6 +3,7 @@ Unit tests for AbstractParser in tools/documents
 """
 
 import pytest
+
 from paper_scanner.tools.documents import AbstractParser
 
 

@@ -288,12 +288,12 @@ def _categorize_paper(
         exclusion_reason = "Review paper excluded (literature review detected)"
 
     # Reject purely conceptual papers
-    if is_conceptual and study_type not in [
+    if is_conceptual and study_type not in (
         StudyType.EMPIRICAL_QUALITATIVE,
         StudyType.EMPIRICAL_QUANTITATIVE,
         StudyType.EMPIRICAL_MIXED,
         StudyType.CASE_STUDY
-    ]:
+    ):
         should_include = False
         exclusion_reason = "Conceptual paper excluded (no empirical component)"
 
@@ -305,12 +305,12 @@ def _categorize_paper(
     study_type_confidence = 0.85 if study_type != StudyType.CONCEPTUAL else 0.6
 
     # Determine if empirical
-    is_empirical = study_type in [
+    is_empirical = study_type in (
         StudyType.EMPIRICAL_QUALITATIVE,
         StudyType.EMPIRICAL_QUANTITATIVE,
         StudyType.EMPIRICAL_MIXED,
         StudyType.CASE_STUDY
-    ]
+    )
 
     categorization = Categorization(
         paper_type=paper_type,

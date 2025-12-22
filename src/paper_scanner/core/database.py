@@ -17,11 +17,11 @@ Indexes maintained:
 - _title_index: Dict[str, List[Paper]] - Normalized title prefixes to papers (for text search)
 """
 
-from typing import List, Dict, Optional, Any
 from collections import defaultdict
+from typing import Any, Dict, List, Optional
 
-from paper_scanner.core.models import Paper
 from paper_scanner.core.doi import DOI
+from paper_scanner.core.models import Paper
 
 
 class PapersDatabase:

@@ -5,12 +5,13 @@ Tests direct publisher PDF download functionality via DOI resolution.
 """
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from datetime import datetime
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from paper_scanner.core.models import PDFInfo
-from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import PublisherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import \
+    PublisherHandler
 
 
 class TestPublisherHandlerInstantiation:

@@ -7,10 +7,11 @@ DOI normalization, and integration scenarios.
 
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
-from paper_scanner.tools.fetchers.fetcher import Fetcher, handler_classes
 from paper_scanner.core.models import Paper
+from paper_scanner.tools.fetchers.fetcher import Fetcher, handler_classes
 
 
 class TestFetcherInitialization:
@@ -151,7 +152,7 @@ class TestFetcherDOINormalization:
             return_value=(mock_paper, False),
         ):
             # Test various DOI formats
-            for doi in ["10.1234/test", "https://doi.org/10.1234/test", "doi.org/10.1234/test"]:
+            for doi in ("10.1234/test", "https://doi.org/10.1234/test", "doi.org/10.1234/test"):
                 result, _ = fetcher.fetch_paper(doi)
                 assert result is not None
 

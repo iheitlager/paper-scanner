@@ -108,7 +108,7 @@ class PaperLoader:
         extracted = {}
 
         # Top-level fields
-        for field in ["file_path", "file_name", "directory"]:
+        for field in ("file_path", "file_name", "directory"):
             if field in record:
                 extracted[field] = record[field]
 

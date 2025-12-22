@@ -23,18 +23,16 @@ import os
 import re
 import sys
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
-from urllib.parse import urlparse
 
 import psycopg2
 import requests
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
 from rich.console import Console
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TaskProgressColumn
+from rich.progress import (BarColumn, Progress, SpinnerColumn,
+                           TaskProgressColumn, TextColumn)
 from rich.table import Table
 
 # Load environment

@@ -7,15 +7,14 @@ DOI MD5 hash if not provided.
 """
 
 import sys
-from typing import Dict, Any, List, Tuple, Optional
-from datetime import datetime, timezone
-from rich.console import Console
-from pathlib import Path
+from typing import Any, Dict, List, Tuple
 
-from paper_scanner.core.models import Paper, Discovery
-from paper_scanner.core.enum import PaperType, StudyType, DiscoveryMethod
+from rich.console import Console
+
 from paper_scanner.core.doi import DOI
-from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.enum import DiscoveryMethod, PaperType, StudyType
+from paper_scanner.core.models import Discovery, Paper
+
 from .base import BaseStep
 
 # Initialize rich console

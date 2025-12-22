@@ -2,9 +2,7 @@
 Tests for REPL --quit/-q option
 """
 
-from pathlib import Path
-from unittest.mock import Mock, patch
-import pytest
+from unittest.mock import patch
 
 from paper_scanner.cli.tasks.repl import REPLSession, execute_repl
 

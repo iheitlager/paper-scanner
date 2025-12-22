@@ -21,22 +21,20 @@ Examples:
 """
 
 import argparse
-import json
 import os
 import re
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import psycopg2
 import requests
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
 from rich.console import Console
-from rich.panel import Panel
+from rich.progress import (BarColumn, Progress, SpinnerColumn,
+                           TaskProgressColumn, TextColumn)
 from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TaskProgressColumn
 
 # Try to import PDF libraries
 try:
@@ -101,7 +99,7 @@ class DOIExtractor:
 
                 if metadata:
                     # Check common metadata fields
-                    for field in ['/Subject', '/Keywords', '/Producer', '/Title']:
+                    for field in ('/Subject', '/Keywords', '/Producer', '/Title'):
                         value = metadata.get(field, '')
                         if isinstance(value, bytes):
                             value = value.decode('utf-8', errors='ignore')

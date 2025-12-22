@@ -7,7 +7,7 @@ This demonstrates the most basic use case:
 - Export to JSONL format
 """
 
-from paper_scanner.definition import Definition, BibtexSource
+from paper_scanner.definition import BibtexSource, Definition
 
 
 def main():

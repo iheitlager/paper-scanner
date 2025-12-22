@@ -5,15 +5,15 @@ Tests citation extraction, reference parsing, and confidence scoring.
 Focus: References -> Citation models, NOT metadata extraction.
 """
 
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
-from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import (
-    CrossrefHandler,
-)
+import pytest
+
 from paper_scanner.core.models import Citation
+from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import \
+    CrossrefHandler
 
 
 class TestCrossrefCitationExtraction:

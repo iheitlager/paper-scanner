@@ -27,7 +27,7 @@ import json
 import sys
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Optional, Union
+from typing import Any, List, Optional
 
 
 class JSONNode:
@@ -95,14 +95,13 @@ class JSONNode:
             node = node.parent
         
         path = ''.join(path_parts)
-        return path if path else '(root)'
+        return path or '(root)'
     
     def get_value_str(self) -> str:
         """Get value as string for clipboard."""
         if self.is_leaf:
             return json.dumps(self.value)
-        else:
-            return json.dumps(self.value, indent=2)
+        return json.dumps(self.value, indent=2)
 
 
 class JSONViewer:

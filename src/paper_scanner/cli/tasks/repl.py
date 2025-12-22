@@ -9,30 +9,26 @@ Two modes of interaction:
 - Micro mode: Plain Python code with full access to paper_scanner modules
 """
 
-import sys
-import os
 import json
-import code
 import re
+import sys
 import textwrap
-from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 from rich.console import Console
 
-
 try:
     from prompt_toolkit import PromptSession
+    from prompt_toolkit.completion import WordCompleter
+    from prompt_toolkit.enums import EditingMode
     from prompt_toolkit.history import FileHistory
     from prompt_toolkit.lexers import PygmentsLexer
-
-    from pygments.lexers.python import PythonLexer
-    from prompt_toolkit.validation import Validator, ValidationError
-    from prompt_toolkit.enums import EditingMode
-    from prompt_toolkit.completion import WordCompleter
     from prompt_toolkit.styles import Style
+    from prompt_toolkit.validation import ValidationError, Validator
+    from pygments.lexers.python import PythonLexer
     HAS_PROMPT_TOOLKIT = True
 except ImportError:
     HAS_PROMPT_TOOLKIT = False
@@ -42,8 +38,8 @@ except ImportError:
     except ImportError:
         pass
 
-from paper_scanner.core.database import PapersDatabase
 from paper_scanner.cli.tasks.run import StepExecutor
+from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.halt import HaltException
 
 console = Console(file=sys.stderr)
@@ -180,7 +176,8 @@ class REPLSession:
                 step_config["project_name"] = self.project_name
 
                 # Create wrapper for step instantiation
-                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
+                from paper_scanner.cli.paper_processor import \
+                    StepExecutor as ProcessorStepExecutor
                 get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
 
                 result = StepExecutor.execute_step(
@@ -539,8 +536,9 @@ class REPLSession:
                     console.print(f"[dim]Parameters: {step_config}[/dim]")
                 
                 # Execute the step
-                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
-                
+                from paper_scanner.cli.paper_processor import \
+                    StepExecutor as ProcessorStepExecutor
+
                 # Build step config with required "step" key and builtin. prefix
                 # Format: {"step": "<description>", "builtin.{step_name}": {params}}
                 full_step_config = {
@@ -612,7 +610,8 @@ class REPLSession:
                 )
 
                 # Execute the step - create a wrapper function
-                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
+                from paper_scanner.cli.paper_processor import \
+                    StepExecutor as ProcessorStepExecutor
                 get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
 
                 result = StepExecutor.execute_step(
@@ -688,7 +687,8 @@ class REPLSession:
                     )
 
                     # Execute the step
-                    from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
+                    from paper_scanner.cli.paper_processor import \
+                        StepExecutor as ProcessorStepExecutor
                     get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
 
                     result = StepExecutor.execute_step(
@@ -745,6 +745,7 @@ class REPLSession:
 
             try:
                 import json as json_module
+
                 from paper_scanner.io.json import paper_to_dict
 
                 checkpoint_dir = self.cache_dir / "checkpoints"
@@ -932,7 +933,7 @@ class REPLSession:
                     # Get input - let prompt_toolkit handle history
                     line = session.prompt(">>> ")
 
-                    if line.startswith("\\exit") or line.startswith("\\q") or line.strip() in ["exit()", "quit()", "quit", "exit", "x", "bye"]:
+                    if line.startswith("\\exit") or line.startswith("\\q") or line.strip() in ("exit()", "quit()", "quit", "exit", "x", "bye"):
                         if self.debug:
                             console.print("[dim]Exiting REPL loop[/dim]")
                         break

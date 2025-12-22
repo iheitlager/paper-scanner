@@ -4,13 +4,14 @@ Unit tests for bibtex_import step
 
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Author, Paper, PaperType
-from paper_scanner.steps.bibtex_import import BibtexImportStep, _fix_cite_key_collisions
+from paper_scanner.steps.bibtex_import import (BibtexImportStep,
+                                               _fix_cite_key_collisions)
 
 
 class TestValidate:

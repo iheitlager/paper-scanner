@@ -5,10 +5,10 @@ Tests chainable filter methods, sorting, limiting, and terminal operations.
 """
 
 import pytest
-from datetime import datetime
+
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.models import Author, Paper
 from paper_scanner.core.query import PapersQuery
-from paper_scanner.core.models import Paper, Author
 
 
 def make_author(first_name: str, last_name: str) -> Author:
@@ -155,7 +155,7 @@ class TestFilterByYear:
         """Create database with papers from different years"""
         db = PapersDatabase()
         
-        for year, count in [(2019, 1), (2020, 2), (2021, 1), (2022, 1)]:
+        for year, count in ((2019, 1), (2020, 2), (2021, 1), (2022, 1)):
             for i in range(count):
                 db.add(Paper(
                     id=f"p{year}{i}",
@@ -409,7 +409,7 @@ class TestTerminalOperations:
         """first() returns first matching paper"""
         result = db_with_papers.query().filter_by_topic("AI").first()
         assert result is not None
-        assert result.id in ["p1", "p2"]
+        assert result.id in ("p1", "p2")
     
     def test_first_returns_none_when_no_matches(self, db_with_papers):
         """first() returns None when no matches"""

@@ -7,13 +7,11 @@ import json
 import pytest
 from flask import Flask
 
-from paper_scanner.web.exceptions import (
-    DatabaseException,
-    FileNotFoundException,
-    InvalidDataException,
-    PDFBrowserException,
-    PDFNotFoundException,
-)
+from paper_scanner.web.exceptions import (DatabaseException,
+                                          FileNotFoundException,
+                                          InvalidDataException,
+                                          PDFBrowserException,
+                                          PDFNotFoundException)
 from paper_scanner.web.http_handlers import register_error_handlers
 
 

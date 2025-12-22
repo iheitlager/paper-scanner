@@ -6,7 +6,6 @@ Sequentially imports BibTeX files and adds papers to the database
 
 import random
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 

@@ -5,11 +5,11 @@ Verifies that indexed lookups are actually being used
 """
 
 import time
-import pytest
 from pathlib import Path
-from paper_scanner.steps.deduplication import DeduplicationStep
-from paper_scanner.core.models import Paper, Author, PaperType
+
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.models import Author, Paper, PaperType
+from paper_scanner.steps.deduplication import DeduplicationStep
 
 
 def test_doi_matching_performance():
@@ -124,7 +124,7 @@ def test_indexed_lookup_vs_linear_search():
         papers_db.add(paper)
     
     # Test lookup at different positions
-    for target_idx in [50, 100, 250, 400, 499]:
+    for target_idx in (50, 100, 250, 400, 499):
         test_paper = Paper(
             id="test",
             cite_key="test",

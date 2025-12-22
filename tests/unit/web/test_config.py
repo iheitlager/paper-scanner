@@ -60,13 +60,13 @@ class TestConfig:
 
     def test_valid_log_levels(self):
         """Test all valid log levels."""
-        for level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+        for level in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
             config = Config(log_level=level)
             assert config.log_level == level
 
     def test_valid_environments(self):
         """Test all valid environments."""
-        for env in ["local", "docker", "production"]:
+        for env in ("local", "docker", "production"):
             config = Config(env=env)
             assert config.env == env
 

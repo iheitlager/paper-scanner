@@ -23,19 +23,19 @@ Process:
 5. Batch update all modified papers to database
 """
 
+import json
 import sys
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
-from pprint import pformat
-import json
-from matplotlib.pyplot import table
+from typing import Any, Dict, List, Optional, Tuple
+
 from rich.console import Console
 from rich.table import Table
 
-from paper_scanner.core.models import Paper, Citation, PaperType
-from paper_scanner.core.enum import CitationDirection
-from paper_scanner.tools.fetchers.fetcher import Fetcher
 from paper_scanner.core.doi import DOI
+from paper_scanner.core.enum import CitationDirection
+from paper_scanner.core.models import Citation, Paper, PaperType
+from paper_scanner.tools.fetchers.fetcher import Fetcher
+
 from .base import BaseStep
 
 console = Console(file=sys.stderr)
@@ -104,7 +104,7 @@ class CitationsStep(BaseStep):
                         if not isinstance(backward["output_errors"], str) or not Path(backward["output_errors"]).exists():
                             errors.append("'backward.output_errors' must be a valid file path")
                     for key in backward.keys():
-                        if key not in ["citations", "details", "output_errors"]:
+                        if key not in ("citations", "details", "output_errors"):
                             errors.append(f"Unknown backward configuration key: '{key}'")
 
             # Validate forward config
@@ -133,7 +133,7 @@ class CitationsStep(BaseStep):
                         if not isinstance(forward["output_errors"], str) or not Path(forward["output_errors"]).exists():
                             errors.append("'forward.output_errors' must be a valid file path")
                     for key in forward.keys():
-                        if key not in ["citations", "details", "output_errors"]:
+                        if key not in ("citations", "details", "output_errors"):
                             errors.append(f"Unknown forward configuration key: '{key}'")
             else:
                 errors.append(f"Unknown configuration key: '{key}'")

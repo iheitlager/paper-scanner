@@ -4,13 +4,13 @@ Unit tests for paper_scanner.core.models
 Tests for Author and other core model classes.
 """
 
-import pytest
 from datetime import datetime, timezone
-from pydantic import ValidationError
-from uuid import uuid4
 
-from paper_scanner.core.models import Author, Paper, Discovery
+import pytest
+from pydantic import ValidationError
+
 from paper_scanner.core.enum import DiscoveryMethod, ScreeningDecision
+from paper_scanner.core.models import Author, Discovery, Paper
 
 
 class TestAuthorClass:

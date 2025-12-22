@@ -5,12 +5,12 @@ Comprehensive test for BibTeX loader.
 Tests both BibtexReader and PostgreSQLLoader functionality.
 """
 
+import json
 import os
 from pathlib import Path
-import pytest
-import json
 
-from load_bibtex import BibtexReader, PostgreSQLLoader, Paper
+import pytest
+from load_bibtex import BibtexReader, Paper, PostgreSQLLoader
 
 
 def test_bibtex_reader():

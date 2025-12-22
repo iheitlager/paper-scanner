@@ -4,11 +4,9 @@ Tests the JSONL export path: export.py -> papers_to_jsonl -> paper_to_dict
 """
 
 import json
-import pytest
 
-from paper_scanner.core.models import (
-    Paper, Author, Citation, Discovery, DiscoveryMethod
-)
+from paper_scanner.core.models import (Author, Citation, Discovery,
+                                       DiscoveryMethod, Paper)
 from paper_scanner.io.json import paper_to_dict, papers_to_jsonl
 
 

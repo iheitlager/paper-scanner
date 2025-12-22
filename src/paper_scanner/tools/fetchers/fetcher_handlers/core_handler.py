@@ -5,17 +5,17 @@ Fetches PDF downloads from CORE API (core.ac.uk).
 API docs: https://core.ac.uk/documentation
 """
 
-from pathlib import Path
-from typing import Optional, Dict, Any
-import sys
 import os
+import sys
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import requests
 from rich.console import Console
 
-from paper_scanner.core.models import PDFInfo
-from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.core.doi import DOI
+from paper_scanner.tools.fetchers.fetcher_handlers.base import \
+    BaseFetcherHandler
 
 console = Console(file=sys.stderr)
 
@@ -173,7 +173,7 @@ class COREHandler(BaseFetcherHandler):
                     url = link.get("url")
                     link_type = link.get("type", "").lower()
                     # Look for PDF or download links
-                    if url and (link_type in ["pdf", "download"]):
+                    if url and (link_type in ("pdf", "download")):
                         return url
 
         return None

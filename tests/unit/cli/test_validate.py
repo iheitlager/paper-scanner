@@ -4,12 +4,14 @@ Tests for the validate CLI task
 Tests the validate_definition_file and execute_validate functions
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 import yaml
 
-from paper_scanner.cli.tasks.validate import validate_definition_file, execute_validate
 from paper_scanner.cli.paper_processor import StepExecutor
+from paper_scanner.cli.tasks.validate import (execute_validate,
+                                              validate_definition_file)
 
 
 class TestValidateFunctionality:

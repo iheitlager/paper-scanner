@@ -4,18 +4,11 @@ Tests for the cache CLI task
 Tests the cache info and cache clear functions
 """
 
-import pytest
 from pathlib import Path
-import shutil
-from unittest.mock import patch, MagicMock
 
-from paper_scanner.cli.tasks.cache import (
-    execute_cache_info,
-    execute_cache_clear,
-    _get_dir_size,
-    _format_size,
-    _count_files,
-)
+from paper_scanner.cli.tasks.cache import (_count_files, _format_size,
+                                           _get_dir_size, execute_cache_clear,
+                                           execute_cache_info)
 
 
 class TestCacheHelpers:

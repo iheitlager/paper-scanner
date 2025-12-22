@@ -1,6 +1,7 @@
 import hashlib
 import re
 
+
 class DOI:
     """
     DOI class that normalizes and provides multiple representations.

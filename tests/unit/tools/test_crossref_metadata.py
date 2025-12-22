@@ -6,16 +6,16 @@ Paper model translation, and cite key generation.
 Focus: Metadata -> Paper model transformation, NOT citations.
 """
 
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import (
-    CrossrefHandler,
-)
-from paper_scanner.core.models import Paper
+import pytest
+
 from paper_scanner.core.enum import PaperType
+from paper_scanner.core.models import Paper
+from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import \
+    CrossrefHandler
 
 
 class TestCrossrefMetadataExtraction:

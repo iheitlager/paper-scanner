@@ -4,13 +4,11 @@
 
 import pytest
 
-from paper_scanner.web.exceptions import (
-    DatabaseException,
-    FileNotFoundException,
-    InvalidDataException,
-    PDFBrowserException,
-    PDFNotFoundException,
-)
+from paper_scanner.web.exceptions import (DatabaseException,
+                                          FileNotFoundException,
+                                          InvalidDataException,
+                                          PDFBrowserException,
+                                          PDFNotFoundException)
 
 
 class TestPDFBrowserException:

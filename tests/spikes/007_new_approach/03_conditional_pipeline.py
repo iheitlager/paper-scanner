@@ -9,12 +9,10 @@ This demonstrates:
 - Programmatic pipeline generation
 """
 
-from paper_scanner.definition import (
-    Definition,
-    BibtexSource,
-    DeduplicationMethod,
-)
 from typing import List, Optional
+
+from paper_scanner.definition import (BibtexSource, DeduplicationMethod,
+                                      Definition)
 
 
 def build_custom_pipeline(
@@ -145,7 +143,7 @@ def main():
     print("Pipeline Summaries:")
     print("=" * 70)
     
-    for pipeline in [basic, comprehensive, specialized]:
+    for pipeline in (basic, comprehensive, specialized):
         print(f"\n{pipeline.name}:")
         for i, step in enumerate(pipeline.get_steps(), 1):
             print(f"  {i}. {step.get_description()}")

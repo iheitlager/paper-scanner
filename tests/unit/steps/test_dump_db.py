@@ -1,13 +1,10 @@
 """Unit tests for dump_db step"""
 
 import pytest
-from io import StringIO
-from unittest.mock import patch, MagicMock
 
-from paper_scanner.steps.dump_db import DumpDbStep
-from paper_scanner.core.models import Paper, Author
 from paper_scanner.core.database import PapersDatabase
-
+from paper_scanner.core.models import Author, Paper
+from paper_scanner.steps.dump_db import DumpDbStep
 
 # ============================================================================
 # FIXTURES

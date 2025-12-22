@@ -5,15 +5,15 @@ This task loads a YAML definition file, validates it, and executes
 a sequence of processing steps on the papers database.
 """
 
-import sys
+import inspect
+import json
 import os
 import shutil
-import json
-from pathlib import Path
-from typing import Dict, Any, Optional, List
-from datetime import datetime
+import sys
 import time
-import inspect
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import yaml
 from rich.console import Console
@@ -74,7 +74,7 @@ class StepExecutor:
             step_params = {
                 k: v
                 for k, v in step_config.items()
-                if k not in ["step", "description"] and not k.startswith("builtin.")
+                if k not in ("step", "description") and not k.startswith("builtin.")
             }
 
         return step_name, step_params, description

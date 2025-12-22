@@ -11,11 +11,13 @@ Tests the JSONFileCache class including:
 """
 
 import json
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, patch, mock_open, MagicMock
-from paper_scanner.tools.cache import JSONFileCache, CacheError
+from unittest.mock import patch
+
+import pytest
+
 from paper_scanner.core import doi
+from paper_scanner.tools.cache import CacheError, JSONFileCache
 
 
 class TestCacheInitialization:

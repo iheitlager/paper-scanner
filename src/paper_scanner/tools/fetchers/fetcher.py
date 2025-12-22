@@ -7,16 +7,20 @@ and unified caching across all APIs.
 
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, List, Optional, Tuple
+
 from rich.console import Console
 
-from paper_scanner.core.models import Paper, Citation, PDFInfo
+from paper_scanner.core.models import Citation, Paper, PDFInfo
 from paper_scanner.tools.cache import PDFCache
-from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
-from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
-from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import OpenAlexHandler
-from paper_scanner.tools.fetchers.fetcher_handlers.core_handler import COREHandler
-from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import PublisherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.base import \
+    BaseFetcherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import \
+    CrossrefHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import \
+    OpenAlexHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import \
+    PublisherHandler
 
 console = Console(file=sys.stderr)
 

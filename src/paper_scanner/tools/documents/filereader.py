@@ -7,9 +7,9 @@ DOI information from PDF metadata and content.
 
 import logging
 import re
-from pathlib import Path
-from typing import Optional, Dict, Any
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ class DOIExtractor:
 
                 if metadata:
                     # Check common metadata fields
-                    for field in ['/Subject', '/Keywords', '/Producer', '/Title']:
+                    for field in ('/Subject', '/Keywords', '/Producer', '/Title'):
                         value = metadata.get(field, '')
                         if isinstance(value, bytes):
                             value = value.decode('utf-8', errors='ignore')

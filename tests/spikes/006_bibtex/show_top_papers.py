@@ -11,11 +11,12 @@ Usage:
 import argparse
 import os
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import psycopg2
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
+
 
 # Color codes for terminal output
 class Color:

@@ -8,13 +8,14 @@ Uses a minimal DummyHandler to test generic cache behavior independently of any
 specific API implementation (Crossref, etc).
 """
 
-from typing import Any, Dict, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, Optional
+from unittest.mock import patch
 
 import pytest
 
-from paper_scanner.core.models import Paper, Author
-from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
+from paper_scanner.core.models import Author
+from paper_scanner.tools.fetchers.fetcher_handlers.base import \
+    BaseFetcherHandler
 
 
 class DummyHandler(BaseFetcherHandler):

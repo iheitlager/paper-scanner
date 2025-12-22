@@ -4,13 +4,12 @@ Tests for the load_files step
 Tests file loading, DOI extraction, and PDF processing
 """
 
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import MagicMock, patch
 
-from paper_scanner.steps.load_files import LoadFilesStep
+import pytest
+
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Paper, PDFInfo, Discovery, Screening
+from paper_scanner.steps.load_files import LoadFilesStep
 
 
 class TestValidate:

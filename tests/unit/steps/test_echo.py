@@ -6,10 +6,9 @@ Tests the EchoStep class including validation and execution.
 
 import pytest
 
-from paper_scanner.steps.echo import EchoStep
-from paper_scanner.core.models import Paper, Author
 from paper_scanner.core.database import PapersDatabase
-
+from paper_scanner.core.models import Author, Paper
+from paper_scanner.steps.echo import EchoStep
 
 # ============================================================================
 # FIXTURES

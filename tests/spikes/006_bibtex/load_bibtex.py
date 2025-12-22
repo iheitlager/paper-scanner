@@ -14,19 +14,18 @@ Usage:
     loader.load_papers(papers)
 """
 
-import re
-import json
-import logging
 import argparse
-import sys
+import logging
 import os
+import re
+import sys
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from dataclasses import dataclass, asdict
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
 import psycopg2
+from colorama import Fore, Style, init
 from psycopg2.extras import Json
-from datetime import datetime
-from colorama import Fore, Back, Style, init
 
 # Initialize colorama for cross-platform color support
 init(autoreset=True)

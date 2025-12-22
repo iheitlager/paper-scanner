@@ -5,15 +5,14 @@ Tests handler-level behavior including unified cache and workflow integration.
 Focus: API fetch, cache behavior, and method workflows (metadata + citations).
 """
 
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import (
-    OpenAlexHandler,
-)
-from paper_scanner.core.models import Paper
+import pytest
+
+from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import \
+    OpenAlexHandler
 
 
 class TestOpenAlexHandlerInitialization:

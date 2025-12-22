@@ -12,22 +12,18 @@ Tests cover:
 - Step execution and integration
 """
 
-import pytest
 from pathlib import Path
-from datetime import datetime, timezone
-from unittest.mock import patch
 
-from paper_scanner.core.models import Paper, Author, DeduplicationResult, ProcessingMetadata
-from paper_scanner.core.enum import PaperType
+import pytest
+
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.steps.deduplication import (
-    DeduplicationStep,
-    _normalize_title,
-    _title_author_fuzzy_match,
-    _title_fuzzy_match,
-    _get_confidence,
-)
-
+from paper_scanner.core.enum import PaperType
+from paper_scanner.core.models import Author, Paper
+from paper_scanner.steps.deduplication import (DeduplicationStep,
+                                               _get_confidence,
+                                               _normalize_title,
+                                               _title_author_fuzzy_match,
+                                               _title_fuzzy_match)
 
 # ============================================================================
 # FIXTURES

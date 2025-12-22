@@ -4,20 +4,14 @@ Tests for the run CLI task
 Tests the execution of definition files and step processing
 """
 
-import pytest
-from pathlib import Path
-from datetime import datetime
-import yaml
 import json
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import patch
 
-from paper_scanner.cli.tasks.run import (
-    execute_run,
-    _find_latest_checkpoint,
-    _load_checkpoint,
-    StepExecutor,
-)
-from paper_scanner.core.database import PapersDatabase
+import pytest
+import yaml
+
+from paper_scanner.cli.tasks.run import (StepExecutor, _find_latest_checkpoint,
+                                         _load_checkpoint, execute_run)
 
 
 class TestStepExecutorParsing:

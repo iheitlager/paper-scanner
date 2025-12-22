@@ -12,7 +12,7 @@ Usage:
 import argparse
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Optional
 
 import psycopg2
@@ -22,7 +22,6 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-from rich.text import Text
 
 # Load environment
 load_dotenv()

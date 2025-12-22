@@ -6,21 +6,15 @@ including handling of the duplicate_of field without creating circular reference
 """
 
 import json
-import tempfile
-from pathlib import Path
-from typing import Dict, Any
 
 import pytest
 
-from paper_scanner.core.models import Paper
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.steps.checkpoint import (
-    CheckpointStep,
-    _get_checkpoint_name,
-    _serialize_papers,
-    _deserialize_papers,
-    load_checkpoint,
-)
+from paper_scanner.core.models import Paper
+from paper_scanner.steps.checkpoint import (CheckpointStep,
+                                            _deserialize_papers,
+                                            _get_checkpoint_name,
+                                            _serialize_papers, load_checkpoint)
 
 
 @pytest.fixture

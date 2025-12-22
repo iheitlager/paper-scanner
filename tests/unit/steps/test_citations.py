@@ -5,12 +5,12 @@ Tests the execute() method's delegation to backward_execute() when
 backward configuration is present.
 """
 
-import pytest
 from unittest.mock import MagicMock, patch
 
-from paper_scanner.steps.citations import CitationsStep
+import pytest
+
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Paper, Citation
+from paper_scanner.steps.citations import CitationsStep
 
 
 class TestValidation:

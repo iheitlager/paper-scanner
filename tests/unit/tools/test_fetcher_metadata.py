@@ -5,10 +5,9 @@ Tests metadata fetching, caching, error handling, and integration scenarios.
 """
 
 from unittest.mock import patch
-import pytest
 
-from paper_scanner.tools.fetchers.fetcher import Fetcher
 from paper_scanner.core.models import Paper
+from paper_scanner.tools.fetchers.fetcher import Fetcher
 
 
 class TestFetcherMetadataFetching:

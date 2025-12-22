@@ -5,20 +5,15 @@ JSON ↔ Pydantic conversion functions (100% complete)
 Handles full serialization/deserialization of all Paper fields
 """
 
-from typing import List, Dict, Any, Optional, Union
 import json
+import uuid
 from datetime import datetime
 from pathlib import Path
-import uuid
+from typing import Any, Dict, List, Optional
 
-from ..core.models import (
-    Paper, Author, Embedding, Citation, TextChunk, Discovery,
-    Screening, Categorization, KeywordScreening, SemanticScreening,
-    DeduplicationResult, PDFInfo, CAMOStatement, ConceptualAnalysis,
-    ProcessingMetadata, PaperCollection,
-    PaperType, StudyType, QualityTier, DiscoveryMethod, ScreeningDecision
-)
-
+from ..core.models import (Author, Discovery, DiscoveryMethod, Paper,
+                           PaperCollection, PaperType, QualityTier,
+                           ScreeningDecision, StudyType)
 
 # ============================================================================
 # CUSTOM JSON ENCODER
