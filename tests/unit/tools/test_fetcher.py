@@ -34,7 +34,7 @@ class TestFetcherInitialization:
         for h in handler_classes.keys():
             fetcher = Fetcher(cache_dir=tmp_path, methods=[h])
             handler = fetcher.handlers[h]
-            expected_cache_dir = tmp_path / h
+            expected_cache_dir = tmp_path / handler.name
             assert handler.cache_dir == tmp_path
             assert handler.cache_dir_json == expected_cache_dir
         # NB: pdf cache is in Fetcher not handler
