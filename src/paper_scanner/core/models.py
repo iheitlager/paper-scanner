@@ -372,9 +372,6 @@ class Discovery(BaseModel):
 
     # Source details
     source_database: Optional[str] = None  # "scopus", "wos", "crossref"
-    
-    # Import details
-    import_batch_id: Optional[str] = None
 
 # ============================================================================
 # OPEN ACCESS STATUS MODEL

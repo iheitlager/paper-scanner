@@ -353,22 +353,6 @@ class TestBibtexEntryToPaper:
         paper = bibtex_entry_to_paper(entry, discovery=discovery)
         assert paper.discovery.source_database == "scopus"
 
-    def test_bibtex_entry_with_import_batch_id(self):
-        """Verify import batch ID is stored"""
-        batch_id = "batch_123"
-        discovery = Discovery(
-            method=DiscoveryMethod.KEYWORD_SEARCH, 
-            source_database="scopus",
-            import_batch_id=batch_id
-        )
-        entry = {
-            "ID": "smith2020",
-            "ENTRYTYPE": "article",
-            "title": "Test Article",
-        }
-        paper = bibtex_entry_to_paper(entry, discovery=discovery)
-        assert paper.discovery.import_batch_id == batch_id
-
     def test_bibtex_entry_latex_removed(self):
         """Verify LaTeX braces are removed from title"""
         entry = {
@@ -465,22 +449,6 @@ class TestBibtexToPapers:
         """
         papers = bibtex_to_papers(bibtex_string, discovery=discovery)
         assert papers[0].discovery.source_database == "scopus"
-
-    def test_bibtex_with_import_batch_id(self):
-        """Verify import batch ID applied to all papers"""
-        batch_id = "batch_123"
-        discovery = Discovery(
-            method=DiscoveryMethod.KEYWORD_SEARCH,
-            source_database="scopus",
-            import_batch_id=batch_id
-        )
-        bibtex_string = """
-        @article{smith2020,
-            title={Test Article}
-        }
-        """
-        papers = bibtex_to_papers(bibtex_string, discovery=discovery)
-        assert papers[0].discovery.import_batch_id == batch_id
 
     def test_bibtex_returns_paper_objects(self):
         """Verify returned objects are Paper models"""
@@ -630,8 +598,7 @@ class TestBibtexParsingIntegration:
         batch_id = "test_batch_123"
         discovery = Discovery(
             method=DiscoveryMethod.KEYWORD_SEARCH,
-            source_database="ieee",
-            import_batch_id=batch_id
+            source_database="ieee"
         )
 
         papers = bibtex_file_to_papers(
@@ -640,7 +607,6 @@ class TestBibtexParsingIntegration:
 
         for paper in papers[:3]:
             assert paper.discovery.method == DiscoveryMethod.KEYWORD_SEARCH
-            assert paper.discovery.import_batch_id == batch_id
             assert paper.discovery.source_database == "ieee"
 
     def test_round_trip_parsing_preserves_data(self):

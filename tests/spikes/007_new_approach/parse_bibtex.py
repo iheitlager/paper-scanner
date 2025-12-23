@@ -98,8 +98,7 @@ def main():
 
     discovery = Discovery(
         method=discovery_method,
-        source_database=args.source_type,
-        import_batch_id=f"parse_bibtex_{filepath.stem}_{int(Path(filepath).stat().st_mtime)}_{int(datetime.now().timestamp())}"
+        source_database=args.source_type
     )
 
     try:

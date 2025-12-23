@@ -872,8 +872,7 @@ if __name__ == "__main__":
     papers = bibtex_file_to_papers(
         "scopus_export.bib",
         source_type="scopus",
-        discovery_method=DiscoveryMethod.KEYWORD_SEARCH,
-        import_batch_id="batch_2024_001"
+        discovery_method=DiscoveryMethod.KEYWORD_SEARCH
     )
     
     print(f"Imported {len(papers)} papers")
@@ -913,8 +912,7 @@ if __name__ == "__main__":
             "scopus_export.bib": "scopus",
             "wos_export.bib": "wos",
             "ieee_export.bib": "ieee"
-        },
-        import_batch_id="batch_2024_001"
+        }
     )
     
     print(f"Total imported: {len(all_papers)} papers")

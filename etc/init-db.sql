@@ -20,7 +20,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- - authors (JSONB): Full Author objects with given_name, family_name, affiliation, orcid
 -- - keywords, topics (TEXT[]): List fields as PostgreSQL arrays
 -- - abstract (TEXT): Long text field
--- - discovery (JSONB): Complete Discovery object (method, source_database, import_batch_id)
+-- - discovery (JSONB): Complete Discovery object (method, source_database)
 -- - screening (JSONB): Complete Screening object (all stages)
 -- - pdf_info (JSONB): PDFInfo object (file path, hash, download metadata)
 -- - conceptual_analysis (JSONB): ConceptualAnalysis object
@@ -66,18 +66,24 @@ CREATE TABLE IF NOT EXISTS papers (
     -- ========================================
     -- DISCOVERY & IMPORT METADATA
     -- ========================================
-    discovery JSONB,  -- {method, iteration, source_database, import_batch_id, discovered_at, record_update}
+    discovery JSONB,  -- {method, iteration, source_database discovered_at, record_update}
     
     -- ========================================
     -- SCREENING & DECISION DATA
     -- ========================================
     screening JSONB,  -- {current_stage, final_decision, final_decision_at, ...all stages...}
-    
+    processing_status VARCHAR(50) DEFAULT 'pending',
+
     -- ========================================
     -- PDF & FILE INFO
     -- ========================================
     pdf_info JSONB,  -- {file_path, file_name, file_size_bytes, file_hash, download_source, download_url, downloaded_at}
     
+    file_path VARCHAR(500),
+    file_name VARCHAR(255),
+    size_bytes BIGINT,
+    created_time TIMESTAMP,
+
     -- ========================================
     -- ANALYSIS DATA
     -- ========================================
@@ -92,32 +98,14 @@ CREATE TABLE IF NOT EXISTS papers (
     validated_at TIMESTAMP,
     raw_bibtex TEXT,
     raw_json JSONB,
-    
+
+    tags TEXT,
+
     -- ========================================
     -- TIMESTAMPS
     -- ========================================
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    -- Legacy fields (kept for backward compatibility during migration)
-    file_path VARCHAR(500),
-    file_name VARCHAR(255),
-    directory VARCHAR(500),
-    size_bytes BIGINT,
-    created_time TIMESTAMP,
-    modified_time TIMESTAMP,
-    accessed_time TIMESTAMP,
-    tags TEXT,
-    title_details JSONB,
-    analysis JSONB,
-    indexed_at TIMESTAMP,
-    processing_status VARCHAR(50) DEFAULT 'pending',
-    metadata_extracted_at TIMESTAMP,
-    references_extracted_at TIMESTAMP,
-    analysis_completed_at TIMESTAMP,
-    embedding_completed_at TIMESTAMP,
-    last_error TEXT,
-    error_count INTEGER DEFAULT 0
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP    
 );
 
 -- ========================================
@@ -158,7 +146,6 @@ CREATE INDEX IF NOT EXISTS idx_papers_updated_at ON papers(updated_at);
 
 -- Legacy indexes
 CREATE INDEX IF NOT EXISTS idx_file_name ON papers(file_name);
-CREATE INDEX IF NOT EXISTS idx_directory ON papers(directory);
 CREATE INDEX IF NOT EXISTS idx_papers_status ON papers(processing_status);
 
 -- ============================================================================
@@ -480,9 +467,7 @@ GROUP BY p.db_id;
 CREATE OR REPLACE VIEW processing_status_overview AS
 SELECT 
     processing_status,
-    COUNT(*) as paper_count,
-    AVG(EXTRACT(EPOCH FROM (COALESCE(updated_at, indexed_at) - indexed_at))) 
-        as avg_processing_time_seconds
+    COUNT(*) as paper_count
 FROM papers
 GROUP BY processing_status;
 

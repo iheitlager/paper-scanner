@@ -5,6 +5,7 @@ Provides FileReader class for reading PDFs and DOIExtractor for extracting
 DOI information from PDF metadata and content.
 """
 
+import hashlib
 import logging
 import re
 from datetime import datetime
@@ -27,6 +28,43 @@ except ImportError:
     HAS_PDFPLUMBER = False
 
 import requests
+
+
+def compute_file_sha256(file_path: Path, chunk_size: int = 8192) -> str:
+    """
+    Compute SHA256 hash of a file.
+    
+    Reads file in chunks to handle large files efficiently without
+    loading entire file into memory.
+    
+    Args:
+        file_path: Path to the file
+        chunk_size: Size of chunks to read (default 8KB)
+        
+    Returns:
+        SHA256 hash as hexadecimal string
+        
+    Raises:
+        FileNotFoundError: If file does not exist
+        IOError: If file cannot be read
+    """
+    file_path = Path(file_path).resolve()
+    
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    if not file_path.is_file():
+        raise ValueError(f"Path is not a file: {file_path}")
+    
+    sha256_hash = hashlib.sha256()
+    
+    try:
+        with open(file_path, 'rb') as f:
+            while chunk := f.read(chunk_size):
+                sha256_hash.update(chunk)
+        return sha256_hash.hexdigest()
+    except IOError as e:
+        raise IOError(f"Failed to read file {file_path}: {e}")
 
 
 class DOIExtractor:
@@ -288,6 +326,7 @@ class FileReader:
                 "file_path": str(self.pdf_path),
                 "file_name": self.pdf_path.name,
                 "file_size_bytes": stat.st_size,
+                "file_hash": compute_file_sha256(self.pdf_path),
                 "created_time": datetime.fromtimestamp(stat.st_ctime).isoformat(),
                 "modified_time": datetime.fromtimestamp(stat.st_mtime).isoformat(),
                 "accessed_time": datetime.fromtimestamp(stat.st_atime).isoformat(),

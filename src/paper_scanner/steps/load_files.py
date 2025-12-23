@@ -164,7 +164,7 @@ class LoadFilesStep(BaseStep):
                 # Step 4: Create Discovery object
                 discovery = Discovery(
                     method=DiscoveryMethod.FILE_PATH,
-                    source_database="file_path",
+                    source_database="file_path"
                 )
 
                 paper = Paper(
@@ -172,17 +172,9 @@ class LoadFilesStep(BaseStep):
                     cite_key=pdf_path.stem,
                     doi=doi,
                     discovery=discovery,
-                    screening=Screening()
                 )
 
-                # Step 6: Add PDFInfo to paper
-                page_count = file_reader.get_page_count()
-                paper.pdf_info = PDFInfo(
-                    file_path=str(pdf_path),
-                    file_name=file_info.get("file_name"),
-                    file_size_bytes=file_info.get("file_size_bytes"),
-                    pdf_pages=page_count
-                )
+ 
 
                 # Step 7: Store in database
                 if not dry_run:
@@ -210,6 +202,18 @@ class LoadFilesStep(BaseStep):
                         console.print(f" [red]✗[/red] {i}/{len(pdf_files)} {pdf_path.name}: copy error")
                         results["details"].append(file_result)
                         continue
+
+               # Step 6: Add PDFInfo to paper
+                paper.pdf_info = PDFInfo(
+                    file_path=str(new_filepath),
+                    file_name=new_filename,
+                    file_hash=file_info.get("file_hash", None),
+                    file_size_bytes=file_info.get("file_size_bytes"),
+
+                    download_source="file_path",
+                    download_url="file://"+file_info.get("file_path"),
+                    downloaded_at=file_info.get("created_time"),
+                )
 
                 # Success!
                 file_result["success"] = True

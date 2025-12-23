@@ -112,12 +112,11 @@ class PaperToRowConverter:
             Dictionary with SQL column names and serialized values
         """
         # Serialize complex fields to JSON
-        authors_json = [author.model_dump(mode='json') for author in paper.authors] if paper.authors else []
-        discovery_json = paper.discovery.model_dump(mode='json') if paper.discovery else None
-        screening_json = paper.screening.model_dump(mode='json') if paper.screening else None
-        pdf_info_json = paper.pdf_info.model_dump(mode='json') if paper.pdf_info else None
+        authors_json = [author.model_dump(mode='json', exclude_none=True) for author in paper.authors] if paper.authors else []
+        discovery_json = paper.discovery.model_dump(mode='json', exclude_none=True) if paper.discovery else None
+        screening_json = paper.screening.model_dump(mode='json', exclude_none=True) if paper.screening else None
         conceptual_analysis_json = (
-            paper.conceptual_analysis.model_dump(mode='json') 
+            paper.conceptual_analysis.model_dump(mode='json', exclude_none=True)
             if paper.conceptual_analysis else None
         )
         
@@ -155,11 +154,18 @@ class PaperToRowConverter:
             'validated_at': paper.validated_at,
             'discovery': Json(discovery_json),
             'screening': Json(screening_json),
-            'pdf_info': Json(pdf_info_json),
             'conceptual_analysis': Json(conceptual_analysis_json),
             'raw_bibtex': paper.raw_bibtex,
             'raw_json': Json(paper.raw_json) if paper.raw_json else None,
         }
+
+        if paper.pdf_info:
+            row['pdf_info'] = Json(paper.pdf_info.model_dump(mode='json', exclude_none=True))
+            row['file_path'] = paper.pdf_info.file_path
+            row['file_name'] = paper.pdf_info.file_name
+            row['size_bytes'] = paper.pdf_info.file_size_bytes
+            row['created_time'] = paper.pdf_info.downloaded_at
+
         
         return row
     

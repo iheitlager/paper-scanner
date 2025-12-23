@@ -392,6 +392,9 @@ class TestExecute:
             mock_reader.exists.return_value = True
             mock_reader.get_file_info.return_value = {
                 "file_name": "test.pdf",
+                "file_path": str(pdf_file),
+                "file_created_time": "2024-01-01T00:00:00",
+                "file_hash": "mockhash",
                 "file_size_bytes": 1024
             }
             mock_reader.extract_doi.return_value = "10.1234/test"
@@ -400,7 +403,7 @@ class TestExecute:
             
             result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "ok"
+        assert result["status"] == StepStatus.SUCCESS
         assert result["papers_loaded"] == 1
         assert result["papers_failed"] == 0
         assert result["files_copied"] == 1
@@ -440,6 +443,9 @@ class TestExecute:
                 mock_reader.exists.return_value = True
                 mock_reader.get_file_info.return_value = {
                     "file_name": path.name,
+                    "file_path": str(path),
+                    "file_created_time": "2024-01-01T00:00:00",
+                    "file_hash": "mockhash",
                     "file_size_bytes": 1024
                 }
                 mock_reader.extract_doi.return_value = f"10.1234/test{path.stem}"
@@ -450,7 +456,7 @@ class TestExecute:
             
             result = step.execute(config, verbose=False, dry_run=False)
         
-        assert result["status"] == "ok"
+        assert result["status"] == StepStatus.SUCCESS
         assert result["papers_loaded"] == 3
         assert result["papers_failed"] == 0
         assert result["files_copied"] == 3
@@ -490,7 +496,10 @@ class TestExecute:
                 mock_reader.exists.return_value = True
                 mock_reader.get_file_info.return_value = {
                     "file_name": path.name,
-                    "file_size_bytes": 1024
+                    "file_path": str(path),
+                    "file_size_bytes": 1024,
+                    "file_created_time": "2024-01-01T00:00:00",
+                    "file_hash": "mockhash"
                 }
                 
                 # Fail on test1.pdf (no DOI)
@@ -545,6 +554,9 @@ class TestExecute:
             mock_reader.exists.return_value = True
             mock_reader.get_file_info.return_value = {
                 "file_name": "test.pdf",
+                "file_path": str(pdf_file),
+                "file_created_time": "2024-01-01T00:00:00",
+                "file_hash": "mockhash",
                 "file_size_bytes": 1024
             }
             mock_reader.extract_doi.return_value = "10.1234/test"

@@ -9,14 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Fix Cite Keys Step** (`fix_cite_keys`): Standardize citation keys across papers
+- **Fix Cite Keys Step** (`fix_cite_keys`): Standardize citation keys across primary papers
   - Regenerates citation keys in `LastnameYear` format from first author and publication year
   - Automatic collision resolution using character suffixes (a, b, c, ..., aa, ab, ...)
-  - Processes only primary papers (excludes duplicates)
-  - Comprehensive unit tests with 30+ test cases covering validation, execution, collisions, and edge cases
-  - Full documentation with usage examples and best practices
-  - Database integration: updates cite_keys in-place with index maintenance
-  - Dry-run support for previewing changes
+- **DB CLI Task** (`db clear`): removes all records from all tables
+
+### Changed
+
+- Fileloader paths in database for clear reference and tracking, including sparse `exclude_none` model dumps
 
 ## [3.2.0] - 2025-12-22
 
@@ -35,10 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PostgreSQL Database Loader**: New `upload_database` step for persisting papers to PostgreSQL
   - Bulk paper upload with transaction management
   - Configurable conflict resolution strategies: `skip`, `update`, `raise`
-  - Dry-run validation mode for testing without database writes
-  - Detailed error reporting with sample conflict examples
-  - Connection pooling for efficient database access
-  - Batched processing for optimal performance
 - **Database Abstraction Layer** (`src/paper_scanner/io/sql.py`):
   - `DatabaseConnectionPool`: Connection pooling with context managers
   - `PaperToRowConverter`: Bidirectional conversion between Pydantic `Paper` model and SQL rows
