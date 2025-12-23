@@ -9,9 +9,13 @@ This directory contains exploratory tests for future features and experimental w
 | [002_browser](002_browser/) | Flask + React frontend with PostgreSQL and Docker for file browser | 2024-12-02 | Integrated |
 | [003_local_llm](003_local_llm/) | Ollama integration and Small Language Model (SLM) support | 2024-12-03 | Integrated |
 | [004_embedding](004_embedding/) | Vector embeddings exploration for semantic search | 2024-12-04 | In Progress |
-| [005_references](005_references/) | Reference extraction and citation management exploration | 2024-12-05 | Not Started |
-| [006_bibtex](006_bibtex/) | BibTeX import/export, PDF processing, and Crossref reference fetching | 2024-12-06 | In Progress |
-| [007_new_approach](007_new_approach/) | Pythonic definition API exploration as alternative to YAML | 2024-12-11 | In Progress |
+| [005_references](005_references/) | Reference extraction and citation management exploration | 2024-12-05 | Integrated |
+| [006_bibtex](006_bibtex/) | BibTeX import/export, PDF processing, and Crossref reference fetching | 2024-12-06 | Integrated |
+| [007_new_approach](007_new_approach/) | Pythonic definition API exploration as alternative to YAML | 2024-12-11 | Completed |
+| [008_fetchers](008_fetchers/) | Metadata fetching strategies - Crossref, arXiv, and custom resolver integration | 2024-12-22 | Integrated |
+| [009_retrieve_pdf](009_retrieve_pdf/) | PDF retrieval and download strategies from various sources | 2024-12-19 | Integrated |
+| [010_cite_key](010_cite_key/) | Citation key generation strategies - Author/Year fallback to DOI slug to UUID | 2025-12-22 | Complete |
+| [011_step_executor](011_step_executor/) | Step executor architecture and pipeline execution patterns | 2025-12-20 | In Progress |
 
 ## Purpose
 

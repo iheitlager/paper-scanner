@@ -9,12 +9,12 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Author, Paper
-from paper_scanner.steps.fix_cite_keys import (
-    FixCiteKeysStep,
-    _generate_cite_key,
-    _make_collision_suffix,
-    _resolve_collision
+from paper_scanner.core.cite_key import (
+    generate_cite_key,
+    make_collision_suffix,
+    resolve_collision,
 )
+from paper_scanner.steps.fix_cite_keys import FixCiteKeysStep
 
 
 # ============================================================================
@@ -153,7 +153,7 @@ def temp_cache_dir(tmp_path):
 # ============================================================================
 
 class TestGenerateCiteKey:
-    """Tests for _generate_cite_key function"""
+    """Tests for generate_cite_key function"""
     
     def test_basic_generation(self):
         """Should generate basic cite key from first author and year"""
@@ -163,7 +163,7 @@ class TestGenerateCiteKey:
             authors=[Author(family_name="Smith", given_name="John", full_name="John Smith")],
             year=2020,
         )
-        key = _generate_cite_key(paper)
+        key = generate_cite_key(paper)
         assert key == "Smith2020"
     
     def test_handles_spaces_in_lastname(self):
@@ -174,7 +174,7 @@ class TestGenerateCiteKey:
             authors=[Author(family_name="Van Der Berg", given_name="John", full_name="John Van Der Berg")],
             year=2020,
         )
-        key = _generate_cite_key(paper)
+        key = generate_cite_key(paper)
         assert key == "VanDerBerg2020"
     
     def test_handles_hyphens_in_lastname(self):
@@ -185,7 +185,7 @@ class TestGenerateCiteKey:
             authors=[Author(family_name="Smith-Jones", given_name="John", full_name="John Smith-Jones")],
             year=2020,
         )
-        key = _generate_cite_key(paper)
+        key = generate_cite_key(paper)
         assert key == "SmithJones2020"
     
     def test_uses_first_author_only(self):
@@ -199,7 +199,7 @@ class TestGenerateCiteKey:
             ],
             year=2020,
         )
-        key = _generate_cite_key(paper)
+        key = generate_cite_key(paper)
         assert key == "Smith2020"
     
     def test_missing_authors_raises_error(self):
@@ -211,7 +211,7 @@ class TestGenerateCiteKey:
             year=2020,
         )
         with pytest.raises(ValueError, match="has no authors"):
-            _generate_cite_key(paper)
+            generate_cite_key(paper)
     
     def test_missing_year_raises_error(self):
         """Should raise error if paper has no year"""
@@ -222,7 +222,7 @@ class TestGenerateCiteKey:
             year=None,
         )
         with pytest.raises(ValueError, match="has no publication year"):
-            _generate_cite_key(paper)
+            generate_cite_key(paper)
     
     def test_author_no_family_name_raises_error(self):
         """Should raise error if first author has no family name"""
@@ -233,68 +233,68 @@ class TestGenerateCiteKey:
             year=2020,
         )
         with pytest.raises(ValueError, match="has no family name"):
-            _generate_cite_key(paper)
+            generate_cite_key(paper)
 
 
 class TestMakeCollisionSuffix:
-    """Tests for _make_collision_suffix function"""
+    """Tests for make_collision_suffix function"""
     
     def test_single_letters(self):
         """Should generate single letters a-z for indices 0-25"""
-        assert _make_collision_suffix(0) == "a"
-        assert _make_collision_suffix(1) == "b"
-        assert _make_collision_suffix(25) == "z"
+        assert make_collision_suffix(0) == "a"
+        assert make_collision_suffix(1) == "b"
+        assert make_collision_suffix(25) == "z"
     
     def test_double_letters(self):
         """Should generate double letters aa-az for indices 26+"""
-        assert _make_collision_suffix(26) == "aa"
-        assert _make_collision_suffix(27) == "ab"
-        assert _make_collision_suffix(51) == "az"
+        assert make_collision_suffix(26) == "aa"
+        assert make_collision_suffix(27) == "ab"
+        assert make_collision_suffix(51) == "az"
     
     def test_more_letters(self):
         """Should continue pattern for more indices"""
-        assert _make_collision_suffix(52) == "aaa"
-        assert _make_collision_suffix(77) == "aaz"
+        assert make_collision_suffix(52) == "aaa"
+        assert make_collision_suffix(77) == "aaz"
     
     def test_large_index(self):
         """Should handle large indices"""
-        result = _make_collision_suffix(100)
+        result = make_collision_suffix(100)
         assert isinstance(result, str)
         assert len(result) >= 2
 
 
 class TestResolveCollision:
-    """Tests for _resolve_collision function"""
+    """Tests for resolve_collision function"""
     
     def test_no_collision(self):
         """Should return base key if no collision"""
         existing_keys = {"OtherKey2020": True}
-        result = _resolve_collision("Smith2020", existing_keys)
+        result = resolve_collision("Smith2020", existing_keys)
         assert result == "Smith2020"
     
     def test_single_collision(self):
         """Should append 'a' for first collision"""
         existing_keys = {"Smith2020": True}
-        result = _resolve_collision("Smith2020", existing_keys)
+        result = resolve_collision("Smith2020", existing_keys)
         assert result == "Smith2020a"
     
     def test_multiple_collisions(self):
         """Should append successive letters for multiple collisions"""
         existing_keys = {"Smith2020": True, "Smith2020a": True}
-        result = _resolve_collision("Smith2020", existing_keys)
+        result = resolve_collision("Smith2020", existing_keys)
         assert result == "Smith2020b"
     
     def test_many_collisions(self):
         """Should handle many collisions with multi-letter suffixes"""
-        existing_keys = {f"Smith2020{_make_collision_suffix(i)}": True for i in range(30)}
-        result = _resolve_collision("Smith2020", existing_keys)
+        existing_keys = {f"Smith2020{make_collision_suffix(i)}": True for i in range(30)}
+        result = resolve_collision("Smith2020", existing_keys)
         # Should find first unused key after 30 collisions
         assert "Smith2020" not in existing_keys or result.startswith("Smith2020")
     
     def test_empty_existing_keys(self):
         """Should return base key if no existing keys"""
         existing_keys = {}
-        result = _resolve_collision("Smith2020", existing_keys)
+        result = resolve_collision("Smith2020", existing_keys)
         assert result == "Smith2020"
 
 
@@ -395,9 +395,8 @@ class TestExecute:
             authors=[Author(family_name="Smith", given_name="John", full_name="John Smith")],
             doi="10.1234/original.2020",
             year=2020,
+            duplicate_of=primary,  # Reference the primary paper object
         )
-        # Mark as duplicate after creating
-        duplicate.duplicate_of = primary.id
         
         db.add(primary)
         db.add(duplicate)
