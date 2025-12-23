@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Tuple
 from rich.console import Console
 
 from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.step_result import StepResult
 
 from .base import BaseStep
 
@@ -42,7 +43,7 @@ class EchoStep(BaseStep):
 
     def execute(
         self, config: Dict[str, Any], verbose: bool = False, dry_run: bool = False, debug: bool = False
-    ) -> Dict[str, Any]:
+    ) -> StepResult:
         """
         Execute echo step - output the message
 
@@ -60,7 +61,12 @@ class EchoStep(BaseStep):
 
         console.print(f"[cyan]Message:[/cyan] [white]{message}[/white]")
 
-        return {
-            "status": StepStatus.SUCCESS,
-            "message": message
-        }
+        # return {
+        #     "status": StepStatus.SUCCESS,
+        #     "message": message
+        # }
+
+        return StepResult(
+            status=StepStatus.SUCCESS,
+            message=message
+        )

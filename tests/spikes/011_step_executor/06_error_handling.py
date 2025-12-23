@@ -13,7 +13,7 @@ Error scenarios covered:
 
 from pathlib import Path
 
-from paper_scanner.cli.executor import StepExecutor
+from paper_scanner.core.executor import StepExecutor
 
 
 def test_missing_definition():
@@ -143,7 +143,7 @@ def test_step_execution_error():
         'steps': [
             {
                 'step': 'Load files',
-                'builtin.load-files': {
+                'builtin.load_files': {
                     # Missing required configuration
                 }
             }

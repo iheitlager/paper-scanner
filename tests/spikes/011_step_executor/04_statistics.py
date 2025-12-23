@@ -11,7 +11,7 @@ The executor provides two main methods for introspection:
 
 from pathlib import Path
 
-from paper_scanner.cli.executor import StepExecutor
+from paper_scanner.core.executor import StepExecutor
 
 
 def main():

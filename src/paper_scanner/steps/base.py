@@ -66,6 +66,11 @@ class BaseStep(ABC):
         self.db = db
         self.cache_dir = cache_dir
 
+    @property
+    def name(self) -> str:
+        """Return the step's class name as its identifier."""
+        return self.__class__.__name__
+
     @staticmethod
     @abstractmethod
     def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:

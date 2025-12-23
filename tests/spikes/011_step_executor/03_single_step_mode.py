@@ -27,7 +27,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from paper_scanner.cli.executor import StepExecutor
+from paper_scanner.core.executor import StepExecutor
 from paper_scanner.core.enum import StepStatus
 
 # Enable readline history and tab completion (optional, not available on all platforms)
@@ -304,7 +304,7 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
                 total_steps = stats.get('total_steps', 0)
                 steps_executed = stats.get('steps_executed', 0)
                 total_duration = stats.get('total_duration_seconds', 0)
-                step_timings = stats.get('step_timings', [])
+                step_history = stats.get('step_history', [])
                 
                 console.print(f"  [cyan]Project:[/cyan] [white]{project_name}[/white]")
                 console.print(f"  [cyan]Papers:[/cyan] [white]{papers_total}[/white] total [dim]([green]{papers_unique}[/green] unique, [yellow]{papers_duplicates}[/yellow] duplicates)[/dim]")
@@ -312,14 +312,14 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
                 console.print(f"  [cyan]Executed:[/cyan] [white]{steps_executed}[/white] steps")
                 console.print(f"  [cyan]Total duration:[/cyan] [white]{total_duration:.2f}s[/white]")
                 
-                if step_timings:
+                if step_history:
                     console.print("\n  [bold cyan]Step Timings:[/bold cyan]")
-                    for i, timing in enumerate(step_timings):
-                        step_name = timing.get('step', 'Unknown')
-                        duration_ms = timing.get('duration_ms', 0)
-                        percentage = (timing.get('duration_seconds', 0) / total_duration * 100) if total_duration > 0 else 0
+                    for i, entry in enumerate(step_history):
+                        step_name = entry.get('step', 'Unknown')
+                        duration_ms = entry.get('duration_ms', 0)
+                        percentage = (duration_ms / (total_duration * 1000) * 100) if total_duration > 0 else 0
                         color = "white" if i % 2 == 0 else "magenta"
-                        console.print(f"    • [{color}]{step_name:<25}[/{color}] [dim]{duration_ms:>7.0f}ms ({percentage:>5.1f}%)[/dim]")
+                        console.print(f"    • [{color}]{step_name:<25}[/{color}] [dim]{duration_ms:>7d}ms ({percentage:>5.1f}%)[/dim]")
                 console.print()
             
             elif cmd == "state":

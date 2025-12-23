@@ -10,7 +10,7 @@ resuming from a checkpoint if one exists.
 
 from pathlib import Path
 
-from paper_scanner.cli.executor import StepExecutor
+from paper_scanner.core.executor import StepExecutor
 
 
 def main(skip_checkpoint: bool = False, clear_checkpoint: bool = False, dry_run: bool = False):

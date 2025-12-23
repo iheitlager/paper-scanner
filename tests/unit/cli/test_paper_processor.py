@@ -10,6 +10,7 @@ parse_step_config = StepExecutor.parse_step_config
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Author, Paper
 
+from paper_scanner.core.enum import StepStatus
 
 class TestStepDiscovery:
     """Test step discovery functionality"""
@@ -209,9 +210,9 @@ class TestStepExecutorIntegration:
             step = StepExecutor.get_step("echo", {}, PapersDatabase(), Path(tmpdir))
             result = step.execute(config, verbose=False)
 
-            assert isinstance(result, dict)
-            assert "message" in result
-            assert result["status"] == "ok"
+            # assert "message" in result
+            assert result.status == StepStatus.SUCCESS
+            assert result.message == "test message"
 
     def test_execute_step_with_papers(self):
         """Test executing step with papers database"""
@@ -242,7 +243,8 @@ class TestStepExecutorIntegration:
             config = {"message": "Processing papers"}
             result = step.execute(config, verbose=False)
 
-            assert isinstance(result, dict)
+            assert result.status == StepStatus.SUCCESS
+            assert result.message == "Processing papers"
             # Papers should be unchanged by echo step
             assert papers_db.count(primary_only=False) == 2
 

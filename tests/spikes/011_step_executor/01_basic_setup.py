@@ -9,7 +9,7 @@ This is the foundation for all executor patterns.
 
 from pathlib import Path
 
-from paper_scanner.cli.executor import StepExecutor
+from paper_scanner.core.executor import StepExecutor
 
 
 def main():

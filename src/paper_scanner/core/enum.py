@@ -74,10 +74,10 @@ class CitationDirection(str, Enum):
 
 class StepStatus(str, Enum):
     """Status of a processing step
-    
+
     Returned by BaseStep.execute() in StepResult.status field. Only SUCCESS, WARNING,
     ERROR, and HALTED are in active use. READY and SKIPPED are reserved for future use.
-    
+
     Values:
         SUCCESS: Step completed successfully with no issues (value: "ok")
         WARNING: Step completed with partial success or recoverable issues (value: "warning")
@@ -85,6 +85,7 @@ class StepStatus(str, Enum):
         HALTED: Pipeline intentionally halted via halt step (value: "halted")
         READY: Reserved for future use (value: "ready")
         SKIPPED: Reserved for future use (value: "skipped")
+        FINAL: Last step in pipeline, internal use only (value: "final")
     """
     SUCCESS = "ok"
     WARNING = "warning"
@@ -92,3 +93,4 @@ class StepStatus(str, Enum):
     HALTED = "halted"
     READY = "ready"
     SKIPPED = "skipped"
+    FINAL = "final"  # Internal use only

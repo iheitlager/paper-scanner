@@ -26,19 +26,20 @@ import yaml
 from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import StepStatus
-from paper_scanner.core.exceptions import (CheckpointError, ConfigurationError,
-                                           PipelineExecutionError, StepError)
+from paper_scanner.core.step_result import StepResult, FINAL_STEP
+from paper_scanner.core.exceptions import CheckpointError, ConfigurationError, PipelineExecutionError, StepError
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
 
+CHECKPOINT_DIR="checkpoints"
 
 class LazyStepRegistry(dict):
     """Dictionary that lazy-loads step classes on access"""
-    
+
     def __init__(self, registry_paths: Dict[str, str]):
         """
         Initialize registry with module paths.
-        
+
         Args:
             registry_paths: Dict mapping step_name -> "module_path:ClassName"
         """
@@ -46,16 +47,16 @@ class LazyStepRegistry(dict):
         self._loaded: Dict[str, Type[BaseStep]] = {}
         # Initialize dict with keys from paths (but don't load values yet)
         super().__init__({key: None for key in registry_paths.keys()})
-    
+
     def __getitem__(self, key: str) -> Type[BaseStep]:
         """Get a step class, lazy-loading if necessary"""
         if key not in self._paths:
             raise KeyError(f"Unknown step: {key}")
-        
+
         # Return cached version if already loaded
         if key in self._loaded:
             return self._loaded[key]
-        
+
         # Load and cache the step class
         path_str = self._paths[key]
         module_path, class_name = path_str.split(":")
@@ -65,19 +66,19 @@ class LazyStepRegistry(dict):
         # Update the dict value too
         super().__setitem__(key, step_class)
         return step_class
-    
+
     def get(self, key: str, default=None):
         """Get with default value, lazy-loading if necessary"""
         try:
             return self[key]
         except KeyError:
             return default
-    
+
     def items(self):
         """Return items, lazy-loading all values first"""
         for key in self._paths.keys():
             yield key, self[key]
-    
+
     def values(self):
         """Return values, lazy-loading all values first"""
         for key in self._paths.keys():
@@ -87,7 +88,7 @@ class LazyStepRegistry(dict):
 class StepExecutor:
     """
     Unified executor for pipeline definitions with template support.
-    
+
     Manages:
     - Definition loading and template validation
     - Session state (database, results, execution history)
@@ -95,10 +96,10 @@ class StepExecutor:
     - Checkpoint management (local files only)
     - Statistics and timing collection
     - Step discovery and lazy instantiation
-    
+
     Self-contained with no external step executor dependencies.
     """
-    
+
     # Class-level lazy registry (created on first access)
     _step_registry: Optional[LazyStepRegistry] = None
 
@@ -121,7 +122,7 @@ class StepExecutor:
         self.general_config = general_config
         self.cache_dir = cache_dir or Path.home() / ".paper-scanner"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.verbose = verbose
         self.debug = debug
 
@@ -130,39 +131,38 @@ class StepExecutor:
         self.definition: Dict[str, Any] = {}
         self.templates: Dict[str, List[Dict[str, Any]]] = {}
         self.steps: List[Dict[str, Any]] = []
-        
+
         # Execution tracking
         self.results: Dict[str, Any] = {}
         self.step_history: List[Dict[str, Any]] = []
         self.current_step_index: int = 0
-        
+
         # Statistics
         self.start_time: Optional[float] = None
-        self.step_timings: List[Dict[str, Any]] = []
-    
+
     # =========================================================================
     # Step Navigation Properties (for REPL/CLI convenience)
     # =========================================================================
-    
+
     @property
     def has_steps(self) -> bool:
         """Check if definition has any steps loaded."""
         return len(self.steps) > 0
-    
+
     @property
     def has_next_step(self) -> bool:
         """Check if there is a next step to execute."""
         return self.current_step_index < len(self.steps)
-    
+
     @property
     def step_progress(self) -> Tuple[int, int]:
         """Get current progress as (current_index, total_steps)."""
         return (self.current_step_index, len(self.steps))
-    
+
     def describe_next_step(self) -> Optional[Dict[str, Any]]:
         """
         Get details about the next step to execute.
-        
+
         Returns:
             Dict with step details or None if no next step:
             {
@@ -176,23 +176,22 @@ class StepExecutor:
         """
         if not self.has_next_step:
             return None
-        
+
         step_config = self.steps[self.current_step_index]
         step_name, step_params, description = self.parse_step_config(step_config)
-        
+
         result = {
             "index": self.current_step_index,
             "name": step_name,
-            "description": description or step_config.get('step', ''),
+            "description": description or step_config.get("step", ""),
             "is_template": step_name == "run-template",
             "config": step_config,
         }
-        
-        if result["is_template"]:
-            result["template_name"] = step_params.get('template', 'unknown')
-        
-        return result
 
+        if result["is_template"]:
+            result["template_name"] = step_params.get("template", "unknown")
+
+        return result
 
     def describe_last_step(self) -> Optional[Dict[str, Any]]:
         """
@@ -211,64 +210,59 @@ class StepExecutor:
         """
         if self.current_step_index == 0:
             return None
-        
-        step_config = self.steps[self.current_step_index-1]
+
+        step_config = self.steps[self.current_step_index - 1]
         step_name, step_params, description = self.parse_step_config(step_config)
-        
+
         result = {
             "index": self.current_step_index - 1,
             "name": step_name,
-            "description": description or step_config.get('step', ''),
+            "description": description or step_config.get("step", ""),
             "is_template": step_name == "run-template",
             "config": step_config,
         }
-        
+
         if result["is_template"]:
-            result["template_name"] = step_params.get('template', 'unknown')
-        
+            result["template_name"] = step_params.get("template", "unknown")
+
         return result
 
-
-    def execute_next_step(self, dry_run: bool = False) -> Dict[str, Any]:
+    def execute_next_step(self, dry_run: bool = False) -> StepResult:
         """
         Execute the next step in the pipeline.
-        
+
         Convenience wrapper around execute_step() that uses current_step_index.
-        
+
         Args:
             dry_run: Don't actually execute the step
-            
+
         Returns:
             Step result dictionary, or error dict if no next step
         """
         if not self.has_next_step:
-            return {
-                "status": StepStatus.ERROR,
-                "error": "No more steps to execute",
-                "count": 0,
-            }
-        
+            return FINAL_STEP
+
         return self.execute_step(self.current_step_index, dry_run=dry_run)
-    
+
     # =========================================================================
     # Step Registry
     # =========================================================================
-    
+
     @classmethod
     def get_builtin_steps(cls) -> Dict[str, Type[BaseStep]]:
         """
         Get the lazy-loading step registry.
-        
+
         Steps are only imported when actually accessed.
         This significantly speeds up CLI commands that don't use all steps.
-        
+
         Returns:
             LazyStepRegistry that loads steps on demand
         """
         if cls._step_registry is None:
             cls._step_registry = LazyStepRegistry(STEP_REGISTRY_PATHS)
         return cls._step_registry
-    
+
     def get_step(self, step_name: str) -> BaseStep:
         """
         Get a step instance by name.
@@ -278,7 +272,7 @@ class StepExecutor:
 
         Returns:
             Instantiated step object (BaseStep subclass instance)
-            
+
         Raises:
             StepError: If step not found or instantiation fails
         """
@@ -291,14 +285,10 @@ class StepExecutor:
         step_class = builtin_steps[step_name]
         try:
             # Instantiate the step with required dependencies
-            return step_class(
-                general_config=self.general_config,
-                db=self.papers_db,
-                cache_dir=self.cache_dir
-            )
+            return step_class(general_config=self.general_config, db=self.papers_db, cache_dir=self.cache_dir)
         except Exception as e:
             raise StepError(f"Failed to instantiate step '{step_name}': {e}") from e
-    
+
     @staticmethod
     def parse_step_config(step_config: Dict[str, Any]) -> Tuple[str, Dict[str, Any], Optional[str]]:
         """
@@ -309,7 +299,7 @@ class StepExecutor:
 
         Returns:
             Tuple of (step_name, step_params, description)
-            
+
         Raises:
             ConfigurationError: If step configuration is invalid
         """
@@ -356,7 +346,7 @@ class StepExecutor:
     def load_definition(self, definition_file: Path) -> bool:
         """
         Load and validate a YAML definition file.
-        
+
         Parses project metadata, templates, and steps.
         Validates all template references early.
 
@@ -396,19 +386,19 @@ class StepExecutor:
         self._validate_template_references()
 
         # Initialize checkpoint directory
-        checkpoints_dir = self.cache_dir / "checkpoints"
+        checkpoints_dir = self.cache_dir / CHECKPOINT_DIR
         checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
         return True
 
-
     def _validate_template_references(self) -> None:
         """
         Validate that all referenced templates exist.
-        
+
         Raises:
             ValueError: If a referenced template is not defined
         """
+
         def check_step_templates(step: Dict[str, Any]) -> None:
             """Recursively check for template references in a step"""
             # Check for run-template references
@@ -432,10 +422,11 @@ class StepExecutor:
             skip_checkpoint: Don't load from checkpoints
             clear_checkpoint: Clear all existing checkpoints
         """
-        checkpoints_dir = self.cache_dir / "checkpoints"
+        checkpoints_dir = self.cache_dir / CHECKPOINT_DIR
 
         if clear_checkpoint and checkpoints_dir.exists():
             import shutil
+
             shutil.rmtree(checkpoints_dir)
             return
 
@@ -460,7 +451,7 @@ class StepExecutor:
         Returns:
             Tuple of (resume_step_index, checkpoint_file) or (None, None)
         """
-        checkpoints_dir = self.cache_dir / "checkpoints"
+        checkpoints_dir = self.cache_dir / CHECKPOINT_DIR
         if not checkpoints_dir.exists():
             return None, None
 
@@ -484,7 +475,7 @@ class StepExecutor:
     def _load_checkpoint_file(self, checkpoint_file: Path) -> None:
         """
         Load papers from checkpoint JSON file.
-        
+
         Raises:
             CheckpointError: If checkpoint file is corrupt or invalid
             FileNotFoundError: If checkpoint file doesn't exist
@@ -498,12 +489,13 @@ class StepExecutor:
             raise CheckpointError(f"Corrupt checkpoint file: {checkpoint_file}") from e
         except IOError as e:
             raise CheckpointError(f"Cannot read checkpoint file: {checkpoint_file}") from e
-        
+
         # Restore papers from checkpoint
         papers = data.get("papers", [])
         if papers:
             try:
                 from paper_scanner.core.models import Paper
+
                 paper_objects = [Paper(**p) for p in papers]
                 self.papers_db.from_list(paper_objects)
             except (TypeError, ValueError) as e:
@@ -519,9 +511,13 @@ class StepExecutor:
         step_index: int,
         step_config: Optional[Dict[str, Any]] = None,
         dry_run: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> StepResult:
         """
         Execute a single step from the definition.
+
+        Exceptions propagate to the caller (typically CLI layer) for proper
+        error handling and recovery. Only HaltException is special-cased as
+        it's an intentional signal, not an error.
 
         Args:
             step_index: Index in self.steps to execute
@@ -529,86 +525,71 @@ class StepExecutor:
             dry_run: Don't actually execute
 
         Returns:
-            Step result dictionary with status, count, etc.
+            StepResult for normal completion (SUCCESS/WARNING/ERROR/HALTED)
+
+        Raises:
+            StepError: If step index is out of range or step name invalid
+            ConfigurationError: If step config is invalid
+            PipelineExecutionError: If step execution fails
+            Any other exception: Propagates for CLI to handle
         """
         if step_index < 0 or step_index >= len(self.steps):
-            return {
-                "status": "error",
-                "error": f"Step index {step_index} out of range",
-                "count": 0,
-            }
+            raise StepError(f"Step index out of range: {step_index}")
 
         if step_config is None:
             step_config = self.steps[step_index]
 
         step_start = time.time()
-        result = {}
 
         try:
             # Parse step config to get step name
-            # Let ConfigurationError propagate for invalid config
+            # ConfigurationError propagates for invalid config
             step_name, step_params, description = self.parse_step_config(step_config)
 
             # Handle run-template: recursively execute template steps
             if step_name == "run-template":
-                result = self._execute_template(
-                    step_params, description, dry_run
-                )
+                result = self._execute_template(step_params, description, dry_run)
             else:
                 # Execute regular step
-                result = self._execute_builtin_step(
-                    step_name, step_params, description, dry_run
-                )
+                result = self._execute_builtin_step(step_name, step_params, description, dry_run)
 
-            # Track timing
+            # Track timing and history
             duration = time.time() - step_start
-            self.step_timings.append({
-                "step": step_name,
-                "duration_seconds": round(duration, 2),
-                "duration_ms": round(duration * 1000, 0),
-            })
-
-            # Update history
-            self.step_history.append({
-                "index": step_index,
-                "step": step_name,
-                "status": result.get("status", "unknown"),
-                "duration_seconds": round(duration, 2),
-            })
+            self.step_history.append(
+                {
+                    "index": step_index,
+                    "step": step_name,
+                    "status": result.get("status", "unknown"),
+                    "duration_ms": int(duration * 1000),
+                }
+            )
 
             self.results = result
             self.current_step_index = step_index + 1
 
             return result
 
-        except (ConfigurationError, StepError):
-            # Configuration/step errors are caught and returned as error dicts
-            # (letting the REPL decide how to display them)
-            return {
-                "status": "error",
-                "error": str(e),
-                "count": 0,
-            }
         except HaltException as e:
-            return {
-                "status": "halted",
+            # HaltException is an intentional signal, not an error
+            # Return a halted status but don't propagate
+            duration = time.time() - step_start
+            result = {
+                "status": StepStatus.HALTED,
                 "message": str(e),
                 "count": 0,
             }
-        except PipelineExecutionError as e:
-            # Step execution errors are caught and returned as error dicts
-            return {
-                "status": "error",
-                "error": str(e),
-                "count": 0,
-            }
-        except Exception as e:
-            # Other unexpected exceptions are caught and returned
-            return {
-                "status": "error",
-                "error": str(e),
-                "count": 0,
-            }
+            # Don't update index on halt - stays at current step
+            # But still record in history
+            self.step_history.append(
+                {
+                    "index": step_index,
+                    "step": "halted",
+                    "status": StepStatus.HALTED,
+                    "duration_seconds": round(duration, 2),
+                }
+            )
+            return result
+        # All other exceptions propagate to CLI layer
 
     def _execute_builtin_step(
         self,
@@ -630,7 +611,7 @@ class StepExecutor:
 
         # Execute step
         result = step_instance.execute(
-            step_params,
+            config=step_params,
             verbose=self.verbose,
             dry_run=dry_run,
             debug=self.debug,
@@ -649,62 +630,64 @@ class StepExecutor:
         description: Optional[str],
         dry_run: bool,
     ) -> Dict[str, Any]:
-        """Execute a template (recursively expand and run template steps)"""
+        """
+        Execute a template (recursively expand and run template steps).
+        
+        Exceptions propagate to the caller for proper error handling.
+        Template steps are executed sequentially; if any step returns
+        ERROR status, raises PipelineExecutionError to propagate the failure.
+        
+        Args:
+            step_params: Template parameters including 'template' name
+            description: Human-readable description
+            dry_run: Don't actually execute steps
+            
+        Returns:
+            Template result dict with status and aggregated results on success
+            
+        Raises:
+            ConfigurationError: If template config is invalid
+            StepError: If step not found or step instantiation fails
+            PipelineExecutionError: If any template step returns ERROR status
+            Any other exception: Propagates for CLI to handle
+        """
         template_name = step_params.get("template")
         if not template_name:
-            return {
-                "status": "error",
-                "error": "run-template missing 'template' parameter",
-                "count": 0,
-            }
-
+            raise ConfigurationError("run-template missing 'template' parameter")
         if template_name not in self.templates:
-            return {
-                "status": "error",
-                "error": f"Template '{template_name}' not found",
-                "count": 0,
-            }
+            raise ConfigurationError(f"Template '{template_name}' not found")
 
         template_steps = self.templates[template_name]
         template_results = []
         total_count = 0
 
-        try:
-            for template_step in template_steps:
-                # Parse and execute each template step
-                step_name, step_params, step_desc = self.parse_step_config(template_step)
+        for template_step in template_steps:
+            # Parse and execute each template step
+            # ConfigurationError propagates for invalid config
+            step_name, step_params, step_desc = self.parse_step_config(template_step)
 
-                if step_name == "run-template":
-                    # Nested template call
-                    result = self._execute_template(step_params, step_desc, dry_run)
-                else:
-                    result = self._execute_builtin_step(
-                        step_name, step_params, step_desc, dry_run
-                    )
+            if step_name == "run-template":
+                # Nested template call
+                result = self._execute_template(step_params, step_desc, dry_run)
+            else:
+                # Execute regular step
+                # StepError propagates if step not found
+                # PipelineExecutionError propagates if step execution fails
+                result = self._execute_builtin_step(step_name, step_params, step_desc, dry_run)
 
-                template_results.append(result)
-                total_count += result.get("count", 0)
+            template_results.append(result)
+            total_count += result.get("count", 0)
 
-                if result.get("status") == "error":
-                    return {
-                        "status": "error",
-                        "error": f"Template '{template_name}' failed at step {step_name}: {result.get('error')}",
-                        "count": total_count,
-                        "template_results": template_results,
-                    }
+            if result.get("status") == StepStatus.ERROR:
+                error_msg = f"Template '{template_name}' failed at step {step_name}: {result.get('error')}"
+                raise PipelineExecutionError(error_msg)
 
-            return {
-                "status": "ok",
-                "count": total_count,
-                "template": template_name,
-                "template_results": template_results,
-            }
-
-        except (ConfigurationError, StepError):
-            # Configuration/step errors propagate (caller can catch them)
-            raise
-        except Exception as e:
-            raise PipelineExecutionError(f"Template '{template_name}' execution failed: {e}") from e
+        return {
+            "status": "ok",
+            "count": total_count,
+            "template": template_name,
+            "template_results": template_results,
+        }
 
     def run_all(
         self,
@@ -715,6 +698,8 @@ class StepExecutor:
         """
         Execute all remaining steps sequentially.
 
+        Exceptions propagate to the caller for proper error handling.
+
         Args:
             dry_run: Don't actually execute steps
             on_step_start: Optional callback called before each step.
@@ -724,6 +709,12 @@ class StepExecutor:
 
         Returns:
             Aggregated results dictionary
+            
+        Raises:
+            ConfigurationError: If step config is invalid
+            StepError: If step not found or step instantiation fails
+            PipelineExecutionError: If step execution fails
+            Any other exception: Propagates for caller to handle
         """
         self.start_time = time.time()
         results_summary = {
@@ -736,41 +727,35 @@ class StepExecutor:
 
         total_steps = len(self.steps)
 
-        try:
-            for i in range(self.current_step_index, total_steps):
-                step_config = self.steps[i]
-                
-                # Call start callback if provided
-                if on_step_start:
-                    on_step_start(i, step_config, total_steps)
-                
-                result = self.execute_step(i, dry_run=dry_run)
+        for i in range(self.current_step_index, total_steps):
+            step_config = self.steps[i]
 
-                # Call end callback if provided
-                if on_step_end:
-                    on_step_end(i, step_config, result)
+            # Call start callback if provided
+            if on_step_start:
+                on_step_start(i, step_config, total_steps)
 
-                results_summary["step_results"].append(result)
+            # Execute step - exceptions propagate to caller
+            result = self.execute_step(i, dry_run=dry_run)
 
-                if result.get("status") == "error":
-                    results_summary["status"] = StepStatus.ERROR
-                    results_summary["steps_failed"] += 1
-                    break
-                elif result.get("status") == "halted":
-                    results_summary["status"] = "halted"
-                    break
-                else:
-                    results_summary["steps_executed"] += 1
+            # Call end callback if provided
+            if on_step_end:
+                on_step_end(i, step_config, result)
 
-        except (ConfigurationError, StepError, PipelineExecutionError, CheckpointError):
-            # Let paper-scanner errors propagate
-            raise
+            results_summary["step_results"].append(result)
+
+            if result.get("status") == "error":
+                results_summary["status"] = StepStatus.ERROR
+                results_summary["steps_failed"] += 1
+                break
+            elif result.get("status") == "halted":
+                results_summary["status"] = "halted"
+                break
+            else:
+                results_summary["steps_executed"] += 1
 
         # Add timing information
         if self.start_time:
-            results_summary["total_duration_seconds"] = round(
-                time.time() - self.start_time, 2
-            )
+            results_summary["total_duration_seconds"] = round(time.time() - self.start_time, 2)
 
         return results_summary
 
@@ -782,7 +767,7 @@ class StepExecutor:
             Checkpoint result dictionary
         """
         try:
-            checkpoints_dir = self.cache_dir / "checkpoints"
+            checkpoints_dir = self.cache_dir / CHECKPOINT_DIR
             checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
             project_hash = self._get_project_hash()
@@ -792,7 +777,7 @@ class StepExecutor:
             # Serialize papers to JSON - use model_dump() for proper Pydantic serialization
             papers_data = []
             for p in self.papers_db.papers:
-                paper_dict = p.model_dump(mode='json')
+                paper_dict = p.model_dump(mode="json")
                 papers_data.append(paper_dict)
 
             checkpoint_data = {
@@ -836,14 +821,10 @@ class StepExecutor:
             "project_name": self.general_config.get("project_name"),
             "papers_total": self.papers_db.count(primary_only=False),
             "papers_unique": self.papers_db.count(primary_only=True),
-            "papers_duplicates": (
-                self.papers_db.count(primary_only=False) - 
-                self.papers_db.count(primary_only=True)
-            ),
+            "papers_duplicates": (self.papers_db.count(primary_only=False) - self.papers_db.count(primary_only=True)),
             "current_step_index": self.current_step_index,
             "total_steps": len(self.steps),
             "steps_executed": len(self.step_history),
-            "step_timings": self.step_timings,
             "step_history": self.step_history,
             "templates": {
                 "count": len(self.templates),
@@ -856,9 +837,7 @@ class StepExecutor:
         }
 
         if self.start_time:
-            stats["total_duration_seconds"] = round(
-                time.time() - self.start_time, 2
-            )
+            stats["total_duration_seconds"] = round(time.time() - self.start_time, 2)
 
         return stats
 
@@ -873,7 +852,7 @@ class StepExecutor:
             "results": self.results,
             "general_config": self.general_config,
         }
-        
+
         last_step_info = self.describe_last_step()
         if last_step_info:
             state["last_step"] = {
@@ -894,5 +873,5 @@ class StepExecutor:
                     "is_template": step_info["is_template"],
                     "template_name": step_info.get("template_name"),
                 }
-        
+
         return state

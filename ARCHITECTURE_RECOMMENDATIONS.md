@@ -93,10 +93,40 @@ class StepResult:
     # Common keys: duration_seconds, duration_ms, started_at, ended_at
     metadata: Dict[str, Any] = field(default_factory=dict)
     
+    def __getitem__(self, key: str) -> Any:
+        """
+        Dict-like access for backward compatibility.
+        
+        Allows: result['message'] → result.message
+        Preferred: Use attribute access directly (result.message)
+        
+        Args:
+            key: Field name
+            
+        Returns:
+            Field value
+            
+        Raises:
+            KeyError: If field doesn't exist
+        """
+        try:
+            return getattr(self, key)
+        except AttributeError:
+            raise KeyError(key)
+    
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dict for serialization if needed"""
+        """
+        Convert to dict for serialization.
+        
+        Recommended when you need JSON output or logging:
+            result_dict = result.to_dict()
+            json.dumps(result_dict)
+        
+        Returns:
+            Dictionary representation
+        """
         return {
-            "status": self.status,
+            "status": self.status.value if isinstance(self.status, Enum) else self.status,
             "step": self.step,
             "message": self.message,
             "description": self.description,

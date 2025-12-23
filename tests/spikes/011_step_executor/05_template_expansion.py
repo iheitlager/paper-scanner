@@ -16,7 +16,7 @@ v1 Constraints:
 
 from pathlib import Path
 
-from paper_scanner.cli.executor import StepExecutor
+from paper_scanner.core.executor import StepExecutor
 
 
 def main():
