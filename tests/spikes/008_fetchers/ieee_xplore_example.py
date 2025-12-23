@@ -33,12 +33,12 @@ def fetch_paper_details():
     if not api_key:
         print(json.dumps({"error": "IEEE_XPLORE_API_KEY environment variable not set"}, indent=2))
         return
-    
+
     headers = {
         "User-Agent": f"paper-scanner (https://github.com/iheitlager/paper-scanner; mailto:{EMAIL})",
         "Content-Type": "application/json"
     }
-    
+
     # IEEE Xplore API parameters
     # Note: DOI API endpoint differs slightly from metadata search
     params = {
@@ -48,12 +48,12 @@ def fetch_paper_details():
         "format": "json",
         "max_records": 100
     }
-    
+
     response = requests.get(IEEE_XPLORE_API_URL, headers=headers, params=params)
     response.raise_for_status()
-    
+
     data = response.json()
-    
+
     # IEEE Xplore returns results in an array
     if data.get("total_records", 0) > 0 and data.get("articles"):
         # Return the first matching article

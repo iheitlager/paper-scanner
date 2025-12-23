@@ -10,8 +10,7 @@ This demonstrates:
 - Summary and export to multiple formats
 """
 
-from paper_scanner.definition import (BibtexSource, DeduplicationMethod,
-                                      Definition)
+from paper_scanner.definition import BibtexSource, DeduplicationMethod, Definition
 
 
 def main():
@@ -45,7 +44,7 @@ def main():
         )
         .echo(message="Imported 1,050 papers from 3 sources")
         .checkpoint(label="post_import")
-        
+
         # Deduplicate using multiple methods
         .deduplication(
             enabled=True,
@@ -68,11 +67,11 @@ def main():
         )
         .echo(message="Deduplication complete")
         .checkpoint(label="post_dedup")
-        
+
         # Categorize papers
         .categorization(enabled=True)
         .checkpoint(label="post_categorization")
-        
+
         # Display summary statistics
         .summarize(
             summary=True,
@@ -82,7 +81,7 @@ def main():
                 {"field": "publication_year", "duplicates": False}
             ]
         )
-        
+
         # Export deduplicated papers to JSONL
         .export(
             format="jsonl",
@@ -91,7 +90,7 @@ def main():
             duplicates=False,
             overwrite=True
         )
-        
+
         # Export only duplicate papers to BibTeX
         .export(
             format="bibtex",
@@ -100,10 +99,10 @@ def main():
             overwrite=True
         )
     )
-    
+
     # Run with detailed output and timing
     results = definition.run(verbose=True)
-    
+
     print(f"\n✓ Review complete: {results['steps_executed']} steps executed")
     return definition
 

@@ -34,10 +34,10 @@ def main():
             overwrite=True
         )
     )
-    
+
     # Execute the pipeline
     results = definition.run(verbose=True)
-    
+
     print(f"\n✓ Pipeline complete: {results['steps_executed']} steps executed")
     return definition
 

@@ -145,18 +145,18 @@ class RetrieveMetadataStep(BaseStep):
 
         # Print summary
         if verbose:
-            console.print(f" Metadata Retrieval Summary")
+            console.print(" Metadata Retrieval Summary")
             console.print(f"  Total papers: {results['total_papers']}")
             console.print(f"  Updated: {results['updated_papers']}")
             console.print(f"  Skipped (no DOI): {results['skipped_no_doi']}")
             console.print(f"  Not found: {results['not_found']}")
             console.print(f"  Cache hits: {results['cache_hits']}")
             console.print(f"  Cache misses: {results['cache_misses']}")
-        
+
         if results["errors"]:
             console.print(f" [red]✗[/red] [red]Errors: {len(results['errors'])}[/red]")
 
-        results["status"] = StepStatus.SUCCESS if len(results['errors']) == 0 else StepStatus.ERROR 
+        results["status"] = StepStatus.SUCCESS if len(results['errors']) == 0 else StepStatus.ERROR
         return results
 
 

@@ -47,7 +47,7 @@ class TestAuthorClass:
         """Verify family_name is required"""
         with pytest.raises(ValidationError) as exc_info:
             Author(full_name="John Smith")
-        
+
         errors = exc_info.value.errors()
         assert any(e['loc'] == ('family_name',) for e in errors)
 
@@ -55,7 +55,7 @@ class TestAuthorClass:
         """Verify full_name is required"""
         with pytest.raises(ValidationError) as exc_info:
             Author(family_name="Smith")
-        
+
         errors = exc_info.value.errors()
         assert any(e['loc'] == ('full_name',) for e in errors)
 
@@ -524,7 +524,7 @@ class TestPaperClass:
         )
         # Default is PENDING
         assert paper.is_included is False
-        
+
         # Update to INCLUDED
         paper.screening.final_decision = ScreeningDecision.INCLUDED
         assert paper.is_included is True

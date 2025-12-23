@@ -22,8 +22,7 @@ from rich.logging import RichHandler
 
 from paper_scanner import __version__
 from paper_scanner.tools.cache import JSONFileCache
-from paper_scanner.tools.fetchers import (CROSSREF_EMAIL,
-                                          CrossrefReferenceFetcher)
+from paper_scanner.tools.fetchers import CROSSREF_EMAIL, CrossrefReferenceFetcher
 
 # Configure rich console with colored output
 console = Console()
@@ -40,7 +39,7 @@ class VerboseRichHandler(RichHandler):
     def __init__(self, *args, show_path=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.show_path = show_path
-    
+
     def emit(self, record):
         # Hide level name and path by default
         if not self.show_path:
@@ -70,7 +69,7 @@ class VerboseRichHandler(RichHandler):
     def __init__(self, *args, show_path=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.show_path = show_path
-    
+
     def emit(self, record):
         # Hide level name and path by default
         if not self.show_path:
@@ -138,10 +137,10 @@ class CrossrefReferenceLoader:
                             authors.append(last_name)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         # Build APA citation
         apa_parts = []
-        
+
         # Authors
         if authors:
             if len(authors) == 1:
@@ -150,22 +149,22 @@ class CrossrefReferenceLoader:
                 apa_parts.append(f"{authors[0]}, & {authors[1]}")
             else:
                 apa_parts.append(f"{authors[0]}, et al.")
-        
+
         # Year
         year = reference.get('year')
         if year:
             apa_parts.append(f"({year})")
-        
+
         # Title
         title = reference.get('title')
         if title:
             apa_parts.append(f"{title}.")
-        
+
         # Journal/Publisher
         journal = reference.get('journal')
         if journal:
             apa_parts.append(f"*{journal}*")
-        
+
         # Volume and issue
         volume = reference.get('volume')
         issue = reference.get('issue')
@@ -174,12 +173,12 @@ class CrossrefReferenceLoader:
                 apa_parts.append(f"{volume}({issue})")
             else:
                 apa_parts.append(f"{volume}")
-        
+
         # DOI
         doi = reference.get('doi')
         if doi:
             apa_parts.append(f"https://doi.org/{doi}")
-        
+
         return " ".join(apa_parts)
 
     def connect(self) -> psycopg2.extensions.connection:
@@ -210,7 +209,7 @@ class CrossrefReferenceLoader:
             """
             cursor.execute(eligible_query)
             eligible_count = cursor.fetchone()['count']
-            
+
             # Then get papers with DOIs
             query = """
                 SELECT 
@@ -240,7 +239,7 @@ class CrossrefReferenceLoader:
             cursor.close()
             conn.close()
 
-    def insert_referenced_paper(self, conn: psycopg2.extensions.connection, reference: Dict[str, Any], 
+    def insert_referenced_paper(self, conn: psycopg2.extensions.connection, reference: Dict[str, Any],
                                 source_paper_id: int) -> Optional[int]:
         """
         Insert a referenced paper as a new paper record
@@ -257,7 +256,7 @@ class CrossrefReferenceLoader:
             # In try_mode, just return a dummy ID for testing
             self.stats['new_papers_created'] += 1
             return 999999
-        
+
         cursor = conn.cursor()
 
         try:
@@ -332,7 +331,7 @@ class CrossrefReferenceLoader:
         finally:
             cursor.close()
 
-    def create_citation_edge(self, conn: psycopg2.extensions.connection, 
+    def create_citation_edge(self, conn: psycopg2.extensions.connection,
                             source_paper_id: int, cited_paper_id: int) -> bool:
         """
         Create a citation edge linking source to cited paper
@@ -349,7 +348,7 @@ class CrossrefReferenceLoader:
             # In try_mode, skip actual insertion
             self.stats['citation_edges_created'] += 1
             return True
-        
+
         cursor = conn.cursor()
 
         try:
@@ -397,9 +396,9 @@ class CrossrefReferenceLoader:
                             authors.append(last_name)
             except (json.JSONDecodeError, TypeError):
                 pass
-        
+
         apa_parts = []
-        
+
         # Authors
         if authors:
             if len(authors) == 1:
@@ -408,17 +407,17 @@ class CrossrefReferenceLoader:
                 apa_parts.append(f"{authors[0]}, & {authors[1]}")
             else:
                 apa_parts.append(f"{authors[0]}, et al.")
-        
+
         # Year
         year = paper.get('year')
         if year:
             apa_parts.append(f"({year})")
-        
+
         # Title
         title = paper.get('title')
         if title:
             apa_parts.append(f"{title}.")
-        
+
         return " ".join(apa_parts)
 
     def resolve_references_hierarchical(self, references: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -437,15 +436,15 @@ class CrossrefReferenceLoader:
         """
         direct_refs = []  # References without DOI - use as-is
         crossref_refs = []  # References with DOI - fetch full metadata
-        
+
         for i, ref in enumerate(references, 1):
             if not isinstance(ref, dict):
                 logger.debug(f"Ref {i}: Skipping - not a dict")
                 continue
-            
+
             # Check if reference has a DOI
             ref_doi = ref.get('DOI', '').strip().lower() if ref.get('DOI') else None
-            
+
             if ref_doi:
                 # Has DOI - need to fetch full metadata from Crossref
                 crossref_refs.append({
@@ -463,7 +462,7 @@ class CrossrefReferenceLoader:
                 })
                 if self.verbose:
                     console.print(f"         Ref {i}: No DOI - using direct data")
-        
+
         return {
             'direct': direct_refs,
             'crossref': crossref_refs
@@ -483,7 +482,7 @@ class CrossrefReferenceLoader:
         paper_id = paper['id']
         citekey = paper['citekey']
         doi = paper['doi']
-        
+
         # Print source paper in APA format
         source_apa = self._format_paper_apa(paper)
         console.print(f"[{self.stats['papers_processed'] + 1}] Processing {citekey}")
@@ -523,28 +522,28 @@ class CrossrefReferenceLoader:
         resolved = self.resolve_references_hierarchical(references)
         direct_count = len(resolved['direct'])
         crossref_count = len(resolved['crossref'])
-        
+
         if direct_count > 0 or crossref_count > 0:
             console.print(f"  Breakdown: [cyan]{direct_count}[/cyan] direct + [cyan]{crossref_count}[/cyan] need lookup")
 
         # Process each reference
         references_added = 0
-        
+
         # First process direct references (no DOI, use parsed data)
         for ref_item in resolved['direct']:
             try:
                 i = ref_item['index']
                 ref = ref_item['raw']
-                
+
                 # Parse reference
                 parsed_ref = self.fetcher.parse_reference(ref, paper_id)
-                
+
                 if not parsed_ref:
                     continue
-                
+
                 # Insert as new paper
                 cited_paper_id = self.insert_referenced_paper(conn, parsed_ref, paper_id)
-                
+
                 if cited_paper_id:
                     # Create citation edge (count as added regardless of whether it's new)
                     self.create_citation_edge(conn, paper_id, cited_paper_id)
@@ -552,11 +551,11 @@ class CrossrefReferenceLoader:
                     if self.verbose:
                         apa_citation = self.format_apa(parsed_ref)
                         console.print(f"    Ref {i}: ✓ {apa_citation}")
-            
+
             except Exception as e:
                 logger.warning(f"    Ref {i}: Error processing direct reference: {e}")
                 self.stats['errors'] += 1
-        
+
         # Then process Crossref references (have DOI, fetch full metadata)
         crossref_lookup_count = 0
         for ref_item in resolved['crossref']:
@@ -564,32 +563,32 @@ class CrossrefReferenceLoader:
                 i = ref_item['index']
                 doi = ref_item['doi']
                 crossref_lookup_count += 1
-                
+
                 # Show progress for Crossref lookups
                 if not self.verbose:
                     # In normal mode, show every 10th lookup
                     if crossref_lookup_count % 10 == 1 and crossref_lookup_count > 1:
                         console.print(f"  Fetching metadata from Crossref... [cyan]{crossref_lookup_count-10}[/cyan]/{len(resolved['crossref'])}")
-                
+
                 # Fetch full metadata from Crossref
                 crossref_work = self.fetcher.get_crossref_work_for_doi(doi)
-                
+
                 if not crossref_work:
                     if self.verbose:
                         logger.debug(f"    Ref {i}: Failed to fetch metadata from Crossref for {doi}")
                     continue
-                
+
                 # Parse the Crossref data
                 parsed_ref = self.fetcher.parse_crossref_work(crossref_work, paper_id)
-                
+
                 if not parsed_ref:
                     if self.verbose:
                         logger.debug(f"    Ref {i}: Failed to parse Crossref data for {doi}")
                     continue
-                
+
                 # Insert as new paper
                 cited_paper_id = self.insert_referenced_paper(conn, parsed_ref, paper_id)
-                
+
                 if cited_paper_id:
                     # Create citation edge (count as added regardless of whether it's new)
                     self.create_citation_edge(conn, paper_id, cited_paper_id)
@@ -600,7 +599,7 @@ class CrossrefReferenceLoader:
                 else:
                     if self.verbose:
                         logger.debug(f"    Ref {i}: Failed to insert referenced paper for {doi}")
-            
+
             except Exception as e:
                 logger.warning(f"    Ref {i}: Error processing Crossref reference {doi}: {e}")
                 self.stats['errors'] += 1
@@ -632,7 +631,7 @@ class CrossrefReferenceLoader:
         console.print("=" * 70)
         console.print("CROSSREF REFERENCE FETCHER")
         console.print("=" * 70)
-        console.print(f"[green]✓ Polite Mode Enabled[/green]")
+        console.print("[green]✓ Polite Mode Enabled[/green]")
         console.print(f"  Email: {self.fetcher.email}")
         console.print(f"  User-Agent: {self.fetcher.session.headers.get('User-Agent')}")
         console.print(f"  Rate Limit: {self.fetcher.rate_limit} requests/sec")
@@ -668,7 +667,7 @@ class CrossrefReferenceLoader:
 
             # Print summary
             self._print_summary()
-            
+
             # Export errors if requested
             if self.export_errors_path and self.not_found_records:
                 self._export_errors()
@@ -678,7 +677,7 @@ class CrossrefReferenceLoader:
         except Exception as e:
             logger.error(f"Fatal error: {e}")
             raise
-    
+
     def _export_errors(self) -> None:
         """Export not found records to JSON file"""
         try:
@@ -774,7 +773,7 @@ def main():
         # Enable file path display in logs only in verbose mode
         if args.verbose and _log_handler:
             _log_handler.show_path = True
-        
+
         loader = CrossrefReferenceLoader(args.db_url, try_mode=args.try_mode,
                                         cache_dir=args.cache)
         loader.verbose = args.verbose
@@ -787,7 +786,7 @@ def main():
             loader.fetcher.session.headers.update({
                 'User-Agent': f'PaperScanner/1.0 (mailto:{args.email})'
             })
-        
+
         # Set rate limit
         if args.rate:
             loader.fetcher.rate_limit = args.rate

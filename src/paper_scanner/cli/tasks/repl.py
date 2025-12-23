@@ -50,15 +50,15 @@ def _is_code_complete(code: str) -> bool:
     code = code.strip()
     if not code:
         return True
-    
+
     # Remove comments to check for colon properly
     code_no_comment = code.split('#')[0].rstrip()
-    
+
     # Check for lines that require indentation (end with colon)
     # This catches: for, while, if, elif, else, def, class, with, try, except, finally
     if code_no_comment.endswith(':'):
         return False
-    
+
     try:
         # Try to compile the dedented code
         compile(textwrap.dedent(code), '<input>', 'exec')
@@ -160,7 +160,7 @@ class REPLSession:
             return
 
         if self.verbose:
-            console.print(f"[cyan]Steps in pipeline:[/cyan]")
+            console.print("[cyan]Steps in pipeline:[/cyan]")
             for step in steps:
                 step_name = next(
                     (k.replace("builtin.", "") for k in step.keys()
@@ -169,15 +169,14 @@ class REPLSession:
         try:
             # Execute each step
             if self.verbose:
-                console.print(f"\n[cyan bold]Executing pipeline...[/cyan bold]\n")
+                console.print("\n[cyan bold]Executing pipeline...[/cyan bold]\n")
 
             for i, step_config in enumerate(steps, 1):
                 step_config["step_index"] = i - 1
                 step_config["project_name"] = self.project_name
 
                 # Create wrapper for step instantiation
-                from paper_scanner.cli.paper_processor import \
-                    StepExecutor as ProcessorStepExecutor
+                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
                 get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
 
                 result = StepExecutor.execute_step(
@@ -198,10 +197,10 @@ class REPLSession:
                 step_name = next(
                     (k.replace("builtin.", "") for k in step_config.keys()
                     if k.startswith("builtin.")), "unknown")
-                
+
                 status = result.get("status", "unknown")
                 count = result.get("count", 0)
-                
+
                 if status == "ok":
                     if count > 0:
                         console.print(
@@ -248,11 +247,11 @@ class REPLSession:
     def _get_status_line(self) -> str:
         """Build the status line showing DB records, step progress, and definition file"""
         parts = []
-        
+
         # Database record count
         record_count = self.papers_db.count() if self.papers_db else 0
         parts.append(f"[cyan]PaperDB:[/cyan] {record_count} records")
-        
+
         # Step progress (if loaded)
         if self.loaded_definition_steps:
             total = len(self.loaded_definition_steps)
@@ -261,12 +260,12 @@ class REPLSession:
                 parts.append(f"[red]All steps completed ({total}/{total})[/red]")
             else:
                 parts.append(f"[yellow]Step {current}/{total}[/yellow]")
-        
+
         # Definition file (if loaded)
         if hasattr(self, '_current_definition_file') and self._current_definition_file:
             filename = self._current_definition_file.name
             parts.append(f"[magenta]{filename}[/magenta]")
-        
+
         return " | ".join(parts)
 
     def _create_namespace(self) -> Dict[str, Any]:
@@ -330,11 +329,11 @@ class REPLSession:
                 "\n[cyan bold]Namespace Objects:[/cyan bold]"
             )
             console.print(
-                f"  papers_db (PapersDatabase)        - Current papers database"
+                "  papers_db (PapersDatabase)        - Current papers database"
             )
-            console.print(f"  db (alias)                        - Shorthand for papers_db")
-            console.print(f"  results (Dict)                    - Last step results")
-            console.print(f"  general_config (Dict)             - Session configuration")
+            console.print("  db (alias)                        - Shorthand for papers_db")
+            console.print("  results (Dict)                    - Last step results")
+            console.print("  general_config (Dict)             - Session configuration")
 
         # Create namespace with full paper_scanner access
         namespace = {
@@ -436,11 +435,11 @@ class REPLSession:
             return "", [], {}
 
         command = tokens[0]
-        
+
         # Expand shortcuts
         if command in shortcuts:
             command = shortcuts[command]
-        
+
         rest = tokens[1:]
 
         # Separate positional args and kwargs
@@ -454,17 +453,17 @@ class REPLSession:
                 if match:
                     key = match.group(1)
                     nested_str = match.group(2)
-                    
+
                     # Parse nested parameters
                     nested_config = {}
                     for param in nested_str.split(","):
                         if "=" in param:
                             k, v = param.split("=", 1)
                             nested_config[k.strip()] = v.strip()
-                    
+
                     kwargs[key] = nested_config if nested_config else True
                     continue
-            
+
             if "=" in token:
                 key, value = token.split("=", 1)
                 kwargs[key] = value
@@ -500,7 +499,7 @@ class REPLSession:
         elif command == "do" and args:
             # \do <step_name> [params] - Execute ad-hoc step with parameters
             step_name = args[0]
-            
+
             # Convert string values to appropriate types
             def parse_value(v: Any) -> Any:
                 """Parse values to Python types"""
@@ -522,22 +521,21 @@ class REPLSession:
                         return float(v)
                     except ValueError:
                         return v
-            
+
             # Build config from kwargs, parsing values appropriately
             step_config = {k: parse_value(v) for k, v in kwargs.items()}
-            
+
             if self.papers_db is None:
                 console.print("[yellow]No database. Initialize with papers first.[/yellow]")
                 return True
-            
+
             try:
                 console.print(f"[cyan]Executing step:[/cyan] {step_name}")
                 if step_config:
                     console.print(f"[dim]Parameters: {step_config}[/dim]")
-                
+
                 # Execute the step
-                from paper_scanner.cli.paper_processor import \
-                    StepExecutor as ProcessorStepExecutor
+                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
 
                 # Build step config with required "step" key and builtin. prefix
                 # Format: {"step": "<description>", "builtin.{step_name}": {params}}
@@ -545,9 +543,9 @@ class REPLSession:
                     "step": f"Ad-hoc: {step_name}",
                     f"builtin.{step_name}": step_config
                 }
-                
+
                 get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
-                
+
                 result = StepExecutor.execute_step(
                     step_config=full_step_config,
                     papers_db=self.papers_db,
@@ -561,10 +559,10 @@ class REPLSession:
                     debug=self.debug,
                     builtin_steps=self.builtin_steps,
                 )
-                
+
                 self.step_history.append(f"Ad-hoc: {step_name} - {result.get('status', 'unknown')}")
                 self.results = result
-                
+
                 if result.get("status") == "error":
                     console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
                 else:
@@ -572,14 +570,14 @@ class REPLSession:
                     if count > 0:
                         console.print(f"[green]✓ Step completed:[/green] {count} items processed")
                     else:
-                        console.print(f"[green]✓ Step completed[/green]")
-            
+                        console.print("[green]✓ Step completed[/green]")
+
             except Exception as e:
                 console.print(f"[red]Error executing step:[/red] {e}")
                 if self.debug:
                     import traceback
                     traceback.print_exc()
-            
+
             return True
 
         elif command == "step":
@@ -610,8 +608,7 @@ class REPLSession:
                 )
 
                 # Execute the step - create a wrapper function
-                from paper_scanner.cli.paper_processor import \
-                    StepExecutor as ProcessorStepExecutor
+                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
                 get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
 
                 result = StepExecutor.execute_step(
@@ -644,7 +641,7 @@ class REPLSession:
                             f"{count} items processed"
                         )
                     else:
-                        console.print(f"[green]✓ Step completed[/green]")
+                        console.print("[green]✓ Step completed[/green]")
 
             except Exception as e:
                 console.print(f"[red]Error executing step:[/red] {e}")
@@ -687,8 +684,7 @@ class REPLSession:
                     )
 
                     # Execute the step
-                    from paper_scanner.cli.paper_processor import \
-                        StepExecutor as ProcessorStepExecutor
+                    from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
                     get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
 
                     result = StepExecutor.execute_step(
@@ -721,7 +717,7 @@ class REPLSession:
                                 f"[green]✓[/green] {count} items processed"
                             )
                         else:
-                            console.print(f"[green]✓ Completed[/green]")
+                            console.print("[green]✓ Completed[/green]")
 
                 if self.current_step_index >= total_steps:
                     console.print(
@@ -882,7 +878,7 @@ class REPLSession:
         """Run REPL with prompt_toolkit for full history and arrow key support"""
         if self.debug:
             console.print("[dim]Using prompt_toolkit for REPL[/dim]")
-        
+
         # Setup history file with manual persistence
         session = None
         history_file = None
@@ -897,10 +893,10 @@ class REPLSession:
                 console.print(f"[dim]History file exists: {history_file.exists()}[/dim]")
                 if history_file.exists():
                     console.print(f"[dim]History file size: {history_file.stat().st_size} bytes[/dim]")
-            
+
             # Create FileHistory object
             history_obj = FileHistory(str(history_file))
-            
+
             session = PromptSession(
                 completer=WordCompleter([], ignore_case=True),
                 style=Style.from_dict({
@@ -929,7 +925,7 @@ class REPLSession:
                     # Show status line
                     status_line = self._get_status_line()
                     console.print(status_line)
-                    
+
                     # Get input - let prompt_toolkit handle history
                     line = session.prompt(">>> ")
 
@@ -951,14 +947,14 @@ class REPLSession:
                                 indent_level = len(last_line) - len(last_line.lstrip()) + 4
                             else:
                                 indent_level = 0
-                            
+
                             # Get continuation line with indentation prompt
                             indent_str = " " * indent_level
                             continuation = session.prompt(f"... {indent_str}")
                             accumulated += "\n" + indent_str + continuation
                         except EOFError:
                             break
-                    
+
                     if not accumulated.strip():
                         continue
 
@@ -969,7 +965,7 @@ class REPLSession:
                     result = eval(code_to_exec, namespace)
                     if result is not None:
                         print(repr(result))
-                except SyntaxError as e:
+                except SyntaxError:
                     # Fall back to exec for statements
                     try:
                         exec(code_to_exec, namespace)
@@ -1005,7 +1001,7 @@ class REPLSession:
                     if hasattr(history_obj, '_file_obj') and history_obj._file_obj:
                         history_obj._file_obj.flush()
                     if self.debug:
-                        console.print(f"[dim]History flushed[/dim]")
+                        console.print("[dim]History flushed[/dim]")
                 except Exception as e:
                     if self.debug:
                         console.print(f"[yellow]Warning: Could not flush history:[/yellow] {e}")
@@ -1022,7 +1018,7 @@ class REPLSession:
 
                 if not line:
                     continue
-                
+
                 # Handle multiline input by accumulating lines until we have complete code
                 accumulated = line
                 indent_level = 0
@@ -1056,7 +1052,7 @@ class REPLSession:
                         result = eval(code_to_exec, namespace)
                         if result is not None:
                             print(repr(result))
-                    except SyntaxError as e:
+                    except SyntaxError:
                         # Try to execute as statement
                         try:
                             exec(code_to_exec, namespace)

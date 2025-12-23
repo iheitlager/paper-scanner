@@ -11,8 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import \
-    CrossrefHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
 
 
 class TestCrossrefHandlerInitialization:
@@ -121,7 +120,7 @@ class TestCrossrefUnifiedCache:
     def test_fetch_paper_then_citations_uses_cache(self, mock_fetch, handler):
         """Test that fetch_citations uses cache populated by fetch_paper."""
         doi = "10.1145/3025453.3025761"
-        
+
         mock_fetch.return_value = {
             "DOI": doi,
             "title": "Test Paper",
@@ -132,12 +131,12 @@ class TestCrossrefUnifiedCache:
                 }
             ]
         }
-        
+
         # First fetch metadata
         paper, meta_hit = handler.fetch_paper(doi)
         assert meta_hit is False
         assert mock_fetch.call_count == 1
-        
+
         # Then fetch citations - should reuse cache
         citations, cite_hit = handler.fetch_citations(doi)
         assert cite_hit is True
@@ -147,7 +146,7 @@ class TestCrossrefUnifiedCache:
     def test_fetch_citations_then_metadata_uses_cache(self, mock_fetch, handler):
         """Test that fetch_paper uses cache populated by fetch_citations."""
         doi = "10.1145/3025453.3025761"
-        
+
         mock_fetch.return_value = {
             "DOI": doi,
             "title": "Test Paper",
@@ -156,12 +155,12 @@ class TestCrossrefUnifiedCache:
             "abstract": "Test abstract",
             "type": "journal-article",
         }
-        
+
         # First fetch citations
         citations, cite_hit = handler.fetch_citations(doi)
         assert cite_hit is False
         assert mock_fetch.call_count == 1
-        
+
         # Then fetch metadata - should reuse cache
         paper, meta_hit = handler.fetch_paper(doi)
         assert meta_hit is True
@@ -170,7 +169,7 @@ class TestCrossrefUnifiedCache:
     def test_cache_persists_across_instances(self, cache_dir):
         """Test cache is shared across different handler instances."""
         doi = "10.1145/3025453.3025761"
-        
+
         # Create first handler and populate cache
         handler1 = CrossrefHandler(cache_dir=cache_dir)
         api_data = {
@@ -179,7 +178,7 @@ class TestCrossrefUnifiedCache:
         }
         success = handler1._jsoncache.set(doi, api_data)
         assert success
-        
+
         # Create second handler with same cache dir
         handler2 = CrossrefHandler(cache_dir=cache_dir)
         with patch.object(
@@ -209,14 +208,14 @@ class TestCrossrefBackwardCompatibility:
     def test_fetch_and_parse_citations_delegates_to_fetch_citations(self, mock_fetch, handler):
         """Test fetch_and_parse_citations delegates to fetch_citations."""
         doi = "10.1145/3025453.3025761"
-        
+
         mock_fetch.return_value = {
             "DOI": doi,
             "reference": [
                 {"DOI": "10.1234/test1", "article-title": "Ref 1"}
             ]
         }
-        
+
         # Old API should work
         citations, cache_hit = handler.fetch_citations(doi)
         assert len(citations) >= 0

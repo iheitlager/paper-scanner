@@ -16,8 +16,7 @@ import pytest
 from flask import Flask
 
 from paper_scanner.web.config import Config
-from paper_scanner.web.exceptions import (DatabaseException,
-                                          InvalidDataException)
+from paper_scanner.web.exceptions import DatabaseException, InvalidDataException
 from paper_scanner.web.server import create_app, parse_args
 
 

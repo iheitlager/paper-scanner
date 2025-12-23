@@ -26,7 +26,7 @@ def empty_db():
 def sample_db():
     """Create a database with sample papers"""
     db = PapersDatabase()
-    
+
     papers = [
         Paper(
             cite_key="Smith2020",
@@ -59,10 +59,10 @@ def sample_db():
             paper_type=None  # No type
         ),
     ]
-    
+
     for paper in papers:
         db.add(paper)
-    
+
     return db
 
 
@@ -100,28 +100,28 @@ class TestExecute:
         result = step.execute({"papers": True})
 
         assert result["status"] == "skipped"
-    
+
     def test_execute_with_sample_data(self, sample_db, temp_cache_dir):
         """Should print all records and index statistics"""
         step = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
         result = step.execute({"papers": True})
 
         assert result["status"] == "skipped"
-    
+
     def test_execute_index_consistency(self, sample_db, temp_cache_dir):
         """Should show consistent index sizes"""
         step = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
         result = step.execute({"papers": True}, verbose=True)
 
         index_sizes = result["index_sizes"]
-        
+
         # papers count should match cite_key_index and id_index
         assert index_sizes["papers"] == index_sizes["_cite_key_index"]
         assert index_sizes["papers"] == index_sizes["_id_index"]
-        
+
         # DOI index should be <= papers (some may not have DOI)
         assert index_sizes["_doi_index"] <= index_sizes["papers"]
-    
+
     def test_execute_verbose_flag_ignored(self, sample_db, temp_cache_dir):
         """Should produce same output regardless of verbose flag"""
         step1 = DumpDbStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
@@ -136,7 +136,7 @@ class TestExecute:
         assert "index_sizes" not in result1
         assert "index_sizes" in result2
 
-    
+
     def test_execute_multiple_papers_same_doi(self, temp_cache_dir):
         """Should handle multiple papers with same DOI"""
         db = PapersDatabase()
@@ -160,14 +160,14 @@ class TestExecute:
 
         step = DumpDbStep(general_config={}, db=db, cache_dir=temp_cache_dir)
         result = step.execute({"papers": True}, verbose=True)
-        
+
         # Both papers in records
         assert result["printed_papers"] == 2
         # But only one DOI in index
         assert result["index_sizes"]["_doi_index"] == 1
         # Both in papers list
         assert result["index_sizes"]["papers"] == 2
-    
+
     def test_execute_no_side_effects(self, sample_db, temp_cache_dir):
         """Should not modify the database"""
         original_count = sample_db.count()
@@ -178,7 +178,7 @@ class TestExecute:
 
         assert sample_db.count() == original_count
         assert sample_db.get_stats() == original_stats
-    
+
     def test_execute_with_extra_config_params(self, sample_db, temp_cache_dir):
         """Should ignore extra configuration parameters"""
         config = {
@@ -219,7 +219,7 @@ class TestDumpDBTitleTruncation:
         assert result["printed_papers"] == 1
         # Title should be stored fully in the paper
         assert db.papers[0].title == long_title
-    
+
     def test_short_titles_not_truncated(self, temp_cache_dir):
         """Should not truncate titles shorter than 60 characters"""
         db = PapersDatabase()

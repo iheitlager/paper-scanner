@@ -11,52 +11,68 @@ Provides a hierarchy of exceptions for different error categories:
 
 class PaperScannerError(Exception):
     """Base exception for all paper-scanner errors."""
+
     pass
 
 
 class ConfigurationError(PaperScannerError):
     """
     Raised when pipeline or step configuration is invalid.
-    
+
     Examples:
     - Missing required configuration keys
     - Invalid step name in configuration
     - Malformed YAML or JSON
     """
+
     pass
 
 
 class StepError(PaperScannerError):
     """
     Raised when a step cannot be found, instantiated, or validated.
-    
+
     Examples:
     - Unknown step name
     - Step instantiation fails
     - Step validation fails
     """
+
     pass
 
+
+class StepFatalError(PaperScannerError):
+    """
+    Raised when a step encounters a non-recoverable and fatal resource error during execution.
+
+    Examples:
+    - Not able to write to filesystems
+    - No database available (to read or to write)
+    """
+
+    pass
 
 class CheckpointError(PaperScannerError):
     """
     Raised when checkpoint operations fail.
-    
+
     Examples:
     - Checkpoint file I/O errors
     - Corrupt checkpoint data
     - Checkpoint restoration fails
     """
+
     pass
 
 
 class PipelineExecutionError(PaperScannerError):
     """
     Raised when a step execution fails during pipeline run.
-    
+
     Examples:
     - Step processing fails
     - Data transformation errors
     - External service failures
     """
+
     pass

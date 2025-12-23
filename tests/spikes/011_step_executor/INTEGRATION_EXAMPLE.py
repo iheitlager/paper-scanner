@@ -23,7 +23,7 @@ class BatchTaskExecutor:
     Refactored batch task using StepExecutor.
     This replaces the original run.py implementation.
     """
-    
+
     def __init__(
         self,
         definition_file: Path,
@@ -38,7 +38,7 @@ class BatchTaskExecutor:
         self.cache_dir = cache_dir or Path.home() / ".paper-scanner"
         self.verbose = verbose
         self.debug = debug
-    
+
     def run(
         self,
         skip_checkpoint: bool = False,
@@ -55,7 +55,7 @@ class BatchTaskExecutor:
         general_config = {
             "project_name": self.project_name,
         }
-        
+
         # Create executor (self-contained with lazy step loading)
         executor = StepExecutor(
             general_config=general_config,
@@ -63,32 +63,32 @@ class BatchTaskExecutor:
             verbose=self.verbose,
             debug=self.debug,
         )
-        
+
         # Load and execute
         if self.verbose:
             print(f"Loading definition: {self.definition_file}")
         executor.load_definition(self.definition_file)
-        
+
         if self.verbose:
-            print(f"Checking for checkpoints...")
+            print("Checking for checkpoints...")
         executor.load_checkpoint(
             skip_checkpoint=skip_checkpoint,
             clear_checkpoint=clear_checkpoint
         )
-        
+
         if self.verbose:
-            print(f"Executing pipeline...")
+            print("Executing pipeline...")
         results = executor.run_all(dry_run=dry_run)
-        
+
         # Report
         if self.verbose:
             stats = executor.get_stats()
-            print(f"\n✓ Pipeline complete:")
+            print("\n✓ Pipeline complete:")
             print(f"  Status: {results['status']}")
             print(f"  Steps: {results.get('steps_executed', 0)}/{stats['total_steps']}")
             print(f"  Papers: {stats['papers_unique']} unique")
             print(f"  Duration: {stats['total_duration_seconds']:.2f}s")
-        
+
         return results
 
 
@@ -101,7 +101,7 @@ class REPLSession:
     Refactored REPL session using StepExecutor.
     This replaces the original repl.py implementation.
     """
-    
+
     def __init__(
         self,
         definition_file: Path,
@@ -114,7 +114,7 @@ class REPLSession:
         self.project_name = project_name
         self.cache_dir = cache_dir or Path.home() / ".paper-scanner"
         self.verbose = verbose
-        
+
         # Create executor (self-contained with lazy step loading)
         general_config = {"project_name": project_name}
         self.executor = StepExecutor(
@@ -123,11 +123,11 @@ class REPLSession:
             verbose=verbose,
             debug=False,
         )
-        
+
         # Load definition and checkpoint
         self.executor.load_definition(definition_file)
         self.executor.load_checkpoint()
-    
+
     def cmd_step(self, args: list) -> bool:
         """Execute next step (or specific step if index given)"""
         step_index = self.executor.current_step_index
@@ -137,19 +137,19 @@ class REPLSession:
             except ValueError:
                 print("Usage: step [index]")
                 return False
-        
+
         if step_index >= len(self.executor.steps):
             print(f"Step {step_index} out of range")
             return False
-        
+
         print(f"Executing step {step_index}...")
         result = self.executor.execute_step(step_index)
         print(f"  Status: {result['status']}")
         if result.get('error'):
             print(f"  Error: {result['error']}")
-        
+
         return result['status'] != 'error'
-    
+
     def cmd_checkpoint(self, args: list) -> bool:
         """Save checkpoint"""
         result = self.executor.checkpoint()
@@ -159,16 +159,16 @@ class REPLSession:
         else:
             print(f"✗ Checkpoint failed: {result.get('error')}")
             return False
-    
+
     def cmd_stats(self, args: list) -> bool:
         """Show statistics"""
         stats = self.executor.get_stats()
-        print(f"\nStatistics:")
+        print("\nStatistics:")
         print(f"  Papers: {stats['papers_unique']} unique, {stats['papers_duplicates']} duplicates")
         print(f"  Progress: {stats['current_step_index']}/{stats['total_steps']} steps")
         print(f"  Duration: {stats['total_duration_seconds']:.2f}s")
         return True
-    
+
     def cmd_history(self, args: list) -> bool:
         """Show execution history"""
         stats = self.executor.get_stats()
@@ -176,46 +176,46 @@ class REPLSession:
         for entry in stats['step_history']:
             print(f"  [{entry['index']}] {entry['step']}: {entry['status']} ({entry['duration_seconds']:.2f}s)")
         return True
-    
+
     def run(self):
         """Start interactive REPL loop"""
         print(f"REPL Session: {self.project_name}")
-        print(f"Type 'help' for commands or 'quit' to exit\n")
-        
+        print("Type 'help' for commands or 'quit' to exit\n")
+
         commands = {
             'step': self.cmd_step,
             'checkpoint': self.cmd_checkpoint,
             'stats': self.cmd_stats,
             'history': self.cmd_history,
         }
-        
+
         while True:
             try:
                 cmd_line = input(f"({self.executor.current_step_index}/{len(self.executor.steps)}) > ").strip()
-                
+
                 if not cmd_line:
                     continue
-                
+
                 parts = cmd_line.split()
                 cmd = parts[0]
                 args = parts[1:]
-                
+
                 if cmd == 'quit' or cmd == 'exit':
                     print("Exiting...")
                     break
-                
+
                 if cmd == 'help':
                     print("Available commands:")
                     for name in commands:
                         print(f"  {name}")
                     continue
-                
+
                 if cmd not in commands:
                     print(f"Unknown command: {cmd}")
                     continue
-                
+
                 commands[cmd](args)
-            
+
             except KeyboardInterrupt:
                 print("\nInterrupted. Exiting...")
                 break
@@ -232,7 +232,7 @@ def show_comparison():
     OLD: Separate run.py and repl.py with different initialization
     NEW: Unified StepExecutor with integration patterns
     """
-    
+
     comparison = """
 ╔════════════════════════════════════════════════════════════════════════════╗
 ║ OLD APPROACH: Separate run.py and repl.py                                 ║
@@ -291,7 +291,7 @@ Benefits:
 ║ KEY INSIGHT: StepExecutor is the core, integration patterns wrap it       ║
 ╚════════════════════════════════════════════════════════════════════════════╝
     """
-    
+
     print(comparison)
 
 
@@ -304,20 +304,20 @@ def example_batch():
     print("\n" + "=" * 60)
     print("Example 1: Batch Task Integration")
     print("=" * 60 + "\n")
-    
+
     batch = BatchTaskExecutor(
         definition_file=Path("definition.yml"),
         project_name="Example Project",
         verbose=True,
     )
-    
+
     # In real CLI, would use argparse:
     # results = batch.run(
     #     skip_checkpoint=args.skip_checkpoint,
     #     clear_checkpoint=args.clear_checkpoint,
     #     dry_run=args.dry_run,
     # )
-    
+
     print("✓ BatchTaskExecutor ready to use in run.py")
 
 
@@ -326,14 +326,14 @@ def example_repl():
     print("\n" + "=" * 60)
     print("Example 2: REPL Session Integration")
     print("=" * 60 + "\n")
-    
+
     # repl = REPLSession(
     #     definition_file=Path("definition.yml"),
     #     project_name="Example Project",
     #     verbose=True,
     # )
     # repl.run()  # Starts interactive loop
-    
+
     print("✓ REPLSession ready to use in repl.py")
 
 

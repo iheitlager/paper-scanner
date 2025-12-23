@@ -26,18 +26,18 @@ def fetch_paper_details():
     headers = {
         "User-Agent": f"paper-scanner (https://github.com/iheitlager/paper-scanner; mailto:{EMAIL})"
     }
-    
+
     # Query parameters for ScienceOpen search by DOI
     params = {
         "q": f"doi:{DOI}",
         "limit": 1
     }
-    
+
     response = requests.get(SCIENCEOPEN_API_URL, headers=headers, params=params)
     response.raise_for_status()
-    
+
     data = response.json()
-    
+
     # ScienceOpen returns results in an array
     if data.get("results") and len(data["results"]) > 0:
         paper = data["results"][0]

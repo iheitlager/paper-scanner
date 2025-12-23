@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
+
 from paper_scanner.core.enum import StepStatus
 
 
@@ -18,6 +19,7 @@ class StepResult:
     # Statistics - flexible dict for any step-specific counts
     # Common keys: processed, created, updated, deleted, skipped, errors
     stats: Dict[str, int] = field(default_factory=dict)
+    timings: Dict[str, Any] = field(default_factory=dict)
 
     # Rich messages for operators
     details: Optional[str] = None  # Detailed result (markdown format, multi-line)

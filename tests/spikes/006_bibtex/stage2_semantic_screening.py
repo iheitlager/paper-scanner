@@ -152,17 +152,17 @@ class Stage2SemanticScreener:
             Embedding vector
         """
         model = self.load_embedding_model()
-        
+
         # Combine title and abstract
         title_text = self.normalize_text(title) if title else ""
         abstract_text = self.normalize_text(abstract) if abstract else ""
-        
+
         combined_text = f"{title_text} {abstract_text}".strip()
-        
+
         if not combined_text:
             logger.warning("Empty text for embedding, using placeholder")
             combined_text = "No title or abstract available"
-        
+
         return model.encode(combined_text, convert_to_numpy=True, show_progress_bar=False)
 
     def compute_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
@@ -180,11 +180,11 @@ class Stage2SemanticScreener:
             embedding1 = embedding1.flatten()
         if embedding2.ndim > 1:
             embedding2 = embedding2.flatten()
-        
+
         # Cosine similarity = 1 - cosine_distance
         distance = cosine(embedding1, embedding2)
         similarity = 1 - distance
-        
+
         # Clamp to [0, 1]
         return float(max(0, min(1, similarity)))
 
@@ -209,24 +209,24 @@ class Stage2SemanticScreener:
         # Check for strong keyword signals (if available)
         keyword_boost = 0.0
         boost_applied = False
-        
+
         if paper.get('keywords'):
             required_terms = [
                 'digital', 'innovation', 'transformation',
                 'supplier', 'vendor', 'partner',
                 'incumbent', 'firm', 'organization'
             ]
-            
+
             keyword_text = ' '.join(paper['keywords']).lower()
             matches = sum(1 for term in required_terms if term in keyword_text)
-            
+
             # Boost score if keywords align (max +0.10)
             keyword_boost = min(0.10, matches * 0.02)
             if keyword_boost > 0:
                 boost_applied = True
-        
+
         adjusted_similarity = base_similarity + keyword_boost
-        
+
         # Decision thresholds
         if adjusted_similarity >= 0.60:
             return {
@@ -286,21 +286,21 @@ class Stage2SemanticScreener:
         paper_id = paper['id']
         title = paper.get('title')
         abstract = paper.get('abstract')
-        
+
         # Compute embeddings
         rq_embedding = self.compute_research_question_embedding()
         paper_embedding = self.compute_paper_embedding(title, abstract)
-        
+
         # Calculate similarity
         similarity = self.compute_similarity(rq_embedding, paper_embedding)
-        
+
         # Classify
         screening_stage, decision, exclusion_reason = self.classify_paper(similarity)
-        
+
         # Determine manual review flags
         needs_manual_review = (decision == 'manual_review')
         manual_review_reason = exclusion_reason if needs_manual_review else None
-        
+
         return {
             'paper_id': paper_id,
             'screening_stage': screening_stage,
@@ -357,10 +357,10 @@ class Stage2SemanticScreener:
                OR ps.screening_stage = 'stage1_pass'
             ORDER BY p.id
             """
-        
+
         if limit:
             query += f" LIMIT {limit}"
-        
+
         try:
             cursor = self.conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(query)
@@ -388,7 +388,7 @@ class Stage2SemanticScreener:
                 manual_review_reason = result['manual_review_reason']
                 stage2_processed_at = result['stage2_processed_at']
                 semantic_embedding = result['semantic_embedding']
-                
+
                 # Use upsert (INSERT ... ON CONFLICT ... DO UPDATE)
                 upsert_query = """
                 INSERT INTO paper_screening (
@@ -415,11 +415,11 @@ class Stage2SemanticScreener:
                     manual_review_reason = EXCLUDED.manual_review_reason,
                     updated_at = EXCLUDED.updated_at
                 """
-                
+
                 try:
                     # Convert embedding to string format for pgvector
                     embedding_str = '[' + ','.join(map(str, semantic_embedding)) + ']'
-                    
+
                     cursor.execute(upsert_query, (
                         paper_id,
                         screening_stage,
@@ -432,15 +432,15 @@ class Stage2SemanticScreener:
                         manual_review_reason,
                         datetime.now()
                     ))
-                    
+
                 except psycopg2.Error as e:
                     logger.error(f"Failed to update paper {paper_id}: {e}")
                     self.conn.rollback()
                     raise
-            
+
             self.conn.commit()
             logger.info(f"Successfully updated {len(results)} screening records")
-            
+
         except psycopg2.Error as e:
             logger.error(f"Failed to update screening results: {e}")
             self.conn.rollback()
@@ -467,7 +467,7 @@ class Stage2SemanticScreener:
         FROM paper_screening
         WHERE stage2_processed_at IS NOT NULL
         """
-        
+
         try:
             cursor = self.conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(query)
@@ -488,34 +488,34 @@ class Stage2SemanticScreener:
         """
         try:
             self.connect()
-            
+
             # Fetch papers to screen
             logger.info("Fetching papers for Stage 2 screening...")
             papers = self.get_stage1_passed_papers(limit=limit, force_redo=force_redo)
-            
+
             if not papers:
                 logger.info("No papers to screen")
                 return
-            
+
             logger.info(f"Found {len(papers)} papers to screen")
-            
+
             # Screen papers
             results = []
             for i, paper in enumerate(papers, 1):
                 if verbose:
                     logger.info(f"[{i}/{len(papers)}] Screening: {paper['citekey']} ({paper['year']})")
-                
+
                 try:
                     result = self.screen_paper(paper)
                     results.append(result)
                 except Exception as e:
                     logger.error(f"Error screening paper {paper['id']}: {e}")
                     continue
-            
+
             # Update database
             logger.info(f"Updating database with {len(results)} results...")
             self.update_screening_results(results)
-            
+
             # Print summary
             summary = self.get_screening_summary()
             logger.info("=== Stage 2 Screening Summary ===")
@@ -525,7 +525,7 @@ class Stage2SemanticScreener:
             logger.info(f"Excluded (< 0.55): {summary.get('excluded', 0)}")
             logger.info(f"Average similarity: {summary.get('avg_similarity', 0):.4f}")
             logger.info(f"Similarity range: {summary.get('min_similarity', 0):.4f} - {summary.get('max_similarity', 0):.4f}")
-            
+
         finally:
             self.disconnect()
 
@@ -561,12 +561,12 @@ def main():
         action="store_true",
         help="Print detailed progress"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Load environment variables
     load_dotenv()
-    
+
     # Run screening
     screener = Stage2SemanticScreener(args.db_url, model_name=args.model)
     screener.run(limit=args.limit, force_redo=args.force_redo, verbose=args.verbose)

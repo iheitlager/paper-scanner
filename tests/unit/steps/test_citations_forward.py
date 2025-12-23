@@ -22,9 +22,9 @@ class TestValidateForwardConfig:
                 "sources": ["crossref"]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert len(errors) > 0
 
@@ -37,9 +37,9 @@ class TestValidateForwardConfig:
                 "citations": ["crossref"],
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is True
         assert len(errors) == 0
 
@@ -48,9 +48,9 @@ class TestValidateForwardConfig:
         config = {
             "forward": "crossref"
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("'forward' must be a dictionary" in err for err in errors)
 
@@ -61,9 +61,9 @@ class TestValidateForwardConfig:
                 "citations": 123
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("'forward.citations' must be a string or list" in err for err in errors)
 
@@ -74,9 +74,9 @@ class TestValidateForwardConfig:
                 "citations": "crossref"
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is True
         assert len(errors) == 0
 
@@ -87,9 +87,9 @@ class TestValidateForwardConfig:
                 "citations": ["crossref", "openalex"]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is True
         assert len(errors) == 0
 
@@ -100,9 +100,9 @@ class TestValidateForwardConfig:
                 "citations": ["crossref", 123]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("items must be strings" in err for err in errors)
 
@@ -113,9 +113,9 @@ class TestValidateForwardConfig:
                 "details": "openalex"
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is True
         assert len(errors) == 0
 
@@ -126,9 +126,9 @@ class TestValidateForwardConfig:
                 "details": ["crossref", "openalex"]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is True
         assert len(errors) == 0
 
@@ -139,9 +139,9 @@ class TestValidateForwardConfig:
                 "details": 456
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("'forward.details' must be a string or list" in err for err in errors)
 
@@ -154,9 +154,9 @@ class TestValidateForwardConfig:
                 "output_errors": "/nonexistent/path/errors.jsonl"
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("'forward.output_errors' must be a valid file path" in err for err in errors)
 
@@ -167,7 +167,7 @@ class TestValidateForwardConfig:
         with tempfile.TemporaryDirectory() as tmp_dir:
             error_file = Path(tmp_dir) / "errors.jsonl"
             error_file.touch()
-            
+
             config = {
                 "paper-type": ["journal_article", "conference_paper"],
                 "continue_on_not_found": True,
@@ -178,9 +178,9 @@ class TestValidateForwardConfig:
                     "output_errors": str(error_file)
                 }
             }
-            
+
             is_valid, errors = CitationsStep.validate(config)
-            
+
             assert is_valid is True
             assert len(errors) == 0
 

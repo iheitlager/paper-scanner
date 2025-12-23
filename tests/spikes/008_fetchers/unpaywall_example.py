@@ -21,19 +21,19 @@ EMAIL = "i.heitlager@tue.nl"
 def fetch_paper_details():
     """Fetch paper details from Unpaywall API (polite pool)."""
     url = f"{UNPAYWALL_API_URL}/{DOI}"
-    
+
     headers = {
         "User-Agent": f"paper-scanner (https://github.com/iheitlager/paper-scanner; mailto:{EMAIL})"
     }
-    
+
     # Add email parameter for polite API access - provides better service and support
     params = {"email": EMAIL}
-    
+
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
-    
+
     data = response.json()
-    
+
     # Unpaywall returns the data directly, not in a results array
     if data.get("doi"):
         print(json.dumps(data, indent=2))

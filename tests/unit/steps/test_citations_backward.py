@@ -10,8 +10,7 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import CitationDirection, PaperType, StepStatus
-from paper_scanner.core.models import (Citation, Discovery, DiscoveryMethod,
-                                       Paper)
+from paper_scanner.core.models import Citation, Discovery, DiscoveryMethod, Paper
 from paper_scanner.steps.citations import CitationsStep
 
 
@@ -25,9 +24,9 @@ class TestValidate:
                 "sources": ["crossref"]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert len(errors) > 0
 
@@ -40,9 +39,9 @@ class TestValidate:
                 "citations": ["crossref"],
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is True
         assert len(errors) == 0
 
@@ -52,9 +51,9 @@ class TestValidate:
         config = {
             "backward": "crossref"
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("'backward' must be a dictionary" in err for err in errors)
 
@@ -65,9 +64,9 @@ class TestValidate:
                 "citations": 123
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("'backward.citations' must be a string or list" in err for err in errors)
 
@@ -78,9 +77,9 @@ class TestValidate:
                 "citations": "crossref"
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is True
         assert len(errors) == 0
 
@@ -91,9 +90,9 @@ class TestValidate:
                 "citations": ["crossref", "openalex"]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is True
         assert len(errors) == 0
 
@@ -104,9 +103,9 @@ class TestValidate:
                 "citations": ["crossref", 123]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("items must be strings" in err for err in errors)
 

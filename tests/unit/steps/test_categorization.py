@@ -9,14 +9,16 @@ import pytest
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import PaperType, QualityTier, StudyType
 from paper_scanner.core.models import Author, Paper
-from paper_scanner.steps.categorization import (CategorizationStep,
-                                                _assign_quality_tier,
-                                                _categorize_paper,
-                                                _check_paper_type,
-                                                _is_conceptual_paper,
-                                                _is_review_paper,
-                                                _normalize_paper_type,
-                                                _normalize_text)
+from paper_scanner.steps.categorization import (
+    CategorizationStep,
+    _assign_quality_tier,
+    _categorize_paper,
+    _check_paper_type,
+    _is_conceptual_paper,
+    _is_review_paper,
+    _normalize_paper_type,
+    _normalize_text,
+)
 
 # ============================================================================
 # FIXTURES

@@ -13,7 +13,6 @@ Example:
 import argparse
 import signal
 import sys
-from datetime import datetime
 from pathlib import Path
 from pprint import pprint
 
@@ -24,7 +23,6 @@ from paper_scanner.io.json import papers_to_jsonl
 
 # Handle broken pipe gracefully (when piping to head, wc, etc.)
 signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-from paper_scanner.core.enum import DiscoveryMethod
 
 
 def main():

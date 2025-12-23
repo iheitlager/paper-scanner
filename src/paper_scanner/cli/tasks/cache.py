@@ -168,7 +168,7 @@ def execute_cache_clear(
             shutil.rmtree(checkpoints_dir)
             console.print(f"[green]✓ Cleared checkpoints[/green]: {_collapse_home(checkpoints_dir)}")
         else:
-            console.print(f"[green]✓ No checkpoints to clear[/green] (directory is clean)")
+            console.print("[green]✓ No checkpoints to clear[/green] (directory is clean)")
 
         return 0
 
@@ -179,7 +179,7 @@ def execute_cache_clear(
             shutil.rmtree(pdfs_dir)
             console.print(f"[green]✓ Cleared PDFs[/green]: {_collapse_home(pdfs_dir)}")
         else:
-            console.print(f"[green]✓ No PDFs to clear[/green] (directory is clean)")
+            console.print("[green]✓ No PDFs to clear[/green] (directory is clean)")
 
         return 0
 

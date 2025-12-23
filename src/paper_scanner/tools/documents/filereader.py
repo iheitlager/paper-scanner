@@ -49,15 +49,15 @@ def compute_file_sha256(file_path: Path, chunk_size: int = 8192) -> str:
         IOError: If file cannot be read
     """
     file_path = Path(file_path).resolve()
-    
+
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
-    
+
     if not file_path.is_file():
         raise ValueError(f"Path is not a file: {file_path}")
-    
+
     sha256_hash = hashlib.sha256()
-    
+
     try:
         with open(file_path, 'rb') as f:
             while chunk := f.read(chunk_size):

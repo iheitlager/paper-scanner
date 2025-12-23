@@ -12,8 +12,7 @@ import yaml
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import Author, Paper
-from paper_scanner.steps.patch import (PatchStep, _apply_patch_to_paper,
-                                       _load_patches_from_file)
+from paper_scanner.steps.patch import PatchStep, _apply_patch_to_paper, _load_patches_from_file
 
 # ============================================================================
 # FIXTURES
@@ -58,7 +57,7 @@ def yaml_patch_file():
         }
         yaml.dump(patches, f)
         path = f.name
-    
+
     yield path
     Path(path).unlink()
 
@@ -79,7 +78,7 @@ def json_patch_file():
         }
         json.dump(patches, f)
         path = f.name
-    
+
     yield path
     Path(path).unlink()
 
@@ -105,7 +104,7 @@ def complex_patch_file():
         }
         yaml.dump(patches, f)
         path = f.name
-    
+
     yield path
     Path(path).unlink()
 
@@ -124,14 +123,14 @@ def temp_cache_dir(tmp_path):
 
 class TestValidate:
     """Tests for patch step validation"""
-    
+
     def test_validate_with_file_parameter(self):
         """Should validate when file parameter is provided"""
         config = {"file": "patches.yaml"}
         is_valid, errors = PatchStep.validate(config)
         assert is_valid
         assert errors == []
-    
+
     def test_validate_with_patches_parameter(self):
         """Should validate when patches parameter is provided"""
         config = {
@@ -145,7 +144,7 @@ class TestValidate:
         is_valid, errors = PatchStep.validate(config)
         assert is_valid
         assert errors == []
-    
+
     def test_validate_missing_both_parameters(self):
         """Should fail when neither file nor patches provided"""
         config = {}
@@ -153,21 +152,21 @@ class TestValidate:
         assert not is_valid
         assert len(errors) == 1
         assert "Either 'file' or 'patches'" in errors[0]
-    
+
     def test_validate_file_not_string(self):
         """Should fail when file is not a string"""
         config = {"file": 123}
         is_valid, errors = PatchStep.validate(config)
         assert not is_valid
         assert any("must be a string" in e for e in errors)
-    
+
     def test_validate_patches_not_list(self):
         """Should fail when patches is not a list"""
         config = {"patches": {"doi": "10.1234/test"}}
         is_valid, errors = PatchStep.validate(config)
         assert not is_valid
         assert any("must be a list" in e for e in errors)
-    
+
     def test_validate_patch_missing_doi(self):
         """Should fail when patch is missing doi field"""
         config = {
@@ -180,7 +179,7 @@ class TestValidate:
         is_valid, errors = PatchStep.validate(config)
         assert not is_valid
         assert any("missing required 'doi'" in e for e in errors)
-    
+
     def test_validate_patch_invalid_replace_fields(self):
         """Should fail when replace_fields is not a dict"""
         config = {
@@ -194,7 +193,7 @@ class TestValidate:
         is_valid, errors = PatchStep.validate(config)
         assert not is_valid
         assert any("must be a dictionary" in e for e in errors)
-    
+
     def test_validate_multiple_patches(self):
         """Should validate multiple patches"""
         config = {
@@ -220,7 +219,7 @@ class TestValidate:
 
 class TestExecute:
     """Tests for patch step execution"""
-    
+
     def test_execute_with_inline_patches_replace(self, papers_db_with_sample, temp_cache_dir):
         """Should apply inline patches with replace operation"""
         config = {
@@ -233,20 +232,20 @@ class TestExecute:
                 }
             ]
         }
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == "ok"
         assert result["patches_found"] == 1
         assert result["patches_applied"] == 1
         assert result["patches_failed"] == 0
-        
+
         # Verify the paper was actually updated
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert len(papers) == 1
         assert papers[0].abstract == "blabla"
-    
+
     def test_execute_with_inline_patches_append_keywords(self, papers_db_with_sample, temp_cache_dir):
         """Should append to keywords list"""
         config = {
@@ -259,17 +258,17 @@ class TestExecute:
                 }
             ]
         }
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == "ok"
         assert result["patches_applied"] == 1
-        
+
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert "new-keyword" in papers[0].keywords
         assert "original" in papers[0].keywords
-    
+
     def test_execute_with_inline_patches_append_string(self, papers_db_with_sample, temp_cache_dir):
         """Should append to string fields"""
         config = {
@@ -282,15 +281,15 @@ class TestExecute:
                 }
             ]
         }
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == "ok"
-        
+
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].abstract == "Original abstract text more text"
-    
+
     def test_execute_multiple_field_replacements(self, papers_db_with_sample, temp_cache_dir):
         """Should replace multiple fields in one patch"""
         config = {
@@ -305,18 +304,18 @@ class TestExecute:
                 }
             ]
         }
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == "ok"
         assert result["patches_applied"] == 1
-        
+
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].abstract == "new abstract"
         assert papers[0].title == "new title"
         assert papers[0].journal == "new journal"
-    
+
     def test_execute_mixed_replace_and_append(self, papers_db_with_sample, temp_cache_dir):
         """Should handle both replace and append in same patch"""
         config = {
@@ -332,16 +331,16 @@ class TestExecute:
                 }
             ]
         }
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == "ok"
-        
+
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].abstract == "completely new"
         assert "added" in papers[0].keywords
-    
+
     def test_execute_doi_not_found(self, papers_db_with_sample, temp_cache_dir):
         """Should fail when DOI doesn't exist"""
         config = {
@@ -354,16 +353,16 @@ class TestExecute:
                 }
             ]
         }
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == StepStatus.WARNING
         assert result["patches_found"] == 1
         assert result["patches_applied"] == 0
         assert result["patches_failed"] == 1
         assert result["failed_details"] is not None
-    
+
     def test_execute_multiple_patches_mixed_results(self, papers_db_with_sample, temp_cache_dir):
         """Should track multiple patches with mixed success/failure"""
         # Add a second paper
@@ -376,7 +375,7 @@ class TestExecute:
             year=2021
         )
         papers_db_with_sample.add(paper2)
-        
+
         config = {
             "patches": [
                 {
@@ -393,18 +392,18 @@ class TestExecute:
                 }
             ]
         }
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["patches_found"] == 3
         assert result["patches_applied"] == 2
         assert result["patches_failed"] == 1
-    
+
     def test_execute_dry_run(self, papers_db_with_sample, temp_cache_dir):
         """Should not modify database in dry_run mode"""
         original_abstract = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")[0].abstract
-        
+
         config = {
             "patches": [
                 {
@@ -413,59 +412,59 @@ class TestExecute:
                 }
             ]
         }
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=True)
-        
+
         assert result["patches_applied"] == 1
         # Verify paper was not actually updated
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].abstract == original_abstract
-    
+
     def test_execute_with_yaml_file(self, papers_db_with_sample, yaml_patch_file, temp_cache_dir):
         """Should load and apply patches from YAML file"""
         config = {"file": yaml_patch_file}
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == "ok"
         assert result["patches_found"] == 1
         assert result["patches_applied"] == 1
-        
+
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].abstract == "blabla"
-    
+
     def test_execute_with_json_file(self, papers_db_with_sample, json_patch_file, temp_cache_dir):
         """Should load and apply patches from JSON file"""
         config = {"file": json_patch_file}
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == "ok"
         assert result["patches_found"] == 1
         assert result["patches_applied"] == 1
-        
+
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].title == "New Title"
-    
+
     def test_execute_with_nonexistent_file(self, papers_db_with_sample, temp_cache_dir):
         """Should fail when file doesn't exist"""
         config = {"file": "/nonexistent/path/patches.yaml"}
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == "error"
         assert "not found" in result["error"].lower()
-    
+
     def test_execute_with_invalid_yaml_file(self, papers_db_with_sample, temp_cache_dir):
         """Should fail when YAML file is invalid"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
             f.write("invalid: yaml: content: [")
             path = f.name
-        
+
         try:
             config = {"file": path}
             step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
@@ -474,33 +473,33 @@ class TestExecute:
             assert "invalid" in result["error"].lower()
         finally:
             Path(path).unlink()
-    
+
     def test_execute_with_complex_patch_file(self, papers_db_with_sample, complex_patch_file, temp_cache_dir):
         """Should handle complex patches with multiple operations"""
         config = {"file": complex_patch_file}
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == StepStatus.SUCCESS
-        
+
         papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
         assert papers[0].abstract == "New abstract"
         assert papers[0].title == "New Title"
         assert papers[0].journal == "New Journal"
         assert "new-keyword" in papers[0].keywords
-    
+
     def test_execute_empty_patches_list(self, papers_db_with_sample, temp_cache_dir):
         """Should handle empty patches gracefully"""
         config = {"patches": []}
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == StepStatus.SUCCESS
         assert result["patches_found"] == 0
         assert result["patches_applied"] == 0
-    
+
     def test_execute_no_patches_no_append_fields(self, papers_db_with_sample, temp_cache_dir):
         """Should handle patch with only replace_fields (no append_fields)"""
         config = {
@@ -511,10 +510,10 @@ class TestExecute:
                 }
             ]
         }
-        
+
         step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=False)
-        
+
         assert result["status"] == StepStatus.SUCCESS
         assert result["patches_applied"] == 1
 
@@ -525,42 +524,42 @@ class TestExecute:
 
 class TestLoadPatchesFromFile:
     """Tests for _load_patches_from_file function"""
-    
+
     def test_load_yaml_file(self, yaml_patch_file):
         """Should load patches from YAML file"""
         patches = _load_patches_from_file(Path(yaml_patch_file))
         assert len(patches) == 1
         assert patches[0]["doi"] == "10.1080/10864415.2024.2332047"
-    
+
     def test_load_json_file(self, json_patch_file):
         """Should load patches from JSON file"""
         patches = _load_patches_from_file(Path(json_patch_file))
         assert len(patches) == 1
         assert patches[0]["doi"] == "10.1080/10864415.2024.2332047"
-    
+
     def test_load_nonexistent_file(self):
         """Should raise IOError for nonexistent file"""
         with pytest.raises(IOError):
             _load_patches_from_file(Path("/nonexistent/file.yaml"))
-    
+
     def test_load_invalid_yaml(self):
         """Should raise ValueError for invalid YAML"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
             f.write("invalid: yaml: [")
             path = f.name
-        
+
         try:
             with pytest.raises(ValueError):
                 _load_patches_from_file(Path(path))
         finally:
             Path(path).unlink()
-    
+
     def test_load_unsupported_format(self):
         """Should raise ValueError for unsupported file format"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
             f.write("patches: []")
             path = f.name
-        
+
         try:
             with pytest.raises(ValueError, match="Unsupported file format"):
                 _load_patches_from_file(Path(path))
@@ -570,7 +569,7 @@ class TestLoadPatchesFromFile:
 
 class TestApplyPatchToPaper:
     """Tests for _apply_patch_to_paper function"""
-    
+
     def test_apply_simple_replace(self, sample_paper):
         """Should apply simple field replacement"""
         patch = {
@@ -580,7 +579,7 @@ class TestApplyPatchToPaper:
         assert success
         assert error is None
         assert sample_paper.abstract == "new abstract"
-    
+
     def test_apply_invalid_field_name(self, sample_paper):
         """Should fail for invalid field name"""
         patch = {
@@ -589,7 +588,7 @@ class TestApplyPatchToPaper:
         success, error = _apply_patch_to_paper(sample_paper, patch)
         assert not success
         assert "nonexistent_field" in error
-    
+
     def test_apply_append_to_list(self, sample_paper):
         """Should append to list fields"""
         patch = {
@@ -598,7 +597,7 @@ class TestApplyPatchToPaper:
         success, error = _apply_patch_to_paper(sample_paper, patch)
         assert success
         assert "new" in sample_paper.keywords
-    
+
     def test_apply_append_to_string(self, sample_paper):
         """Should append to string fields"""
         patch = {

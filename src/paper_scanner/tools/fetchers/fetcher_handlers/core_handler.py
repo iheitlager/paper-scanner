@@ -14,8 +14,7 @@ import requests
 from rich.console import Console
 
 from paper_scanner.core.doi import DOI
-from paper_scanner.tools.fetchers.fetcher_handlers.base import \
-    BaseFetcherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 
 console = Console(file=sys.stderr)
 
@@ -72,7 +71,7 @@ class COREHandler(BaseFetcherHandler):
                 "limit": 1,
                 "offset": 0,
             }
-            
+
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"

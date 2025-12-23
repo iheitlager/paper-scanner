@@ -14,8 +14,7 @@ import pytest
 
 from paper_scanner.core.enum import PaperType
 from paper_scanner.core.models import Paper
-from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import \
-    CrossrefHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
 
 
 class TestCrossrefMetadataExtraction:

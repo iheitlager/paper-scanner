@@ -61,11 +61,6 @@ class EchoStep(BaseStep):
 
         console.print(f"[cyan]Message:[/cyan] [white]{message}[/white]")
 
-        # return {
-        #     "status": StepStatus.SUCCESS,
-        #     "message": message
-        # }
-
         return StepResult(
             status=StepStatus.SUCCESS,
             message=message

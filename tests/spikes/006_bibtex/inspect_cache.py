@@ -56,38 +56,38 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
         "references_missing_doi": [],  # References found but missing DOI field
         "invalid_records": [],  # Track invalid/malformed records
     }
-    
+
     if not cache_dir.exists():
         stats["errors"].append(f"Cache directory does not exist: {cache_dir}")
         return stats, 1
-    
+
     # Scan all JSON files in cache directory
     json_files = list(cache_dir.glob("*.json"))
     stats["total_files"] = len(json_files)
-    
+
     for cache_file in json_files:
         try:
             # Check file size
             file_size_mb = cache_file.stat().st_size / (1024 * 1024)
             stats["total_size_mb"] += file_size_mb
-            
+
             # Validate JSON
             with open(cache_file, 'r') as f:
                 data = json.load(f)
-            
+
             # If it's valid JSON, consider it valid (jq can parse it)
             if isinstance(data, dict):
                 stats["valid_files"] += 1
-                
+
                 # Try to extract references if structure matches expected format
                 if "message" in data and isinstance(data["message"], dict):
                     message = data["message"]
                     references = message.get("reference", [])
-                    
+
                     # Get citing paper info
                     citing_doi = message.get("DOI", "unknown")
                     citing_title = message.get("title", ["unknown"])[0] if message.get("title") else "unknown"
-                    
+
                     if references:
                         stats["entries_with_references"] += 1
                     else:
@@ -98,7 +98,7 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
                             "citing_title": citing_title,
                             "status": "needs_investigation"
                         })
-                    
+
                     # Extract publication year from references and track missing DOIs
                     for ref in references:
                         if isinstance(ref, dict):
@@ -107,7 +107,7 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
                                 year = ref.get("issued", {}).get("date-parts", [[None]])[0][0]
                             if year:
                                 stats["papers_by_year"][year] += 1
-                            
+
                             # Track references that SHOULD have DOI but don't (journal articles, conference papers)
                             ref_type = ref.get("type", "journal-article").lower()
                             cited_doi = ref.get("DOI")
@@ -121,7 +121,7 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
                                     "reference_type": ref_type,
                                     "status": "needs_doi_lookup"
                                 })
-                    
+
                     # Also track the citing paper's year
                     citing_year = message.get("issued", {}).get("date-parts", [[None]])[0][0]
                     if citing_year:
@@ -136,7 +136,7 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
                     "file": cache_file.name,
                     "error": error_msg
                 })
-                
+
         except json.JSONDecodeError as e:
             error_msg = f"Invalid JSON in {cache_file.name}: {str(e)}"
             stats["errors"].append(error_msg)
@@ -153,7 +153,7 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
                 "file": cache_file.name,
                 "error": error_msg
             })
-    
+
     # Export issue records if requested
     if export_errors:
         try:
@@ -167,7 +167,7 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
                 json.dump(issues, f, indent=2)
         except Exception as e:
             stats["errors"].append(f"Failed to export errors to {export_errors}: {str(e)}")
-    
+
     # Export invalid/failed records if requested
     if export_failed and stats["invalid_records"]:
         try:
@@ -176,7 +176,7 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
                 json.dump(stats["invalid_records"], f, indent=2)
         except Exception as e:
             stats["errors"].append(f"Failed to export failed records to {export_failed}: {str(e)}")
-    
+
     return stats, len(stats["errors"])
 
 
@@ -194,17 +194,17 @@ def build_ascii_histogram(papers_by_year: Dict[int, int], max_width: int = 50) -
     """
     if not papers_by_year:
         return "[dim]No data available[/dim]"
-    
+
     sorted_years = sorted(papers_by_year.keys())
     max_count = max(papers_by_year.values()) if papers_by_year else 1
-    
+
     lines = []
     for year in sorted_years:
         count = papers_by_year[year]
         bar_length = int((count / max_count) * max_width) if max_count > 0 else 0
         bar = "█" * bar_length
         lines.append(f"  {year} │ {bar} {count}")
-    
+
     return "\n".join(lines)
 
 
@@ -218,14 +218,14 @@ def get_random_record(failed_only: bool = False) -> Optional[Dict[str, Any]]:
         A random cached record, or None if none found
     """
     cache_dir = get_cache_dir()
-    
+
     if not cache_dir.exists():
         return None
-    
+
     json_files = list(cache_dir.glob("*.json"))
     if not json_files:
         return None
-    
+
     # If filtering for failed records, scan for ones without references
     if failed_only:
         failed_records = []
@@ -240,14 +240,14 @@ def get_random_record(failed_only: bool = False) -> Optional[Dict[str, Any]]:
                         failed_records.append(data)
             except Exception:
                 continue
-        
+
         if not failed_records:
             return None
         return random.choice(failed_records)
-    
+
     # Pick a random file
     random_file = random.choice(json_files)
-    
+
     try:
         with open(random_file, 'r') as f:
             data = json.load(f)
@@ -261,7 +261,7 @@ def get_random_record(failed_only: bool = False) -> Optional[Dict[str, Any]]:
 def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, export_failed_path: Optional[str] = None) -> None:
     """Display cache statistics with colored output"""
     console = Console()
-    
+
     # Create header
     console.print("\n")
     console.print(Panel.fit(
@@ -269,19 +269,19 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
         border_style="cyan"
     ))
     console.print("\n")
-    
+
     cache_dir = get_cache_dir()
     console.print(f"[dim]Cache directory:[/dim] {cache_dir}\n")
-    
+
     # Create statistics table
     table = Table(title="Cache Statistics", show_header=True, header_style="bold magenta")
     table.add_column("Metric", style="cyan", no_wrap=True)
     table.add_column("Value", justify="right")
-    
+
     # Determine colors based on validity
     total_valid = stats["valid_files"]
     total_files = stats["total_files"]
-    
+
     if total_files == 0:
         validity_color = "yellow"
         validity_text = "Empty"
@@ -296,7 +296,7 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
         else:
             validity_color = "red"
             validity_text = f"✗ {valid_percent:.1f}% Valid"
-    
+
     table.add_row("Total Cached Files", str(total_files))
     table.add_row(
         "Valid Files",
@@ -310,9 +310,9 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
         "Cache Status",
         Text(validity_text, style=validity_color)
     )
-    
+
     table.add_row("[dim]─[/dim]" * 20, "")
-    
+
     table.add_row(
         "Entries with References",
         Text(str(stats["entries_with_references"]), style="green")
@@ -326,10 +326,10 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
         Text(str(stats["records_without_year"]), style="dim")
     )
     table.add_row("Total Cache Size", f"{stats['total_size_mb']:.2f} MB")
-    
+
     console.print(table)
     console.print("\n")
-    
+
     # Display histogram
     if stats["papers_by_year"]:
         histogram = build_ascii_histogram(stats["papers_by_year"])
@@ -340,7 +340,7 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
             expand=False
         ))
         console.print("\n")
-    
+
     # Display categorized issues in a single overview table
     if stats["papers_no_references"] or stats["references_missing_doi"]:
         issues_table = Table(title="📋 Issues Requiring Investigation", show_header=True, header_style="bold")
@@ -348,7 +348,7 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
         issues_table.add_column("Count", justify="right", style="yellow")
         issues_table.add_column("Description", style="dim")
         issues_table.add_column("Action", style="green")
-        
+
         if stats["papers_no_references"]:
             issues_table.add_row(
                 "[bold yellow]No References[/bold yellow]",
@@ -356,7 +356,7 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
                 "Papers where Crossref returned no references",
                 "Verify if Crossref has data"
             )
-        
+
         if stats["references_missing_doi"]:
             issues_table.add_row(
                 "[bold cyan]Missing DOI[/bold cyan]",
@@ -364,16 +364,16 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
                 "Journal/conference articles without DOI",
                 "Lookup or enrich with DOI"
             )
-        
+
         console.print()
         console.print(issues_table)
         console.print()
-        
+
         if export_path:
             console.print(f"[green]✓ Exported detailed records to: {export_path}[/green]\n")
         else:
             console.print("[dim]Use -e/--error flag to export details for investigation[/dim]\n")
-    
+
     # Display invalid/failed records info
     if stats["invalid_records"]:
         console.print(Panel(
@@ -386,7 +386,7 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
             console.print(f"[green]✓ Exported to: {export_failed_path}[/green]\n")
         else:
             console.print("[dim]Use -f/--failed flag to export details[/dim]\n")
-    
+
     # Display errors if any
     if stats["errors"]:
         error_panel = Panel(
@@ -400,14 +400,14 @@ def display_stats(stats: Dict[str, Any], export_path: Optional[str] = None, expo
             console.print(f"\n[dim]...and {len(stats['errors']) - 10} more issues[/dim]")
     else:
         console.print("[green]✓ No issues found![/green]\n")
-    
+
     # Final summary
     if stats["total_files"] > 0:
         avg_size = stats["total_size_mb"] / stats["total_files"]
         console.print(
             f"[dim]Average entry size: {avg_size*1024:.2f} KB[/dim]"
         )
-    
+
     console.print("\n")
 
 
@@ -441,10 +441,10 @@ def main():
         action="store_true",
         help="When used with -r, export a random record with no references"
     )
-    
+
     args = parser.parse_args()
     console = Console()
-    
+
     try:
         # If random mode, just get and print a random record
         if args.random:
@@ -455,16 +455,16 @@ def main():
             else:
                 console.print("[yellow]No cached records found[/yellow]")
                 return 1
-        
+
         # Otherwise, run the normal validation
         stats, error_count = validate_cache(export_errors=args.error, export_failed=args.failed)
         display_stats(stats, export_path=args.error, export_failed_path=args.failed)
-        
+
         # Exit with error code if there are issues
         if error_count > 0:
             return 1
         return 0
-        
+
     except Exception as e:
         console.print(f"\n[red]Error during validation: {str(e)}[/red]\n")
         return 1

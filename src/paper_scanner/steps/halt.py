@@ -38,11 +38,11 @@ class HaltStep(BaseStep):
             Tuple of (is_valid, error_messages)
         """
         errors = []
-        
+
         # Message is optional
         if "message" in config and not isinstance(config["message"], str):
             errors.append("'message' must be a string")
-        
+
         return len(errors) == 0, errors
 
     def execute(
@@ -64,14 +64,14 @@ class HaltStep(BaseStep):
         Returns:
             Dictionary with halt status (raises HaltException before return)
         """
-        
+
         message = config.get("message", "Pipeline halted")
-        
+
         result = {
             "status": StepStatus.HALTED,
             "message": message,
             "papers_count": self.db.count(primary_only=False)
         }
-        
+
         # Raise exception to halt pipeline
         raise HaltException(message)

@@ -63,20 +63,20 @@ class InputStep(BaseStep):
             Tuple of (is_valid, error_messages)
         """
         errors = []
-        
+
         # Check that either 'file' or 'input' is provided (or both, but 'file' takes precedence)
         has_file = "file" in config
         has_input = "input" in config
-        
+
         if not has_file and not has_input:
             errors.append("Either 'file' or 'input' must be specified")
-        
+
         # Validate file path if provided
         if has_file:
             file_path = config["file"]
             if not isinstance(file_path, str):
                 errors.append("'file' must be a string")
-        
+
         # Validate input source if provided
         if has_input:
             input_source = config["input"]
@@ -84,13 +84,13 @@ class InputStep(BaseStep):
                 errors.append("'input' must be a string")
             elif input_source not in {"stdin"}:
                 errors.append(f"'input' must be 'stdin', got '{input_source}'")
-        
+
         # Validate expected_count if provided
         if "expected_count" in config:
             expected = config["expected_count"]
             if not isinstance(expected, int) or expected < 0:
                 errors.append("'expected_count' must be a non-negative integer")
-        
+
         return len(errors) == 0, errors
 
     def execute(
@@ -112,24 +112,24 @@ class InputStep(BaseStep):
         Returns:
             Execution result with import statistics
         """
-        
+
         records = []
         source_description = ""
-        
+
         # Determine source and read records
         if "file" in config:
             file_path = Path(config["file"]).expanduser()
             source_description = f"file '{file_path}'"
-            
+
             console.print(f"[bold blue]Reading from file:[/bold blue] {file_path}")
-            
+
             if not file_path.exists():
                 return {
                     "status": StepStatus.ERROR,
                     "error": f"File not found: {file_path}",
                     "papers_count": self.db.count(primary_only=False)
                 }
-            
+
             try:
                 with open(file_path, 'r') as f:
                     records = _read_json_lines(f)
@@ -139,28 +139,28 @@ class InputStep(BaseStep):
                     "error": f"Failed to read file {file_path}: {e}",
                     "papers_count": self.db.count(primary_only=False)
                 }
-        
+
         elif "input" in config and config["input"] == "stdin":
             source_description = "stdin"
-            console.print(f"[bold blue]Reading from stdin...[/bold blue]")
+            console.print("[bold blue]Reading from stdin...[/bold blue]")
             records = _read_json_lines(sys.stdin)
-        
+
         # Validate expected_count if provided
         expected_count = config.get("expected_count")
         if expected_count is not None and len(records) != expected_count:
             console.print(
                 f"[yellow]⚠️  Expected {expected_count} records but got {len(records)}[/yellow]"
             )
-        
+
         # Convert records to Paper objects
         papers = []
         failed_count = 0
-        
+
         for i, record in enumerate(records):
             try:
                 # Convert dict to Paper
                 paper = dict_to_paper(record)
-                
+
                 # Ensure paper has discovery method set
                 if paper.discovery is None:
                     from ..core.models import Discovery
@@ -168,20 +168,20 @@ class InputStep(BaseStep):
                         method=DiscoveryMethod.MANUAL,
                         date=datetime.now()
                     )
-                
+
                 papers.append(paper)
             except Exception as e:
                 if verbose:
                     console.print(f"[yellow]⚠️  Record {i+1}: Failed to convert - {e}[/yellow]")
                 failed_count += 1
-        
+
         # Add papers to database
         added_count = 0
         if not dry_run:
             for paper in papers:
                 self.db.add(paper)
             added_count = len(papers)
-        
+
         # Display results
         total_before = self.db.count(primary_only=False) - added_count
         console.print(
@@ -193,7 +193,7 @@ class InputStep(BaseStep):
         console.print(f"  Papers before: {total_before}")
         console.print(f"  Papers added: {added_count}")
         console.print(f"  Papers total: {self.db.count(primary_only=False)}")
-        
+
         result = {
             "status": StepStatus.SUCCESS,
             "source": source_description,
@@ -203,6 +203,6 @@ class InputStep(BaseStep):
             "papers_added": added_count,
             "papers_count": self.db.count(primary_only=False)
         }
-        
+
         return result
 

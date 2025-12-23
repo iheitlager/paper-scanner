@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 class DatabaseConnectionPool:
     """Manages PostgreSQL connection pooling"""
-    
+
     def __init__(
         self,
         database_url: str,
@@ -46,7 +46,7 @@ class DatabaseConnectionPool:
         self._pool: Optional[SimpleConnectionPool] = None
         self.min_connections = min_connections
         self.max_connections = max_connections
-    
+
     def initialize(self) -> None:
         """Create connection pool"""
         if self._pool is None:
@@ -60,20 +60,20 @@ class DatabaseConnectionPool:
             except psycopg2.Error as e:
                 logger.error(f"Failed to initialize connection pool: {e}")
                 raise
-    
+
     def close(self) -> None:
         """Close all connections in pool"""
         if self._pool is not None:
             self._pool.closeall()
             self._pool = None
             logger.info("Connection pool closed")
-    
+
     @contextmanager
     def get_connection(self):
         """Get connection from pool with context manager"""
         if self._pool is None:
             raise RuntimeError("Connection pool not initialized. Call initialize() first.")
-        
+
         conn = self._pool.getconn()
         try:
             yield conn
@@ -87,7 +87,7 @@ class DatabaseConnectionPool:
 
 class PaperToRowConverter:
     """Converts Pydantic Paper model to SQL row format"""
-    
+
     @staticmethod
     def paper_to_row(paper: Paper) -> Dict[str, Any]:
         """
@@ -119,7 +119,7 @@ class PaperToRowConverter:
             paper.conceptual_analysis.model_dump(mode='json', exclude_none=True)
             if paper.conceptual_analysis else None
         )
-        
+
         # Build row dictionary
         row = {
             'id': paper.id,  # UUID as VARCHAR
@@ -166,9 +166,9 @@ class PaperToRowConverter:
             row['size_bytes'] = paper.pdf_info.file_size_bytes
             row['created_time'] = paper.pdf_info.downloaded_at
 
-        
+
         return row
-    
+
     @staticmethod
     def row_to_paper(row: Dict[str, Any]) -> Paper:
         """
@@ -182,8 +182,7 @@ class PaperToRowConverter:
         Returns:
             Paper model instance
         """
-        from paper_scanner.core.models import (Author, Discovery, PDFInfo,
-                                               Screening)
+        from paper_scanner.core.models import Author, Discovery, PDFInfo, Screening
 
         # Deserialize authors from JSONB
         authors = []
@@ -193,7 +192,7 @@ class PaperToRowConverter:
                     authors.append(Author(**author_dict))
                 except Exception as e:
                     logger.warning(f"Failed to deserialize author: {e}")
-        
+
         # Deserialize complex fields from JSONB
         discovery = None
         if row.get('discovery'):
@@ -201,21 +200,21 @@ class PaperToRowConverter:
                 discovery = Discovery(**row['discovery'])
             except Exception as e:
                 logger.warning(f"Failed to deserialize discovery: {e}")
-        
+
         screening = None
         if row.get('screening'):
             try:
                 screening = Screening(**row['screening'])
             except Exception as e:
                 logger.warning(f"Failed to deserialize screening: {e}")
-        
+
         pdf_info = None
         if row.get('pdf_info'):
             try:
                 pdf_info = PDFInfo(**row['pdf_info'])
             except Exception as e:
                 logger.warning(f"Failed to deserialize pdf_info: {e}")
-        
+
         # Create Paper instance
         paper = Paper(
             id=row.get('id'),
@@ -255,13 +254,13 @@ class PaperToRowConverter:
             raw_bibtex=row.get('raw_bibtex'),
             raw_json=row.get('raw_json'),
         )
-        
+
         return paper
 
 
 class PaperUploader:
     """Handles bulk paper uploads with conflict resolution"""
-    
+
     def __init__(self, pool: DatabaseConnectionPool):
         """
         Initialize uploader with connection pool.
@@ -270,7 +269,7 @@ class PaperUploader:
             pool: DatabaseConnectionPool instance
         """
         self.pool = pool
-    
+
     @contextmanager
     def transaction(self, conn):
         """Context manager for transactions"""
@@ -281,7 +280,7 @@ class PaperUploader:
             conn.rollback()
             logger.error(f"Transaction rolled back: {e}")
             raise
-    
+
     def insert_papers(
         self,
         papers: List[Paper],
@@ -316,20 +315,20 @@ class PaperUploader:
             "errors": [],
             "error_count": 0,
         }
-        
+
         if not papers:
             logger.info("No papers to insert")
             return stats
-        
+
         if dry_run:
             logger.info(f"DRY RUN: Would insert {len(papers)} papers")
             return {"inserted": len(papers), **{k: v for k, v in stats.items() if k != "inserted"}}
-        
+
         try:
             with self.pool.get_connection() as conn:
                 with self.transaction(conn):
                     cursor = conn.cursor()
-                    
+
                     for paper in papers:
                         try:
                             self._insert_single_paper(cursor, paper, conflict_strategy)
@@ -339,19 +338,19 @@ class PaperUploader:
                             logger.error(error_msg)
                             stats["errors"].append(error_msg)
                             stats["error_count"] += 1
-                            
+
                             if conflict_strategy == "raise":
                                 raise
-                    
+
                     cursor.close()
                     logger.info(f"Inserted {stats['inserted']} papers, errors: {stats['error_count']}")
-        
+
         except Exception as e:
             logger.error(f"Bulk insert failed: {e}")
             raise
-        
+
         return stats
-    
+
     def _insert_single_paper(
         self,
         cursor,
@@ -367,22 +366,22 @@ class PaperUploader:
             conflict_strategy: How to handle conflicts
         """
         row = PaperToRowConverter.paper_to_row(paper)
-        
+
         # Build INSERT ... ON CONFLICT query
         columns = list(row.keys())
-        
+
         # Build the base INSERT statement
         values_placeholders = sql.SQL(', ').join(
             sql.Placeholder(name=col) for col in columns
         )
-        
+
         insert_sql = sql.SQL(
             "INSERT INTO papers ({}) VALUES ({})"
         ).format(
             sql.SQL(', ').join(map(sql.Identifier, columns)),
             values_placeholders
         )
-        
+
         # Add conflict handling clause
         if conflict_strategy == "skip":
             insert_sql += sql.SQL(" ON CONFLICT (cite_key) DO NOTHING")
@@ -394,9 +393,9 @@ class PaperUploader:
                 for col in update_cols
             )
             insert_sql += sql.SQL(" ON CONFLICT (cite_key) DO UPDATE SET ") + update_clause
-        
+
         cursor.execute(insert_sql, row)
-    
+
     def get_paper_by_cite_key(self, cite_key: str) -> Optional[Paper]:
         """
         Retrieve paper by cite_key.
@@ -416,15 +415,15 @@ class PaperUploader:
                 )
                 row = cursor.fetchone()
                 cursor.close()
-                
+
                 if row:
                     return PaperToRowConverter.row_to_paper(dict(row))
                 return None
-        
+
         except Exception as e:
             logger.error(f"Failed to get paper by cite_key: {e}")
             raise
-    
+
     def get_papers_by_doi(self, doi: str) -> List[Paper]:
         """
         Retrieve papers by DOI (may be multiple for duplicates).
@@ -444,13 +443,13 @@ class PaperUploader:
                 )
                 rows = cursor.fetchall()
                 cursor.close()
-                
+
                 return [PaperToRowConverter.row_to_paper(dict(row)) for row in rows]
-        
+
         except Exception as e:
             logger.error(f"Failed to get papers by DOI: {e}")
             raise
-    
+
     def count_papers(self) -> int:
         """Get total paper count in database"""
         try:
@@ -460,7 +459,7 @@ class PaperUploader:
                 count = cursor.fetchone()[0]
                 cursor.close()
                 return count
-        
+
         except Exception as e:
             logger.error(f"Failed to count papers: {e}")
             raise
@@ -468,7 +467,7 @@ class PaperUploader:
 
 class DOIDuplicateHandler:
     """Handles DOI-based duplicate detection and management"""
-    
+
     @staticmethod
     def normalize_doi(doi: Optional[str]) -> Optional[str]:
         """
@@ -485,7 +484,7 @@ class DOIDuplicateHandler:
         if not doi:
             return None
         return doi.strip().lower()
-    
+
     @staticmethod
     def mark_duplicate(
         cursor,
@@ -506,7 +505,7 @@ class DOIDuplicateHandler:
             "id": primary_paper_id,
             "marked_at": datetime.now(timezone.utc).isoformat(),
         })
-        
+
         cursor.execute(
             "UPDATE papers SET duplicate_of = %s WHERE id = %s",
             (Json(json.loads(duplicate_info)), duplicate_paper_id)

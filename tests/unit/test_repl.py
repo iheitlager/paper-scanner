@@ -356,7 +356,7 @@ class TestInitialDefinitionLoading:
     def test_load_initial_definition_file_not_found(self):
         """Test handling missing definition file"""
         session = REPLSession()
-        
+
         with pytest.raises(FileNotFoundError):
             session.load_initial_definition(Path("/nonexistent/file.yml"))
 

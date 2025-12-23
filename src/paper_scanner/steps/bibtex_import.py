@@ -14,6 +14,8 @@ from rich.console import Console
 from ..core.database import PapersDatabase
 from ..core.enum import DiscoveryMethod, StepStatus
 from ..core.models import Paper
+from ..core.step_result import StepResult
+from ..core.exceptions import ConfigurationError
 from ..io.bibtex import bibtex_file_to_papers, load_type_mapping_config
 from .base import BaseStep
 
@@ -41,24 +43,24 @@ def _fix_cite_key_collisions(papers: List[Paper], existing_db: PapersDatabase) -
     """
     seen_keys = set()
     fixed_count = 0
-    
+
     for paper in papers:
         original_key = paper.cite_key
         unique_key = original_key
         counter = 1
-        
+
         # Check if the key already exists in the database or was already processed
         while existing_db.get_by_cite_key(unique_key) is not None or unique_key in seen_keys:
             unique_key = f"{original_key}_{counter:02d}"
             counter += 1
-        
+
         # If the key was changed, increment fixed count
         if unique_key != original_key:
             fixed_count += 1
-        
+
         paper.cite_key = unique_key
         seen_keys.add(unique_key)
-    
+
     return fixed_count
 
 
@@ -136,7 +138,7 @@ class BibtexImportStep(BaseStep):
         verbose: bool = False,
         dry_run: bool = False,
         debug: bool = False
-    ) -> Dict[str, Any]:
+    ) -> StepResult:
         """
         Execute BibTeX import step
         
@@ -147,15 +149,27 @@ class BibtexImportStep(BaseStep):
             debug: Enable debug output
         
         Returns:
-            Dictionary with execution results
+            StepResult with execution status and statistics
+        
+        Raises:
+            StepFatalError: If type mapping config cannot be loaded, or BibTeX parsing fails
         """
+        import traceback
+
         randomize = config.get("randomize", False)
         random_seed = config.get("random_seed", None)
         limit = config.get("limit", None)
         imports = config.get("imports", [])
         type_mapping_config_path = config.get("type_mapping_config_path")
-        
-        # Load type mapping configuration
+
+        # Track statistics
+        total_files = len(imports)
+        files_processed = 0
+        papers_imported = 0
+        skipped_files = 0
+        import_errors = []
+
+        # Load type mapping configuration (fatal if fails)
         type_mapping_config = None
         if type_mapping_config_path:
             if debug:
@@ -166,111 +180,88 @@ class BibtexImportStep(BaseStep):
             type_mapping_config = load_type_mapping_config()
             if debug:
                 console.print(" [dim]Using default type mapping configuration[/dim]")
-        
-        results = {
-            "total_files": len(imports),
-            "files_processed": 0,
-            "papers_imported": 0,
-            "errors": [],
-            "details": []
-        }
-        
+
+        # Process each import
         for import_spec in imports:
             name = import_spec.get("name", "Unknown")
             file_path = import_spec.get("file_path")
             source_type = import_spec.get("source_type", "manual")
             expected_count = import_spec.get("expected_count")
             fix_cite_key = import_spec.get("fix_cite_key", False)
-            
-            try:
-                # Check file exists
-                path = Path(file_path)
-                if not path.exists():
-                    error_msg = f"File not found: {file_path}"
-                    results["errors"].append(error_msg)
-                    if verbose:
-                        console.print(f"  [red]✗ {name}: {error_msg}[/red]")
-                    continue
-                
-                if debug:
-                    console.print(f" [dim]Processing: {name}[/dim]")
-                    console.print(f" [dim]File: {file_path}[/dim]")
-                    console.print(f" [dim]Source: {source_type}[/dim]")
-                
-                if not dry_run:
-                    # Parse BibTeX file with type mapping config
-                    papers = bibtex_file_to_papers(
-                        str(path),
-                        source_type=source_type,
-                        discovery_method=DiscoveryMethod.KEYWORD_SEARCH,
-                        type_mapping_config=type_mapping_config
-                    )
-                    
-                    # Randomize papers if limit is set
-                    if limit and randomize:
-                        if random_seed is not None:
-                            random.seed(random_seed)
-                        random.shuffle(papers)
-                        if verbose:
-                            seed_display = f" (seed={random_seed})" if random_seed is not None else ""
-                            console.print(f" [cyan]✓[/cyan] Randomized papers{seed_display}")
-                    
-                    # Apply limit after randomization
-                    if limit:
-                        papers = papers[:limit]
-                        if debug:
-                            console.print(f" [dim]✓ Limited to {limit} papers[/dim]")
-                    
-                    # Fix cite_key collisions if requested
-                    if fix_cite_key:
-                        fixed_count = _fix_cite_key_collisions(papers, self.db)
-                        if verbose:
-                            console.print(f"    [cyan]✓ Fixed {fixed_count} cite_key collisions[/cyan]")
-                    
-                    # Add to database
-                    self.db.add_many(papers)
-                    count = len(papers)
-                    results["papers_imported"] += count
-                    
-                    if verbose:
-                        console.print(f" [green]✓[/green] Imported {count} papers")
-                        if expected_count:
-                            match = "✓" if count == expected_count else "!"
-                            style = "green" if count == expected_count else "yellow"
-                            console.print(f" [{style}]{match} Expected: {expected_count}, Got: {count}[/{style}]")
-                else:
-                    # Dry run: just show what would happen
-                    papers = bibtex_file_to_papers(
-                        str(path),
-                        type_mapping_config=type_mapping_config
-                    )
-                    count = len(papers)
-                    if verbose:
-                        console.print(f" [yellow][DRY RUN][/yellow] Would import {count} papers")
-                        if expected_count:
-                            match = "✓" if count == expected_count else "!"
-                            style = "green" if count == expected_count else "yellow"
-                            console.print(f" [{style}]{match} Expected: {expected_count}, Would get: {count}[/{style}]")
-                
-                results["files_processed"] += 1
-                results["details"].append({
-                    "name": name,
-                    "message": f"Imported {count if not dry_run else 0} papers from {file_path}",
-                    "source_type": source_type,
-                    "count": count if not dry_run else 0,
-                    "status": StepStatus.SUCCESS
-                })
-                
-            except Exception as e:
-                error_msg = f"{name}: {str(e)}"
-                results["errors"].append(error_msg)
-                console.print(f" [red]✗[/red] {name}: {str(e)}")
-                results["details"].append({
-                    "name": name,
-                    "file_path": file_path,
-                    "status": "error",
-                    "error": str(e)
-                })
 
-        results["status"] = StepStatus.SUCCESS if not results["errors"] else "error"
-        return results
+            # Validate file exists and is readable
+            path = Path(file_path)
+            if not path.exists() or not path.is_file():
+                raise ConfigurationError(f"File not found or not a file: {file_path}")
+
+            if debug:
+                console.print(f" [dim]Processing: {name}[/dim]")
+                console.print(f" [dim]File: {file_path}[/dim]")
+                console.print(f" [dim]Source: {source_type}[/dim]")
+
+
+            # Parse BibTeX file - fatal if parsing fails
+            papers = bibtex_file_to_papers(
+                str(path),
+                source_type=source_type,
+                discovery_method=DiscoveryMethod.KEYWORD_SEARCH,
+                type_mapping_config=type_mapping_config
+            )
+
+            # Randomize papers if limit is set
+            if limit and randomize:
+                if random_seed is not None:
+                    random.seed(random_seed)
+                random.shuffle(papers)
+                if verbose:
+                    seed_display = f" (seed={random_seed})" if random_seed is not None else ""
+                    console.print(f" [cyan]✓[/cyan] Randomized papers{seed_display}")
+
+            # Apply limit after randomization
+            if limit:
+                papers = papers[:limit]
+                if debug:
+                    console.print(f" [dim]✓ Limited to {limit} papers[/dim]")
+
+            # Fix cite_key collisions if requested
+            if fix_cite_key:
+                fixed_count = _fix_cite_key_collisions(papers, self.db)
+                if verbose:
+                    console.print(f"    [cyan]✓ Fixed {fixed_count} cite_key collisions[/cyan]")
+
+            count = len(papers)
+            if not dry_run:
+                # Add to database - fatal if write fails
+                self.db.add_many(papers)
+                papers_imported += count
+
+                if verbose:
+                    console.print(f" [green]✓[/green] Imported {count} papers")
+                    if expected_count:
+                        match = "✓" if count == expected_count else "!"
+                        style = "green" if count == expected_count else "yellow"
+                        console.print(f" [{style}]{match} Expected: {expected_count}, Got: {count}[/{style}]")
+            elif verbose:
+                    console.print(f" [yellow][DRY RUN][/yellow] Would import {count} papers")
+                    if expected_count:
+                        match = "✓" if count == expected_count else "!"
+                        style = "green" if count == expected_count else "yellow"
+                        console.print(f" [{style}]{match} Expected: {expected_count}, Would get: {count}[/{style}]")
+
+            files_processed += 1
+
+        # All files processed successfully
+        status = StepStatus.SUCCESS
+        message = f"Imported {papers_imported} papers from {files_processed}/{total_files} files"
+        details = None
+
+        return StepResult(
+            status=status,
+            message=message,
+            stats={
+                "total_files": total_files,
+                "files_processed": files_processed,
+                "papers_imported": papers_imported,
+            },
+            details=details
+        )

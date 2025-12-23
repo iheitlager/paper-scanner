@@ -18,7 +18,6 @@ import yaml
 from paper_scanner.core.executor import StepExecutor
 from paper_scanner.core.models import Paper
 
-
 # ============================================================================
 # Fixtures
 # ============================================================================

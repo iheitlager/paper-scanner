@@ -12,8 +12,7 @@ from typing import Any, Dict, List, Tuple
 from rich.console import Console
 
 from paper_scanner.core.doi import DOI
-from paper_scanner.core.enum import (DiscoveryMethod, PaperType, StepStatus,
-                                     StudyType)
+from paper_scanner.core.enum import DiscoveryMethod, PaperType, StepStatus, StudyType
 from paper_scanner.core.models import Discovery, Paper
 
 from .base import BaseStep

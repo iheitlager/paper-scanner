@@ -24,8 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 
-from ..core.enum import (PaperType, QualityTier, ScreeningDecision, StepStatus,
-                         StudyType)
+from ..core.enum import PaperType, QualityTier, ScreeningDecision, StepStatus, StudyType
 from ..core.models import Categorization, Paper, ProcessingMetadata
 from .base import BaseStep
 
@@ -347,19 +346,19 @@ class CategorizationStep(BaseStep):
             Tuple of (is_valid, error_messages)
         """
         errors = []
-        
+
         # Check enabled flag
         if "enabled" in config and not isinstance(config["enabled"], bool):
             errors.append("'enabled' must be a boolean")
-        
+
         # Check exclude_types flag
         if "exclude_types" in config and not isinstance(config["exclude_types"], bool):
             errors.append("'exclude_types' must be a boolean")
-        
+
         # Check exclude_reviews flag
         if "exclude_reviews" in config and not isinstance(config["exclude_reviews"], bool):
             errors.append("'exclude_reviews' must be a boolean")
-        
+
         return len(errors) == 0, errors
 
     def execute(
@@ -412,7 +411,7 @@ class CategorizationStep(BaseStep):
             # Show progress every 100 papers
             if verbose and (i + 1) % 100 == 0:
                 console.print(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
-            
+
             categorization, should_include, exclusion_reason = _categorize_paper(
                 paper,
                 verbose=verbose
@@ -433,7 +432,7 @@ class CategorizationStep(BaseStep):
                     elif exclude_reviews and "review" in exclusion_reason.lower():
                         paper.screening.final_decision = ScreeningDecision.EXCLUDED
                         paper.screening.notes = exclusion_reason
-                
+
                 # Update paper in database
                 self.db.update(paper)
 

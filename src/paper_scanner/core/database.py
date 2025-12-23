@@ -44,7 +44,7 @@ class PapersDatabase:
     All indexes are automatically updated during add, update, and delete operations
     to maintain consistency and enable O(1) or O(log n) lookups.
     """
-    
+
     def __init__(self):
         """Initialize empty database with indexes"""
         self.papers: List[Paper] = []
@@ -53,11 +53,11 @@ class PapersDatabase:
         self._id_index: Dict[str, Paper] = {}
         self._year_index: Dict[int, List[Paper]] = defaultdict(list)
         self._title_index: Dict[str, List[Paper]] = defaultdict(list)
-    
+
     # ========================================================================
     # INDEX MANAGEMENT
     # ========================================================================
-    
+
     def _index_paper(self, paper: Paper) -> None:
         """
         Add paper to all indexes.
@@ -67,27 +67,27 @@ class PapersDatabase:
         """
         # Index by cite_key (primary unique identifier)
         self._cite_key_index[paper.cite_key] = paper
-        
+
         # Index by ID
         self._id_index[paper.id] = paper
-        
+
         # Index by DOI (may have duplicates)
         if paper.doi:
             doi_key = DOI(paper.doi).stem
             if paper not in self._doi_index[doi_key]:
                 self._doi_index[doi_key].append(paper)
-        
+
         # Index by year (for efficient fuzzy finding by year)
         if paper.year:
             if paper not in self._year_index[paper.year]:
                 self._year_index[paper.year].append(paper)
-        
+
         # Index by normalized title prefix (first 50 chars for fuzzy finding)
         if paper.title:
             title_key = paper.title[:50].lower().strip()
             if paper not in self._title_index[title_key]:
                 self._title_index[title_key].append(paper)
-    
+
     def _unindex_paper(self, paper: Paper) -> None:
         """
         Remove paper from all indexes.
@@ -99,12 +99,12 @@ class PapersDatabase:
         if paper.cite_key in self._cite_key_index:
             if self._cite_key_index[paper.cite_key] is paper:
                 del self._cite_key_index[paper.cite_key]
-        
+
         # Unindex from ID
         if paper.id in self._id_index:
             if self._id_index[paper.id] is paper:
                 del self._id_index[paper.id]
-        
+
         # Unindex from DOI
         if paper.doi:
             doi_key = DOI(paper.doi).stem
@@ -114,7 +114,7 @@ class PapersDatabase:
                 ]
                 if not self._doi_index[doi_key]:
                     del self._doi_index[doi_key]
-        
+
         # Unindex from year
         if paper.year in self._year_index:
             self._year_index[paper.year] = [
@@ -122,7 +122,7 @@ class PapersDatabase:
             ]
             if not self._year_index[paper.year]:
                 del self._year_index[paper.year]
-        
+
         # Unindex from title
         if paper.title:
             title_key = paper.title[:50].lower().strip()
@@ -132,7 +132,7 @@ class PapersDatabase:
                 ]
                 if not self._title_index[title_key]:
                     del self._title_index[title_key]
-    
+
     def _update_doi_index(self, paper: Paper, old_doi: Optional[str]) -> None:
         """
         Update DOI index when a paper's DOI changes.
@@ -153,7 +153,7 @@ class PapersDatabase:
                 ]
                 if not self._doi_index[old_doi_key]:
                     del self._doi_index[old_doi_key]
-        
+
         # Add to new DOI index
         if paper.doi:
             doi_key = DOI(paper.doi).stem
@@ -162,11 +162,11 @@ class PapersDatabase:
                 self._doi_index[doi_key] = [p for p in self._doi_index[doi_key] if p.id != paper.id]
             if paper not in self._doi_index[doi_key]:
                 self._doi_index[doi_key].append(paper)
-    
+
     # ========================================================================
     # CREATE OPERATIONS
     # ========================================================================
-    
+
     def add(self, paper: Paper) -> None:
         """
         Add a paper to the database.
@@ -180,14 +180,14 @@ class PapersDatabase:
         # Check for duplicates
         if paper.cite_key in self._cite_key_index:
             raise ValueError(f"Paper with cite_key '{paper.cite_key}' already exists")
-        
+
         if paper.id in self._id_index:
             raise ValueError(f"Paper with id '{paper.id}' already exists")
-        
+
         # Add to list and indexes
         self.papers.append(paper)
         self._index_paper(paper)
-    
+
     def add_many(self, papers: List[Paper]) -> None:
         """
         Add multiple papers to the database.
@@ -200,11 +200,11 @@ class PapersDatabase:
         """
         for paper in papers:
             self.add(paper)
-    
+
     # ========================================================================
     # READ OPERATIONS
     # ========================================================================
-    
+
     def all(self, primary_only: bool = False) -> List[Paper]:
         """
         Get all papers in database.
@@ -218,9 +218,9 @@ class PapersDatabase:
         """
         if not primary_only:
             return list(self.papers)
-        
+
         return [p for p in self.papers if p.duplicate_of is None]
-    
+
     def get_by_id(self, paper_id: str) -> Optional[Paper]:
         """
         Get paper by ID.
@@ -232,7 +232,7 @@ class PapersDatabase:
             Paper or None if not found
         """
         return self._id_index.get(paper_id)
-    
+
     def get_by_cite_key(self, cite_key: str) -> Optional[Paper]:
         """
         Get paper by cite_key.
@@ -244,7 +244,7 @@ class PapersDatabase:
             Paper or None if not found
         """
         return self._cite_key_index.get(cite_key)
-    
+
     def get_by_doi(self, doi: str, primary_only: bool = False) -> List[Paper]:
         """
         Get all papers with given DOI.
@@ -260,12 +260,12 @@ class PapersDatabase:
         """
         doi_key = DOI(doi).stem
         papers = self._doi_index.get(doi_key, [])
-        
+
         if not primary_only:
             return list(papers)
-        
+
         return [p for p in papers if p.duplicate_of is None]
-    
+
     def find(
         self,
         predicate,
@@ -290,11 +290,11 @@ class PapersDatabase:
         """
         papers = self.all(primary_only=primary_only)
         return [p for p in papers if predicate(p)]
-    
+
     # ========================================================================
     # UPDATE OPERATIONS
     # ========================================================================
-    
+
     def update(self, paper: Paper) -> None:
         """
         Update a paper in the database.
@@ -312,7 +312,7 @@ class PapersDatabase:
         existing = self._id_index.get(paper.id)
         if existing is None:
             raise ValueError(f"Paper with id '{paper.id}' not found in database")
-        
+
         # Check cite_key conflict (if it changed)
         if paper.cite_key != existing.cite_key:
             if paper.cite_key in self._cite_key_index:
@@ -323,18 +323,18 @@ class PapersDatabase:
             del self._cite_key_index[existing.cite_key]
             # Add new cite_key to index
             self._cite_key_index[paper.cite_key] = paper
-        
+
         # Update DOI index if DOI changed
         if paper.doi != existing.doi:
             self._update_doi_index(paper, existing.doi)
-        
+
         # Replace in list (find and update) and in ID index
         for i, p in enumerate(self.papers):
             if p.id == paper.id:
                 self.papers[i] = paper
                 self._id_index[paper.id] = paper
                 break
-    
+
     def update_many(self, papers: List[Paper]) -> None:
         """
         Update multiple papers in the database.
@@ -344,11 +344,11 @@ class PapersDatabase:
         """
         for paper in papers:
             self.update(paper)
-    
+
     # ========================================================================
     # DELETE OPERATIONS
     # ========================================================================
-    
+
     def delete_by_id(self, paper_id: str) -> bool:
         """
         Delete a paper by ID.
@@ -362,11 +362,11 @@ class PapersDatabase:
         paper = self._id_index.get(paper_id)
         if paper is None:
             return False
-        
+
         self._unindex_paper(paper)
         self.papers = [p for p in self.papers if p.id != paper_id]
         return True
-    
+
     def delete_by_cite_key(self, cite_key: str) -> bool:
         """
         Delete a paper by cite_key.
@@ -380,9 +380,9 @@ class PapersDatabase:
         paper = self._cite_key_index.get(cite_key)
         if paper is None:
             return False
-        
+
         return self.delete_by_id(paper.id)
-    
+
     def delete_many_by_id(self, paper_ids: List[str]) -> int:
         """
         Delete multiple papers by ID.
@@ -398,7 +398,7 @@ class PapersDatabase:
             if self.delete_by_id(paper_id):
                 count += 1
         return count
-    
+
     def clear(self) -> None:
         """Clear all papers and indexes from database"""
         self.papers.clear()
@@ -407,11 +407,11 @@ class PapersDatabase:
         self._id_index.clear()
         self._year_index.clear()
         self._title_index.clear()
-    
+
     # ========================================================================
     # QUERY OPERATIONS
     # ========================================================================
-    
+
     def count(self, primary_only: bool = False) -> int:
         """
         Count papers in database.
@@ -424,9 +424,9 @@ class PapersDatabase:
         """
         if not primary_only:
             return len(self.papers)
-        
+
         return len([p for p in self.papers if p.duplicate_of is None])
-    
+
     def count_duplicates(self, doi: str) -> int:
         """
         Count papers with a specific DOI.
@@ -438,7 +438,7 @@ class PapersDatabase:
             Number of papers with this DOI
         """
         return len(self.get_by_doi(doi, primary_only=False))
-    
+
     def get_duplicate_groups(self) -> Dict[str, List[Paper]]:
         """
         Get all papers grouped by DOI.
@@ -451,7 +451,7 @@ class PapersDatabase:
             if len(papers) > 1:
                 groups[doi_key] = papers
         return groups
-    
+
     def exists_by_id(self, paper_id: str) -> bool:
         """
         Check if paper exists by ID.
@@ -463,7 +463,7 @@ class PapersDatabase:
             True if paper exists
         """
         return paper_id in self._id_index
-    
+
     def exists_by_cite_key(self, cite_key: str) -> bool:
         """
         Check if paper exists by cite_key.
@@ -475,7 +475,7 @@ class PapersDatabase:
             True if paper exists
         """
         return cite_key in self._cite_key_index
-    
+
     def exists_by_doi(self, doi: str) -> bool:
         """
         Check if any paper with DOI exists.
@@ -488,7 +488,7 @@ class PapersDatabase:
         """
         doi_key = DOI(doi).stem
         return doi_key in self._doi_index
-    
+
     def get_candidates_by_year_range(
         self,
         year: int,
@@ -513,12 +513,12 @@ class PapersDatabase:
         for y in range(year - tolerance, year + tolerance + 1):
             if y in self._year_index:
                 candidates.extend(self._year_index[y])
-        
+
         if not primary_only:
             return candidates
-        
+
         return [p for p in candidates if p.duplicate_of is None]
-    
+
     def get_candidates_by_title_prefix(
         self,
         title: str,
@@ -539,15 +539,15 @@ class PapersDatabase:
         """
         if not title:
             return []
-        
+
         title_key = title[:50].lower().strip()
         candidates = self._title_index.get(title_key, [])
-        
+
         if not primary_only:
             return list(candidates)
-        
+
         return [p for p in candidates if p.duplicate_of is None]
-    
+
     def to_list(self, primary_only: bool = False) -> List[Paper]:
         """
         Convert database to list (alias for all()).
@@ -559,7 +559,7 @@ class PapersDatabase:
             List of papers
         """
         return self.all(primary_only=primary_only)
-    
+
     def from_list(self, papers: List[Paper]) -> None:
         """
         Load papers from list (replaces current database).
@@ -569,11 +569,11 @@ class PapersDatabase:
         """
         self.clear()
         self.add_many(papers)
-    
+
     # ========================================================================
     # STATISTICS
     # ========================================================================
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """
         Get database statistics.
@@ -584,16 +584,16 @@ class PapersDatabase:
         total_papers = len(self.papers)
         primary_papers = len([p for p in self.papers if p.duplicate_of is None])
         duplicate_papers = total_papers - primary_papers
-        
+
         papers_with_doi = len([p for p in self.papers if p.doi])
         unique_dois = len(self._doi_index)
-        
+
         duplicate_groups = self.get_duplicate_groups()
         max_duplicates = max(
             (len(papers) for papers in duplicate_groups.values()),
             default=1
         )
-        
+
         return {
             "total_papers": total_papers,
             "primary_papers": primary_papers,
@@ -603,11 +603,11 @@ class PapersDatabase:
             "duplicate_groups": len(duplicate_groups),
             "max_duplicates_per_doi": max_duplicates,
         }
-    
+
     # ========================================================================
     # SPECIAL OPERATIONS
     # ========================================================================
-    
+
     def mark_duplicate(self, paper_id: str, duplicate_of_id: str) -> None:
         """
         Mark a paper as duplicate of another.
@@ -622,15 +622,15 @@ class PapersDatabase:
         paper = self._id_index.get(paper_id)
         if paper is None:
             raise ValueError(f"Paper '{paper_id}' not found")
-        
+
         primary = self._id_index.get(duplicate_of_id)
         if primary is None:
             raise ValueError(f"Primary paper '{duplicate_of_id}' not found")
-        
+
         # Update the duplicate reference
         paper.duplicate_of = primary
         self.update(paper)
-    
+
     def get_duplicates_of(self, paper_id: str) -> List[Paper]:
         """
         Get all papers marked as duplicates of a given paper.
@@ -644,9 +644,9 @@ class PapersDatabase:
         primary = self._id_index.get(paper_id)
         if primary is None:
             return []
-        
+
         return [p for p in self.papers if p.duplicate_of is primary]
-    
+
     def remove_duplicate_marking(self, paper_id: str) -> None:
         """
         Remove duplicate marking from a paper (make it primary again).
@@ -660,22 +660,22 @@ class PapersDatabase:
         paper = self._id_index.get(paper_id)
         if paper is None:
             raise ValueError(f"Paper '{paper_id}' not found")
-        
+
         paper.duplicate_of = None
         self.update(paper)
 
     # ========================================================================
     # MAGIC METHODS (Pythonic interface)
     # ========================================================================
-    
+
     def __len__(self) -> int:
         """Return the number of papers in the database (including duplicates)."""
         return len(self.papers)
-    
+
     def __bool__(self) -> bool:
         """Return True if database has any papers."""
         return len(self.papers) > 0
-    
+
     def __getitem__(self, key):
         """
         Support indexing and slicing: db[0], db[1:5], db[-1]
@@ -687,17 +687,17 @@ class PapersDatabase:
             Paper or list of papers
         """
         return self.papers[key]
-    
+
     def __iter__(self):
         """Iterate over papers in the database."""
         return iter(self.papers)
-    
+
     def __contains__(self, paper: Paper) -> bool:
         """Check if a paper is in the database by reference or ID."""
         if paper in self.papers:
             return True
         return paper.id in self._id_index
-    
+
     def __repr__(self) -> str:
         """Return string representation of database."""
         primary = len([p for p in self.papers if p.duplicate_of is None])
@@ -706,7 +706,7 @@ class PapersDatabase:
             f"PapersDatabase(total={len(self.papers)}, "
             f"primary={primary}, duplicates={duplicates})"
         )
-    
+
     def __str__(self) -> str:
         """Return human-readable string representation."""
         stats = self.get_stats()
@@ -714,7 +714,7 @@ class PapersDatabase:
             f"PapersDatabase: {stats['total_papers']} papers "
             f"({stats['primary_papers']} primary, {stats['duplicate_papers']} duplicates)"
         )
-    
+
     def __eq__(self, other) -> bool:
         """Check equality based on paper IDs (set comparison)."""
         if not isinstance(other, PapersDatabase):
@@ -722,7 +722,7 @@ class PapersDatabase:
         my_ids = {p.id for p in self.papers}
         other_ids = {p.id for p in other.papers}
         return my_ids == other_ids
-    
+
     def __add__(self, other: "PapersDatabase") -> "PapersDatabase":
         """
         Merge two databases: db1 + db2
@@ -731,18 +731,18 @@ class PapersDatabase:
         """
         if not isinstance(other, PapersDatabase):
             raise TypeError(f"unsupported operand type(s) for +: 'PapersDatabase' and '{type(other).__name__}'")
-        
+
         merged = PapersDatabase()
         # Add papers from self
         merged.add_many(self.to_list(primary_only=False))
-        
+
         # Add papers from other that don't already exist
         for paper in other.papers:
             if paper.id not in merged._id_index:
                 merged.add(paper)
-        
+
         return merged
-    
+
     def __sub__(self, other: "PapersDatabase") -> "PapersDatabase":
         """
         Remove papers from one database that exist in another: db1 - db2
@@ -751,16 +751,16 @@ class PapersDatabase:
         """
         if not isinstance(other, PapersDatabase):
             raise TypeError(f"unsupported operand type(s) for -: 'PapersDatabase' and '{type(other).__name__}'")
-        
+
         other_ids = {p.id for p in other.papers}
         result = PapersDatabase()
-        
+
         for paper in self.papers:
             if paper.id not in other_ids:
                 result.add(paper)
-        
+
         return result
-    
+
     def query(self) -> "PapersQuery":
         """
         Create fluent query builder for complex filters.
@@ -775,11 +775,11 @@ class PapersDatabase:
         """
         from paper_scanner.core.query import PapersQuery
         return PapersQuery(self)
-    
+
     # ========================================================================
     # CONVENIENCE SHORTHAND METHODS (implicit query builder)
     # ========================================================================
-    
+
     def filter(self, predicate) -> "PapersQuery":
         """
         Shorthand for query().filter(predicate).
@@ -791,7 +791,7 @@ class PapersDatabase:
             >>> db.filter(lambda p: 'AI' in p.keywords)[0]  # First match
         """
         return self.query().filter(predicate)
-    
+
     def by_topic(self, topic):
         """
         Shorthand for query().filter_by_topic(topic).
@@ -801,7 +801,7 @@ class PapersDatabase:
             >>> list(db.by_topic("ML"))  # Iterate results
         """
         return self.query().filter_by_topic(topic)
-    
+
     def by_author(self, author_name) -> "PapersQuery":
         """
         Shorthand for query().filter_by_author(author_name).
@@ -811,7 +811,7 @@ class PapersDatabase:
             >>> if db.by_author("Bengio"): print("Found papers by Bengio")
         """
         return self.query().filter_by_author(author_name)
-    
+
     def by_year(self, min_year, max_year=None) -> "PapersQuery":
         """
         Shorthand for query().filter_by_year(min_year, max_year).
@@ -821,7 +821,7 @@ class PapersDatabase:
             >>> db.by_year(2020, 2022).order_by_year(descending=True)
         """
         return self.query().filter_by_year(min_year, max_year)
-    
+
     def search(self, text) -> "PapersQuery":
         """
         Shorthand for query().grep(text).

@@ -11,10 +11,13 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Paper
-from paper_scanner.steps.checkpoint import (CheckpointStep,
-                                            _deserialize_papers,
-                                            _get_checkpoint_name,
-                                            _serialize_papers, load_checkpoint)
+from paper_scanner.steps.checkpoint import (
+    CheckpointStep,
+    _deserialize_papers,
+    _get_checkpoint_name,
+    _serialize_papers,
+    load_checkpoint,
+)
 
 
 @pytest.fixture
@@ -158,7 +161,7 @@ class TestPaperSerialization:
         primary = Paper(id=primary_id, cite_key="prim2024", title="Primary Paper")
         dup = Paper(cite_key="dup2024", title="Duplicate Paper")
         dup.duplicate_of = primary
-        
+
         serialized = _serialize_papers([dup])
         # After serialization, duplicate_of should be the ID string
         assert serialized[0]["duplicate_of"] == primary_id
@@ -585,7 +588,7 @@ class TestCheckpointSelfReferenceIssue:
         Pydantic should prevent setting a paper as its own duplicate_of
         """
         paper = Paper(cite_key="test2024", title="Test Paper")
-        
+
         # Attempting to create a self-reference should raise ValidationError
         with pytest.raises(Exception):  # ValidationError
             paper.duplicate_of = paper

@@ -133,7 +133,7 @@ def validate_definition_file(
 
             # Get the step class and run validation
             step_class = builtin_steps[step_name]
-            
+
             # Call the validate static method on the step class
             if hasattr(step_class, "validate"):
                 is_valid, validation_errors = step_class.validate(step_params)
@@ -141,7 +141,7 @@ def validate_definition_file(
                     for error in validation_errors:
                         errors.append(f"Step {i} ({step_name}): {error}")
                 elif verbose:
-                    console.print(f"    [green]✓[/green] Valid configuration")
+                    console.print("    [green]✓[/green] Valid configuration")
 
         except Exception as e:
             errors.append(f"Step {i}: {str(e)}")
@@ -171,12 +171,12 @@ def execute_validate(
     is_valid, errors = validate_definition_file(definition_file, verbose=verbose, builtin_steps=builtin_steps)
 
     if not is_valid:
-        console.print(f"\n[red bold]Validation failed:[/red bold]")
+        console.print("\n[red bold]Validation failed:[/red bold]")
         for error in errors:
             console.print(f"  [red]✗[/red] {error}")
         return 1
     else:
-        console.print(f"[green]✓ Definition file is valid[/green]")
+        console.print("[green]✓ Definition file is valid[/green]")
         if verbose:
             console.print(f"File: [cyan]{definition_file}[/cyan]")
         return 0

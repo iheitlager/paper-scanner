@@ -6,8 +6,7 @@ Tests that all enums are properly defined and contain expected values.
 
 import pytest
 
-from paper_scanner.core.enum import (DiscoveryMethod, PaperType, QualityTier,
-                                     ScreeningDecision, StudyType)
+from paper_scanner.core.enum import DiscoveryMethod, PaperType, QualityTier, ScreeningDecision, StudyType
 
 
 class TestPaperType:

@@ -31,8 +31,7 @@ import requests
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
 from rich.console import Console
-from rich.progress import (BarColumn, Progress, SpinnerColumn,
-                           TaskProgressColumn, TextColumn)
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
 from rich.table import Table
 
 # Load environment
@@ -79,7 +78,7 @@ class MultiSourcePDFDownloader:
             'failed': 0,
             'skipped': 0
         }
-        
+
         self.cache = self._load_cache()
 
     def _load_cache(self) -> Dict[str, List[str]]:
@@ -167,7 +166,7 @@ class MultiSourcePDFDownloader:
         for method_name, method_func in methods:
             if progress_callback:
                 progress_callback(method_name)
-            
+
             filepath = method_func(doi)
             if filepath:
                 self._record_attempt(doi, method_name)
@@ -198,7 +197,7 @@ class MultiSourcePDFDownloader:
                     pdf_url = oa_location.get('url_for_pdf') or oa_location.get('url')
                     if pdf_url:
                         return self._download_from_url(pdf_url, doi)
-        except Exception as e:
+        except Exception:
             pass
 
         return None
@@ -222,7 +221,7 @@ class MultiSourcePDFDownloader:
                 pdf_url = primary.get('pdf_url')
                 if pdf_url:
                     return self._download_from_url(pdf_url, doi)
-        except Exception as e:
+        except Exception:
             pass
 
         return None
@@ -248,7 +247,7 @@ class MultiSourcePDFDownloader:
                     pdf_url = work.get('fileLocation') or work.get('downloadUrl')
                     if pdf_url:
                         return self._download_from_url(pdf_url, doi)
-        except Exception as e:
+        except Exception:
             pass
 
         return None
@@ -272,7 +271,7 @@ class MultiSourcePDFDownloader:
             except ImportError:
                 pass
 
-        except Exception as e:
+        except Exception:
             pass
 
         return None
@@ -283,15 +282,15 @@ class MultiSourcePDFDownloader:
             url = f"https://api.semanticscholar.org/graph/v1/paper/DOI:{doi}"
             params = {'fields': 'openAccessPdf,isOpenAccess'}
             response = self.session.get(url, params=params, timeout=10)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 oa_pdf = data.get('openAccessPdf')
                 if oa_pdf and oa_pdf.get('url'):
                     return self._download_from_url(oa_pdf['url'], doi)
-        except Exception as e:
+        except Exception:
             pass
-        
+
         return None
 
     def _try_pmc(self, doi: str) -> Optional[str]:
@@ -304,18 +303,18 @@ class MultiSourcePDFDownloader:
                 'retmode': 'json'
             }
             response = self.session.get(search_url, params=params, timeout=10)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 id_list = data.get('esearchresult', {}).get('idlist', [])
-                
+
                 if id_list:
                     pmc_id = id_list[0]
                     pdf_url = f"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC{pmc_id}/pdf/"
                     return self._download_from_url(pdf_url, doi)
-        except Exception as e:
+        except Exception:
             pass
-        
+
         return None
 
     def _try_europe_pmc(self, doi: str) -> Optional[str]:
@@ -328,11 +327,11 @@ class MultiSourcePDFDownloader:
                 'resultType': 'core'
             }
             response = self.session.get(search_url, params=params, timeout=10)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 results = data.get('resultList', {}).get('result', [])
-                
+
                 if results:
                     result = results[0]
                     if result.get('isOpenAccess') == 'Y':
@@ -340,9 +339,9 @@ class MultiSourcePDFDownloader:
                         if pmcid:
                             pdf_url = f"https://europepmc.org/articles/{pmcid}?pdf=render"
                             return self._download_from_url(pdf_url, doi)
-        except Exception as e:
+        except Exception:
             pass
-        
+
         return None
 
     def _try_arxiv(self, doi: str) -> Optional[str]:
@@ -354,16 +353,16 @@ class MultiSourcePDFDownloader:
                 'max_results': 1
             }
             response = self.session.get(search_url, params=params, timeout=10)
-            
+
             if response.status_code == 200 and 'entry' in response.text:
                 match = re.search(r'arxiv.org/abs/([0-9.]+)', response.text)
                 if match:
                     arxiv_id = match.group(1)
                     pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
                     return self._download_from_url(pdf_url, doi)
-        except Exception as e:
+        except Exception:
             pass
-        
+
         return None
 
     def _try_base(self, doi: str) -> Optional[str]:
@@ -376,11 +375,11 @@ class MultiSourcePDFDownloader:
                 'format': 'json'
             }
             response = self.session.get(search_url, params=params, timeout=10)
-            
+
             if response.status_code == 200:
                 data = response.json()
                 docs = data.get('response', {}).get('docs', [])
-                
+
                 for doc in docs:
                     urls = doc.get('dclink', [])
                     for url in urls:
@@ -388,9 +387,9 @@ class MultiSourcePDFDownloader:
                             result = self._download_from_url(url, doi)
                             if result:
                                 return result
-        except Exception as e:
+        except Exception:
             pass
-        
+
         return None
 
     def _try_publisher_scrape(self, doi: str) -> Optional[str]:
@@ -409,14 +408,14 @@ class MultiSourcePDFDownloader:
                         # Meta tags
                         soup.find('meta', {'name': 'citation_pdf_url'}),
                         soup.find('meta', {'property': 'citation_pdf_url'}),
-                        
+
                         # Common link patterns
                         soup.find('a', {'class': lambda x: x and 'pdf' in x.lower()}),
                         soup.find('a', {'id': lambda x: x and 'pdf' in x.lower()}),
-                        
+
                         # Links with href containing 'pdf'
                         soup.find('a', href=lambda x: x and ('.pdf' in x.lower() or 'pdf' in x.lower())),
-                        
+
                         # Direct PDF endpoint patterns
                         soup.find('a', {'class': 'pdf-download'}),
                         soup.find('a', {'class': 'download-pdf'}),
@@ -429,7 +428,7 @@ class MultiSourcePDFDownloader:
                                 pdf_url = element.get('content')
                             else:
                                 pdf_url = element.get('href')
-                            
+
                             if pdf_url:
                                 # Make absolute URL
                                 if pdf_url.startswith('/'):
@@ -438,14 +437,14 @@ class MultiSourcePDFDownloader:
                                 elif not pdf_url.startswith('http'):
                                     from urllib.parse import urljoin
                                     pdf_url = urljoin(response.url, pdf_url)
-                                
+
                                 result = self._download_from_url(pdf_url, doi)
                                 if result:
                                     return result
                 except ImportError:
                     pass
 
-        except Exception as e:
+        except Exception:
             pass
 
         return None
@@ -458,7 +457,7 @@ class MultiSourcePDFDownloader:
 
             if response.status_code == 200:
                 data = response.json()['message']
-                
+
                 # Check for links
                 links = data.get('link', [])
                 for link in links:
@@ -467,7 +466,7 @@ class MultiSourcePDFDownloader:
                         result = self._download_from_url(pdf_url, doi)
                         if result:
                             return result
-        except Exception as e:
+        except Exception:
             pass
 
         return None
@@ -489,7 +488,7 @@ class MultiSourcePDFDownloader:
                     f.write(response.content)
 
                 return str(filepath)
-        except Exception as e:
+        except Exception:
             pass
 
         return None
@@ -587,7 +586,7 @@ class PaperDownloader:
         # Show overview
         total = len(to_download) + len(cached)
         abs_path = self.download_dir.resolve()
-        console.print(f"[bold]Source:[/bold] [cyan]stage2_pass / stage2_review[/cyan]")
+        console.print("[bold]Source:[/bold] [cyan]stage2_pass / stage2_review[/cyan]")
         console.print(f"[bold]Destination:[/bold] [yellow]{abs_path}[/yellow]")
         console.print(f"[bold]Papers to process:[/bold] [green]{total}[/green]")
         console.print(f"  [green]✓ Need download:[/green] {len(to_download)} papers")
@@ -610,7 +609,7 @@ class PaperDownloader:
         cache_size = len(self.downloader.cache)
         if cache_size > 0:
             console.print(f"[blue]📋 Cache loaded:[/blue] {cache_size} DOIs from previous attempts")
-        
+
         if dry_run:
             console.print("[bold yellow]⚠️  DRY RUN MODE - No files will be downloaded[/bold yellow]")
             console.print()
@@ -635,9 +634,9 @@ class PaperDownloader:
             for i, paper in enumerate(to_download, 1):
                 citekey = paper['citekey']
                 download_stats['visited'] += 1
-                
+
                 doi = paper['doi']
-                
+
                 # Skip if already visited in previous runs (all sources attempted)
                 attempted_sources = self.downloader._get_attempted_sources(doi)
                 if attempted_sources and len(attempted_sources) >= 11:  # All 11 sources tried
@@ -652,12 +651,12 @@ class PaperDownloader:
                     progress.advance(task)
                     time.sleep(0.1)
                     continue
-                
+
                 # Multiline status update
                 status_text = f"""[cyan]{citekey:<35}[/cyan] ({i}/{len(to_download)})
   [dim]DOI:[/dim] {paper['doi'][:50] if paper['doi'] else 'N/A'}
   [dim]Status:[/dim] Searching sources... [blue]({download_stats['downloaded']} downloaded so far)[/blue]"""
-                
+
                 progress.update(task, description=status_text)
 
                 if dry_run:
@@ -666,7 +665,7 @@ class PaperDownloader:
                     continue
 
                 doi = paper['doi']
-                
+
                 # Create callback to update progress with current source
                 current_source = {'name': 'initializing'}
                 def progress_callback(source_name):
@@ -675,7 +674,7 @@ class PaperDownloader:
   [dim]DOI:[/dim] {paper['doi'][:50] if paper['doi'] else 'N/A'}
   [dim]Trying:[/dim] {source_name}... [blue]({download_stats['downloaded']} downloaded so far)[/blue]"""
                     progress.update(task, description=status_text)
-                
+
                 result = self.downloader.download_pdf(
                     doi,
                     title=paper['title'],
@@ -685,7 +684,7 @@ class PaperDownloader:
 
                 if result['success']:
                     download_stats['downloaded'] += 1
-                    
+
                     # Update database with file_path
                     cursor = self.conn.cursor()
                     cursor.execute("""
@@ -695,19 +694,19 @@ class PaperDownloader:
                     """, (result['filepath'], paper['id']))
                     self.conn.commit()
                     cursor.close()
-                    
+
                     # Success status
                     status_text = f"""[cyan]{citekey:<35}[/cyan] ({i}/{len(to_download)})
   [dim]DOI:[/dim] {paper['doi'][:50] if paper['doi'] else 'N/A'}
   [green]✓ Downloaded via {result['method']}[/green] [blue]({download_stats['downloaded']}/{len(to_download)} total)[/blue]"""
                 else:
                     download_stats['not_found'] += 1
-                    
+
                     # Failed status
                     status_text = f"""[cyan]{citekey:<35}[/cyan] ({i}/{len(to_download)})
   [dim]DOI:[/dim] {paper['doi'][:50] if paper['doi'] else 'N/A'}
   [red]✗ Not found via any source[/red] [blue]({download_stats['downloaded']}/{len(to_download)} total)[/blue]"""
-                
+
                 progress.update(task, description=status_text)
                 progress.advance(task)
                 time.sleep(1)  # Be polite - wait 1 second between downloads
@@ -753,7 +752,7 @@ class PaperDownloader:
         """Display download summary with colorful overview."""
         if download_stats is None:
             download_stats = {'visited': 0, 'downloaded': 0, 'not_found': 0}
-        
+
         console.print()
         console.print("[bold cyan]" + "="*80 + "[/bold cyan]")
         console.print("[bold cyan]📊 DOWNLOAD SUMMARY[/bold cyan]")
@@ -886,8 +885,8 @@ class PaperDownloader:
         console.print()
         console.print("[bold cyan]" + "="*80 + "[/bold cyan]")
         abs_path = self.download_dir.resolve()
-        console.print(f"[bold green]✓ DOWNLOAD COMPLETE[/bold green]")
-        console.print(f"[bold]Files saved to:[/bold]")
+        console.print("[bold green]✓ DOWNLOAD COMPLETE[/bold green]")
+        console.print("[bold]Files saved to:[/bold]")
         console.print(f"  [yellow]{abs_path}[/yellow]")
         console.print("[bold cyan]" + "="*80 + "[/bold cyan]")
 
@@ -971,12 +970,12 @@ Examples:
         console.print()
         console.print("[bold yellow]⏸️  Download interrupted by user (CTRL-C)[/bold yellow]")
         abs_path = downloader.download_dir.resolve()
-        console.print(f"[dim]Papers downloaded so far are saved to:[/dim]")
+        console.print("[dim]Papers downloaded so far are saved to:[/dim]")
         console.print(f"  [yellow]{abs_path}[/yellow]")
         console.print("[dim]You can resume downloading the remaining papers later.[/dim]")
         console.print()
         sys.exit(0)
-    
+
     finally:
         downloader.disconnect()
 

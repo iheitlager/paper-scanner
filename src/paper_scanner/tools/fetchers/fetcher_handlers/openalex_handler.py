@@ -15,8 +15,7 @@ from paper_scanner.core.doi import DOI
 from paper_scanner.core.enum import CitationDirection, PaperType
 from paper_scanner.core.models import Citation, OpenAccessStatus
 from paper_scanner.tools.documents.abstract_parser import AbstractParser
-from paper_scanner.tools.fetchers.fetcher_handlers.base import \
-    BaseFetcherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 
 console = Console(file=sys.stderr)
 
@@ -77,7 +76,7 @@ class OpenAlexHandler(BaseFetcherHandler):
             # OpenAlex returns work directly (no wrapper)
             return data
 
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             return None
 
     def _extract_abstract(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -106,8 +105,8 @@ class OpenAlexHandler(BaseFetcherHandler):
 
             # Clean up with AbstractParser
             return AbstractParser.clean(abstract)
-            
-        except Exception as e:
+
+        except Exception:
             return None
 
     def _extract_authors(self, api_data: Dict[str, Any]) -> list:
@@ -123,26 +122,26 @@ class OpenAlexHandler(BaseFetcherHandler):
 
         for authorship in authorships:
             author_data = authorship.get("author", {})
-            
+
             display_name = author_data.get("display_name", "").strip()
-            
+
             if display_name:
                 # Extract affiliation (first one if multiple)
                 affiliations = authorship.get("institutions", [])
                 affiliation = None
                 if affiliations and len(affiliations) > 0:
                     affiliation = affiliations[0].get("display_name")
-                
+
                 # Try to split into given/family names
                 # OpenAlex doesn't always provide this split
                 name_parts = display_name.split()
                 given_name = None
                 family_name = display_name
-                
+
                 if len(name_parts) > 1:
                     given_name = " ".join(name_parts[:-1])
                     family_name = name_parts[-1]
-                
+
                 author = Author(
                     given_name=given_name,
                     family_name=family_name,
@@ -162,7 +161,7 @@ class OpenAlexHandler(BaseFetcherHandler):
         """
         concepts = api_data.get("concepts", [])
         keywords = []
-        
+
         for concept in concepts:
             # Filter by score threshold
             score = concept.get("score", 0)
@@ -170,7 +169,7 @@ class OpenAlexHandler(BaseFetcherHandler):
                 display_name = concept.get("display_name", "").strip()
                 if display_name:
                     keywords.append(display_name)
-        
+
         return keywords
 
     def _extract_topics(self, api_data: Dict[str, Any]) -> list:
@@ -181,14 +180,14 @@ class OpenAlexHandler(BaseFetcherHandler):
         Falls back to broader 'concepts' if topics not available.
         """
         topics = []
-        
+
         # Try topics field first (newer OpenAlex feature)
         topic_list = api_data.get("topics", [])
         for topic in topic_list:
             display_name = topic.get("display_name", "").strip()
             if display_name:
                 topics.append(display_name)
-        
+
         # If no topics, fall back to high-level concepts
         if not topics:
             concepts = api_data.get("concepts", [])
@@ -200,7 +199,7 @@ class OpenAlexHandler(BaseFetcherHandler):
                     display_name = concept.get("display_name", "").strip()
                     if display_name:
                         topics.append(display_name)
-        
+
         return topics
 
     def _extract_paper_type(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -243,7 +242,7 @@ class OpenAlexHandler(BaseFetcherHandler):
         year = api_data.get("publication_year")
         if year and isinstance(year, int):
             return year
-        
+
         # Try publication_date
         pub_date = api_data.get("publication_date")
         if pub_date and isinstance(pub_date, str):
@@ -252,7 +251,7 @@ class OpenAlexHandler(BaseFetcherHandler):
                 return int(pub_date.split("-")[0])
             except (ValueError, IndexError):
                 pass
-        
+
         return None
 
     def _extract_journal(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -264,15 +263,15 @@ class OpenAlexHandler(BaseFetcherHandler):
         primary_location = api_data.get("primary_location")
         if not primary_location:
             return None
-        
+
         source = primary_location.get("source")
         if not source:
             return None
-        
+
         display_name = source.get("display_name")
         if display_name and isinstance(display_name, str):
             return display_name.strip()
-        
+
         return None
 
     def _extract_url(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -289,19 +288,19 @@ class OpenAlexHandler(BaseFetcherHandler):
             landing_page = primary_location.get("landing_page_url")
             if landing_page and isinstance(landing_page, str):
                 return landing_page.strip()
-        
+
         # Try best_oa_location as fallback
         best_oa = api_data.get("best_oa_location")
         if best_oa:
             landing_page = best_oa.get("landing_page_url")
             if landing_page and isinstance(landing_page, str):
                 return landing_page.strip()
-        
+
         # Fallback to DOI URL
         doi = api_data.get("doi")
         if doi:
             return f"https://doi.org/{DOI(doi).stem}"
-        
+
         return None
 
     def _extract_isbn(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -323,11 +322,11 @@ class OpenAlexHandler(BaseFetcherHandler):
         primary_location = api_data.get("primary_location")
         if not primary_location:
             return None
-        
+
         source = primary_location.get("source")
         if not source:
             return None
-        
+
         # ISSN can be a list or single string
         issn = source.get("issn")
         if issn:
@@ -335,7 +334,7 @@ class OpenAlexHandler(BaseFetcherHandler):
                 return issn[0]
             elif isinstance(issn, str):
                 return issn.strip()
-        
+
         return None
 
     def _extract_pmid(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -347,14 +346,14 @@ class OpenAlexHandler(BaseFetcherHandler):
         """
         ids = api_data.get("ids", {})
         pmid_url = ids.get("pmid")
-        
+
         if pmid_url and isinstance(pmid_url, str):
             # Extract numeric ID from URL
             try:
                 return pmid_url.split("/")[-1]
             except (ValueError, IndexError):
                 pass
-        
+
         return None
 
     def _extract_oa_status(self, api_data: Dict[str, Any]) -> Optional[OpenAccessStatus]:
@@ -366,7 +365,7 @@ class OpenAlexHandler(BaseFetcherHandler):
         - open_access.oa_status: "gold", "green", "hybrid", "bronze", "closed"
         """
         oa_info = api_data.get("open_access", {})
-        
+
         is_oa = oa_info.get("is_oa", False)
         oa_status_str = oa_info.get("oa_status", "closed").lower()
 
@@ -389,7 +388,7 @@ class OpenAlexHandler(BaseFetcherHandler):
         publisher = api_data.get("best_oa_location", {}).get("source", {}).get("host_organization_name")
         if publisher and isinstance(publisher, str):
             return publisher.strip()
-            
+
         return None
 
     def _extract_source_key(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -408,12 +407,12 @@ class OpenAlexHandler(BaseFetcherHandler):
                 return openalex_id.split("/")[-1]
             except (ValueError, IndexError):
                 pass
-        
+
         # Fall back to DOI
         doi = api_data.get("doi")
         if doi:
             return DOI(doi).stem
-        
+
         return None
 
     def _extract_citations(self, api_data: Dict[str, Any]) -> List[Citation]:
@@ -460,7 +459,7 @@ class OpenAlexHandler(BaseFetcherHandler):
                     raw_json={"openalex_id": openalex_id},
                 )
                 citations.append(citation)
-            except Exception as e:
+            except Exception:
                 continue
 
         return citations
@@ -571,5 +570,5 @@ class OpenAlexHandler(BaseFetcherHandler):
                 raw_json=work,
             )
             return citation
-        except Exception as e:
+        except Exception:
             return None

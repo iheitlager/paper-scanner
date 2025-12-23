@@ -14,8 +14,7 @@ from unittest.mock import patch
 import pytest
 
 from paper_scanner.core.models import Author
-from paper_scanner.tools.fetchers.fetcher_handlers.base import \
-    BaseFetcherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 
 
 class DummyHandler(BaseFetcherHandler):

@@ -12,8 +12,7 @@ from unittest.mock import patch
 import pytest
 
 from paper_scanner.core.models import Citation
-from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import \
-    CrossrefHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
 
 
 class TestCrossrefCitationExtraction:
@@ -34,7 +33,7 @@ class TestCrossrefCitationExtraction:
     def test_fetch_citations_from_api_success(self, mock_fetch, handler):
         """Test fetching and parsing citations using unified cache."""
         doi = "10.1145/3025453.3025761"
-        
+
         # Mock API response with references
         mock_fetch.return_value = {
             "DOI": doi,
@@ -61,9 +60,9 @@ class TestCrossrefCitationExtraction:
                 }
             ]
         }
-        
+
         citations, cache_hit = handler.fetch_citations(doi)
-        
+
         assert citations is not None
         assert len(citations) == 2
         assert citations[0].doi == "10.1234/test1"
@@ -74,15 +73,15 @@ class TestCrossrefCitationExtraction:
     def test_fetch_citations_from_api_no_references(self, mock_fetch, handler):
         """Test fetching when paper has no references."""
         doi = "10.1145/3025453.3025761"
-        
+
         mock_fetch.return_value = {
             "DOI": doi,
             "title": "Test Paper",
             "reference": []
         }
-        
+
         citations, cache_hit = handler.fetch_citations(doi)
-        
+
         assert citations is not None
         assert len(citations) == 0
         assert not cache_hit
@@ -91,11 +90,11 @@ class TestCrossrefCitationExtraction:
     def test_fetch_citations_from_api_not_found(self, mock_fetch, handler):
         """Test fetching when DOI not found."""
         doi = "10.1234/nonexistent"
-        
+
         mock_fetch.return_value = None
-        
+
         citations, cache_hit = handler.fetch_citations(doi)
-        
+
         assert citations == []
         assert not cache_hit
 
@@ -127,9 +126,9 @@ class TestCrossrefCitationExtraction:
                 }
             ]
         }
-        
+
         citations = handler._extract_citations(api_data)
-        
+
         assert len(citations) == 3
         assert isinstance(citations[0], Citation)
         assert isinstance(citations[1], Citation)
@@ -155,9 +154,9 @@ class TestCrossrefCitationExtraction:
             "last-page": "110",
             "publisher": "Test Publisher",
         }
-        
+
         citation = handler._parse_reference(ref, idx=0)
-        
+
         assert citation is not None
         assert citation.doi == "10.1234/test"  # Normalized to lowercase
         assert citation.title == "Complete Reference"
@@ -177,9 +176,9 @@ class TestCrossrefCitationExtraction:
         ref = {
             "unstructured": "Minimal reference without structure",
         }
-        
+
         citation = handler._parse_reference(ref, idx=0)
-        
+
         assert citation is not None
         assert citation.doi is None
         assert citation.title == "Minimal reference without structure"
@@ -192,9 +191,9 @@ class TestCrossrefCitationExtraction:
             "article-title": "Some Paper",
             "first-page": "50",
         }
-        
+
         citation = handler._parse_reference(ref, idx=0)
-        
+
         assert citation.pages == "50"
 
     def test_parse_reference_container_title_fallback(self, handler):
@@ -203,9 +202,9 @@ class TestCrossrefCitationExtraction:
             "article-title": "Paper Title",
             "container-title": "Container Journal",
         }
-        
+
         citation = handler._parse_reference(ref, idx=0)
-        
+
         assert citation.journal == "Container Journal"
 
     def test_parse_reference_doi_normalization(self, handler):
@@ -214,9 +213,9 @@ class TestCrossrefCitationExtraction:
             "DOI": "10.1234/UPPERCASE",
             "article-title": "Paper",
         }
-        
+
         citation = handler._parse_reference(ref, idx=0)
-        
+
         assert citation.doi == "10.1234/uppercase"
 
     def test_parse_reference_year_extraction(self, handler):
@@ -225,12 +224,12 @@ class TestCrossrefCitationExtraction:
         ref1 = {"article-title": "Paper", "year": "2020"}
         citation1 = handler._parse_reference(ref1, idx=0)
         assert citation1.year == 2020
-        
+
         # Invalid year
         ref2 = {"article-title": "Paper", "year": "not_a_year"}
         citation2 = handler._parse_reference(ref2, idx=0)
         assert citation2.year is None
-        
+
         # Missing year
         ref3 = {"article-title": "Paper"}
         citation3 = handler._parse_reference(ref3, idx=0)
@@ -244,7 +243,7 @@ class TestCrossrefCitationExtraction:
             year=2020,
             authors=["Author, A."]
         )
-        
+
         # Base 0.5 + DOI 0.35 + Title 0.1 + Year 0.05 = 1.0
         assert confidence == 1.0
 
@@ -256,7 +255,7 @@ class TestCrossrefCitationExtraction:
             year=2020,
             authors=["Author, A."]
         )
-        
+
         # Base 0.5 + Title 0.1 + Year 0.05 = 0.65
         assert confidence == 0.65
 
@@ -268,7 +267,7 @@ class TestCrossrefCitationExtraction:
             year=2020,
             authors=[]
         )
-        
+
         # Base 0.5 + DOI 0.35 + Year 0.05 = 0.9 (title too short)
         assert confidence == 0.9
 
@@ -280,7 +279,7 @@ class TestCrossrefCitationExtraction:
             year=None,
             authors=[]
         )
-        
+
         # Only base 0.5
         assert confidence == 0.5
 
@@ -293,7 +292,7 @@ class TestCrossrefCitationExtraction:
             year=2020,
             authors=["Author, A.", "Author, B."]
         )
-        
+
         # Should not exceed 1.0
         assert confidence <= 1.0
         assert confidence == 1.0
@@ -302,7 +301,7 @@ class TestCrossrefCitationExtraction:
     def test_fetch_and_parse_citations_success(self, mock_fetch, handler):
         """Test complete fetch and parse flow."""
         doi = "10.1145/3025453.3025761"
-        
+
         mock_fetch.return_value = {
             "DOI": doi,
             "reference": [
@@ -317,9 +316,9 @@ class TestCrossrefCitationExtraction:
                 }
             ]
         }
-        
+
         citations, cache_hit = handler.fetch_citations(doi)
-        
+
         assert len(citations) == 2
         assert cache_hit is False  # First call, not cached
         assert all(isinstance(c, Citation) for c in citations)
@@ -331,9 +330,9 @@ class TestCrossrefCitationExtraction:
             "volume": None,
             "issue": None,
         }
-        
+
         citation = handler._parse_reference(ref, idx=0)
-        
+
         assert citation is not None
         assert citation.year is None
         assert citation.volume is None
@@ -345,7 +344,7 @@ class TestCrossrefCitationExtraction:
     def test_fetch_citations_handles_malformed_reference(self, mock_fetch, handler):
         """Test fetch_and_parse_citations handles malformed references gracefully."""
         doi = "10.1145/3025453.3025761"
-        
+
         mock_fetch.return_value = {
             "DOI": doi,
             "reference": [
@@ -354,9 +353,9 @@ class TestCrossrefCitationExtraction:
                 {"article-title": "Another valid reference"},
             ]
         }
-        
+
         citations, cache_hit = handler.fetch_citations(doi)
-        
+
         assert citations is not None
         assert len(citations) == 3
         assert not cache_hit
@@ -364,17 +363,17 @@ class TestCrossrefCitationExtraction:
     def test_extract_citations_empty_reference_list(self, handler):
         """Test extracting from empty reference list."""
         api_data = {"reference": []}
-        
+
         citations = handler._extract_citations(api_data)
-        
+
         assert citations == []
 
     def test_extract_citations_missing_references_key(self, handler):
         """Test extracting when reference key is missing."""
         api_data = {"other_key": "value"}
-        
+
         citations = handler._extract_citations(api_data)
-        
+
         assert citations == []
 
     def test_parse_reference_pages_both_set(self, handler):
@@ -384,9 +383,9 @@ class TestCrossrefCitationExtraction:
             "first-page": "123",
             "last-page": "456",
         }
-        
+
         citation = handler._parse_reference(ref, idx=0)
-        
+
         assert citation.pages == "123-456"
 
     def test_parse_reference_pages_only_last_ignored(self, handler):
@@ -395,9 +394,9 @@ class TestCrossrefCitationExtraction:
             "article-title": "Paper",
             "last-page": "456",
         }
-        
+
         citation = handler._parse_reference(ref, idx=0)
-        
+
         assert citation.pages is None
 
     def test_parse_reference_whitespace_stripped(self, handler):
@@ -407,9 +406,9 @@ class TestCrossrefCitationExtraction:
             "journal-title": "  Journal  ",
             "author": "  Smith, J.  ",
         }
-        
+
         citation = handler._parse_reference(ref, idx=0)
-        
+
         assert citation.title == "Title with spaces"
         assert citation.journal == "Journal"
         assert citation.authors == ["Smith, J."]
@@ -422,7 +421,7 @@ class TestCrossrefCitationExtraction:
             year=2020,
             authors=[]
         )
-        
+
         assert confidence > 0.5
 
     def test_calculate_confidence_with_short_author_name(self, handler):
@@ -433,7 +432,7 @@ class TestCrossrefCitationExtraction:
             year=None,
             authors=["A"]  # Single character
         )
-        
+
         assert confidence == 0.6  # Base 0.5 + Title 0.1
 
 
@@ -455,7 +454,7 @@ class TestCrossrefCitationIntegration:
     def test_complete_citation_extraction_workflow(self, mock_fetch, handler):
         """Test complete workflow from API response to Citation objects."""
         doi = "10.1145/3025453.3025761"
-        
+
         # Realistic Crossref API response
         mock_fetch.return_value = {
             "DOI": doi,
@@ -478,20 +477,20 @@ class TestCrossrefCitationIntegration:
                 },
             ]
         }
-        
+
         # Test fetch with unified cache
         citations, cache_hit = handler.fetch_citations(doi)
-        
+
         assert len(citations) == 2
         assert not cache_hit  # First fetch should not be from cache
-        
+
         # First citation should have full metadata
         first = citations[0]
         assert first.doi == "10.1016/j.jss.2015.11.016"
         assert first.title == "Software testing: a research travelogue"
         assert first.year == 2007
         assert first.confidence > 0.9  # High confidence with DOI, title, year
-        
+
         # Second citation minimal
         second = citations[1]
         assert second.doi is None

@@ -37,9 +37,9 @@ def sample_papers_jsonl():
     with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
         f.write(test_data)
         temp_file = f.name
-    
+
     yield temp_file
-    
+
     # Cleanup
     Path(temp_file).unlink()
 
@@ -148,10 +148,10 @@ class TestExecute:
             "file": sample_papers_jsonl,
             "expected_count": 3
         }
-        
+
         step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False)
-        
+
         assert result["status"] == "ok"
         assert result["records_read"] == 3
         assert result["papers_converted"] == 3
@@ -165,10 +165,10 @@ class TestExecute:
         config = {
             "file": "/nonexistent/path/papers.jsonl"
         }
-        
+
         step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False)
-        
+
         assert result["status"] == "error"
         assert "File not found" in result["error"]
 
@@ -179,10 +179,10 @@ class TestExecute:
             "file": sample_papers_jsonl,
             "expected_count": 5
         }
-        
+
         step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False)
-        
+
         # Should still process successfully, just with warning
         assert result["status"] == "ok"
         assert result["records_read"] == 3
@@ -197,14 +197,14 @@ class TestExecute:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
             f.write(test_data)
             temp_file = f.name
-        
+
         try:
             papers_db = PapersDatabase()
             config = {"file": temp_file}
-            
+
             step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
             result = step.execute(config, verbose=False)
-            
+
             # Should skip the invalid line but still process valid ones
             assert result["status"] == "ok"
             assert result["records_read"] == 2  # Only 2 valid JSON lines
@@ -222,14 +222,14 @@ class TestExecute:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
             f.write(test_data)
             temp_file = f.name
-        
+
         try:
             papers_db = PapersDatabase()
             config = {"file": temp_file}
-            
+
             step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
             result = step.execute(config, verbose=False)
-            
+
             # Should skip empty lines and process only valid papers
             assert result["status"] == "ok"
             assert result["records_read"] == 2
@@ -243,10 +243,10 @@ class TestExecute:
             "file": sample_papers_jsonl,
             "expected_count": 3
         }
-        
+
         step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False, dry_run=True)
-        
+
         assert result["status"] == "ok"
         assert result["records_read"] == 3
         assert result["papers_converted"] == 3
@@ -260,12 +260,12 @@ class TestExecute:
 """
         papers_db = PapersDatabase()
         config = {"input": "stdin"}
-        
+
         # Mock stdin
         with patch('sys.stdin', StringIO(test_data)):
             step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
             result = step.execute(config, verbose=False)
-        
+
         assert result["status"] == "ok"
         assert result["records_read"] == 2
         assert result["papers_added"] == 2
@@ -277,10 +277,10 @@ class TestExecute:
             "file": sample_papers_jsonl,
             "expected_count": 3
         }
-        
+
         step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=True)
-        
+
         # Just verify that execution succeeds and returns verbose result
         assert result["status"] == "ok"
         assert result["records_read"] == 3
@@ -289,13 +289,13 @@ class TestExecute:
         """Test that imported papers have MANUAL discovery method"""
         papers_db = PapersDatabase()
         config = {"file": sample_papers_jsonl}
-        
+
         step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False)
-        
+
         assert result["status"] == "ok"
         assert result["papers_added"] == 3
-        
+
         # Get papers from database and check discovery method
         for paper in papers_db.papers:
             assert paper.discovery is not None
@@ -304,25 +304,25 @@ class TestExecute:
     def test_execute_path_expansion(self, temp_cache_dir):
         """Test that ~ in file paths is expanded"""
         test_data = '{"cite_key": "Test", "title": "Test", "authors": [], "year": 2024}\n'
-        
+
         # Create temp file in home directory
         home = Path.home()
         temp_dir = home / ".test_paper_scanner"
         temp_dir.mkdir(exist_ok=True)
-        
+
         temp_file = temp_dir / "test.jsonl"
         temp_file.write_text(test_data)
-        
+
         try:
             papers_db = PapersDatabase()
             # Use ~ to reference home directory
             config = {
                 "file": str(temp_file).replace(str(home), "~")
             }
-            
+
             step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
             result = step.execute(config, verbose=False)
-            
+
             assert result["status"] == "ok"
             assert result["records_read"] == 1
         finally:
@@ -333,16 +333,16 @@ class TestExecute:
         """Test that file takes precedence when both file and input are specified"""
         papers_db = PapersDatabase()
         stdin_data = '{"cite_key": "StdinPaper", "title": "From stdin", "authors": [], "year": 2024}\n'
-        
+
         config = {
             "file": sample_papers_jsonl,
             "input": "stdin"
         }
-        
+
         with patch('sys.stdin', StringIO(stdin_data)):
             step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
             result = step.execute(config, verbose=False)
-        
+
         # Should read from file, not stdin
         assert result["status"] == "ok"
         assert result["records_read"] == 3  # From file, not stdin
@@ -350,18 +350,18 @@ class TestExecute:
     def test_execute_with_incomplete_paper_data(self, temp_cache_dir):
         """Test execution with papers missing some fields"""
         test_data = '{"cite_key": "Paper1", "title": "Minimal Paper"}\n'
-        
+
         with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
             f.write(test_data)
             temp_file = f.name
-        
+
         try:
             papers_db = PapersDatabase()
             config = {"file": temp_file}
-            
+
             step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
             result = step.execute(config, verbose=False)
-            
+
             # Should still work with minimal data
             assert result["status"] == "ok"
             assert result["records_read"] == 1
@@ -372,10 +372,10 @@ class TestExecute:
         """Test that execute result has all expected fields"""
         papers_db = PapersDatabase()
         config = {"file": sample_papers_jsonl}
-        
+
         step = InputStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False)
-        
+
         # Check all expected fields
         assert "status" in result
         assert "source" in result
@@ -384,7 +384,7 @@ class TestExecute:
         assert "papers_failed" in result
         assert "papers_added" in result
         assert "papers_count" in result
-        
+
         assert isinstance(result["status"], str)
         assert isinstance(result["records_read"], int)
         assert isinstance(result["papers_count"], int)

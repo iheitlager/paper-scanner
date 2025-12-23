@@ -24,7 +24,7 @@ class PapersQuery:
         >>> papers_db.query().filter_by_topic("AI").top(10).execute()
         >>> papers_db.query().grep("cloud computing").exclude_duplicates().first()
     """
-    
+
     def __init__(self, db: "PapersDatabase"):
         """Initialize query with database reference"""
         self.db = db
@@ -33,11 +33,11 @@ class PapersQuery:
         self._sort_reverse: bool = False
         self._limit: Optional[int] = None
         self._exclude_duplicates: bool = False
-    
+
     # ========================================================================
     # FILTER METHODS (chainable)
     # ========================================================================
-    
+
     def filter(self, predicate: Callable[[Paper], bool]) -> "PapersQuery":
         """
         Add custom filter predicate.
@@ -50,7 +50,7 @@ class PapersQuery:
         """
         self._filters.append(predicate)
         return self
-    
+
     def filter_by_topic(self, topic: str) -> "PapersQuery":
         """
         Filter papers by topic (searches keywords).
@@ -66,9 +66,9 @@ class PapersQuery:
             if p.keywords:
                 return any(topic_lower in kw.lower() for kw in p.keywords)
             return False
-        
+
         return self.filter(has_topic)
-    
+
     def filter_by_year(self, min_year: int, max_year: Optional[int] = None) -> "PapersQuery":
         """
         Filter papers by publication year range.
@@ -82,12 +82,12 @@ class PapersQuery:
         """
         if max_year is None:
             max_year = min_year
-        
+
         def in_year_range(p: Paper) -> bool:
             return p.year is not None and min_year <= p.year <= max_year
-        
+
         return self.filter(in_year_range)
-    
+
     def filter_by_author(self, author_name: str) -> "PapersQuery":
         """
         Filter papers by author name (partial match).
@@ -101,9 +101,9 @@ class PapersQuery:
         author_lower = author_name.lower()
         def has_author(p: Paper) -> bool:
             return any(author_lower in a.full_name.lower() for a in (p.authors or []))
-        
+
         return self.filter(has_author)
-    
+
     def filter_by_doi(self, doi: str) -> "PapersQuery":
         """
         Filter papers by DOI.
@@ -118,9 +118,9 @@ class PapersQuery:
         doi_normalized = DOI(doi).stem
         def has_doi(p: Paper) -> bool:
             return p.doi and DOI(p.doi).stem == doi_normalized
-        
+
         return self.filter(has_doi)
-    
+
     def grep(self, text: str) -> "PapersQuery":
         """
         Full-text search in title and abstract.
@@ -136,9 +136,9 @@ class PapersQuery:
             title_match = p.title and text_lower in p.title.lower()
             abstract_match = p.abstract and text_lower in p.abstract.lower()
             return title_match or abstract_match
-        
+
         return self.filter(contains_text)
-    
+
     def exclude_duplicates(self) -> "PapersQuery":
         """
         Only include primary papers (exclude duplicates).
@@ -148,11 +148,11 @@ class PapersQuery:
         """
         self._exclude_duplicates = True
         return self
-    
+
     # ========================================================================
     # SORT METHODS (chainable)
     # ========================================================================
-    
+
     def order_by_year(self, descending: bool = True) -> "PapersQuery":
         """
         Sort by publication year.
@@ -166,7 +166,7 @@ class PapersQuery:
         self._sort_key = lambda p: p.year or 0
         self._sort_reverse = descending
         return self
-    
+
     def order_by_title(self, descending: bool = False) -> "PapersQuery":
         """
         Sort by title alphabetically.
@@ -180,7 +180,7 @@ class PapersQuery:
         self._sort_key = lambda p: (p.title or "").lower()
         self._sort_reverse = descending
         return self
-    
+
     def order_by(self, key_func: Callable[[Paper], Any], descending: bool = False) -> "PapersQuery":
         """
         Sort by custom key function.
@@ -195,11 +195,11 @@ class PapersQuery:
         self._sort_key = key_func
         self._sort_reverse = descending
         return self
-    
+
     # ========================================================================
     # LIMIT METHODS (chainable)
     # ========================================================================
-    
+
     def top(self, count: int) -> "PapersQuery":
         """
         Limit results to top N papers.
@@ -212,15 +212,15 @@ class PapersQuery:
         """
         self._limit = count
         return self
-    
+
     def limit(self, count: int) -> "PapersQuery":
         """Alias for top()"""
         return self.top(count)
-    
+
     # ========================================================================
     # TERMINAL OPERATIONS (end chain)
     # ========================================================================
-    
+
     def execute(self) -> List[Paper]:
         """
         Execute query and return results.
@@ -234,51 +234,51 @@ class PapersQuery:
             if not self._exclude_duplicates
             else self.db.all(primary_only=True)
         )
-        
+
         # Apply filters
         for predicate in self._filters:
             results = [p for p in results if predicate(p)]
-        
+
         # Apply sorting
         if self._sort_key:
             results.sort(key=self._sort_key, reverse=self._sort_reverse)
-        
+
         # Apply limit
         if self._limit:
             results = results[:self._limit]
-        
+
         return results
-    
+
     def list(self) -> List[Paper]:
         """Alias for execute()"""
         return self.execute()
-    
+
     def first(self) -> Optional[Paper]:
         """Get first result or None"""
         results = self.top(1).execute()
         return results[0] if results else None
-    
+
     def count(self) -> int:
         """Get total count of matching papers"""
         return len(self.execute())
-    
+
     # ========================================================================
     # MAGIC METHODS FOR IMPLICIT EXECUTION
     # ========================================================================
-    
+
     def __iter__(self):
         """Allow iteration over results without explicit execute()"""
         return iter(self.execute())
-    
+
     def __len__(self):
         """Allow len() on query without explicit execute()"""
         return self.count()
-    
+
     def __getitem__(self, index):
         """Allow indexing without explicit execute() - db.query().filter(...)[0]"""
         results = self.execute()
         return results[index]
-    
+
     def __bool__(self):
         """Allow bool() check - if db.query().filter(...):"""
         return self.count() > 0

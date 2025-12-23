@@ -201,7 +201,7 @@ class StepStatus(str, Enum):
 |--------|---------|---------|-----------------|-------------|
 | **SUCCESS** | Completed as intended | `bibtex_import`: Processed 42 papers, 0 errors | ✅ Continue | All work succeeded, no issues |
 | **WARNING** | Completed with partial success | `retrieve_metadata`: 85/100 papers, 15 citations unresolved | ✅ Continue | Most work succeeded, some items failed but step recovered |
-| **ERROR** | Step failed to achieve objective | `export`: File permission denied on output | ❌ Log + Continue (likely cascades) | Core functionality broken (DB, I/O, network service) |
+| **ERROR** | Step failed to achieve objective | `export`: File permission denied on output | ❌ Log + Continue if possible (likely cascades) | Core functionality broken (DB, I/O, network service) |
 | **HALTED** | Pipeline stopped intentionally | `halt` step executed | ⛔ Stop cleanly | User-requested halt (not an error) |
 
 **Key Principles**:
@@ -380,26 +380,41 @@ class StepHaltException(StepException):
     Used by halt step when user wants to pause/end the workflow.
     Executor catches this and exits cleanly (exit code 0).
     """
-    def __init__(self, message: str = "Pipeline halted"):
-        self.message = message
-        super().__init__(message)
+    pass
 
-class StepFatalException(StepException):
+class StepFatalError(PaperScannerError):
     """
-    Unrecoverable system failure.
-    
-    The step encountered a system-level error that prevents continuation:
-    - Database connection lost
-    - File permission denied
-    - API authentication failed
-    - Required service unavailable
-    
-    Executor catches this, logs the error, and halts the pipeline with error code 1.
+    Raised when a step encounters a non-recoverable and fatal resource error during execution.
+
+    Examples:
+    - Not able to write to filesystems
+    - No database available (to read or to write)
     """
-    def __init__(self, message: str, cause: Exception = None):
-        self.message = message
-        self.cause = cause
-        super().__init__(message)
+
+    pass
+
+class CheckpointError(PaperScannerError):
+    """
+    Raised when checkpoint operations fail.
+
+    Examples:
+    - Checkpoint file I/O errors
+    - Corrupt checkpoint data
+    - Checkpoint restoration fails
+    """
+    pass
+
+
+class PipelineExecutionError(PaperScannerError):
+    """
+    Raised when a step execution fails during pipeline run.
+
+    Examples:
+    - Step processing fails
+    - Data transformation errors
+    - External service failures
+    """
+    pass
 ```
 
 **When to raise which exception**:
@@ -474,19 +489,6 @@ except StepHaltException as e:
     results["halted"] = True
     break  # Exit pipeline cleanly
     
-except StepFatalException as e:
-    # 🔴 System failure — unrecoverable
-    console.print(f"[red bold]FATAL[/red bold]: [{step_name}] {str(e)}")
-    if debug and e.cause:
-        console.print(f"[dim]{traceback.format_exc()}[/dim]")
-    results["steps_executed"].append({
-        "step": step_name,
-        "status": "error",
-        "error": str(e),
-        "fatal": True
-    })
-    results["errors"].append(str(e))
-    break  # Exit pipeline with error
     
 except Exception as e:
     # 🔴 Unexpected exception (bug in step code)

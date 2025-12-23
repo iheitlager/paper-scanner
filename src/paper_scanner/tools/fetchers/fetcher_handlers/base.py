@@ -227,7 +227,7 @@ class BaseFetcherHandler(ABC):
             return [], False
 
         if self.debug:
-            console.print(f"[dim]Caching {len(api_data)} forward citations for {doi} with key {key}[/dim]")    
+            console.print(f"[dim]Caching {len(api_data)} forward citations for {doi} with key {key}[/dim]")
         self._jsoncache.set(key, api_data)
         citations = [self._parse_cited_by(c) for c in api_data]
         return citations, False
@@ -341,7 +341,7 @@ class BaseFetcherHandler(ABC):
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
                 tmp_file.write(response.content)
                 pdf_path = Path(tmp_file.name)
-                
+
                 # Return PDFInfo with download source (handler name)
                 return PDFInfo(
                     file_path=str(pdf_path),
@@ -373,7 +373,7 @@ class BaseFetcherHandler(ABC):
         title = self._extract_title(api_data)
         if isinstance(title, list):
             title = title[0] if title else ""
-        
+
         # Clean up title: remove newlines and HTML tags
         title = self._clean_title(title)
 

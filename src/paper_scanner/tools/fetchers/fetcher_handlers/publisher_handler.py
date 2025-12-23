@@ -16,8 +16,7 @@ from rich.console import Console
 
 from paper_scanner.core.doi import DOI
 from paper_scanner.core.models import Citation, PDFInfo
-from paper_scanner.tools.fetchers.fetcher_handlers.base import \
-    BaseFetcherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 
 console = Console(file=sys.stderr)
 
@@ -372,7 +371,7 @@ class PublisherHandler(BaseFetcherHandler):
     ###################################################################################
     # Not implemented methods for citations fetching
     # PublisherHandler only downloads PDFs via fetch_pdf
-    ###################################################################################  
+    ###################################################################################
     def fetch_cited_by(self, doi: str, limit: int = 100) -> Tuple[List[Citation], bool]:
         """Not implemented - publisher handler only downloads PDFs."""
         raise NotImplementedError("PublisherHandler only downloads PDFs via fetch_pdf")

@@ -10,8 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from paper_scanner.core.models import PDFInfo
-from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import \
-    PublisherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import PublisherHandler
 
 
 class TestPublisherHandlerInstantiation:
@@ -277,7 +276,7 @@ class TestPatternBasedPublisherDetection:
 
         arxiv_doi = "10.48550/arxiv.2302.12345"
         pdf_url = handler._extract_pdf_url_from_landing_page("", "arxiv.org", arxiv_doi)
-        
+
         # Should extract the arxiv ID from the DOI
         assert pdf_url is not None
         assert "https://arxiv.org/pdf/" in pdf_url
@@ -289,7 +288,7 @@ class TestPatternBasedPublisherDetection:
 
         plos_doi = "10.1371/journal.pone.0123456"
         pdf_url = handler._extract_pdf_url_from_landing_page("", "plos.org", plos_doi)
-        
+
         # PLOS uses the full DOI in the URL
         assert pdf_url is not None
         assert "https://journals.plos.org/plosone/article/file?id=" in pdf_url
@@ -300,7 +299,7 @@ class TestPatternBasedPublisherDetection:
 
         mdpi_doi = "10.3390/app10010001"
         pdf_url = handler._extract_pdf_url_from_landing_page("", "mdpi.com", mdpi_doi)
-        
+
         # MDPI uses the full DOI in the URL
         assert pdf_url is not None
         assert "https://www.mdpi.com/" in pdf_url
@@ -373,27 +372,27 @@ class TestPublisherHandlerExcludedMethods:
     def test_fetch_cited_by_not_implemented(self, tmp_path):
         """Test that fetch_cited_by raises NotImplementedError."""
         handler = PublisherHandler(cache_dir=tmp_path)
-        
+
         with pytest.raises(NotImplementedError, match="PublisherHandler only downloads PDFs via fetch_pdf"):
             handler.fetch_cited_by("10.1234/test")
 
     def test_fetch_metadata_not_implemented(self, tmp_path):
         """Test that fetch_metadata raises NotImplementedError."""
         handler = PublisherHandler(cache_dir=tmp_path)
-        
+
         with pytest.raises(NotImplementedError, match="PublisherHandler only downloads PDFs via fetch_pdf"):
             handler.fetch_metadata("10.1234/test")
 
     def test_fetch_paper_not_implemented(self, tmp_path):
         """Test that fetch_paper raises NotImplementedError."""
         handler = PublisherHandler(cache_dir=tmp_path)
-        
+
         with pytest.raises(NotImplementedError, match="PublisherHandler only downloads PDFs via fetch_pdf"):
             handler.fetch_paper("10.1234/test")
 
     def test_fetch_citations_not_implemented(self, tmp_path):
         """Test that fetch_citations raises NotImplementedError."""
         handler = PublisherHandler(cache_dir=tmp_path)
-        
+
         with pytest.raises(NotImplementedError, match="PublisherHandler only downloads PDFs via fetch_pdf"):
             handler.fetch_citations("10.1234/test")

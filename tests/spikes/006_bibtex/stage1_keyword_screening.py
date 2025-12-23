@@ -150,7 +150,7 @@ class Stage1KeywordScreener:
         paper_id = paper['id']
         title = self.normalize_text(paper.get('title'))
         abstract = self.normalize_text(paper.get('abstract', ''))
-        
+
         # Combine title and abstract for evaluation
         combined_text = f"{title} {abstract}"
 
@@ -158,7 +158,7 @@ class Stage1KeywordScreener:
         excluded_kw, excluded_count = self.check_keyword_match(
             combined_text, self.HARD_EXCLUSIONS
         )
-        
+
         if excluded_count > 0:
             return {
                 'paper_id': paper_id,
@@ -219,10 +219,10 @@ class Stage1KeywordScreener:
         WHERE ps.screening_stage IS NULL 
            OR ps.screening_stage IN ('unscreened', 'stage0_pass', 'stage1_pass', 'stage1_fail')
         """
-        
+
         if limit:
             query += f" LIMIT {limit}"
-        
+
         try:
             cursor = self.conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(query)
@@ -243,7 +243,7 @@ class Stage1KeywordScreener:
         try:
             for result in results:
                 paper_id = result['paper_id']
-                
+
                 # Use upsert (INSERT ... ON CONFLICT ... DO UPDATE)
                 # to handle both new and existing records
                 upsert_query = """
@@ -273,7 +273,7 @@ class Stage1KeywordScreener:
                 WHERE EXCLUDED.stage1_processed_at > paper_screening.stage1_processed_at
                    OR paper_screening.stage1_processed_at IS NULL
                 """
-                
+
                 cursor.execute(upsert_query, (
                     paper_id,
                     result['screening_stage'],
@@ -286,7 +286,7 @@ class Stage1KeywordScreener:
                     datetime.now(),
                     datetime.now()
                 ))
-            
+
             self.conn.commit()
             logger.info(f"Updated {len(results)} screening records")
         except psycopg2.Error as e:
@@ -305,11 +305,11 @@ class Stage1KeywordScreener:
             Dictionary with processing statistics
         """
         logger.info("Starting Stage 1 keyword screening...")
-        
+
         # Fetch unscreened papers
         papers = self.get_unscreened_papers(limit)
         logger.info(f"Found {len(papers)} papers to screen")
-        
+
         if not papers:
             logger.info("No papers to screen")
             return {
@@ -325,11 +325,11 @@ class Stage1KeywordScreener:
         included_count = 0
         excluded_count = 0
         ambiguous_count = 0
-        
+
         for idx, paper in enumerate(papers, 1):
             screening_result = self.screen_paper(paper)
             results.append(screening_result)
-            
+
             decision = screening_result['decision']
             if decision == 'include':
                 included_count += 1
@@ -337,7 +337,7 @@ class Stage1KeywordScreener:
                 excluded_count += 1
             else:
                 ambiguous_count += 1
-            
+
             if verbose:
                 logger.info(
                     f"[{idx}/{len(papers)}] Paper {paper['citekey']}: "
@@ -353,9 +353,9 @@ class Stage1KeywordScreener:
             'excluded': excluded_count,
             'ambiguous': ambiguous_count,
         }
-        
+
         logger.info(f"Screening complete: {included_count} included, {excluded_count} excluded, {ambiguous_count} ambiguous")
-        
+
         return stats
 
     def print_sample_results(self, limit: int = 10) -> None:
@@ -379,17 +379,17 @@ class Stage1KeywordScreener:
         ORDER BY ps.stage1_processed_at DESC
         LIMIT %s
         """
-        
+
         try:
             cursor = self.conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(query, (limit,))
             results = cursor.fetchall()
             cursor.close()
-            
+
             print("\n" + "="*100)
             print("STAGE 1 SCREENING RESULTS (Recent)")
             print("="*100)
-            
+
             for result in results:
                 stage = result['screening_stage']
                 citekey = result['citekey'] or "N/A"
@@ -397,7 +397,7 @@ class Stage1KeywordScreener:
                 score = result['stage1_score']
                 matched = result['stage1_matched_keywords'] or []
                 excluded = result['stage1_excluded_keywords'] or []
-                
+
                 print(f"\n[{stage.upper()}] {citekey}")
                 print(f"  Title: {title}...")
                 print(f"  Score: {score}/3")
@@ -407,9 +407,9 @@ class Stage1KeywordScreener:
                     print(f"  Excluded keywords: {', '.join(excluded)}")
                 if result['stage1_exclusion_reason']:
                     print(f"  Reason: {result['stage1_exclusion_reason']}")
-            
+
             print("\n" + "="*100 + "\n")
-            
+
         except psycopg2.Error as e:
             logger.error(f"Failed to fetch sample results: {e}")
 
@@ -437,33 +437,33 @@ Examples:
     --show-results 20
         '''
     )
-    
+
     parser.add_argument(
         '--db-url',
         default='postgresql://pdfuser:pdfpass@localhost:5432/pdfdb',
         help='PostgreSQL connection URL (default: localhost/pdfdb)'
     )
-    
+
     parser.add_argument(
         '--limit',
         type=int,
         default=None,
         help='Maximum number of papers to process (default: all)'
     )
-    
+
     parser.add_argument(
         '--verbose',
         action='store_true',
         help='Enable verbose logging'
     )
-    
+
     parser.add_argument(
         '--show-results',
         type=int,
         default=None,
         help='Show sample screening results (number to display)'
     )
-    
+
     args = parser.parse_args()
 
     # Set log level
@@ -474,10 +474,10 @@ Examples:
 
     # Create screener
     screener = Stage1KeywordScreener(args.db_url)
-    
+
     try:
         screener.connect()
-        
+
         # Show results if requested
         if args.show_results:
             screener.print_sample_results(args.show_results)
@@ -485,7 +485,7 @@ Examples:
 
         # Process papers
         stats = screener.process_papers(limit=args.limit, verbose=args.verbose)
-        
+
         # Print summary
         print("\n" + "="*60)
         print("STAGE 1 SCREENING SUMMARY")
@@ -495,10 +495,10 @@ Examples:
         print(f"Excluded:         {stats['excluded']} ({stats['excluded']*100//max(1, stats['total_processed'])}%)")
         print(f"Ambiguous:        {stats['ambiguous']} ({stats['ambiguous']*100//max(1, stats['total_processed'])}%)")
         print("="*60 + "\n")
-        
+
         # Show sample results
         screener.print_sample_results(10)
-        
+
     except Exception as e:
         logger.error(f"Failed: {e}")
         return 1

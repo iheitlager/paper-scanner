@@ -2,6 +2,7 @@ import sys
 from typing import Dict, List
 
 import numpy as np
+
 # Embeddings
 from sentence_transformers import SentenceTransformer
 

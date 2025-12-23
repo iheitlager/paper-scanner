@@ -68,8 +68,8 @@ class AbstractParser:
         # Replace multiple spaces/newlines/tabs with single space
         text = re.sub(r'\s+', ' ', text)
         text = text.strip()
-        
+
         # Remove "Abstract" prefix if it's at the start (often from title tags)
         text = re.sub(r'^Abstract\s+', '', text, flags=re.IGNORECASE)
-        
+
         return text

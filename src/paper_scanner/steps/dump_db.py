@@ -33,11 +33,11 @@ class DumpDbStep(BaseStep):
             Tuple of (is_valid, error_messages)
         """
         errors: List[str] = []
-        
+
         # Check that either 'papers' or 'citations' is provided
         has_papers = "papers" in config
         has_citations = "citations" in config
-        
+
         if not has_papers and not has_citations:
             errors.append("Either 'papers' or 'citations' must be specified")
 
@@ -67,7 +67,7 @@ class DumpDbStep(BaseStep):
 
         if not verbose and not debug:
             return {"status": "skipped", "message": "verbose mode not enabled"}
-        
+
         self.print_papers = "papers" in config
         self.print_citations = "citations" in config
 
@@ -76,7 +76,7 @@ class DumpDbStep(BaseStep):
         if self.print_papers:
             printed_papers = self._print_papers()
             result["printed_papers"] = printed_papers
-        
+
         if self.print_citations:
             printed_citations = self._print_citations()
             result["printed_citations"] = printed_citations
@@ -117,7 +117,7 @@ class DumpDbStep(BaseStep):
         """
         # Display database records in a formatted table with paper details
         all_papers = self.db.all(primary_only=False)
-                
+
         table = Table(show_header=True, header_style="bold", title="Database Records")
         table.add_column("DOI", style="cyan", no_wrap=True)
         table.add_column("Type", style="magenta")
@@ -150,26 +150,26 @@ class DumpDbStep(BaseStep):
             int: The total number of citations across all papers.
         """
         all_papers = self.db.all(primary_only=False)
-        
+
         table = Table(show_header=True, header_style="bold", title="All Citations")
         table.add_column("DOI", style="cyan", no_wrap=True)
         table.add_column("Year", style="blue", justify="center")
         table.add_column("R", style="red", justify="center", no_wrap=True)
 
         total_citations = 0
-        
+
         for paper in all_papers:
             for citation in paper.citations:
                 total_citations += 1
-                
+
                 doi_display = citation.doi if citation.doi else "—"
-                
+
                 # Format authors: "Smith, Jones" or "Smith et al."
-                
+
                 year_display = str(citation.year) if citation.year else "—"
-                
+
                 resolved = '+' if citation.resolved_paper is not None else ' '
-                
+
                 table.add_row(doi_display, year_display,resolved)
 
         console.print(table)

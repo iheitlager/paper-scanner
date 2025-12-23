@@ -27,12 +27,12 @@ def fetch_paper_details():
         "filter": f"doi:{DOI}",
         "mailto": EMAIL  # Add email for polite download - improves rate limits
     }
-    
+
     response = requests.get(OPENALEX_API_URL, params=params, headers=headers)
     response.raise_for_status()
-    
+
     data = response.json()
-    
+
     if data["results"]:
         paper = data["results"][0]
         print(json.dumps(paper, indent=2))

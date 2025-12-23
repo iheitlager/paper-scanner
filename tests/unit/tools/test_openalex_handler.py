@@ -11,8 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import \
-    OpenAlexHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import OpenAlexHandler
 
 
 class TestOpenAlexHandlerInitialization:

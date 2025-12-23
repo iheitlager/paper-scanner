@@ -8,9 +8,9 @@ from paper_scanner.cli.paper_processor import StepExecutor, _discover_steps
 
 parse_step_config = StepExecutor.parse_step_config
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import Author, Paper
 
-from paper_scanner.core.enum import StepStatus
 
 class TestStepDiscovery:
     """Test step discovery functionality"""

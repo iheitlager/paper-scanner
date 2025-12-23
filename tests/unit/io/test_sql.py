@@ -5,16 +5,13 @@ Tests database abstraction layer including connection pooling,
 paper/row conversion, and bulk operations.
 """
 
-import json
-from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import pytest
 
-from paper_scanner.core.enum import DiscoveryMethod, PaperType, ScreeningDecision
+from paper_scanner.core.enum import DiscoveryMethod, PaperType
 from paper_scanner.core.models import Author, Discovery, Paper, Screening
-from paper_scanner.io.sql import (DatabaseConnectionPool, DOIDuplicateHandler,
-                                  PaperToRowConverter, PaperUploader)
+from paper_scanner.io.sql import DatabaseConnectionPool, DOIDuplicateHandler, PaperToRowConverter, PaperUploader
 
 
 @pytest.fixture
@@ -91,10 +88,10 @@ class TestDatabaseConnectionPool:
         """Test pool initialization."""
         mock_pool = Mock()
         mock_pool_class.return_value = mock_pool
-        
+
         pool = DatabaseConnectionPool("postgresql://localhost/testdb")
         pool.initialize()
-        
+
         mock_pool_class.assert_called_once()
         assert pool._pool == mock_pool
 
@@ -103,11 +100,11 @@ class TestDatabaseConnectionPool:
         """Test pool close."""
         mock_pool = Mock()
         mock_pool_class.return_value = mock_pool
-        
+
         pool = DatabaseConnectionPool("postgresql://localhost/testdb")
         pool.initialize()
         pool.close()
-        
+
         mock_pool.closeall.assert_called_once()
         assert pool._pool is None
 
@@ -115,7 +112,7 @@ class TestDatabaseConnectionPool:
     def test_get_connection_not_initialized(self, mock_pool_class):
         """Test get_connection raises when pool not initialized."""
         pool = DatabaseConnectionPool("postgresql://localhost/testdb")
-        
+
         with pytest.raises(RuntimeError, match="not initialized"):
             with pool.get_connection():
                 pass
@@ -127,13 +124,13 @@ class TestDatabaseConnectionPool:
         mock_conn = Mock()
         mock_pool.getconn.return_value = mock_conn
         mock_pool_class.return_value = mock_pool
-        
+
         pool = DatabaseConnectionPool("postgresql://localhost/testdb")
         pool.initialize()
-        
+
         with pool.get_connection() as conn:
             assert conn == mock_conn
-        
+
         mock_pool.getconn.assert_called_once()
         mock_pool.putconn.assert_called_once_with(mock_conn)
 
@@ -144,16 +141,16 @@ class TestDatabaseConnectionPool:
         mock_conn = Mock()
         mock_pool.getconn.return_value = mock_conn
         mock_pool_class.return_value = mock_pool
-        
+
         pool = DatabaseConnectionPool("postgresql://localhost/testdb")
         pool.initialize()
-        
+
         try:
             with pool.get_connection() as conn:
                 raise Exception("Test error")
         except Exception:
             pass
-        
+
         mock_conn.rollback.assert_called_once()
 
 
@@ -164,7 +161,7 @@ class TestPaperToRowConverter:
         """Test basic Paper to row conversion."""
         converter = PaperToRowConverter()
         row = converter.paper_to_row(sample_paper)
-        
+
         assert row["id"] == "test-paper-1"
         assert row["cite_key"] == "smith2023"
         assert row["title"] == "Test Paper Title"
@@ -176,7 +173,7 @@ class TestPaperToRowConverter:
         """Test conversion with complex fields."""
         converter = PaperToRowConverter()
         row = converter.paper_to_row(sample_paper)
-        
+
         assert row["discovery"] is not None
         assert row["keywords"] == ["keyword1", "keyword2"]
         assert row["topics"] == ["topic1"]
@@ -208,7 +205,7 @@ class TestPaperToRowConverter:
         """Test conversion preserves all key fields."""
         converter = PaperToRowConverter()
         row = converter.paper_to_row(sample_paper)
-        
+
         # Verify essential fields are present and correct
         assert row["id"] is not None
         assert row["cite_key"] is not None
@@ -238,7 +235,7 @@ class TestPaperToRowConverter:
         )
         converter = PaperToRowConverter()
         row = converter.paper_to_row(minimal_paper)
-        
+
         assert row["title"] == "Minimal Paper"
         assert row["abstract"] is None
         assert row["journal"] is None
@@ -257,7 +254,7 @@ class TestPaperUploader:
         """Test insert with empty paper list."""
         uploader = PaperUploader(mock_connection_pool)
         result = uploader.insert_papers([])
-        
+
         assert result["inserted"] == 0
         assert result["skipped"] == 0
 
@@ -265,10 +262,10 @@ class TestPaperUploader:
     def test_insert_papers_dry_run(self, mock_converter, mock_connection_pool, sample_paper):
         """Test dry-run mode doesn't insert."""
         mock_converter.paper_to_row.return_value = {"id": "test-1", "cite_key": "test"}
-        
+
         uploader = PaperUploader(mock_connection_pool)
         result = uploader.insert_papers([sample_paper], dry_run=True)
-        
+
         # In dry-run, connection should not be called
         assert result["inserted"] == 1
         mock_connection_pool.get_connection.assert_not_called()
@@ -278,16 +275,16 @@ class TestPaperUploader:
         """Test successful paper insertion."""
         # Setup mocks
         mock_converter.paper_to_row.return_value = {"id": "test-1", "cite_key": "test"}
-        
+
         mock_conn = Mock()
         mock_cursor = Mock()
         mock_conn.cursor.return_value = mock_cursor
         mock_connection_pool.get_connection.return_value.__enter__ = Mock(return_value=mock_conn)
         mock_connection_pool.get_connection.return_value.__exit__ = Mock(return_value=False)
-        
+
         uploader = PaperUploader(mock_connection_pool)
         result = uploader.insert_papers([sample_paper])
-        
+
         assert result["inserted"] == 1
         mock_cursor.execute.assert_called()
 
@@ -295,43 +292,43 @@ class TestPaperUploader:
     def test_insert_papers_conflict_skip(self, mock_converter, mock_connection_pool, sample_paper):
         """Test conflict strategy: skip."""
         mock_converter.paper_to_row.return_value = {"cite_key": "test"}
-        
+
         mock_conn = Mock()
         mock_cursor = Mock()
         mock_conn.cursor.return_value = mock_cursor
         mock_connection_pool.get_connection.return_value.__enter__ = Mock(return_value=mock_conn)
         mock_connection_pool.get_connection.return_value.__exit__ = Mock(return_value=False)
-        
+
         uploader = PaperUploader(mock_connection_pool)
         result = uploader.insert_papers([sample_paper], conflict_strategy="skip")
-        
+
         assert result["inserted"] == 1
 
     @patch("paper_scanner.io.sql.PaperToRowConverter")
     def test_insert_papers_conflict_update(self, mock_converter, mock_connection_pool, sample_paper):
         """Test conflict strategy: update."""
         mock_converter.paper_to_row.return_value = {"cite_key": "test", "title": "Updated"}
-        
+
         mock_conn = Mock()
         mock_cursor = Mock()
         mock_conn.cursor.return_value = mock_cursor
         mock_connection_pool.get_connection.return_value.__enter__ = Mock(return_value=mock_conn)
         mock_connection_pool.get_connection.return_value.__exit__ = Mock(return_value=False)
-        
+
         uploader = PaperUploader(mock_connection_pool)
         result = uploader.insert_papers([sample_paper], conflict_strategy="update")
-        
+
         assert result["inserted"] == 1
 
     def test_transaction_context_manager(self, mock_connection_pool):
         """Test transaction context manager."""
         mock_conn = Mock()
-        
+
         uploader = PaperUploader(mock_connection_pool)
         # Transaction is a context manager, verify it works
         with uploader.transaction(mock_conn):
             mock_conn.commit.assert_not_called()
-        
+
         # After context exits, should commit
         mock_conn.commit.assert_called_once()
 
@@ -370,13 +367,13 @@ class TestDOIDuplicateHandler:
     def test_mark_duplicate(self):
         """Test marking a paper as duplicate."""
         mock_cursor = Mock()
-        
+
         DOIDuplicateHandler.mark_duplicate(
             mock_cursor,
             duplicate_paper_id="dup-1",
             primary_paper_id="primary-1",
         )
-        
+
         mock_cursor.execute.assert_called_once()
 
 
@@ -397,7 +394,7 @@ class TestIntegration:
         converter = PaperToRowConverter()
         papers = [sample_paper, sample_paper]
         rows = [converter.paper_to_row(p) for p in papers]
-        
+
         assert len(rows) == 2
         assert rows[0]["cite_key"] == rows[1]["cite_key"]
 
@@ -406,5 +403,5 @@ class TestIntegration:
         doi1 = DOIDuplicateHandler.normalize_doi("10.1234/TEST")
         doi2 = DOIDuplicateHandler.normalize_doi("10.1234/test")
         doi3 = DOIDuplicateHandler.normalize_doi("  10.1234/Test  ")
-        
+
         assert doi1 == doi2 == doi3

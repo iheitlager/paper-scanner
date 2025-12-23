@@ -6,13 +6,13 @@ resolution, and upload execution with mocked database connections.
 """
 
 import os
-from pathlib import Path
-from typing import Any, Dict
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
+from paper_scanner.core.exceptions import StepFatalError
 from paper_scanner.core.models import Paper
+from paper_scanner.core.step_result import StepResult
 from paper_scanner.steps.upload_database import UploadDatabaseStep
 
 
@@ -253,60 +253,66 @@ class TestExecuteDryRun:
     @patch("paper_scanner.steps.upload_database.load_dotenv")
     def test_execute_dry_run_no_papers(self, mock_load_dotenv, mock_db, cache_dir, general_config):
         """Test dry-run with no papers in database."""
+        from paper_scanner.core.enum import StepStatus
+
         mock_db.all.return_value = []
-        
+
         step = create_step(mock_db, cache_dir, general_config)
         config = {"database_url": "postgresql://user:pass@localhost:5432/db"}
-        
+
         result = step.execute(config, dry_run=True)
-        
-        assert result["status"] == "warning"
-        assert "No papers" in result["message"]
-        assert result["count"] == 0
+
+        assert isinstance(result, StepResult)
+        assert result.status == StepStatus.WARNING
+        assert "No papers" in result.message
+        assert result.stats["total_papers"] == 0
 
     @patch("paper_scanner.steps.upload_database.load_dotenv")
     @patch("paper_scanner.steps.upload_database.PaperToRowConverter")
     def test_execute_dry_run_valid_papers(self, mock_converter, mock_load_dotenv, mock_db, cache_dir, general_config):
         """Test dry-run validation with valid papers."""
         from paper_scanner.core.enum import StepStatus
-        
+
         # Create mock papers
         mock_papers = [Mock(spec=Paper, cite_key="paper1")]
         mock_db.all.return_value = mock_papers
-        
+
         # Mock converter to not raise errors
         mock_converter.paper_to_row.return_value = {"id": 1}
-        
+
         step = create_step(mock_db, cache_dir, general_config)
         config = {"database_url": "postgresql://user:pass@localhost:5432/db"}
-        
+
         result = step.execute(config, dry_run=True)
-        
-        assert result["status"] == StepStatus.SUCCESS
-        assert "validated" in result["message"].lower()
-        assert result["count"] == 1
-        assert "details" in result
+
+        assert isinstance(result, StepResult)
+        assert result.status == StepStatus.SUCCESS
+        assert "validated" in result.message.lower()
+        assert result.stats["total_papers"] == 1
 
     @patch("paper_scanner.steps.upload_database.load_dotenv")
     @patch("paper_scanner.steps.upload_database.PaperToRowConverter")
     def test_execute_dry_run_invalid_papers(self, mock_converter, mock_load_dotenv, mock_db, cache_dir, general_config):
         """Test dry-run validation with invalid papers."""
+        from paper_scanner.core.enum import StepStatus
+
         # Create mock papers
         mock_papers = [Mock(spec=Paper, cite_key="paper1")]
         mock_db.all.return_value = mock_papers
-        
+
         # Mock converter to raise error
         mock_converter.paper_to_row.side_effect = ValueError("Invalid paper")
-        
+
         step = create_step(mock_db, cache_dir, general_config)
         config = {"database_url": "postgresql://user:pass@localhost:5432/db"}
-        
+
         result = step.execute(config, dry_run=True)
-        
-        assert result["status"] == "warning"
-        assert "Validation errors" in result["message"]
-        assert result["count"] == 1
-        assert len(result["errors"]) > 0
+
+        assert isinstance(result, StepResult)
+        assert result.status == StepStatus.WARNING
+        assert "Validation errors" in result.message
+        assert result.stats["total_papers"] == 1
+        assert result.stats["validation_errors"] > 0
 
 
 class TestExecuteRealUpload:
@@ -318,14 +324,14 @@ class TestExecuteRealUpload:
     def test_execute_upload_success(self, mock_load_dotenv, mock_uploader_class, mock_pool_class, mock_db, cache_dir, general_config):
         """Test successful upload execution."""
         from paper_scanner.core.enum import StepStatus
-        
+
         # Setup mocks
         mock_pool = Mock()
         mock_pool_class.return_value = mock_pool
-        
+
         mock_uploader = Mock()
         mock_uploader_class.return_value = mock_uploader
-        
+
         # Mock insert_papers to return successful stats
         mock_uploader.insert_papers.return_value = {
             "inserted": 5,
@@ -334,21 +340,22 @@ class TestExecuteRealUpload:
             "errors": [],
             "error_count": 0,
         }
-        
+
         # Create mock papers
         mock_papers = [Mock(spec=Paper) for _ in range(5)]
         mock_db.all.return_value = mock_papers
-        
+
         step = create_step(mock_db, cache_dir, general_config)
         config = {"database_url": "postgresql://user:pass@localhost:5432/db"}
-        
+
         result = step.execute(config, dry_run=False)
-        
-        assert result["status"] == StepStatus.SUCCESS
-        assert "inserted" in result["message"].lower()
-        assert result["count"] == 5
-        assert result["details"]["inserted"] == 5
-        assert result["details"]["errors"] == 0
+
+        assert isinstance(result, StepResult)
+        from paper_scanner.core.enum import StepStatus
+        assert result.status == StepStatus.SUCCESS
+        assert "inserted" in result.message.lower()
+        assert result.stats["inserted"] == 5
+        assert result.stats["errors"] == 0
         mock_pool.close.assert_called_once()
 
     @patch("paper_scanner.steps.upload_database.DatabaseConnectionPool")
@@ -359,10 +366,10 @@ class TestExecuteRealUpload:
         # Setup mocks
         mock_pool = Mock()
         mock_pool_class.return_value = mock_pool
-        
+
         mock_uploader = Mock()
         mock_uploader_class.return_value = mock_uploader
-        
+
         # Mock insert_papers to return stats with errors
         mock_uploader.insert_papers.return_value = {
             "inserted": 3,
@@ -371,52 +378,54 @@ class TestExecuteRealUpload:
             "errors": ["Error with paper 1", "Error with paper 2"],
             "error_count": 2,
         }
-        
+
         # Create mock papers
         mock_papers = [Mock(spec=Paper) for _ in range(5)]
         mock_db.all.return_value = mock_papers
-        
+
         step = create_step(mock_db, cache_dir, general_config)
         config = {"database_url": "postgresql://user:pass@localhost:5432/db"}
-        
+
         result = step.execute(config, dry_run=False)
-        
-        assert result["status"] == "warning"  # Warning due to errors
-        assert result["details"]["errors"] == 2
-        assert result["details"]["inserted"] == 3
+
+        assert isinstance(result, StepResult)
+        from paper_scanner.core.enum import StepStatus
+        assert result.status == StepStatus.WARNING  # Warning due to errors
+        assert result.stats["errors"] == 2
+        assert result.stats["inserted"] == 3
         mock_pool.close.assert_called_once()
 
     @patch("paper_scanner.steps.upload_database.DatabaseConnectionPool")
     @patch("paper_scanner.steps.upload_database.load_dotenv")
     def test_execute_connection_error(self, mock_load_dotenv, mock_pool_class, mock_db, cache_dir, general_config):
-        """Test error handling on connection failure."""
+        """Test that connection failure raises StepFatalError."""
         # Setup mock to raise error
-        mock_pool_class.side_effect = ConnectionError("Cannot connect to database")
-        
+        mock_pool = Mock()
+        mock_pool.initialize.side_effect = ConnectionError("Cannot connect to database")
+        mock_pool_class.return_value = mock_pool
+
         mock_db.all.return_value = [Mock(spec=Paper)]
-        
+
         step = create_step(mock_db, cache_dir, general_config)
         config = {"database_url": "postgresql://invalid:host"}
-        
-        result = step.execute(config, dry_run=False)
-        
-        assert result["status"] == "error"
-        assert "Database upload failed" in result["message"]
-        assert result["count"] == 0
+
+        with pytest.raises(StepFatalError) as exc_info:
+            step.execute(config, dry_run=False)
+
+        assert "Failed to initialize database connection" in str(exc_info.value)
 
     @patch("paper_scanner.steps.upload_database.load_dotenv")
     def test_execute_invalid_database_url(self, mock_load_dotenv, mock_db, cache_dir, general_config):
-        """Test error handling with invalid database URL."""
+        """Test that invalid database URL raises StepFatalError."""
         mock_db.all.return_value = [Mock(spec=Paper)]
-        
+
         step = create_step(mock_db, cache_dir, general_config)
         config = {}  # No database_url
-        
-        result = step.execute(config, dry_run=False)
-        
-        assert result["status"] == "error"
-        assert "Could not construct database URL" in result["message"]
-        assert result["count"] == 0
+
+        with pytest.raises(StepFatalError) as exc_info:
+            step.execute(config, dry_run=False)
+
+        assert "Could not construct database URL" in str(exc_info.value)
 
 
 class TestBatchProcessing:
@@ -430,13 +439,13 @@ class TestBatchProcessing:
         # Setup mocks
         mock_pool = Mock()
         mock_pool_class.return_value = mock_pool
-        
+
         mock_uploader = Mock()
         mock_uploader_class.return_value = mock_uploader
-        
+
         # Mock insert_papers to track batch calls
         call_count = [0]
-        
+
         def mock_insert(papers, **kwargs):
             call_count[0] += 1
             return {
@@ -446,24 +455,24 @@ class TestBatchProcessing:
                 "errors": [],
                 "error_count": 0,
             }
-        
+
         mock_uploader.insert_papers.side_effect = mock_insert
-        
+
         # Create 250 mock papers (should be 3 batches with batch_size=100)
         mock_papers = [Mock(spec=Paper) for _ in range(250)]
         mock_db.all.return_value = mock_papers
-        
+
         step = create_step(mock_db, cache_dir, general_config)
         config = {
             "database_url": "postgresql://user:pass@localhost:5432/db",
             "batch_size": 100
         }
-        
+
         result = step.execute(config, dry_run=False)
-        
+
         # Should be called 3 times (batches of 100, 100, 50)
         assert mock_uploader.insert_papers.call_count == 3
-        assert result["details"]["inserted"] == 250
+        assert result.stats["inserted"] == 250
 
     @patch("paper_scanner.steps.upload_database.DatabaseConnectionPool")
     @patch("paper_scanner.steps.upload_database.PaperUploader")
@@ -473,7 +482,7 @@ class TestBatchProcessing:
         # Setup mocks
         mock_pool = Mock()
         mock_pool_class.return_value = mock_pool
-        
+
         mock_uploader = Mock()
         mock_uploader_class.return_value = mock_uploader
         mock_uploader.insert_papers.return_value = {
@@ -483,15 +492,15 @@ class TestBatchProcessing:
             "errors": [],
             "error_count": 0,
         }
-        
+
         # Create 100 mock papers
         mock_papers = [Mock(spec=Paper) for _ in range(100)]
         mock_db.all.return_value = mock_papers
-        
+
         step = create_step(mock_db, cache_dir, general_config)
         config = {"database_url": "postgresql://user:pass@localhost:5432/db"}
-        
+
         result = step.execute(config, dry_run=False)
-        
+
         # Should be called once (all papers in one batch)
         assert mock_uploader.insert_papers.call_count == 1

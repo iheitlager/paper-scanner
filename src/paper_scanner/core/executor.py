@@ -26,8 +26,8 @@ import yaml
 from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import StepStatus
-from paper_scanner.core.step_result import StepResult, FINAL_STEP
 from paper_scanner.core.exceptions import CheckpointError, ConfigurationError, PipelineExecutionError, StepError
+from paper_scanner.core.step_result import FINAL_STEP, StepResult
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
 
@@ -317,7 +317,7 @@ class StepExecutor:
                 break
 
         if not builtin_key:
-            raise ConfigurationError(f"Step configuration missing 'builtin.<step>' key")
+            raise ConfigurationError("Step configuration missing 'builtin.<step>' key")
 
         # Extract step name from builtin key
         step_name = builtin_key.replace("builtin.", "")
@@ -563,7 +563,10 @@ class StepExecutor:
                     "duration_ms": int(duration * 1000),
                 }
             )
-
+            result.timings = {
+                "duration_ms": int(duration * 1000)
+            }
+            result.stats["db_records"] = self.papers_db.count()
             self.results = result
             self.current_step_index = step_index + 1
 
@@ -597,7 +600,7 @@ class StepExecutor:
         step_params: Dict[str, Any],
         description: Optional[str],
         dry_run: bool,
-    ) -> Dict[str, Any]:
+    ) -> StepResult:
         """Execute a builtin step"""
         # Get step instance
         step_instance = self.get_step(step_name)
@@ -617,10 +620,17 @@ class StepExecutor:
             debug=self.debug,
         )
 
+        # TODO: Remove this once all steps are updated to return StepResult
+        if isinstance(result, dict):
+            result = StepResult(
+                status=result.get("status", StepStatus.SUCCESS),
+                message=result.get("message", ""),
+                details = result
+            )
+
         # Ensure standard fields
-        result["step"] = step_name
-        if description:
-            result["description"] = description
+        result.step = step_name
+        result.description = description
 
         return result
 
@@ -629,22 +639,22 @@ class StepExecutor:
         step_params: Dict[str, Any],
         description: Optional[str],
         dry_run: bool,
-    ) -> Dict[str, Any]:
+    ) -> StepResult:
         """
         Execute a template (recursively expand and run template steps).
-        
+
         Exceptions propagate to the caller for proper error handling.
         Template steps are executed sequentially; if any step returns
         ERROR status, raises PipelineExecutionError to propagate the failure.
-        
+
         Args:
             step_params: Template parameters including 'template' name
             description: Human-readable description
             dry_run: Don't actually execute steps
-            
+
         Returns:
-            Template result dict with status and aggregated results on success
-            
+            StepResult with status and aggregated results on success
+
         Raises:
             ConfigurationError: If template config is invalid
             StepError: If step not found or step instantiation fails
@@ -682,12 +692,17 @@ class StepExecutor:
                 error_msg = f"Template '{template_name}' failed at step {step_name}: {result.get('error')}"
                 raise PipelineExecutionError(error_msg)
 
-        return {
-            "status": "ok",
-            "count": total_count,
-            "template": template_name,
-            "template_results": template_results,
-        }
+        return StepResult(
+            step="run-template",
+            message=f"Template '{template_name}' executed successfully",
+            description=description,
+            status=StepStatus.SUCCESS,
+            stats = {"count": total_count},
+            details = {
+                "template": template_name,
+                "template_results": template_results,
+            }
+        )
 
     def run_all(
         self,
@@ -837,7 +852,8 @@ class StepExecutor:
         }
 
         if self.start_time:
-            stats["total_duration_seconds"] = round(time.time() - self.start_time, 2)
+            total_duration_seconds = sum(x.get("duration_ms", 0) for x in self.step_history) / 1000.0
+            stats["total_duration_seconds"] = round(total_duration_seconds, 2)
 
         return stats
 

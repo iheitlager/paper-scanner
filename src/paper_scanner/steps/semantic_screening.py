@@ -50,7 +50,7 @@ console = Console(file=sys.stderr)
 # Class-based step interface (new architecture)
 class SemanticScreeningStep(BaseStep):
     """Wrapper for semantic_screening step (legacy function-based)."""
-    
+
     @staticmethod
     def validate(config):
         """
@@ -63,11 +63,11 @@ class SemanticScreeningStep(BaseStep):
             Tuple of (is_valid, error_messages)
         """
         errors = []
-        
+
         # Check model
         if "model" in config and not isinstance(config["model"], str):
             errors.append("'model' must be a string")
-        
+
         # Check thresholds
         if "thresholds" in config:
             thresholds = config["thresholds"]
@@ -82,7 +82,7 @@ class SemanticScreeningStep(BaseStep):
                             errors.append(f"'thresholds.{threshold_name}' must be a number")
                         elif not (0 <= val <= 1):
                             errors.append(f"'thresholds.{threshold_name}' must be between 0 and 1")
-        
+
         return len(errors) == 0, errors
 
     def execute(self, config, verbose=False, dry_run=False, debug=False):
@@ -104,7 +104,7 @@ class SemanticScreeningStep(BaseStep):
             Dictionary with execution results
         """
         step_start_time = time.time()
-      
+
         research_question = self.general_config.get("research_question", "")
         if not research_question:
             return {
@@ -115,14 +115,14 @@ class SemanticScreeningStep(BaseStep):
                 "included": 0,
                 "excluded": 0,
             }
-        
+
         # Get model and thresholds
         model_name = config.get("model", "all-mpnet-base-v2")
         thresholds = config.get("thresholds", {})
         auto_include = thresholds.get("auto_include", 0.65)
         manual_review = thresholds.get("manual_review", 0.55)
         auto_exclude = thresholds.get("auto_exclude", 0.55)
-        
+
         results = {
             "step": "semantic_screening",
             "total_papers": self.db.count(primary_only=False),
@@ -137,12 +137,12 @@ class SemanticScreeningStep(BaseStep):
                 "auto_exclude": auto_exclude,
             },
         }
-        
+
         if verbose:
             console.print(f"\n  [bold cyan]Semantic screening {self.db.count(primary_only=False)} papers[/bold cyan]")
             console.print(f"    Model: [dim]{model_name}[/dim]")
             console.print(f"    Research question: [dim]{research_question[:80]}...[/dim]")
-        
+
         # Initialize screener
         try:
             screener = _SemanticScreener(
@@ -173,41 +173,41 @@ class SemanticScreeningStep(BaseStep):
                 if not dry_run:
                     # Set semantic screening in screening model
                     paper.screening.semantic_screening = semantic_screening
-                    
+
                     # Update final decision if not already decided
                     if paper.screening.final_decision == ScreeningDecision.PENDING:
                         paper.screening.final_decision = semantic_screening.llm_decision
-                    
+
                     # Update paper in database
                     self.db.update(paper)
-                
+
                 results["screened"] += 1
-                
+
                 if semantic_screening.llm_decision == ScreeningDecision.INCLUDED:
                     results["included"] += 1
                 elif semantic_screening.llm_decision == ScreeningDecision.EXCLUDED:
                     results["excluded"] += 1
                 elif semantic_screening.llm_decision == ScreeningDecision.MANUAL_REVIEW:
                     results["manual_review"] += 1
-            
+
             except Exception as e:
                 if verbose:
                     console.print(f"\n    [red]✗ Error screening paper {paper.cite_key}: {e}[/red]")
-        
+
         duration = time.time() - step_start_time
         results["duration_seconds"] = duration
-        
+
         if verbose:
             # Clear the progress line and print final result
             console.print(f"    [green]✓ Semantic screening complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan], Manual Review: [cyan]{results['manual_review']}[/cyan]")
 
-        results["status"] = StepStatus.SUCCESS        
+        results["status"] = StepStatus.SUCCESS
         return results
 
 
 class _SemanticScreener:
     """Internal semantic screener using embeddings."""
-    
+
     def __init__(
         self,
         research_question: str,
@@ -230,10 +230,10 @@ class _SemanticScreener:
         self.auto_include_threshold = auto_include_threshold
         self.manual_review_threshold = manual_review_threshold
         self.auto_exclude_threshold = auto_exclude_threshold
-        
+
         self.embedding_model = None
         self.rq_embedding = None
-    
+
     def _load_model(self) -> SentenceTransformer:
         """Lazy load embedding model."""
         if self.embedding_model is None:
@@ -247,7 +247,7 @@ class _SemanticScreener:
                 cache_folder=None,
             )
         return self.embedding_model
-    
+
     def _get_research_question_embedding(self) -> np.ndarray:
         """Get or compute research question embedding."""
         if self.rq_embedding is None:
@@ -258,21 +258,21 @@ class _SemanticScreener:
                 show_progress_bar=False
             )
         return self.rq_embedding
-    
+
     def _compute_paper_embedding(self, title: Optional[str], abstract: Optional[str]) -> np.ndarray:
         """Compute embedding for paper (title + abstract)."""
         model = self._load_model()
-        
+
         # Combine title and abstract
         title_text = (title or "").strip()
         abstract_text = (abstract or "").strip()
         combined_text = f"{title_text} {abstract_text}".strip()
-        
+
         if not combined_text:
             combined_text = "No title or abstract"
-        
+
         return model.encode(combined_text, convert_to_numpy=True, show_progress_bar=False)
-    
+
     def _compute_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
         """Compute cosine similarity between embeddings."""
         # Flatten if needed
@@ -280,14 +280,14 @@ class _SemanticScreener:
             embedding1 = embedding1.flatten()
         if embedding2.ndim > 1:
             embedding2 = embedding2.flatten()
-        
+
         # Cosine similarity = 1 - cosine_distance
         distance = cosine(embedding1, embedding2)
         similarity = 1.0 - distance
-        
+
         # Clamp to [0, 1]
         return float(max(0.0, min(1.0, similarity)))
-    
+
     def screen_paper(self, paper: Paper) -> Tuple[SemanticScreening, bool, Optional[str]]:
         """Screen a single paper.
         
@@ -295,21 +295,21 @@ class _SemanticScreener:
             (semantic_screening_result, should_include, exclusion_reason)
         """
         step_start_time = time.time()
-        
+
         # Get embeddings
         rq_embedding = self._get_research_question_embedding()
         paper_embedding = self._compute_paper_embedding(paper.title, paper.abstract)
-        
+
         # Compute similarity
         similarity_score = self._compute_similarity(rq_embedding, paper_embedding)
-        
+
         # Classify
         should_include = True
         exclusion_reason = None
         llm_decision = ScreeningDecision.PENDING
         llm_confidence = similarity_score
         llm_reasoning = None
-        
+
         if similarity_score >= self.auto_include_threshold:
             llm_decision = ScreeningDecision.INCLUDED
             llm_reasoning = f"High semantic similarity ({similarity_score:.4f}) to research question"
@@ -323,9 +323,9 @@ class _SemanticScreener:
             llm_reasoning = f"Low semantic similarity ({similarity_score:.4f}) to research question"
             should_include = False
             exclusion_reason = llm_reasoning
-        
+
         duration = time.time() - step_start_time
-        
+
         # Create result
         semantic_screening = SemanticScreening(
             passed=should_include,
@@ -341,7 +341,7 @@ class _SemanticScreener:
                 success=True
             )
         )
-        
+
         return semantic_screening, should_include, exclusion_reason
 
 

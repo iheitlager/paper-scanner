@@ -226,33 +226,33 @@ class ScreeningDashboard:
     def create_year_histogram(self, stats: Dict) -> None:
         """Display ASCII histogram of papers per year with total and final pass/review counts merged."""
         papers_by_year = stats.get('papers_by_year', [])
-        
+
         if not papers_by_year:
             return
-        
+
         console.print()
         console.print("[bold cyan]📈 Papers per Year (Total vs Final Pass/Review)[/bold cyan]")
-        
+
         # Get max counts for scaling and alignment
         max_total = max(row['total_count'] for row in papers_by_year) if papers_by_year else 1
         max_total_width = len(str(max_total))
-        
+
         # Create histogram with fixed width for bars
         bar_width = 40
-        
+
         # Calculate total line width
         total_width = 4 + 3 + bar_width + 3 + (max_total_width * 2 + 3)
-        
+
         # Header
         numbers_header = f"{'Total':>{max_total_width}} / {'Pass':>{max_total_width}}"
         console.print(f"{'Year':>4} │ {'Merged View':<{bar_width}} │ {numbers_header}")
         console.print("─" * total_width)
-        
+
         for row in papers_by_year:
             year = row['year']
             total_count = row['total_count']
             final_count = row['final_count'] or 0
-            
+
             # Calculate bar lengths (proportional to max total)
             if max_total > 0:
                 total_bar_length = int((total_count / max_total) * bar_width)
@@ -260,35 +260,35 @@ class ScreeningDashboard:
             else:
                 total_bar_length = 0
                 final_bar_length = 0
-            
+
             # Build the bar character by character without color codes first
             bar_chars = []
-            
+
             # Add green bars for pass/review
             for i in range(final_bar_length):
                 bar_chars.append("[green]█[/green]")
-            
+
             # Add cyan bars for others
             for i in range(total_bar_length - final_bar_length):
                 bar_chars.append("[cyan]█[/cyan]")
-            
+
             # Add spaces to pad to bar_width
             remaining = bar_width - total_bar_length
             bar_chars.extend([" "] * remaining)
-            
+
             # Join the bar
             bar_display = "".join(bar_chars)
-            
+
             # Format numbers
             numbers_display = f"{total_count:>{max_total_width}} / {final_count:>{max_total_width}}"
-            
+
             # Format the line
             line = f"{year:4d} │ {bar_display} │ {numbers_display}"
             console.print(line)
-        
+
         # Print scale reference at bottom
         console.print("─" * total_width)
-        
+
         # Legend
         console.print("[green]█[/green] = Pass/Review | [cyan]█[/cyan] = Other papers")
 
@@ -296,10 +296,10 @@ class ScreeningDashboard:
         """Format datetime as time ago."""
         if not dt:
             return "Never"
-        
+
         now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
         diff = now - dt
-        
+
         if diff.total_seconds() < 60:
             return "Just now"
         elif diff.total_seconds() < 3600:
@@ -315,23 +315,23 @@ class ScreeningDashboard:
     def display_overview(self, stats: Dict) -> None:
         """Display overview panel."""
         console.print()
-        
+
         total = stats['total_papers']
         s0_processed = stats['stage0']['processed']
         s1_processed = stats['stage1']['processed']
         s2_processed = stats['stage2']['processed']
-        
+
         s0_pct = f"{100*s0_processed/total:.1f}%" if total > 0 else "0%"
         s1_pct = f"{100*s1_processed/total:.1f}%" if total > 0 else "0%"
         s2_pct = f"{100*s2_processed/total:.1f}%" if total > 0 else "0%"
-        
+
         # Build source breakdown
         source_text = ""
         if stats.get('sources'):
             for source, count in sorted(stats['sources'].items(), key=lambda x: x[1], reverse=True):
                 pct = f"{100*count/total:.1f}%" if total > 0 else "0%"
                 source_text += f"\n  • {source}: {count:,} ({pct})"
-        
+
         overview_text = f"""
 [bold cyan]📊 PAPER SCREENING PIPELINE OVERVIEW[/bold cyan]
 
@@ -341,21 +341,21 @@ Stage 0 (Type/Duplicate Filter):   [bold magenta]{s0_processed:,}[/bold magenta]
 Stage 1 (Keyword Filtering):       [bold yellow]{s1_processed:,}[/bold yellow] processed ({s1_pct})
 Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] processed ({s2_pct})
 """
-        
+
         console.print(Panel(overview_text.strip(), expand=False, border_style="cyan"))
 
     def display_stage0(self, stats: Dict) -> None:
         """Display Stage 0 results."""
         s0 = stats['stage0']
         total = s0['processed']
-        
+
         if total == 0:
             console.print("[yellow]⚠️  Stage 0 not yet executed[/yellow]\n")
             return
-        
+
         passed_pct = 100 * s0['passed'] / total
         failed_pct = 100 * s0['failed'] / total
-        
+
         # Build rejection breakdown
         rejection_text = ""
         if s0['rejected_type'] > 0:
@@ -370,7 +370,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
         if s0['rejected_conceptual'] > 0:
             pct = 100 * s0['rejected_conceptual'] / total
             rejection_text += f"\n    • Conceptual/theoretical: {s0['rejected_conceptual']:4d} ({pct:5.1f}%)"
-        
+
         # Create summary text
         summary = f"""
 [bold magenta]✓ Stage 0: Quality Filter (Type/Duplicate/Method)                [/bold magenta]
@@ -388,21 +388,21 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
   Started:  {self.format_time_ago(s0['earliest']) if s0['earliest'] else 'Never'}
   Latest:   {self.format_time_ago(s0['latest']) if s0['latest'] else 'Never'}
 """
-        
+
         console.print(Panel(summary.strip(), expand=False, border_style="magenta", title="Stage 0"))
 
     def display_stage1(self, stats: Dict) -> None:
         """Display Stage 1 results."""
         s1 = stats['stage1']
         total = s1['processed']
-        
+
         if total == 0:
             console.print("[yellow]⚠️  Stage 1 not yet executed[/yellow]\n")
             return
-        
+
         passed_pct = 100 * s1['passed'] / total
         failed_pct = 100 * s1['failed'] / total
-        
+
         # Create summary text
         summary = f"""
 [bold green]✓ Stage 1: Coarse Filter (Keyword-Based)                         [/bold green]   
@@ -418,7 +418,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
   Started:  {self.format_time_ago(s1['earliest']) if s1['earliest'] else 'Never'}
   Latest:   {self.format_time_ago(s1['latest']) if s1['latest'] else 'Never'}
 """
-        
+
         console.print(Panel(summary.strip(), expand=False, border_style="yellow", title="Stage 1"))
 
     def display_stage2(self, stats: Dict) -> None:
@@ -426,15 +426,15 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
         s2 = stats['stage2']
         dist = stats['similarity_dist']
         total = s2['processed']
-        
+
         if total == 0:
             console.print("[yellow]⚠️  Stage 2 not yet executed[/yellow]\n")
             return
-        
+
         included_pct = 100 * s2['included'] / total
         review_pct = 100 * s2['review'] / total
         excluded_pct = 100 * s2['excluded'] / total
-        
+
         # Create summary text
         summary = f"""
 [bold cyan]✓ Stage 2: Semantic Filter (Embedding-Based)                    [/bold cyan]
@@ -461,7 +461,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
   Started:  {self.format_time_ago(s2['earliest']) if s2['earliest'] else 'Never'}
   Latest:   {self.format_time_ago(s2['latest']) if s2['latest'] else 'Never'}
 """
-        
+
         console.print(Panel(summary.strip(), expand=False, border_style="cyan", title="Stage 2"))
 
     def display_detailed_table(self, stats: Dict) -> None:
@@ -469,7 +469,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
         s0 = stats['stage0']
         s1 = stats['stage1']
         s2 = stats['stage2']
-        
+
         table = Table(title="📋 Detailed Screening Statistics", show_header=True, header_style="bold")
         table.add_column("Stage", style="cyan")
         table.add_column("Processed", justify="right", style="green")
@@ -477,7 +477,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
         table.add_column("Failed/Excluded", justify="right", style="red")
         table.add_column("Pending Review", justify="right", style="yellow")
         table.add_column("Status", style="white")
-        
+
         s0_status = "✓ Complete" if s0['processed'] > 0 else "⏳ Pending"
         s0_style = "green" if s0['processed'] > 0 else "yellow"
         table.add_row(
@@ -488,7 +488,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
             "-",
             f"[{s0_style}]{s0_status}[/{s0_style}]"
         )
-        
+
         s1_status = "✓ Complete" if s1['processed'] > 0 else "⏳ Pending"
         s1_style = "green" if s1['processed'] > 0 else "yellow"
         table.add_row(
@@ -499,7 +499,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
             "-",
             f"[{s1_style}]{s1_status}[/{s1_style}]"
         )
-        
+
         s2_status = "✓ Complete" if s2['processed'] > 0 else "⏳ Pending"
         s2_style = "green" if s2['processed'] > 0 else "yellow"
         table.add_row(
@@ -510,15 +510,15 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
             str(s2['review']),
             f"[{s2_style}]{s2_status}[/{s2_style}]"
         )
-        
+
         console.print(table)
         console.print()
-        
+
         # Explain the filtering funnel
         s0 = stats['stage0']
         s1 = stats['stage1']
         s2 = stats['stage2']
-        
+
         funnel_explanation = f"""
 [dim]📊 Filtering Funnel Explanation:[/dim]
   Start:           {s0['processed']:4d} papers (all papers processed at Stage 0)
@@ -537,11 +537,11 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
         s1 = stats['stage1']
         s2 = stats['stage2']
         total = stats['total_papers']
-        
+
         console.print()
-        
+
         recommendations = []
-        
+
         if total == 0:
             recommendations.append("[yellow]Load papers from BibTeX file[/yellow]")
         elif s0['processed'] == 0:
@@ -556,7 +556,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
             recommendations.append("[green]All screening stages complete![/green]")
             if s2['review'] > 0:
                 recommendations.append("[cyan]Next: Run Stage 3 (LLM classification for borderline papers)[/cyan]")
-        
+
         recommendation_text = "\n".join(recommendations)
         console.print(Panel(recommendation_text, expand=False, border_style="blue", title="💡 Recommendations"))
 
@@ -565,57 +565,57 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
         s0 = stats['stage0']
         s1 = stats['stage1']
         s2 = stats['stage2']
-        
+
         if s0['processed'] == 0 and s1['processed'] == 0 and s2['processed'] == 0:
             return
-        
+
         console.print()
-        
+
         # Create metrics table
         metrics_table = Table(show_header=True, header_style="bold magenta", title="📈 Key Metrics")
         metrics_table.add_column("Metric", style="cyan")
         metrics_table.add_column("Value", justify="right", style="yellow")
-        
+
         # Stage 0 pass rate
         if s0['processed'] > 0:
             s0_pass_rate = 100 * s0['passed'] / s0['processed']
             metrics_table.add_row("Stage 0 Pass Rate", f"{s0_pass_rate:.1f}%")
-        
+
         # Stage 1 pass rate
         if s1['processed'] > 0:
             s1_pass_rate = 100 * s1['passed'] / s1['processed']
             metrics_table.add_row("Stage 1 Pass Rate", f"{s1_pass_rate:.1f}%")
-        
+
         # Stage 2 inclusion rate
         if s2['processed'] > 0:
             s2_include_rate = 100 * s2['included'] / s2['processed']
             metrics_table.add_row("Stage 2 Inclusion Rate", f"{s2_include_rate:.1f}%")
-            
+
             # Manual review rate
             s2_review_rate = 100 * s2['review'] / s2['processed']
             metrics_table.add_row("Manual Review Rate", f"{s2_review_rate:.1f}%")
-            
+
             # Average similarity
             metrics_table.add_row("Average Similarity", f"{s2['avg_similarity']:.4f}")
-        
+
         # Overall inclusion (if all stages done)
         if s0['processed'] > 0 and s1['processed'] > 0 and s2['processed'] > 0:
             # Papers that passed all stages
             total_passed = s2['included']  # Those that passed Stage 2 as "pass"
             overall_rate = 100 * total_passed / s0['processed']
             metrics_table.add_row("Overall Inclusion (all stages)", f"{overall_rate:.1f}%")
-        
+
         console.print(metrics_table)
 
     def display_paper_type_analysis(self, stats: Dict) -> None:
         """Display 2D analysis of paper_type vs acceptance/rejection rates."""
         paper_type_data = stats.get('paper_type_analysis', [])
-        
+
         if not paper_type_data:
             return
-        
+
         console.print()
-        
+
         # Create table
         table = Table(
             title="📊 Paper Type Analysis (Current Screening Status)",
@@ -631,7 +631,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
         table.add_column("Rejected", justify="right", style="red")
         table.add_column("% Rej.", justify="right", style="red")
         table.add_column("S0 Rej", justify="right", style="dim")
-        
+
         for row in paper_type_data:
             paper_type = row['paper_type'] or 'Unknown'
             total = row['total']
@@ -639,15 +639,15 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
             excluded = row['excluded'] or 0
             pending = row['pending'] or 0
             stage0_rejected = row['stage0_rejected'] or 0
-            
+
             # Calculate percentages
             pct_included = 100 * included / total if total > 0 else 0
             pct_pending = 100 * pending / total if total > 0 else 0
             pct_excluded = 100 * excluded / total if total > 0 else 0
-            
+
             # Truncate paper type if too long
             paper_type_display = paper_type[:23] if len(paper_type) > 23 else paper_type
-            
+
             table.add_row(
                 paper_type_display,
                 str(total),
@@ -659,21 +659,21 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
                 f"{pct_excluded:.1f}%",
                 str(stage0_rejected)
             )
-        
+
         console.print(table)
 
     def run(self) -> None:
         """Run the dashboard."""
         if not self.connect():
             return
-        
+
         try:
             # Header
             console.print()
             console.print("[bold cyan]" + "="*80 + "[/bold cyan]")
             console.print("[bold cyan]🔬 PAPER SCREENING DASHBOARD[/bold cyan]")
             console.print("[bold cyan]" + "="*80 + "[/bold cyan]")
-            
+
             # Fetch stats with progress indicator
             with Progress(
                 SpinnerColumn(),
@@ -683,7 +683,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
             ) as progress:
                 progress.add_task("Fetching statistics...", total=None)
                 stats = self.get_stats()
-            
+
             # Display sections
             self.display_overview(stats)
             self.display_stage0(stats)
@@ -694,12 +694,12 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
             self.display_paper_type_analysis(stats)
             self.create_year_histogram(stats)
             self.display_recommendations(stats)
-            
+
             # Footer
             console.print("[bold cyan]" + "="*80 + "[/bold cyan]")
             console.print(f"[dim]Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]")
             console.print()
-            
+
         finally:
             self.disconnect()
 
@@ -717,13 +717,13 @@ def main():
         default=0,
         help="Auto-refresh every N seconds (0 = no refresh)"
     )
-    
+
     args = parser.parse_args()
-    
+
     load_dotenv()
-    
+
     dashboard = ScreeningDashboard(args.db_url)
-    
+
     try:
         if args.refresh > 0:
             import time

@@ -19,8 +19,8 @@ from paper_scanner.cli.tasks import (
     execute_cache_clear,
     execute_cache_info,
     execute_cache_load,
-    execute_db_stats,
     execute_db_clear,
+    execute_db_stats,
     execute_info_steps,
     execute_repl,
     execute_run,
@@ -185,7 +185,7 @@ class StepExecutor(metaclass=_StepExecutorMeta):
                 break
 
         if not builtin_key:
-            raise ValueError(f"Step configuration missing 'builtin.<step>' key")
+            raise ValueError("Step configuration missing 'builtin.<step>' key")
 
         # Extract step name from builtin key
         step_name = builtin_key.replace("builtin.", "")

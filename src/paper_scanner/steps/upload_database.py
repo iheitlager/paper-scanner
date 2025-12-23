@@ -31,8 +31,9 @@ from dotenv import load_dotenv
 from rich.console import Console
 
 from paper_scanner.core.enum import StepStatus
-from paper_scanner.io.sql import (DatabaseConnectionPool, PaperToRowConverter,
-                                  PaperUploader)
+from paper_scanner.core.exceptions import StepFatalError
+from paper_scanner.core.step_result import StepResult
+from paper_scanner.io.sql import DatabaseConnectionPool, PaperToRowConverter, PaperUploader
 from paper_scanner.steps.base import BaseStep
 
 console = Console(file=sys.stderr)
@@ -112,7 +113,7 @@ class UploadDatabaseStep(BaseStep):
         verbose: bool = False,
         dry_run: bool = False,
         debug: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> StepResult:
         """
         Execute database upload.
 
@@ -123,27 +124,28 @@ class UploadDatabaseStep(BaseStep):
             debug: Enable debug logging
 
         Returns:
-            Dictionary with upload results
+            StepResult with upload results
+
+        Raises:
+            StepFatalError: Critical database errors (connection, configuration)
         """
         # Load environment variables from .env file
+        # TODO: Remove this to main loop
         load_dotenv()
 
         # Parse configuration and build database_url
         database_url = self._get_database_url(step_config)
         if not database_url:
-            return {
-                "status": StepStatus.ERROR,
-                "message": "Could not construct database URL from configuration",
-                "error": "Missing database_url or incomplete component parameters",
-                "count": 0,
-            }
+            raise StepFatalError(
+                "Could not construct database URL from configuration: "
+                "Missing database_url or incomplete component parameters"
+            )
 
         conflict_strategy = step_config.get("conflict_strategy", "skip")
         batch_size = int(step_config.get("batch_size", 100))
-        verbose_conflicts = step_config.get("verbose_conflicts", False)
 
         if verbose:
-            console.print(f"[cyan]Uploading papers to PostgreSQL[/cyan]")
+            console.print("[cyan]Uploading papers to PostgreSQL[/cyan]")
             console.print(
                 f"[dim]Database: {database_url.split('@')[-1] if '@' in database_url else 'unknown'}[/dim]"
             )
@@ -154,132 +156,126 @@ class UploadDatabaseStep(BaseStep):
                 f"[dim]Dry-run: {dry_run}[/dim]"
             )
 
-        try:
-            # Get papers from in-memory database
-            papers = self.db.all(primary_only=False)
-            total_papers = len(papers)
+        # Get papers from in-memory database
+        papers = self.db.all(primary_only=False)
+        total_papers = len(papers)
 
-            if total_papers == 0:
-                return {
-                    "status": StepStatus.WARNING,
-                    "message": "No papers in database to upload",
-                    "count": 0,
-                }
+        if total_papers == 0:
+            return StepResult(
+                status=StepStatus.WARNING,
+                message="No papers in database to upload",
+                stats={"total_papers": 0}
+            )
 
-            if verbose:
-                console.print(
-                    f"[cyan]Found {total_papers} papers to upload[/cyan]"
+        if verbose:
+            console.print(
+                f"[cyan]Found {total_papers} papers to upload[/cyan]"
+            )
+
+        # Dry-run mode: just validate conversion
+        if dry_run:
+            errors = self._validate_papers(papers, verbose)
+            if errors:
+                return StepResult(
+                    status=StepStatus.WARNING,
+                    message=f"Validation errors in {len(errors)} papers",
+                    stats={
+                        "total_papers": total_papers,
+                        "validation_errors": len(errors),
+                    },
+                    details="\n".join(errors[:10])  # Show first 10 errors
                 )
+            return StepResult(
+                status=StepStatus.SUCCESS,
+                message=f"Dry-run: validated {total_papers} papers (no upload)",
+                stats={"total_papers": total_papers}
+            )
 
-            # Dry-run mode: just validate conversion
-            if dry_run:
-                errors = self._validate_papers(papers, verbose)
-                if errors:
-                    return {
-                        "status": StepStatus.WARNING,
-                        "message": f"Validation errors in {len(errors)} papers",
-                        "count": total_papers,
-                        "errors": errors[:10],  # Show first 10 errors
-                        "total_errors": len(errors),
-                    }
-                return {
-                    "status": StepStatus.SUCCESS,
-                    "message": f"Dry-run: validated {total_papers} papers (no upload)",
-                    "count": total_papers,
-                    "details": {
-                        "mode": "dry-run",
-                        "validation": "passed",
-                    }
-                }
-
-            # Real execution: connect and upload
-            pool = DatabaseConnectionPool(database_url)
+        # Real execution: connect and upload
+        # Database connection is critical—let exceptions bubble up as fatal
+        pool = DatabaseConnectionPool(database_url)
+        try:
             pool.initialize()
+        except Exception as e:
+            raise StepFatalError(f"Failed to initialize database connection: {str(e)}")
 
-            try:
-                uploader = PaperUploader(pool)
+        try:
+            uploader = PaperUploader(pool)
 
-                # Upload papers in batches
-                all_stats = {
-                    "inserted": 0,
-                    "updated": 0,
-                    "skipped": 0,
-                    "errors": [],
-                    "error_count": 0,
-                }
+            # Upload papers in batches
+            all_stats = {
+                "inserted": 0,
+                "updated": 0,
+                "skipped": 0,
+                "errors": [],
+                "error_count": 0,
+            }
 
-                for i in range(0, total_papers, batch_size):
-                    batch = papers[i : i + batch_size]
-                    batch_num = i // batch_size + 1
-                    total_batches = (total_papers + batch_size - 1) // batch_size
+            for i in range(0, total_papers, batch_size):
+                batch = papers[i : i + batch_size]
+                batch_num = i // batch_size + 1
+                total_batches = (total_papers + batch_size - 1) // batch_size
 
-                    if verbose:
-                        console.print(
-                            f"[cyan]Uploading batch {batch_num}/{total_batches} "
-                            f"({len(batch)} papers)[/cyan]"
-                        )
-
-                    # Upload batch
-                    stats = uploader.insert_papers(
-                        batch,
-                        conflict_strategy=conflict_strategy,
-                        dry_run=False,
+                if verbose:
+                    console.print(
+                        f"[cyan]Uploading batch {batch_num}/{total_batches} "
+                        f"({len(batch)} papers)[/cyan]"
                     )
 
-                    # Aggregate stats
-                    all_stats["inserted"] += stats["inserted"]
-                    all_stats["updated"] += stats["updated"]
-                    all_stats["skipped"] += stats["skipped"]
-                    all_stats["error_count"] += stats["error_count"]
-                    all_stats["errors"].extend(stats["errors"])
+                # Upload batch
+                stats = uploader.insert_papers(
+                    batch,
+                    conflict_strategy=conflict_strategy,
+                    dry_run=False,
+                )
 
-                    if verbose and stats["error_count"] > 0:
-                        console.print(
-                            f"[yellow]Batch {batch_num}: "
-                            f"{stats['error_count']} errors[/yellow]"
-                        )
+                # Aggregate stats
+                all_stats["inserted"] += stats["inserted"]
+                all_stats["updated"] += stats["updated"]
+                all_stats["skipped"] += stats["skipped"]
+                all_stats["error_count"] += stats["error_count"]
+                all_stats["errors"].extend(stats["errors"])
 
-                # Build result
-                result = {
-                    "status": StepStatus.SUCCESS if all_stats["error_count"] == 0 else StepStatus.WARNING,
-                    "message": self._build_message(all_stats, conflict_strategy),
-                    "count": all_stats["inserted"] + all_stats["updated"],
-                    "details": {
-                        "total_papers": total_papers,
-                        "inserted": all_stats["inserted"],
-                        "updated": all_stats["updated"],
-                        "skipped": all_stats["skipped"],
-                        "errors": all_stats["error_count"],
-                        "conflict_strategy": conflict_strategy,
-                    }
-                }
+                # TODO: Move this outside the Step
+                if verbose and stats["error_count"] > 0:
+                    console.print(
+                        f"[yellow]Batch {batch_num}: "
+                        f"{stats['error_count']} errors[/yellow]"
+                    )
 
-                # Add error details if requested and errors exist
-                if verbose_conflicts and all_stats["errors"]:
-                    result["error_samples"] = all_stats["errors"][:5]
-                    result["total_error_count"] = all_stats["error_count"]
+            # Determine status based on results
+            if all_stats["error_count"] == total_papers:
+                # All papers failed
+                status = StepStatus.ERROR
+                message = "All papers failed to upload"
+                details = "\n".join(all_stats["errors"][:10])
+            elif all_stats["error_count"] > 0:
+                # Partial success
+                status = StepStatus.WARNING
+                message = self._build_message(all_stats, conflict_strategy)
+                details = f"Upload errors ({all_stats['error_count']} papers):\n" + "\n".join(all_stats["errors"][:5])
+            else:
+                # Complete success
+                status = StepStatus.SUCCESS
+                message = self._build_message(all_stats, conflict_strategy)
+                details = None
 
-                if all_stats["error_count"] > 0 and all_stats["error_count"] == total_papers:
-                    # All papers failed
-                    result["status"] = StepStatus.ERROR
-                    result["error"] = "All papers failed to upload"
+            return StepResult(
+                status=status,
+                message=message,
+                stats={
+                    "total_papers": total_papers,
+                    "inserted": all_stats["inserted"],
+                    "updated": all_stats["updated"],
+                    "skipped": all_stats["skipped"],
+                    "errors": all_stats["error_count"],
+                    "conflict_strategy": conflict_strategy,
+                },
+                details=details
+            )
 
-                return result
-
-            finally:
-                pool.close()
-
-        except Exception as e:
-            error_msg = str(e)
-            if debug:
-                raise
-
-            return {
-                "status": StepStatus.ERROR,
-                "message": f"Database upload failed: {error_msg}",
-                "error": error_msg,
-                "count": 0,
-            }
+        finally:
+            pool.close()
 
     def _validate_papers(self, papers: List, verbose: bool = False) -> List[str]:
         """

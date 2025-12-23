@@ -19,11 +19,13 @@ import pytest
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import PaperType
 from paper_scanner.core.models import Author, Paper
-from paper_scanner.steps.deduplication import (DeduplicationStep,
-                                               _get_confidence,
-                                               _normalize_title,
-                                               _title_author_fuzzy_match,
-                                               _title_fuzzy_match)
+from paper_scanner.steps.deduplication import (
+    DeduplicationStep,
+    _get_confidence,
+    _normalize_title,
+    _title_author_fuzzy_match,
+    _title_fuzzy_match,
+)
 
 # ============================================================================
 # FIXTURES
@@ -149,7 +151,7 @@ class TestTitleAuthorFuzzyMatch:
         """Test fuzzy match with same author and similar title."""
         existing = [sample_paper_1]
         result = _title_author_fuzzy_match(sample_paper_same_author_similar_title, existing, threshold=0.85)
-        
+
         assert result is not None
         duplicate_id, similarity = result
         assert duplicate_id == "paper-1"
@@ -168,7 +170,7 @@ class TestTitleAuthorFuzzyMatch:
         )
         existing = [sample_paper_1]
         result = _title_author_fuzzy_match(different_author_paper, existing)
-        
+
         assert result is None  # Different first author
 
     def test_title_author_fuzzy_match_threshold(self, sample_paper_1):
@@ -182,7 +184,7 @@ class TestTitleAuthorFuzzyMatch:
         )
         existing = [sample_paper_1]
         result = _title_author_fuzzy_match(very_different_paper, existing, threshold=0.95)
-        
+
         assert result is None  # Below threshold
 
 
@@ -193,7 +195,7 @@ class TestTitleFuzzyMatch:
         """Test title fuzzy match."""
         existing = [sample_paper_1]
         result = _title_fuzzy_match(sample_paper_similar_title, existing, threshold=0.90)
-        
+
         assert result is not None
         duplicate_id, similarity = result
         assert duplicate_id == "paper-1"
@@ -209,7 +211,7 @@ class TestTitleFuzzyMatch:
         )
         existing = [sample_paper_1]
         result = _title_fuzzy_match(similar_paper, existing, threshold=0.99)
-        
+
         # May or may not match depending on exact similarity
         # Just verify it doesn't crash
         assert result is None or isinstance(result, tuple)
@@ -218,7 +220,7 @@ class TestTitleFuzzyMatch:
         """Test when titles are completely different."""
         existing = [sample_paper_1]
         result = _title_fuzzy_match(sample_paper_2, existing, threshold=0.95)
-        
+
         assert result is None
 
 
@@ -301,7 +303,7 @@ class TestValidate:
         import inspect
         source = inspect.getsource(DeduplicationStep.validate)
         print(f"DEBUG: Using method:\n{source[:200]}")
-        
+
         is_valid, errors = DeduplicationStep.validate(config)
         print(f"DEBUG: is_valid={is_valid}, errors={errors}")
         assert is_valid is False
@@ -422,11 +424,11 @@ class TestExecute:
         """Test execution when deduplication is disabled."""
         papers_db = PapersDatabase()
         papers_db.add(sample_paper_1)
-        
+
         config = {"enabled": False}
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         result = step.execute(config=config)
-        
+
         assert result["step"] == "deduplication"
         assert result["duplicates_found"] == 0
 
@@ -435,7 +437,7 @@ class TestExecute:
         papers_db = PapersDatabase()
         papers_db.add(sample_paper_1)
         papers_db.add(sample_paper_duplicate_doi)
-        
+
         config = {
             "methods": [
                 {"method": "doi_exact", "priority": 1}
@@ -443,10 +445,10 @@ class TestExecute:
         }
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         result = step.execute(config=config)
-        
+
         assert result["duplicates_found"] == 1
         assert len(result["duplicates"]) == 1
-        
+
         dup = result["duplicates"][0]
         assert dup["paper_id"] == "paper-3"
         assert dup["duplicate_of_id"] == "paper-1"
@@ -458,7 +460,7 @@ class TestExecute:
         papers_db = PapersDatabase()
         papers_db.add(sample_paper_1)
         papers_db.add(sample_paper_duplicate_doi)
-        
+
         config = {
             "methods": [
                 {"method": "doi_exact", "priority": 1}
@@ -466,7 +468,7 @@ class TestExecute:
         }
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         step.execute(config=config, dry_run=False)
-        
+
         # Check that duplicate paper has deduplication result set
         dup_paper = papers_db.get_by_id("paper-3")
         assert dup_paper.screening.deduplication is not None
@@ -479,7 +481,7 @@ class TestExecute:
         papers_db = PapersDatabase()
         papers_db.add(sample_paper_1)
         papers_db.add(sample_paper_2)
-        
+
         config = {
             "methods": [
                 {"method": "doi_exact", "priority": 1}
@@ -487,10 +489,10 @@ class TestExecute:
         }
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         step.execute(config=config, dry_run=False)
-        
+
         paper1 = papers_db.get_by_id("paper-1")
         paper2 = papers_db.get_by_id("paper-2")
-        
+
         # Both should be marked as non-duplicates
         assert paper1.screening.deduplication.is_duplicate is False
         assert paper2.screening.deduplication.is_duplicate is False
@@ -500,19 +502,19 @@ class TestExecute:
         papers_db = PapersDatabase()
         papers_db.add(sample_paper_1)
         papers_db.add(sample_paper_duplicate_doi)
-        
+
         config = {
             "methods": [
                 {"method": "doi_exact", "priority": 1}
             ]
         }
-        
+
         # Before dry run, deduplication should be None
         dup_before = papers_db.get_by_id("paper-3").screening.deduplication
-        
+
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         step.execute(config=config, dry_run=True)
-        
+
         # After dry run, should still be None
         dup_after = papers_db.get_by_id("paper-3").screening.deduplication
         assert dup_after == dup_before
@@ -522,7 +524,7 @@ class TestExecute:
         papers_db = PapersDatabase()
         papers_db.add(sample_paper_1)
         papers_db.add(sample_paper_duplicate_doi)
-        
+
         config = {
             "methods": [
                 {"method": "doi_exact", "priority": 1}
@@ -530,7 +532,7 @@ class TestExecute:
         }
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         result = step.execute(config=config)
-        
+
         assert "step" in result
         assert "total_papers" in result
         assert "duplicates_found" in result
@@ -544,7 +546,7 @@ class TestExecute:
         papers_db = PapersDatabase()
         papers_db.add(sample_paper_1)
         papers_db.add(sample_paper_same_author_similar_title)
-        
+
         config = {
             "methods": [
                 {"method": "doi_exact", "priority": 1},
@@ -554,7 +556,7 @@ class TestExecute:
         }
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         result = step.execute(config=config)
-        
+
         # Should use title_author_fuzzy (not doi_exact since no match)
         assert result["duplicates_found"] == 1
         if result["duplicates"]:
@@ -572,7 +574,7 @@ class TestIntegration:
         """Test realistic deduplication workflow with multiple papers."""
         # Create a realistic scenario with multiple papers
         papers_db = PapersDatabase()
-        
+
         # Add original papers
         paper1 = Paper(
             id="p1", cite_key="smith2024", title="ML in Healthcare",
@@ -584,37 +586,37 @@ class TestIntegration:
             authors=[Author(family_name="Doe", given_name="J", full_name="J Doe")],
             doi="10.5678/ai.2024", paper_type=PaperType.JOURNAL_ARTICLE
         )
-        
+
         # Add duplicates
         paper1_dup = Paper(
             id="p3", cite_key="smith2024b", title="ML in Healthcare",
             authors=[Author(family_name="Smith", given_name="J", full_name="J Smith")],
             doi="10.1234/ml.2024", paper_type=PaperType.JOURNAL_ARTICLE  # Exact duplicate
         )
-        
+
         papers_db.add(paper1)
         papers_db.add(paper2)
         papers_db.add(paper1_dup)
-        
+
         config = {
             "methods": [
                 {"method": "doi_exact", "priority": 1},
             ]
         }
-        
+
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         result = step.execute(config=config)
-        
+
         # Should find 1 duplicate (exact DOI match)
         assert result["duplicates_found"] == 1
         assert result["total_papers"] == 3
-        
+
         # Original papers should not be marked as duplicates
         p1 = papers_db.get_by_id("p1")
         p2 = papers_db.get_by_id("p2")
         assert p1.screening.deduplication.is_duplicate is False
         assert p2.screening.deduplication.is_duplicate is False
-        
+
         # Duplicate should be marked, first is original
         p3 = papers_db.get_by_id("p3")
         assert p3.screening.deduplication.is_duplicate is True
@@ -623,7 +625,7 @@ class TestIntegration:
     def test_deduplication_with_conflicting_matches(self):
         """Test behavior when similar papers are compared."""
         papers_db = PapersDatabase()
-        
+
         # Add papers with exact DOI match - easiest deduplication case
         papers_db.add(Paper(
             id="p1", cite_key="p1", title="Machine Learning Applications",
@@ -636,19 +638,19 @@ class TestIntegration:
             doi="10.1111/ml.2024",  # Same DOI - exact match
             paper_type=PaperType.JOURNAL_ARTICLE
         ))
-        
+
         config = {
             "methods": [
                 {"method": "doi_exact", "priority": 1},
             ]
         }
-        
+
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         result = step.execute(config=config)
-        
+
         # Should find 1 duplicate
         assert result["duplicates_found"] == 1
-        
+
         # p2 should be marked as duplicate
         p2 = papers_db.get_by_id("p2")
         assert p2.screening.deduplication.is_duplicate is True
@@ -659,7 +661,7 @@ class TestIntegration:
         """Test addtition order is maintained, not key order."""
         # Create a realistic scenario with multiple papers
         papers_db = PapersDatabase()
-        
+
         # Add original papers
         paper1 = Paper(
             id="p3", cite_key="smith2024", title="ML in Healthcare",
@@ -671,31 +673,31 @@ class TestIntegration:
             authors=[Author(family_name="Doe", given_name="J", full_name="J Doe")],
             doi="10.5678/ai.2024", paper_type=PaperType.JOURNAL_ARTICLE
         )
-        
+
         # Add duplicates
         paper1_dup = Paper(
             id="p1", cite_key="smith2024b", title="ML in Healthcare",
             authors=[Author(family_name="Smith", given_name="J", full_name="J Smith")],
             doi="10.1234/ml.2024", paper_type=PaperType.JOURNAL_ARTICLE  # Exact duplicate
         )
-        
+
         papers_db.add(paper1)
         papers_db.add(paper2)
         papers_db.add(paper1_dup)
-        
+
         config = {
             "methods": [
                 {"method": "doi_exact", "priority": 1},
             ]
         }
-        
+
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         result = step.execute(config=config)
-        
+
         # Should find 1 duplicate (exact DOI match)
         assert result["duplicates_found"] == 1
         assert result["total_papers"] == 3
-        
+
         # Original papers should not be marked as duplicates
         p1 = papers_db.get_by_id("p1")
         p2 = papers_db.get_by_id("p2")
@@ -708,7 +710,7 @@ class TestIntegration:
     def test_deduplication_preserves_paper_integrity(self):
         """Test that deduplication preserves paper data integrity."""
         papers_db = PapersDatabase()
-        
+
         papers_db.add(Paper(
             id="p1", cite_key="p1", title="Test P1 Paper",
             abstract="Test abstract with p1 content",
@@ -725,7 +727,7 @@ class TestIntegration:
             authors=[Author(family_name="Test", given_name="T", full_name="T Test")],
             doi="10.1234/test.2024", paper_type=PaperType.JOURNAL_ARTICLE
         ))
-        
+
         original_paper = papers_db.get_by_id("p1")
         original_abstract = original_paper.abstract
         original_year = original_paper.year
@@ -739,10 +741,10 @@ class TestIntegration:
                 {"method": "doi_exact", "priority": 1}
             ]
         }
-        
+
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         step.execute(config=config)
-        
+
         # Paper data should be unchanged
         modified_paper = papers_db.get_by_id("p1")
         assert modified_paper.abstract == original_abstract

@@ -8,12 +8,16 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from pydantic import (BaseModel, ConfigDict, Field, field_serializer,
-                      field_validator)
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
-from paper_scanner.core.enum import (CitationDirection, DiscoveryMethod,
-                                     PaperType, QualityTier, ScreeningDecision,
-                                     StudyType)
+from paper_scanner.core.enum import (
+    CitationDirection,
+    DiscoveryMethod,
+    PaperType,
+    QualityTier,
+    ScreeningDecision,
+    StudyType,
+)
 
 # ============================================================================
 # PROCESSING METADATA
@@ -21,7 +25,7 @@ from paper_scanner.core.enum import (CitationDirection, DiscoveryMethod,
 
 class ProcessingMetadata(BaseModel):
     """Metadata for any processing step"""
-    
+
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: Optional[float] = None
     model_version: Optional[str] = None
@@ -31,7 +35,7 @@ class ProcessingMetadata(BaseModel):
     error: Optional[str] = None
     success: bool = True
     retry_count: int = 0
-    
+
     model_config = ConfigDict(extra='allow')  # Allow extra fields
 
 
@@ -41,18 +45,18 @@ class ProcessingMetadata(BaseModel):
 
 class Author(BaseModel):
     """Author information"""
-    
+
     given_name: Optional[str] = None
     family_name: str
     full_name: str
     affiliation: Optional[str] = None
     orcid: Optional[str] = None
     email: Optional[str] = None
-    
+
     @property
     def last_name(self) -> str:
         return self.family_name
-    
+
     def __str__(self) -> str:
         return self.full_name
 
@@ -63,12 +67,12 @@ class Author(BaseModel):
 
 class Embedding(BaseModel):
     """Vector embedding with metadata"""
-    
+
     vector: List[float] = Field(description="Embedding vector (768 dimensions)")
     model: str = Field(default="all-mpnet-base-v2")
     text_source: str = Field(description="What was embedded: title, abstract, full_text, etc.")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+
     @field_validator('vector')
     @classmethod
     def validate_vector_length(cls, v):
@@ -139,19 +143,19 @@ class Citation(BaseModel):
 
 class TextChunk(BaseModel):
     """Chunk of paper text with embedding"""
-    
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     chunk_index: int
     text: str
     section: Optional[str] = None  # "introduction", "methods", "results", etc.
-    
+
     # Boundaries
     start_char: Optional[int] = None
     end_char: Optional[int] = None
-    
+
     # Embedding
     embedding: Optional[Embedding] = None
-    
+
     # Metadata
     word_count: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -163,7 +167,7 @@ class TextChunk(BaseModel):
 
 class DeduplicationResult(BaseModel):
     """Result of deduplication check"""
-    
+
     is_duplicate: bool
     duplicate_of: Optional['Paper'] = None
     similarity_score: Optional[float] = Field(ge=0, le=1, default=None)
@@ -195,23 +199,23 @@ class DeduplicationResult(BaseModel):
 
 class Categorization(BaseModel):
     """Paper categorization results"""
-    
+
     paper_type: PaperType
     study_type: StudyType
     quality_tier: QualityTier
-    
+
     # Confidence scores
     paper_type_confidence: float = Field(ge=0, le=1)
     study_type_confidence: float = Field(ge=0, le=1)
-    
+
     # Classification details
     is_empirical: bool
     is_peer_reviewed: bool
     is_open_access: bool = False
-    
+
     # Reasoning (if LLM-based)
     reasoning: Optional[str] = None
-    
+
     # Metadata
     metadata: ProcessingMetadata
 
@@ -222,22 +226,22 @@ class Categorization(BaseModel):
 
 class KeywordScreening(BaseModel):
     """Keyword-based screening results"""
-    
+
     passed: bool
     score: int
-    
+
     # Matched keywords
     inclusion_keywords: List[str] = Field(default_factory=list)
     exclusion_keywords: List[str] = Field(default_factory=list)
-    
+
     # Breakdown
     title_matches: int = 0
     abstract_matches: int = 0
     keywords_matches: int = 0
-    
+
     # Exclusion reason
     exclusion_reason: Optional[str] = None
-    
+
     # Metadata
     metadata: ProcessingMetadata
 
@@ -248,16 +252,16 @@ class KeywordScreening(BaseModel):
 
 class SemanticScreening(BaseModel):
     """Semantic similarity screening results"""
-    
+
     passed: bool
     similarity_score: float = Field(ge=0, le=1)
     threshold: float = Field(ge=0, le=1)
-    
+
     # LLM decision (if borderline)
     llm_decision: Optional[ScreeningDecision] = None
     llm_confidence: Optional[float] = Field(ge=0, le=1, default=None)
     llm_reasoning: Optional[str] = None
-    
+
     # Metadata
     metadata: ProcessingMetadata
 
@@ -268,24 +272,24 @@ class SemanticScreening(BaseModel):
 
 class Screening(BaseModel):
     """Complete screening results"""
-    
+
     # Stage 0: Deduplication
     deduplication: Optional[DeduplicationResult] = None
-    
+
     # Stage 1: Categorization
     categorization: Optional[Categorization] = None
-    
+
     # Stage 2: Keyword screening
     keyword_screening: Optional[KeywordScreening] = None
-    
+
     # Stage 3: Semantic screening
     semantic_screening: Optional[SemanticScreening] = None
-    
+
     # Final decision
     final_decision: ScreeningDecision = ScreeningDecision.PENDING
     final_decision_at: Optional[datetime] = None
     final_decision_by: Optional[str] = None  # "automated", "manual:user_name"
-    
+
     # Overall metadata
     current_stage: str = "import"
     notes: Optional[str] = None
@@ -297,32 +301,32 @@ class Screening(BaseModel):
 
 class CAMOStatement(BaseModel):
     """Context-Agency-Mechanism-Outcome statement"""
-    
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    
+
     # CAMO components
     context: str
     agency: str
     mechanism: str
     outcome: str
     full_statement: str
-    
+
     # Embeddings
     mechanism_embedding: Optional[Embedding] = None
     context_embedding: Optional[Embedding] = None
-    
+
     # Clustering
     cluster_id: Optional[int] = None
     cluster_label: Optional[str] = None
     distance_to_centroid: Optional[float] = None
     is_outlier: bool = False
-    
+
     # Additional extracted info
     innovation_type: Optional[str] = None
     it_suppliers: List[str] = Field(default_factory=list)
     regular_suppliers: List[str] = Field(default_factory=list)
     success_indicator: Optional[str] = None
-    
+
     # Extraction metadata
     confidence: float = Field(ge=0, le=1)
     metadata: ProcessingMetadata
@@ -334,27 +338,27 @@ class CAMOStatement(BaseModel):
 
 class ConceptualAnalysis(BaseModel):
     """Conceptual analysis results"""
-    
+
     # CAMO statements
     camo_statements: List[CAMOStatement] = Field(default_factory=list)
-    
+
     # Extracted concepts
     theoretical_frameworks: List[str] = Field(default_factory=list)
     key_constructs: List[str] = Field(default_factory=list)
-    
+
     # Context
     industry_context: Optional[str] = None
     country_context: Optional[str] = None
     organization_type: Optional[str] = None
-    
+
     # Innovation details
     innovation_types: List[str] = Field(default_factory=list)
     digital_technologies: List[str] = Field(default_factory=list)
-    
+
     # Findings
     main_findings: Optional[str] = None
     contribution_type: Optional[str] = None
-    
+
     # Metadata
     metadata: ProcessingMetadata
 
@@ -379,7 +383,7 @@ class Discovery(BaseModel):
 
 class OpenAccessStatus(BaseModel):
     """Open access availability details"""
-    
+
     is_oa: bool  # Main flag: paper is openly accessible
     oa_status: Optional[str] = None  # "gold", "green", "bronze", "closed" (Unpaywall standard)
     oa_url: Optional[str] = None  # Direct link to free version
@@ -396,7 +400,7 @@ class OpenAccessStatus(BaseModel):
 
 class PDFInfo(BaseModel):
     """PDF file information"""
-    
+
     file_path: Optional[str] = None
     file_name: Optional[str] = None
     file_size_bytes: Optional[int] = None

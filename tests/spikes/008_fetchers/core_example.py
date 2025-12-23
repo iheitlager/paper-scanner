@@ -27,23 +27,23 @@ def fetch_paper_details():
     if not api_key:
         print(json.dumps({"error": "CORE_API_KEY environment variable not set"}, indent=2))
         return
-    
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
     }
-    
+
     params = {
         "q": f"doi:{DOI}",
         "limit": 1,
         "offset": 0
     }
-    
+
     response = requests.get(CORE_API_URL, params=params, headers=headers, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
-    
+
     data = response.json()
-    
+
     if data.get("results"):
         paper = data["results"][0]
         print(json.dumps(paper, indent=2))

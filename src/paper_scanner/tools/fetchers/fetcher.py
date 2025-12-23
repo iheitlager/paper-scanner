@@ -13,16 +13,11 @@ from rich.console import Console
 
 from paper_scanner.core.models import Citation, Paper, PDFInfo
 from paper_scanner.tools.cache import PDFCache
-from paper_scanner.tools.fetchers.fetcher_handlers.base import \
-    BaseFetcherHandler
-from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import \
-    CrossrefHandler
-from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import \
-    OpenAlexHandler
-from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import \
-    PublisherHandler
-from paper_scanner.tools.fetchers.fetcher_handlers.semantic_scholar_handler import \
-    SemanticScholarHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import OpenAlexHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import PublisherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.semantic_scholar_handler import SemanticScholarHandler
 
 console = Console(file=sys.stderr)
 
@@ -66,7 +61,7 @@ class Fetcher:
     def _register_handlers(self, methods: list) -> None:
         """Register handler instances for specified methods."""
         if self.debug:
-            console.print(f" Registering fetcher handlers:")
+            console.print(" Registering fetcher handlers:")
 
         for method in methods:
             if method not in handler_classes:
@@ -206,7 +201,7 @@ class Fetcher:
             try:
                 if self.debug:
                     console.print(f"  Trying to fetch PDF from {handler_name} for DOI {doi}")
-                
+
                 # Handler now returns PDFInfo with handler name as source
                 pdf_info = handler.fetch_pdf(doi, timeout=timeout)
                 if pdf_info and pdf_info.file_path:
@@ -215,7 +210,7 @@ class Fetcher:
                     cached_path = self.pdf_cache.set(doi, tmp_pdf_path)
                     if self.debug:
                         console.print(f" [green]✓[/green] PDF cached for {doi} from {handler_name}")
-                    
+
                     # Return PDFInfo with updated file path (now in cache) but preserve handler name
                     return PDFInfo(
                         file_path=str(cached_path),

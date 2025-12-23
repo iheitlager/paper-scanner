@@ -27,8 +27,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from paper_scanner.core.executor import StepExecutor
 from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.executor import StepExecutor
 
 # Enable readline history and tab completion (optional, not available on all platforms)
 try:
@@ -56,7 +56,7 @@ def beautiful_menu():
     table = Table(show_header=False, box=None, padding=(0, 2, 0, 0))
     table.add_column("Command", style="green")
     table.add_column("Description")
-    
+
     commands = [
         ("step", "Execute next step"),
         ("run", "Execute all remaining steps"),
@@ -68,10 +68,10 @@ def beautiful_menu():
         ("help", "Show this menu"),
         ("quit", "Exit REPL"),
     ]
-    
+
     for cmd, desc in commands:
         table.add_row(cmd, desc)
-    
+
     console.print("[bold]Available Commands:[/bold]")
     console.print(table)
     console.print()
@@ -79,7 +79,7 @@ def beautiful_menu():
 
 def main(debug: bool = False, verbose: bool = False, timings: bool = False):
     """Interactive REPL for single-step execution."""
-    
+
     def display_step_result(index, step_config, result):
         """
         Display step execution result in consistent format.
@@ -103,7 +103,7 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
         step_name = step_config["description"] if step_config else result.get('step', 'Unknown')
        # Always show halt and error status
         if status == StepStatus.HALTED:
-            console.print(f"[yellow]⏸ halted[/yellow]")
+            console.print("[yellow]⏸ halted[/yellow]")
             return
         elif status == StepStatus.ERROR:
             console.print(f"[red]✗ ERROR: {result.get('error', 'Unknown error')}[/red]")
@@ -111,47 +111,53 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
         elif status == StepStatus.SUCCESS:
             if verbose:
                 step_name = step_config["description"] if step_config else result.get('step', 'Unknown')
-
-                count = result.get('papers_imported') or result.get('count', 0)
                 console.print(f"[green]✓[/green] [white]{step_name}[/white] completed")
-                if count > 0:
-                    console.print(f"  [cyan]Items:[/cyan] [white]{count}[/white]")
+            if debug:
+                for key, value in result.stats.items():
+                    console.print(f" [dim]Stat {key}: {value}[/dim]")
         else:
             console.print(f"[yellow]⚠️: {status.value} {step_name} - {result.get('message', '')}[/yellow] ")
             count = result.get('papers_imported') or result.get('count', 0)
             if count > 0:
                 console.print(f"  [cyan]Processed:[/cyan] {count} items")
-        if timings and 'duration_seconds' in result:
-            duration = result['duration_seconds']
-            console.print(f"  [cyan]Duration:[/cyan] [white]{duration:.2f}s[/white]")
+
+        if verbose or debug:
+            console.print()
+            db_count = result.stats.get('db_records', 0)
+            if db_count > 0:
+                console.print(f"[cyan]Items:[/cyan] [white]{db_count}[/white]")
+        if timings:
+            duration = result.timings['duration_ms']
+            console.print(f"[cyan]Duration:[/cyan] [white]{duration}ms[/white]")
 
 
     beautiful_header()
-    
+
     if debug:
         console.print("[yellow]⚠ Debug mode enabled - verbose output will be shown[/yellow]")
-    
     if verbose:
-        console.print("[blue]ℹ Verbose mode enabled - showing step details before execution[/blue]")
-    
+        console.print("[yellow]ℹ Verbose mode enabled - showing step details before execution[/yellow]")
+    if timings:
+        console.print("[yellow]↻ Timings mode enabled - showing timing info after each step[/yellow]")
+
     # Load definition
     definition_path = Path(__file__).parent / "test_definition.yml"
-    
-    console.print(f"[blue]ℹ Loading definition:[/blue] [white]{definition_path}[/white]")
-    
+
+    console.print(f"[blue]Loading definition:[/blue] [white]{definition_path}[/white]")
+
     if not definition_path.exists():
         console.print(f"[red]✗ Definition file not found: {definition_path}[/red]")
         sys.exit(1)
-    
+
     # Setup config
     general_config = {
         "project_name": "Supplier Digital Innovation Review",
         "researcher": "Ilja Heitlager",
         "institution": "TU Eindhoven",
     }
-    
+
     cache_dir = Path.home() / ".paper-scanner" / "spike-011"
-    
+
     # Initialize executor (self-contained with lazy step loading)
     executor = StepExecutor(
         general_config=general_config,
@@ -159,38 +165,37 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
         verbose=verbose,
         debug=debug,
     )
-    
+
     executor.load_definition(definition_path)
-    
+
     if not executor.has_steps:
         console.print("[red]✗ No steps loaded from definition[/red]")
         sys.exit(1)
-    
+
     current, total = executor.step_progress
-    console.print(f"[green]✓[/green] Loaded [white]{total}[/white] steps from definition\n")
-    
+
     command_history = []
-    
+
     while True:
         try:
             # Calculate progress
             current, total = executor.step_progress
             prompt = f"[bold blue][{current}/{total}] > [/bold blue]"
-            
+
             console.print(prompt, end="")
             cmd = input().strip().lower()
-            
+
             if not cmd:
                 continue
-            
+
             command_history.append(cmd)
-            
+
             # Execute commands
             if cmd == "step":
                 if not executor.has_next_step:
                     console.print("[yellow]⚠ All steps already completed![/yellow]\n")
                     continue
-                
+
                 # Show step info before execution if verbose
                 step_info = executor.describe_next_step()
                 if verbose:
@@ -202,42 +207,42 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
                     # Show step description and type even in normal mode
                     step_type = f"template: {step_info['template_name']}" if step_info["is_template"] else f"builtin: {step_info['name']}"
                     console.print(f"[blue]ℹ {step_info['description']}[/blue] [dim]({step_type})[/dim]")
-                
+
                 prev_index = step_info["index"]
                 result = executor.execute_next_step(dry_run=False)
-                
+
                 # Track how many steps were actually executed
                 new_index = executor.current_step_index
                 steps_executed = new_index - prev_index
-                
+
                 if debug and result:
                     console.print(f"[dim]Debug: Executed from step {prev_index} to {new_index} ({steps_executed} step(s))[/dim]")
                     console.print(f"[dim]Debug: Full result: {result}[/dim]\n")
-                
+
                 # Show what was executed
                 if steps_executed > 1:
                     console.print(f"  [blue]ℹ Auto-advanced {steps_executed} step(s)[/blue]")
-                
+
                 # Display result information using unified function
                 display_step_result(new_index, step_info, result)
-                
+
                 # Check if all steps are now completed
                 if not executor.has_next_step:
-                    console.print(f"[green bold]🎉 All steps completed![/green bold]\n")
-            
+                    console.print("[green bold]🎉 All steps completed![/green bold]\n")
+
             elif cmd == "run" or cmd == "go":
                 if not executor.has_next_step:
                     console.print("[yellow]⚠ All steps already completed![/yellow]\n")
                     continue
-                
+
                 current, total = executor.step_progress
                 remaining = total - current
                 if verbose:
                     console.print(f"\n[blue]ℹ Running {remaining} remaining step(s)...[/blue]\n")
-                
+
                 # Track step count for display
                 step_count = [0]
-                
+
                 def on_step_start(idx, step_config, total):
                     step_count[0] += 1
                     step_desc = step_config.get('step', 'Unknown')
@@ -258,16 +263,20 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
                     on_step_start=on_step_start,
                     on_step_end=display_step_result
                 )
-            
+
+                # Check if all steps are now completed
+                if not executor.has_next_step:
+                    console.print("[green bold]🎉 All steps completed![/green bold]\n")
+
             elif cmd == "steps":
                 console.print("\n[bold]📋 Pipeline Steps:[/bold]")
-                
+
                 # Show templates
                 if executor.templates:
                     console.print(f"\n[cyan]Templates ({len(executor.templates)}):[/cyan]")
                     for template_name, template_steps in executor.templates.items():
                         console.print(f"  • [white]{template_name}[/white] [dim]({len(template_steps)} steps)[/dim]")
-                
+
                 # Show main steps
                 if executor.steps:
                     console.print(f"\n[cyan]Main Steps ({len(executor.steps)}):[/cyan]")
@@ -277,25 +286,23 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
                         status = "✓" if i < executor.current_step_index else " "
                         status_color = "dim" if status == " " else "green"
                         console.print(f"  [white]{i}: \\[[/white][{status_color}]{status}[/{status_color}][white]] {step_desc}[/white]")
-                console.print()
-            
+
             elif cmd == "checkpoint":
                 console.print("\n[blue]ℹ Saving checkpoint...[/blue]")
                 result = executor.checkpoint()
                 if result['status'] == 'ok':
-                    console.print(f"[green]✓[/green] [white]Checkpoint saved[/white]")
+                    console.print("[green]✓[/green] [white]Checkpoint saved[/white]")
                     console.print(f"  [cyan]File:[/cyan] [white]{result.get('checkpoint_file', 'unknown')}[/white]")
                     console.print(f"  [cyan]Papers:[/cyan] [white]{result.get('papers_count', 0)}[/white]")
                 else:
                     error_msg = result.get('error', 'Unknown error')
-                    console.print(f"[red]✗[/red] [white]Checkpoint failed[/white]")
+                    console.print("[red]✗[/red] [white]Checkpoint failed[/white]")
                     console.print(f"  [red]Error:[/red] [white]{error_msg}[/white]")
-                console.print()
-            
+
             elif cmd == "stats":
                 stats = executor.get_stats()
                 console.print("\n[bold]📊 Statistics:[/bold]")
-                
+
                 project_name = stats.get('project_name', 'N/A')
                 papers_total = stats.get('papers_total', 0)
                 papers_unique = stats.get('papers_unique', 0)
@@ -305,13 +312,13 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
                 steps_executed = stats.get('steps_executed', 0)
                 total_duration = stats.get('total_duration_seconds', 0)
                 step_history = stats.get('step_history', [])
-                
+
                 console.print(f"  [cyan]Project:[/cyan] [white]{project_name}[/white]")
                 console.print(f"  [cyan]Papers:[/cyan] [white]{papers_total}[/white] total [dim]([green]{papers_unique}[/green] unique, [yellow]{papers_duplicates}[/yellow] duplicates)[/dim]")
                 console.print(f"  [cyan]Progress:[/cyan] [white]{current_step}/{total_steps}[/white] steps")
                 console.print(f"  [cyan]Executed:[/cyan] [white]{steps_executed}[/white] steps")
                 console.print(f"  [cyan]Total duration:[/cyan] [white]{total_duration:.2f}s[/white]")
-                
+
                 if step_history:
                     console.print("\n  [bold cyan]Step Timings:[/bold cyan]")
                     for i, entry in enumerate(step_history):
@@ -320,35 +327,34 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
                         percentage = (duration_ms / (total_duration * 1000) * 100) if total_duration > 0 else 0
                         color = "white" if i % 2 == 0 else "magenta"
                         console.print(f"    • [{color}]{step_name:<25}[/{color}] [dim]{duration_ms:>7d}ms ({percentage:>5.1f}%)[/dim]")
-                console.print()
-            
+
             elif cmd == "state":
                 state = executor.get_session_state()
                 console.print("\n[bold]🎯 Session State:[/bold]")
-                
+
                 papers_count = state.get('papers_count', 0)
                 current_step_idx = state.get('current_step_index', 0)
                 total_steps_val = state.get('total_steps', 0)
-                
+
                 console.print(f"  [cyan]Papers in DB:[/cyan] [white]{papers_count}[/white]")
                 console.print(f"  [cyan]Current step:[/cyan] [white]{current_step_idx}[/white]")
                 console.print(f"  [cyan]Total steps:[/cyan] [white]{total_steps_val}[/white]")
-                
+
                 if state.get('results'):
                     last_step_info = state.get("last_step")
                     if last_step_info:
                         console.print(f"  [cyan]Last Step:[/cyan] [blue]{last_step_info['description']}[/blue] - [dim]{last_step_info['name']}[/dim]")
-                    status_val = state['results'].get('status', 'N/A')
-                    status_msg = state['results'].get('message')
-                    console.print(f"  [cyan]Last result status:[/cyan] [white]{status_val}[/white]")
+                    status_val = state['results'].status
+                    status_color = 'green' if status_val == StepStatus.SUCCESS else 'yellow' if status_val == StepStatus.WARNING else 'red' if status_val == StepStatus.ERROR else 'cyan'   
+                    status_msg = state['results'].message
+                    console.print(f"  [cyan]Last result status:[/cyan] [{status_color}]{status_val.value}[/{status_color}]")
                     if status_msg:
                         console.print(f"  [cyan]Last Message:[/cyan] [white]{status_msg}[/white]")
 
                 if "current_step" in state:
                     cs = state["current_step"]
                     console.print(f"  [cyan]Coming Step:[/cyan]: [blue]{cs['description']}[/blue] - [dim]{cs['name']}[/dim]")
-                console.print()
-            
+
             elif cmd == "history":
                 console.print("\n[bold cyan]Command History:[/bold cyan]")
                 if not command_history:
@@ -356,40 +362,41 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
                 else:
                     for i, h in enumerate(command_history[-10:], 1):
                         console.print(f"  {i:2}. [white]{h}[/white]")
-                console.print()
-            
+
             elif cmd == "help":
                 beautiful_menu()
-            
+
             elif cmd == "quit":
-                # Calculate final stats
-                stats = executor.get_stats()
-                total_steps_val = len(executor.steps)
-                steps_executed = stats.get('steps_executed', 0)
-                percentage = (steps_executed / total_steps_val * 100) if total_steps_val > 0 else 0
-                
-                console.print(Panel(
-                    f"[cyan]Steps Completed:[/cyan] [white]{steps_executed}/{total_steps_val}[/white] [dim]({percentage:.1f}%)[/dim]\n"
-                    f"[cyan]Total Duration:[/cyan] [white]{stats.get('total_duration_seconds', 0):.2f}s[/white]\n"
-                    f"[cyan]Papers Processed:[/cyan] [white]{stats.get('papers_total', 0)}[/white]",
-                    box=box.SQUARE,
-                    title="[bold cyan]📈 Final Summary[/bold cyan]",
-                    padding=(1, 2)
-                ))
-                console.print()
                 break
-            
+
             else:
                 console.print(f"[yellow]⚠ Unknown command:[/yellow] [white]{cmd}[/white]")
                 console.print("Type [cyan]help[/cyan] for available commands.\n")
-        
+            console.print()
+
         except KeyboardInterrupt:
             console.print("\n[yellow]⚠ Operation cancelled by user[/yellow]")
-        
         except EOFError:
-            console.print("\n[blue]ℹ Goodbye![/blue]")
-            sys.exit(0)
+            console.print()
+            break
+        except Exception as e:
+            console.print(f"\n[red]✗ Error:[/red] [white]{str(e)}[/white]\n")
 
+    # Calculate final stats
+    stats = executor.get_stats()
+    total_steps_val = len(executor.steps)
+    steps_executed = stats.get('steps_executed', 0)
+    percentage = (steps_executed / total_steps_val * 100) if total_steps_val > 0 else 0
+
+    console.print(Panel(
+        f"[cyan]Steps Completed:[/cyan] [white]{steps_executed}/{total_steps_val}[/white] [dim]({percentage:.1f}%)[/dim]\n"
+        f"[cyan]Total Duration:[/cyan] [white]{stats.get('total_duration_seconds', 0):.2f}s[/white]\n"
+        f"[cyan]Papers Processed:[/cyan] [white]{stats.get('papers_total', 0)}[/white]",
+        box=box.SQUARE,
+        title="[bold cyan]📈 Final Summary[/bold cyan]",
+        padding=(1, 2)
+    ))
+    console.print()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -411,5 +418,5 @@ if __name__ == "__main__":
         help="Display timing information after each step"
     )
     args = parser.parse_args()
-    
+
     main(debug=args.debug, verbose=args.verbose, timings=args.timings)

@@ -10,9 +10,13 @@ This test suite documents and validates the exception interface:
 
 import pytest
 
-from paper_scanner.core.exceptions import (CheckpointError, ConfigurationError,
-                                           PaperScannerError,
-                                           PipelineExecutionError, StepError)
+from paper_scanner.core.exceptions import (
+    CheckpointError,
+    ConfigurationError,
+    PaperScannerError,
+    PipelineExecutionError,
+    StepError,
+)
 from paper_scanner.steps.halt import HaltException
 from paper_scanner.tools.cache import CacheError
 

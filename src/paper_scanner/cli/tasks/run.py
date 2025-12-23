@@ -54,7 +54,7 @@ class StepExecutor:
                 break
 
         if not builtin_key:
-            raise ValueError(f"Step configuration missing 'builtin.<step>' key")
+            raise ValueError("Step configuration missing 'builtin.<step>' key")
 
         # Extract step name from builtin key
         step_name = builtin_key.replace("builtin.", "")
@@ -225,7 +225,7 @@ def execute_run(
     Returns:
         Execution results
     """
-        
+
     # Load and validate
     if verbose:
         console.print(f"Loading definition file: [bold cyan]{definition_file}[/bold cyan]\n")
@@ -308,7 +308,7 @@ def execute_run(
         if checkpoints_dir.exists():
             shutil.rmtree(checkpoints_dir)
             if verbose:
-                console.print(f"[yellow]Cleared checkpoints directory[/yellow]\n")
+                console.print("[yellow]Cleared checkpoints directory[/yellow]\n")
 
     if verbose:
         if use_checkpoints:
@@ -452,7 +452,7 @@ def execute_run(
     # Final summary (Ansible-style)
     if verbose:
         console.print(f"\n[bold cyan]{'=' * 70}[/bold cyan]")
-        console.print(f"[bold yellow]PLAY RECAP[/bold yellow]")
+        console.print("[bold yellow]PLAY RECAP[/bold yellow]")
         console.print(f"[bold cyan]{'=' * 70}[/bold cyan]")
 
         ok_count = len(results["steps_executed"])
@@ -471,13 +471,13 @@ def execute_run(
         console.print(f"Duplicate papers: [cyan]{results['papers_duplicates']}[/cyan]")
 
         if results["errors"]:
-            console.print(f"\n[red bold]Failed tasks:[/red bold]")
+            console.print("\n[red bold]Failed tasks:[/red bold]")
             for error in results["errors"]:
                 console.print(f"  - [red]{error}[/red]")
 
         # Show timing epilog if enabled
         if show_timings and results["step_timings"]:
-            console.print(f"\n[bold yellow]TIMINGS[/bold yellow]")
+            console.print("\n[bold yellow]TIMINGS[/bold yellow]")
             for timing in results["step_timings"]:
                 console.print(
                     f"  {timing['step']}: [cyan]{timing['duration_seconds']}s[/cyan] ({timing['duration_ms']:.0f}ms)"

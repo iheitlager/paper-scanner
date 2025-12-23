@@ -38,10 +38,10 @@ class CheckpointStep(BaseStep):
             Tuple of (is_valid, error_messages)
         """
         errors = []
-        
+
         # Checkpoint has no required configuration
         # It's a marker step that just saves state
-        
+
         return len(errors) == 0, errors
 
     def execute(
@@ -63,20 +63,20 @@ class CheckpointStep(BaseStep):
         Returns:
             Result dictionary
         """
-        
+
         # Get step index and project name from config
         step_index = config.get("step_index")
         project_name = config.get("project_name", "Unknown")
-        
+
         # Create checkpoints subdirectory
         checkpoints_dir = self.cache_dir / "checkpoints"
         if not dry_run:
             checkpoints_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Generate checkpoint filename
         checkpoint_name = _get_checkpoint_name(project_name, step_index)
         checkpoint_file = checkpoints_dir / checkpoint_name
-        
+
         # Save checkpoint
         if not dry_run:
             checkpoint_data = {
@@ -86,13 +86,13 @@ class CheckpointStep(BaseStep):
                 "papers_count": self.db.count(primary_only=False),
                 "papers": _serialize_papers(self.db.to_list(primary_only=False))
             }
-            
+
             with open(checkpoint_file, 'w', encoding='utf-8') as f:
                 json.dump(checkpoint_data, f, indent=2)
-        
+
         if verbose:
             console.print(f"[cyan]Checkpoint saved[/cyan]: {checkpoint_file.name} ({self.db.count(primary_only=False)} papers)")
-        
+
         return {
             "status": "ok",
             "checkpoint_file": str(checkpoint_file),
@@ -140,15 +140,15 @@ def load_checkpoint(checkpoint_file: Path) -> tuple[List[Paper], int]:
     """
     with open(checkpoint_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    
+
     # First pass: deserialize all papers
     papers_data = data.get("papers", [])
     papers = _deserialize_papers(papers_data)
-    
+
     # Second pass: restore duplicate_of references from raw JSON
     # Create a map of paper ID to paper object for quick lookup
     id_to_paper = {p.id: p for p in papers}
-    
+
     for raw_paper_data, paper in zip(papers_data, papers):
         # Check if the raw JSON has a duplicate_of ID
         if raw_paper_data.get("duplicate_of") and isinstance(raw_paper_data.get("duplicate_of"), str):
@@ -156,7 +156,7 @@ def load_checkpoint(checkpoint_file: Path) -> tuple[List[Paper], int]:
             if duplicate_of_id in id_to_paper:
                 # Restore the reference to the actual Paper object
                 paper.duplicate_of = id_to_paper[duplicate_of_id]
-    
+
     step_index = data.get("step_index", 0)
-    
+
     return papers, step_index

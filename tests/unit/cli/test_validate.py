@@ -10,8 +10,7 @@ import pytest
 import yaml
 
 from paper_scanner.cli.paper_processor import StepExecutor
-from paper_scanner.cli.tasks.validate import (execute_validate,
-                                              validate_definition_file)
+from paper_scanner.cli.tasks.validate import execute_validate, validate_definition_file
 
 
 class TestValidateFunctionality:

@@ -12,6 +12,7 @@ Processes PDF files:
 
 import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from rich.console import Console
@@ -19,7 +20,10 @@ from rich.console import Console
 from paper_scanner.tools.cache import PDFCache
 
 from ..core.enum import DiscoveryMethod, StepStatus
-from ..core.models import Discovery, Paper, PDFInfo, Screening
+from ..core.doi import DOI
+from ..core.exceptions import ConfigurationError, StepFatalError
+from ..core.models import Discovery, Paper, PDFInfo
+from ..core.step_result import StepResult
 from ..tools.documents import FileReader
 from .base import BaseStep
 
@@ -30,7 +34,7 @@ console = Console(file=sys.stderr)
 # Class-based step interface (new architecture)
 class LoadFilesStep(BaseStep):
     """Wrapper for load_files step (legacy function-based)."""
-    
+
     @staticmethod
     def validate(config):
         """
@@ -76,7 +80,11 @@ class LoadFilesStep(BaseStep):
             debug: Enable debug output
 
         Returns:
-            Execution result dictionary
+            StepResult with execution results
+
+        Raises:
+            ConfigurationError: Invalid file path configuration
+            StepFatalError: File system or database errors
         """
 
         file_path = Path(config.get("file_path", "")).expanduser()
@@ -85,14 +93,7 @@ class LoadFilesStep(BaseStep):
 
         # Validate paths
         if not file_path.exists() or not file_path.is_dir():
-            error_msg = f"File path does not exist or is not a directory: {file_path}"
-            console.print(f" [red]✗[/red] {error_msg}")
-            return {
-                "status": StepStatus.ERROR,
-                "error": error_msg,
-                "papers_loaded": 0,
-                "papers_failed": 0
-            }
+            raise ConfigurationError(f"File path does not exist or is not a directory: {file_path}")
 
         # Create store path
         store_path.mkdir(parents=True, exist_ok=True)
@@ -107,21 +108,27 @@ class LoadFilesStep(BaseStep):
             console.print(f" Storing files to: {store_path}")
 
         if not pdf_files:
-            return {
-                "status": StepStatus.WARNING,
-                "papers_loaded": 0,
-                "papers_failed": 0,
-                "message": f"No PDF files found in {file_path}"
-            }
+            return StepResult(
+                status=StepStatus.WARNING,
+                message=f"No PDF files found in {file_path}",
+                stats={
+                    "total_files": 0,
+                    "files_processed": 0,
+                    "papers_loaded": 0,
+                    "papers_failed": 0,
+                    "files_copied": 0,
+                }
+            )
 
         # Track results
-        results = {
+        stats = {
+            "total_files": len(pdf_files),
+            "files_processed": 0,
             "papers_loaded": 0,
             "papers_failed": 0,
             "files_copied": 0,
-            "details": [],
-            "status": StepStatus.SUCCESS
         }
+        details = []
 
         # Process each PDF
         for i, pdf_path in enumerate(pdf_files, 1):
@@ -135,14 +142,13 @@ class LoadFilesStep(BaseStep):
             }
 
             try:
-
                 # Step 1: Read file
                 file_reader = FileReader(pdf_path)
                 if not file_reader.exists():
                     file_result["error"] = "PDF file not found"
-                    results["papers_failed"] += 1
-                    console.print(f" [yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: not found")
-                    results["details"].append(file_result)
+                    stats["papers_failed"] += 1
+                    console.print(f" [yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: file not found")
+                    details.append(file_result)
                     continue
 
                 file_info = file_reader.get_file_info()
@@ -151,9 +157,9 @@ class LoadFilesStep(BaseStep):
                 doi = file_reader.extract_doi()
                 if not doi:
                     file_result["error"] = "No DOI extracted"
-                    results["papers_failed"] += 1
+                    stats["papers_failed"] += 1
                     console.print(f" [yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: no DOI")
-                    results["details"].append(file_result)
+                    details.append(file_result)
                     continue
 
                 file_result["doi"] = doi
@@ -174,87 +180,84 @@ class LoadFilesStep(BaseStep):
                     discovery=discovery,
                 )
 
- 
-
                 # Step 7: Store in database
                 if not dry_run:
-                    try:
-                        self.db.add(paper)
-                    except Exception as e:
-                        file_result["error"] = "DB storage failed"
-                        results["papers_failed"] += 1
-                        console.print(f" [red]✗[/red] {i}/{len(pdf_files)} {pdf_path.name}: DB error")
-                        results["details"].append(file_result)
-                        continue
+                    self.db.add(paper)
 
                 # Step 8: Copy file to store_path
-                reformatted_doi = _reformat_doi(doi)
+                reformatted_doi = DOI(doi).safe
                 new_filename = f"{reformatted_doi}.pdf"
                 new_filepath = store_path / new_filename
 
                 if not dry_run:
                     try:
                         shutil.copy2(pdf_path, new_filepath)
-                        results["files_copied"] += 1
+                        stats["files_copied"] += 1
                     except Exception as e:
-                        file_result["error"] = "File copy failed"
-                        results["papers_failed"] += 1
-                        console.print(f" [red]✗[/red] {i}/{len(pdf_files)} {pdf_path.name}: copy error")
-                        results["details"].append(file_result)
-                        continue
+                        raise StepFatalError(f"Failed to copy file to store path: {new_filepath}")
 
-               # Step 6: Add PDFInfo to paper
+                # Step 6: Add PDFInfo to paper
+                created_time = file_info.get("file_created_time")
+                if isinstance(created_time, str):
+                    # Try to parse if it's a string
+                    try:
+                        created_time = datetime.fromisoformat(created_time)
+                    except (ValueError, TypeError):
+                        created_time = None
+
                 paper.pdf_info = PDFInfo(
                     file_path=str(new_filepath),
                     file_name=new_filename,
                     file_hash=file_info.get("file_hash", None),
                     file_size_bytes=file_info.get("file_size_bytes"),
-
                     download_source="file_path",
-                    download_url="file://"+file_info.get("file_path"),
-                    downloaded_at=file_info.get("created_time"),
+                    download_url="file://" + str(file_info.get("file_path", "")),
+                    downloaded_at=created_time,
                 )
 
                 # Success!
                 file_result["success"] = True
-                results["papers_loaded"] += 1
+                stats["papers_loaded"] += 1
+                stats["files_processed"] += 1
 
                 if verbose:
                     console.print(f" [green]✓[/green] {i}/{len(pdf_files)} {pdf_path.name} → {new_filename}")
 
+            except StepFatalError:
+                # Re-raise fatal errors
+                raise
             except Exception as e:
                 file_result["error"] = str(e)
                 file_result["success"] = False
-                console.print(f" [red]✗[/red] {i}/{len(pdf_files)} {pdf_path.name}: {str(e)[:50]}")
-                results["papers_failed"] += 1
-                console.print(f" [red]Exception while processing {pdf_path}: {e}[/red]")
+                stats["papers_failed"] += 1
+                if verbose:
+                    console.print(f" [red]✗[/red] {i}/{len(pdf_files)} {pdf_path.name}: {str(e)[:50]}")
 
-            results["details"].append(file_result)
+            details.append(file_result)
 
         # Display summary
         if verbose:
-            loaded = results["papers_loaded"]
-            failed = results["papers_failed"]
+            loaded = stats["papers_loaded"]
+            failed = stats["papers_failed"]
             total = len(pdf_files)
             status = "[green]✓[/green]" if failed == 0 else "[yellow]⚠️ [/yellow]"
             console.print()
-            console.print(f" {status} {loaded}/{total} loaded, {failed} failed" + 
+            console.print(f" {status} {loaded}/{total} loaded, {failed} failed" +
                         (f", expected {expected_count}" if expected_count and loaded != expected_count else ""))
             console.print()
 
-        results["status"] = StepStatus.SUCCESS if results["papers_failed"] == 0 else StepStatus.WARNING
-        return results
+        # Determine final status
+        if stats["papers_failed"] == 0:
+            status = StepStatus.SUCCESS
+            message = f"Loaded {stats['papers_loaded']} papers from {stats['files_processed']}/{stats['total_files']} files"
+        else:
+            status = StepStatus.WARNING
+            message = f"Loaded {stats['papers_loaded']} papers but {stats['papers_failed']} failed"
 
+        return StepResult(
+            status=status,
+            message=message,
+            stats=stats,
+            details="\n".join([f"{d['filename']}: {d['error']}" for d in details if d.get('error')])
+        )
 
-def _reformat_doi(doi: str) -> str:
-    """
-    Reformat DOI for filename: replace /.: with _
-
-    Args:
-        doi: DOI string
-
-    Returns:
-        Reformatted DOI safe for filenames
-    """
-    import re
-    return re.sub(r'[/.:]+', '_', doi)

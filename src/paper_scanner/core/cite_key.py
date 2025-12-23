@@ -23,17 +23,17 @@ def generate_cite_key(paper: Paper) -> str:
     """
     if not paper.authors:
         raise ValueError(f"Paper {paper.id} has no authors")
-    
+
     if not paper.year:
         raise ValueError(f"Paper {paper.id} has no publication year")
-    
+
     # Get first author's last name
     first_author = paper.authors[0]
     last_name = first_author.family_name.replace(" ", "").replace("-", "")
-    
+
     if not last_name:
         raise ValueError(f"Paper {paper.id} first author has no family name")
-    
+
     # Format: LastnameYear
     base_key = f"{last_name}{paper.year}"
     return base_key
@@ -82,14 +82,14 @@ def resolve_collision(base_key: str, existing_keys: dict) -> str:
     """
     if base_key not in existing_keys:
         return base_key
-    
+
     # Try appending suffixes
     collision_index = 0
     while True:
         suffix = make_collision_suffix(collision_index)
         candidate_key = f"{base_key}{suffix}"
-        
+
         if candidate_key not in existing_keys:
             return candidate_key
-        
+
         collision_index += 1

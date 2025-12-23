@@ -394,7 +394,7 @@ class TestDownloadPDFsIntegration:
             mock_fetcher = MagicMock()
             mock_fetcher_class.return_value = mock_fetcher
             mock_fetcher.fetch_pdf.return_value = None  # No PDFs found
-            
+
             result = step.execute(config)
 
         # With no PDFs found, papers are skipped but status should still be ok

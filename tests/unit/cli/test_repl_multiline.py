@@ -114,7 +114,7 @@ class TestMultilineAccumulation:
         # but we verify _is_code_complete works correctly
         line1 = "for i in range(3):"
         assert _is_code_complete(line1) is False
-        
+
         accumulated = line1 + "\n    print(i)"
         assert _is_code_complete(accumulated) is True
 

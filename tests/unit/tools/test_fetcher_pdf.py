@@ -17,12 +17,12 @@ class TestFetcherPDFCaching:
     def test_fetch_pdf_cache_miss_then_hit(self, tmp_path):
         """Test PDF fetch returns cached PDFInfo on second call."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
-        
+
         # Create a temp PDF file
         tmp_pdf = tmp_path / "temp" / "paper.pdf"
         tmp_pdf.parent.mkdir(parents=True)
         tmp_pdf.write_bytes(b"PDF content")
-        
+
         with patch.object(
             fetcher.handlers["crossref"],
             "fetch_pdf",
@@ -38,7 +38,7 @@ class TestFetcherPDFCaching:
             assert result1 is not None
             assert Path(result1.file_path).exists()
             assert result1.file_path.endswith(".pdf")
-            
+
             # Second call: should be cache hit, no handler call
             with patch.object(
                 fetcher.handlers["crossref"],
@@ -55,11 +55,11 @@ class TestFetcherPDFCaching:
     def test_fetch_pdf_returns_pdfinfo_object(self, tmp_path):
         """Test that fetch_pdf returns a PDFInfo object."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
-        
+
         tmp_pdf = tmp_path / "temp" / "paper.pdf"
         tmp_pdf.parent.mkdir(parents=True)
         tmp_pdf.write_bytes(b"PDF")
-        
+
         with patch.object(
             fetcher.handlers["crossref"],
             "fetch_pdf",
@@ -77,7 +77,7 @@ class TestFetcherPDFCaching:
     def test_fetch_pdf_not_found_returns_none(self, tmp_path):
         """Test that fetch_pdf returns None when not found."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
-        
+
         with patch.object(
             fetcher.handlers["crossref"],
             "fetch_pdf",
@@ -90,7 +90,7 @@ class TestFetcherPDFCaching:
     def test_fetch_pdf_handler_exception_returns_none(self, tmp_path):
         """Test that fetch_pdf returns None when handler raises exception."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
-        
+
         with patch.object(
             fetcher.handlers["crossref"],
             "fetch_pdf",
@@ -103,13 +103,13 @@ class TestFetcherPDFCaching:
     def test_fetch_pdf_uses_doi_md5_for_cache_filename(self, tmp_path):
         """Test that cached PDF uses DOI MD5 hash as filename."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
-        
+
         tmp_pdf = tmp_path / "temp" / "paper.pdf"
         tmp_pdf.parent.mkdir(parents=True)
         tmp_pdf.write_bytes(b"PDF")
-        
+
         doi = "10.1234/test.doi"
-        
+
         with patch.object(
             fetcher.handlers["crossref"],
             "fetch_pdf",
@@ -121,7 +121,7 @@ class TestFetcherPDFCaching:
             create=True,
         ):
             result = fetcher.fetch_pdf(doi)
-            
+
             # Verify filename is MD5 hash based
             pdf_path = Path(result.file_path)
             assert pdf_path.name.endswith(".pdf")
@@ -133,15 +133,15 @@ class TestFetcherPDFCaching:
     def test_fetch_pdf_multiple_dois_separate_cache_entries(self, tmp_path):
         """Test that different DOIs cache separately."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
-        
+
         dois = ["10.1234/doi1", "10.1234/doi2", "10.1234/doi3"]
         pdf_infos = {}
-        
+
         for i, doi in enumerate(dois):
             tmp_pdf = tmp_path / "temp" / f"paper{i}.pdf"
             tmp_pdf.parent.mkdir(parents=True, exist_ok=True)
             tmp_pdf.write_bytes(f"PDF {i}".encode())
-            
+
             with patch.object(
                 fetcher.handlers["crossref"],
                 "fetch_pdf",
@@ -153,11 +153,11 @@ class TestFetcherPDFCaching:
                 create=True,
             ):
                 pdf_infos[doi] = fetcher.fetch_pdf(doi)
-        
+
         # All should have different paths
         pdf_paths = {doi: Path(info.file_path) for doi, info in pdf_infos.items()}
         assert len(set(str(p) for p in pdf_paths.values())) == len(dois)
-        
+
         # All should exist
         for pdf_path in pdf_paths.values():
             assert pdf_path.exists()
@@ -165,11 +165,11 @@ class TestFetcherPDFCaching:
     def test_fetch_pdf_from_cache_without_handler_call(self, tmp_path):
         """Test that cached PDF is returned without calling handler."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
-        
+
         tmp_pdf = tmp_path / "temp" / "paper.pdf"
         tmp_pdf.parent.mkdir(parents=True)
         tmp_pdf.write_bytes(b"Original PDF")
-        
+
         with patch.object(
             fetcher.handlers["crossref"],
             "fetch_pdf",
@@ -183,7 +183,7 @@ class TestFetcherPDFCaching:
             # First call
             result1 = fetcher.fetch_pdf("10.1234/test.doi")
             assert mock_fetch.call_count == 1
-            
+
             # Second call should NOT call handler (uses cache)
             result2 = fetcher.fetch_pdf("10.1234/test.doi")
             assert mock_fetch.call_count == 1  # Still 1, not 2
@@ -193,11 +193,11 @@ class TestFetcherPDFCaching:
     def test_fetch_pdf_handler_exception_tries_fallback(self, tmp_path):
         """Test that fetch_pdf tries next handler if one fails."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
-        
+
         tmp_pdf = tmp_path / "temp" / "paper.pdf"
         tmp_pdf.parent.mkdir(parents=True)
         tmp_pdf.write_bytes(b"PDF from handler")
-        
+
         with patch.object(
             fetcher.handlers["crossref"],
             "fetch_pdf",
@@ -211,13 +211,13 @@ class TestFetcherPDFCaching:
     def test_fetch_pdf_validates_cached_file_readable(self, tmp_path):
         """Test that cached PDF is validated to be readable."""
         fetcher = Fetcher(cache_dir=tmp_path, methods=["crossref"])
-        
+
         tmp_pdf = tmp_path / "temp" / "paper.pdf"
         tmp_pdf.parent.mkdir(parents=True)
         tmp_pdf.write_bytes(b"PDF content")
-        
+
         doi = "10.1234/test.doi"
-        
+
         with patch.object(
             fetcher.handlers["crossref"],
             "fetch_pdf",
@@ -231,7 +231,7 @@ class TestFetcherPDFCaching:
             # Cache the PDF
             result = fetcher.fetch_pdf(doi)
             assert Path(result.file_path).exists()
-            
+
             # Verify it's readable by fetching from cache
             cached = fetcher.fetch_pdf(doi)
             assert cached.file_path == result.file_path

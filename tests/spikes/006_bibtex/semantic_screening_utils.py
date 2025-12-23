@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class EmbeddingManager:
     """Manager for generating and comparing embeddings."""
-    
+
     def __init__(self, model_name: str = "all-mpnet-base-v2"):
         """Initialize embedding manager.
         
@@ -30,7 +30,7 @@ class EmbeddingManager:
         self.model_name = model_name
         self.model: Optional[SentenceTransformer] = None
         self.dimension: Optional[int] = None
-    
+
     def load_model(self) -> SentenceTransformer:
         """Load embedding model (lazy loading)."""
         if self.model is None:
@@ -39,7 +39,7 @@ class EmbeddingManager:
             self.dimension = self.model.get_sentence_embedding_dimension()
             logger.info(f"Model loaded. Dimension: {self.dimension}")
         return self.model
-    
+
     def embed_text(self, text: str) -> np.ndarray:
         """Embed single text.
         
@@ -51,7 +51,7 @@ class EmbeddingManager:
         """
         model = self.load_model()
         return model.encode(text, convert_to_numpy=True)
-    
+
     def embed_batch(self, texts: List[str], batch_size: int = 32) -> np.ndarray:
         """Embed multiple texts efficiently.
         
@@ -63,9 +63,9 @@ class EmbeddingManager:
             Array of embeddings (n_texts, dimension)
         """
         model = self.load_model()
-        return model.encode(texts, batch_size=batch_size, 
+        return model.encode(texts, batch_size=batch_size,
                           show_progress_bar=False, convert_to_numpy=True)
-    
+
     def compute_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
         """Compute cosine similarity between embeddings.
         
@@ -79,15 +79,15 @@ class EmbeddingManager:
         # Flatten if needed
         emb1 = embedding1.flatten() if embedding1.ndim > 1 else embedding1
         emb2 = embedding2.flatten() if embedding2.ndim > 1 else embedding2
-        
+
         # Cosine similarity = 1 - cosine_distance
         distance = cosine(emb1, emb2)
         similarity = 1 - distance
-        
+
         # Clamp to [0, 1]
         return float(max(0, min(1, similarity)))
-    
-    def compute_similarities_batch(self, query_embedding: np.ndarray, 
+
+    def compute_similarities_batch(self, query_embedding: np.ndarray,
                                   candidate_embeddings: np.ndarray) -> np.ndarray:
         """Compute similarities between query and multiple candidates.
         
@@ -99,19 +99,19 @@ class EmbeddingManager:
             Array of similarity scores (n_candidates,)
         """
         query = query_embedding.flatten() if query_embedding.ndim > 1 else query_embedding
-        
+
         similarities = []
         for candidate in candidate_embeddings:
             cand = candidate.flatten() if candidate.ndim > 1 else candidate
             sim = self.compute_similarity(query, cand)
             similarities.append(sim)
-        
+
         return np.array(similarities)
 
 
 class PaperEmbedder:
     """Utilities for embedding papers."""
-    
+
     def __init__(self, embedding_manager: EmbeddingManager):
         """Initialize paper embedder.
         
@@ -119,7 +119,7 @@ class PaperEmbedder:
             embedding_manager: EmbeddingManager instance
         """
         self.embedding_manager = embedding_manager
-    
+
     @staticmethod
     def normalize_text(text: Optional[str]) -> str:
         """Normalize text for embedding.
@@ -135,8 +135,8 @@ class PaperEmbedder:
         # Remove excessive whitespace
         text = ' '.join(text.split())
         return text.strip()
-    
-    def combine_paper_text(self, title: Optional[str] = None, 
+
+    def combine_paper_text(self, title: Optional[str] = None,
                           abstract: Optional[str] = None,
                           keywords: Optional[List[str]] = None,
                           full_text: Optional[str] = None) -> str:
@@ -152,27 +152,27 @@ class PaperEmbedder:
             Combined text for embedding
         """
         parts = []
-        
+
         if title:
             parts.append(self.normalize_text(title))
-        
+
         if abstract:
             parts.append(self.normalize_text(abstract))
-        
+
         if keywords:
             keywords_str = ' '.join([self.normalize_text(kw) for kw in keywords if kw])
             if keywords_str:
                 parts.append(keywords_str)
-        
+
         # Full text is usually too long, use only if specified and others missing
         if full_text and not abstract:
             # Truncate to first 512 words
             words = full_text.split()[:512]
             parts.append(' '.join(words))
-        
+
         combined = ' '.join(parts)
         return combined.strip() if combined else "No text available"
-    
+
     def embed_paper(self, title: Optional[str] = None,
                    abstract: Optional[str] = None,
                    keywords: Optional[List[str]] = None) -> np.ndarray:
@@ -188,7 +188,7 @@ class PaperEmbedder:
         """
         combined_text = self.combine_paper_text(title, abstract, keywords)
         return self.embedding_manager.embed_text(combined_text)
-    
+
     def embed_papers_batch(self, papers: List[Dict]) -> List[np.ndarray]:
         """Embed multiple papers efficiently.
         
@@ -206,13 +206,13 @@ class PaperEmbedder:
                 paper.get('keywords')
             )
             texts.append(text)
-        
+
         return [emb for emb in self.embedding_manager.embed_batch(texts)]
 
 
 class SimilarityClassifier:
     """Classify papers based on similarity thresholds."""
-    
+
     def __init__(self, threshold_include: float = 0.65,
                  threshold_manual_review: float = 0.55):
         """Initialize classifier.
@@ -223,7 +223,7 @@ class SimilarityClassifier:
         """
         self.threshold_include = threshold_include
         self.threshold_manual_review = threshold_manual_review
-    
+
     def classify(self, similarity: float) -> Tuple[str, str, Optional[str]]:
         """Classify paper based on similarity.
         
@@ -244,7 +244,7 @@ class SimilarityClassifier:
         else:
             return 'fail', 'exclude', \
                    f'Low semantic similarity ({similarity:.4f})'
-    
+
     def batch_classify(self, similarities: np.ndarray) -> List[Tuple[str, str, Optional[str]]]:
         """Classify multiple papers at once.
         
@@ -285,16 +285,16 @@ def compare_paper_to_question(paper: Dict, research_question: str,
         Similarity score
     """
     manager = EmbeddingManager(model_name)
-    
+
     # Embed question and paper
     question_emb = manager.embed_text(research_question)
-    
+
     paper_embedder = PaperEmbedder(manager)
     paper_emb = paper_embedder.embed_paper(
         paper.get('title'),
         paper.get('abstract'),
         paper.get('keywords')
     )
-    
+
     # Compute similarity
     return manager.compute_similarity(question_emb, paper_emb)

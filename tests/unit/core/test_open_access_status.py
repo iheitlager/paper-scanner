@@ -91,7 +91,7 @@ class TestOpenAccessStatus:
         """Verify is_oa field is required"""
         with pytest.raises(ValidationError) as exc_info:
             OpenAccessStatus()
-        
+
         assert "is_oa" in str(exc_info.value)
 
     def test_oa_status_various_licenses(self):
@@ -103,7 +103,7 @@ class TestOpenAccessStatus:
             "CC-0",
             "ODbL"
         ]
-        
+
         for license_type in licenses:
             oa = OpenAccessStatus(
                 is_oa=True,
@@ -121,7 +121,7 @@ class TestOpenAccessStatus:
             "crossref",
             "scienceopen"
         ]
-        
+
         for source in sources:
             oa = OpenAccessStatus(
                 is_oa=True,
@@ -137,7 +137,7 @@ class TestOpenAccessStatus:
             oa_url="https://example.com/paper.pdf",
             license="CC-BY"
         )
-        
+
         data = oa.model_dump()
         assert data["is_oa"] is True
         assert data["oa_status"] == "gold"
@@ -152,7 +152,7 @@ class TestOpenAccessStatus:
             "oa_url": "https://example.com/paper.pdf",
             "version": "publishedVersion"
         }
-        
+
         oa = OpenAccessStatus(**data)
         assert oa.is_oa is True
         assert oa.oa_status == "gold"

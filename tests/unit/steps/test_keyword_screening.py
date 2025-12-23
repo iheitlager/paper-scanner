@@ -15,12 +15,14 @@ import pytest
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import PaperType
 from paper_scanner.core.models import Author, KeywordScreening, Paper
-from paper_scanner.steps.keyword_screening import (KeywordScreeningStep,
-                                                   _check_keyword_match,
-                                                   _get_field_matches,
-                                                   _normalize_text,
-                                                   _parse_keyword_config,
-                                                   _screen_paper)
+from paper_scanner.steps.keyword_screening import (
+    KeywordScreeningStep,
+    _check_keyword_match,
+    _get_field_matches,
+    _normalize_text,
+    _parse_keyword_config,
+    _screen_paper,
+)
 
 # ============================================================================
 # FIXTURES
@@ -340,11 +342,11 @@ class TestScreeningLogic:
         """Test that hard exclusions are detected."""
         hard_exc = ["medical", "patient"]
         incl_kw = ["innovation", "firm"]
-        
+
         screening, passed, reason = _screen_paper(
             sample_paper_excluded, hard_exc, incl_kw, inclusion_threshold=1
         )
-        
+
         assert not passed
         assert screening.passed is False
         assert len(screening.exclusion_keywords) > 0
@@ -354,11 +356,11 @@ class TestScreeningLogic:
         """Test paper passes when threshold is met."""
         hard_exc = ["medical"]
         incl_kw = ["digital innovation", "firm", "supplier"]
-        
+
         screening, passed, reason = _screen_paper(
             sample_paper, hard_exc, incl_kw, inclusion_threshold=2
         )
-        
+
         assert passed
         assert screening.passed is True
         assert screening.score >= 2
@@ -367,11 +369,11 @@ class TestScreeningLogic:
         """Test paper fails when threshold is not met."""
         hard_exc = []
         incl_kw = ["digital", "innovation", "firm"]
-        
+
         screening, passed, reason = _screen_paper(
             sample_paper_no_keywords, hard_exc, incl_kw, inclusion_threshold=2
         )
-        
+
         assert not passed
         assert screening.score < 2
 
@@ -379,11 +381,11 @@ class TestScreeningLogic:
         """Test paper passes when threshold is exactly met."""
         hard_exc = []
         incl_kw = ["digital innovation", "firms"]
-        
+
         screening, passed, reason = _screen_paper(
             sample_paper, hard_exc, incl_kw, inclusion_threshold=2
         )
-        
+
         assert passed
         assert screening.score >= 2
 
@@ -391,11 +393,11 @@ class TestScreeningLogic:
         """Test that screening metadata is properly captured."""
         hard_exc = []
         incl_kw = ["digital innovation"]
-        
+
         screening, passed, reason = _screen_paper(
             sample_paper, hard_exc, incl_kw, inclusion_threshold=1
         )
-        
+
         assert screening.metadata is not None
         assert screening.metadata.processed_at is not None
         assert screening.metadata.duration_seconds >= 0

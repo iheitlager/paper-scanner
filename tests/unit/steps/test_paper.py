@@ -117,7 +117,7 @@ class TestPaperStepExecution:
         self.mock_db = Mock()
         self.mock_db.add = Mock()
         self.mock_db.count = Mock(return_value=0)
-        
+
         self.step = PaperStep(
             general_config={},
             db=self.mock_db,
@@ -128,7 +128,7 @@ class TestPaperStepExecution:
         """Should create paper with DOI from config"""
         config = {"papers": [{"doi": "10.1000/182"}]}
         result = self.step.execute(config, dry_run=True)
-        
+
         assert result["status"] == "ok"
         assert result["count"] == 1
 
@@ -136,7 +136,7 @@ class TestPaperStepExecution:
         """Should use provided cite_key instead of generating one"""
         config = {"papers": [{"doi": "10.1000/182", "cite_key": "custom_key"}]}
         result = self.step.execute(config, dry_run=True)
-        
+
         assert result["status"] == "ok"
         assert result["count"] == 1
 
@@ -147,7 +147,7 @@ class TestPaperStepExecution:
             "paper-type": "journal_article"
         }]}
         result = self.step.execute(config, dry_run=True)
-        
+
         assert result["status"] == "ok"
         assert result["count"] == 1
 
@@ -155,7 +155,7 @@ class TestPaperStepExecution:
         """Should add papers to database when not dry_run"""
         config = {"papers": [{"doi": "10.1000/182"}]}
         result = self.step.execute(config, dry_run=False)
-        
+
         assert result["status"] == "ok"
         assert self.mock_db.add.call_count == 1
 
@@ -163,7 +163,7 @@ class TestPaperStepExecution:
         """Should not add papers when dry_run=True"""
         config = {"papers": [{"doi": "10.1000/182"}]}
         result = self.step.execute(config, dry_run=True)
-        
+
         assert result["status"] == "ok"
         assert self.mock_db.add.call_count == 0
 
@@ -175,7 +175,7 @@ class TestPaperStepExecution:
             {"doi": "10.1000/184"}
         ]}
         result = self.step.execute(config, dry_run=True)
-        
+
         assert result["status"] == "ok"
         assert result["count"] == 3
 
@@ -187,7 +187,7 @@ class TestPaperStepExecution:
             {"doi": "10.1000/183"}   # valid
         ]}
         result = self.step.execute(config, dry_run=True)
-        
+
         assert result["status"] == StepStatus.ERROR
         assert result["count"] == 2  # Only valid papers created
         assert "errors" in result
@@ -200,7 +200,7 @@ class TestPaperStepExecution:
             "study_type": "empirical_quantitative"
         }]}
         result = self.step.execute(config, dry_run=True)
-        
+
         assert result["status"] == "ok"
         assert result["count"] == 1
 
@@ -208,7 +208,7 @@ class TestPaperStepExecution:
         """Should set discovery method to MANUAL"""
         config = {"papers": [{"doi": "10.1000/182"}]}
         result = self.step.execute(config, dry_run=False)
-        
+
         assert result["status"] == "ok"
         # Verify add was called with a Paper object
         call_args = self.mock_db.add.call_args[0][0]
@@ -219,7 +219,7 @@ class TestPaperStepExecution:
         """Should normalize DOI to stem format"""
         config = {"papers": [{"doi": "https://doi.org/10.1000/182"}]}
         result = self.step.execute(config, dry_run=False)
-        
+
         assert result["status"] == "ok"
         call_args = self.mock_db.add.call_args[0][0]
         assert call_args.doi == "10.1000/182"
@@ -228,7 +228,7 @@ class TestPaperStepExecution:
         """Should print verbose output when verbose=True"""
         config = {"papers": [{"doi": "10.1000/182"}]}
         result = self.step.execute(config, verbose=True, dry_run=True)
-        
+
         assert result["status"] == "ok"
         # Verbose output goes to stderr through console
 
@@ -237,12 +237,12 @@ class TestPaperStepExecution:
         # Create invalid config that will fail during iteration
         # The config itself has valid structure, but iteration will fail
         config = {"papers": [{"doi": "10.1000/182"}]}
-        
+
         # Mock add to raise an exception
         self.mock_db.add.side_effect = RuntimeError("Database error")
-        
+
         result = self.step.execute(config, dry_run=False, debug=False)
-        
+
         assert result["status"] == "error"
         assert result["count"] == 0
         assert "error" in result
@@ -250,7 +250,7 @@ class TestPaperStepExecution:
     def test_execute_raises_on_debug(self):
         """Should re-raise exception when debug=True"""
         config = {"papers": [{"doi": "invalid"}]}
-        
+
         with pytest.raises(ValueError):
             self.step.execute(config, debug=True)
 
@@ -262,30 +262,30 @@ class TestPaperStepIntegration:
         """Integration: Create valid papers and check properties"""
         mock_db = Mock()
         mock_db.add = Mock()
-        
+
         step = PaperStep(
             general_config={},
             db=mock_db,
             cache_dir=Path("/tmp/cache")
         )
-        
+
         config = {"papers": [
             {"doi": "10.1000/182", "paper_type": "journal_article"},
             {"doi": "10.1000/183", "cite_key": "custom"}
         ]}
-        
+
         result = step.execute(config, dry_run=False)
-        
+
         assert result["status"] == "ok"
         assert result["count"] == 2
         assert mock_db.add.call_count == 2
-        
+
         # Check first paper
         first_paper = mock_db.add.call_args_list[0][0][0]
         assert first_paper.doi == "10.1000/182"
         assert first_paper.paper_type == PaperType.JOURNAL_ARTICLE
         assert first_paper.cite_key.startswith("doi_")
-        
+
         # Check second paper
         second_paper = mock_db.add.call_args_list[1][0][0]
         assert second_paper.doi == "10.1000/183"
@@ -295,24 +295,24 @@ class TestPaperStepIntegration:
         """Integration: Test various DOI formats are normalized"""
         mock_db = Mock()
         mock_db.add = Mock()
-        
+
         step = PaperStep(
             general_config={},
             db=mock_db,
             cache_dir=Path("/tmp/cache")
         )
-        
+
         config = {"papers": [
             {"doi": "10.1000/182"},
             {"doi": "https://doi.org/10.1000/183"},
             {"doi": "doi:10.1000/184"}
         ]}
-        
+
         result = step.execute(config, dry_run=False)
-        
+
         assert result["status"] == "ok"
         assert result["count"] == 3
-        
+
         # All should be normalized to stem format
         for call in mock_db.add.call_args_list:
             paper = call[0][0]

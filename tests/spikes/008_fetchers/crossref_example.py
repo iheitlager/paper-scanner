@@ -21,19 +21,19 @@ EMAIL = "i.heitlager@tue.nl"
 def fetch_paper_details():
     """Fetch paper details from Crossref API."""
     url = f"{CROSSREF_API_URL}/{DOI}"
-    
+
     headers = {
         "User-Agent": f"paper-scanner (https://github.com/iheitlager/paper-scanner; mailto:{EMAIL})"
     }
-    
+
     # Add mailto parameter for polite pool access with better performance
     params = {"mailto": EMAIL}
-    
+
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
-    
+
     data = response.json()
-    
+
     if data.get("status") == "ok":
         paper = data.get("message", {})
         print(json.dumps(paper, indent=2))

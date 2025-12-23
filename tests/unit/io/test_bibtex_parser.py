@@ -10,10 +10,14 @@ import pytest
 
 from paper_scanner.core.enum import DiscoveryMethod, PaperType
 from paper_scanner.core.models import Author, Discovery, Paper
-from paper_scanner.io.bibtex import (bibtex_entry_to_paper,
-                                     bibtex_file_to_papers, bibtex_to_papers,
-                                     infer_paper_type, parse_authors,
-                                     parse_keywords)
+from paper_scanner.io.bibtex import (
+    bibtex_entry_to_paper,
+    bibtex_file_to_papers,
+    bibtex_to_papers,
+    infer_paper_type,
+    parse_authors,
+    parse_keywords,
+)
 
 # Test data directory
 TEST_DATA_DIR = Path(__file__).parent.parent.parent / "data"
@@ -531,7 +535,7 @@ class TestBibtexParsingIntegration:
             method=DiscoveryMethod.KEYWORD_SEARCH,
             source_database="ieee"
         )
-        
+
         if not filepath.exists():
             pytest.skip(f"Test data file not found: {filepath}")
 

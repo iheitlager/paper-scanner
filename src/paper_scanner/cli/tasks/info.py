@@ -32,35 +32,35 @@ def _get_step_description(step_class: Type[BaseStep], step_name: str) -> str:
     """
     # Get class docstring
     class_doc = step_class.__doc__
-    
+
     # Check if it's a generic wrapper description
     is_generic_wrapper = (
         class_doc and
         ("Wrapper for" in class_doc or "wrapper for" in class_doc)
     )
-    
+
     if class_doc and not is_generic_wrapper:
         # Use class docstring if it's not generic
         first_line = class_doc.strip().split('\n')[0].strip()
         return first_line
-    
+
     # Try to get module docstring
     try:
         module = importlib.import_module(step_class.__module__)
         module_doc = module.__doc__
-        
+
         if module_doc:
             # Get first meaningful line from module docstring
             first_line = module_doc.strip().split('\n')[0].strip()
             return first_line
     except (ImportError, AttributeError):
         pass
-    
+
     # Fallback
     if class_doc:
         first_line = class_doc.strip().split('\n')[0].strip()
         return first_line
-    
+
     return "(no description available)"
 
 
@@ -80,30 +80,30 @@ def execute_info_steps(builtin_steps: Dict[str, Type[BaseStep]], console: Option
     """
     if console is None:
         console = Console(file=sys.stderr)
-    
+
     try:
         if not builtin_steps:
             console.print("[red]No steps available[/red]")
             return 1
-        
+
         # Create a table for the steps summary
         table = Table(title="Available Steps", show_header=True, header_style="bold cyan")
         table.add_column("Step Name", style="green")
         table.add_column("Description", style="white")
-        
+
         # Sort steps alphabetically
         sorted_steps = sorted(builtin_steps.items())
-        
+
         for step_name, step_class in sorted_steps:
             # Get the best available description for the step
             description = _get_step_description(step_class, step_name)
             table.add_row(step_name, description)
-        
+
         console.print(table)
         console.print()
-       
+
         return 0
-    
+
     except Exception as e:
         console.print(f"[red]Error displaying step information: {e}[/red]")
         return 1

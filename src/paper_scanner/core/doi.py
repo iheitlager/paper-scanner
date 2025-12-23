@@ -12,7 +12,7 @@ class DOI:
     More information here: https://en.wikipedia.org/wiki/Digital_object_identifier
     Or see the DOI Handbook: https://doi.org/10.1000/182
     """
-    
+
     def __init__(self, doi: str):
         """
         Initialize DOI with any format and normalize to stem.
@@ -23,8 +23,8 @@ class DOI:
         if doi is None or not doi.strip():
             raise ValueError("DOI cannot be empty or None")
         self.stem = self._normalize_to_stem(doi)
-        
-    
+
+
     def _normalize_to_stem(self, doi: str) -> str:
         """
         Normalize any DOI format to stem (core DOI without prefix/URL).
@@ -44,7 +44,7 @@ class DOI:
             ValueError: If DOI format is invalid
         """
         normalized = doi.strip().lower()
-        
+
         # Remove URL prefixes
         if normalized.startswith("https://doi.org/"):
             normalized = normalized[len("https://doi.org/"):]

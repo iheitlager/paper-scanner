@@ -18,20 +18,20 @@ def test_wos_loader():
     print("\n" + "="*80)
     print("Testing WOS BibTeX Loader")
     print("="*80)
-    
+
         # Use test data file from tests/data directory
     bib_file = Path(__file__).parent.parent.parent / 'data' / 'wos_sample_20.bib'
-    
+
     assert Path(bib_file).exists(), f"WOS BibTeX file not found: {bib_file}"
-    
+
     reader = BibtexReader(bib_file)
     papers = reader.parse()
     print(f"✓ Successfully parsed {len(papers)} papers from WOS BibTeX file")
-    
+
     # Show sample paper
     if papers:
         p = papers[0]
-        print(f"\nSample WOS paper:")
+        print("\nSample WOS paper:")
         print(f"  Citekey: {p.citekey}")
         print(f"  Title: {p.title[:80] if p.title else 'N/A'}")
         print(f"  Authors: {len(p.authors) if p.authors else 0} authors")
@@ -45,20 +45,20 @@ def test_scopus_loader():
     print("\n" + "="*80)
     print("Testing Scopus BibTeX Loader")
     print("="*80)
-    
+
     # Use test data file from tests/data directory
     bib_file = Path(__file__).parent.parent.parent / 'data' / 'scopus_sample_20.bib'
-    
+
     assert bib_file.exists(), f"Scopus BibTeX file not found: {bib_file}"
-    
+
     reader = BibtexReader(str(bib_file))
     papers = reader.parse()
     print(f"✓ Successfully parsed {len(papers)} papers from Scopus BibTeX file")
-    
+
     # Show sample paper
     if papers:
         p = papers[0]
-        print(f"\nSample Scopus paper:")
+        print("\nSample Scopus paper:")
         print(f"  Citekey: {p.citekey}")
         print(f"  Title: {p.title[:80] if p.title else 'N/A'}")
         print(f"  Authors: {len(p.authors) if p.authors else 0} authors")
@@ -72,11 +72,11 @@ def test_source_detection():
     print("\n" + "="*80)
     print("Testing Source Detection")
     print("="*80)
-    
+
     # Use test data file from tests/data directory
     bib_file = Path(__file__).parent.parent.parent / 'data' / 'scopus_sample_20.bib'
     reader = BibtexReader(str(bib_file))
-    
+
     # Test WOS detection
     wos_fields = {
         'title': 'Test',
@@ -85,7 +85,7 @@ def test_source_detection():
     }
     wos_source = reader._detect_source(wos_fields, 'WOS:000123456789')
     print(f"WOS detection (from fields): {wos_source} {'✓' if wos_source == 'wos' else '✗'}")
-    
+
     # Test Scopus detection
     scopus_fields = {
         'title': 'Test',
@@ -94,7 +94,7 @@ def test_source_detection():
     }
     scopus_source = reader._detect_source(scopus_fields, 'Liu2026')
     print(f"Scopus detection (from fields): {scopus_source} {'✓' if scopus_source == 'scopus' else '✗'}")
-    
+
     # Test citekey-based WOS detection
     wos_citekey_source = reader._detect_source({}, 'WOS:000123456789')
     print(f"WOS detection (from citekey): {wos_citekey_source} {'✓' if wos_citekey_source == 'wos' else '✗'}")
@@ -105,7 +105,7 @@ def test_json_serialization():
     print("\n" + "="*80)
     print("Testing JSON Serialization")
     print("="*80)
-    
+
     from psycopg2.extras import Json
 
     # Create sample author data
@@ -113,7 +113,7 @@ def test_json_serialization():
         {'first_name': 'John', 'last_name': 'Doe', 'initials': 'J'},
         {'first_name': 'Jane', 'last_name': 'Smith', 'initials': 'J'},
     ]
-    
+
     # This is what happens in the _insert_paper method
     json_data = Json(authors)
     print(f"✓ Successfully serialized authors to JSON: {type(json_data)}")
@@ -123,13 +123,13 @@ if __name__ == '__main__':
     print("\n" + "="*100)
     print("DUAL-SOURCE BibTeX LOADER TEST SUITE")
     print("="*100)
-    
+
     # Run tests
     test_wos_loader()
     test_scopus_loader()
     test_source_detection()
     test_json_serialization()
-    
+
     print("\n" + "="*80)
     print("TEST SUITE COMPLETE")
     print("="*80)

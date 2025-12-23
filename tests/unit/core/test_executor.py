@@ -17,10 +17,10 @@ from unittest.mock import Mock, patch
 import pytest
 import yaml
 
-from paper_scanner.core.executor import StepExecutor
 from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.exceptions import PipelineExecutionError, StepError
+from paper_scanner.core.executor import StepExecutor
 from paper_scanner.core.models import Paper
-from paper_scanner.core.exceptions import StepError, PipelineExecutionError
 from paper_scanner.steps.halt import HaltException
 
 # ============================================================================

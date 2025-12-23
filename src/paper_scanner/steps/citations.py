@@ -181,9 +181,9 @@ class CitationsStep(BaseStep):
             raise ValueError("CitationsStep requires 'backward' or 'forward' configuration.")
 
         if self.verbose:
-            console.print(f"[green]Citation graph linking completed.[/green]")
+            console.print("[green]Citation graph linking completed.[/green]")
 
-            table = Table(title=f"Citation Statistics")
+            table = Table(title="Citation Statistics")
             table.add_column("Fact", style="cyan")
             table.add_column("Value", justify="right", style="green")
 
@@ -208,7 +208,7 @@ class CitationsStep(BaseStep):
                     console.print(f"  [red]- {error}[/red]")
 
         results['message'] = f"Citations fetched: {results['citations_fetched']}"
-        results["status"] = StepStatus.SUCCESS if len(results['errors']) == 0 else StepStatus.ERROR 
+        results["status"] = StepStatus.SUCCESS if len(results['errors']) == 0 else StepStatus.ERROR
         return results
 
     def backward_execute(self, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -237,7 +237,7 @@ class CitationsStep(BaseStep):
             Path(self.output_errors).write_text("", encoding="utf-8")
 
         if self.verbose:
-            console.print(f"[blue]Citations backward processing[/blue]")
+            console.print("[blue]Citations backward processing[/blue]")
             console.print(f"[blue]Paper types to process:[/blue] {paper_types}")
             console.print(f"[blue]Citation sources:[/blue] {citations}")
             console.print(f"[blue]Details sources:[/blue] {details}")
@@ -338,7 +338,7 @@ class CitationsStep(BaseStep):
             Path(self.output_errors).write_text("", encoding="utf-8")
 
         if self.verbose:
-            console.print(f"[blue]Citations forward processing[/blue]")
+            console.print("[blue]Citations forward processing[/blue]")
             console.print(f"[blue]Paper types to process:[/blue] {paper_types}")
             console.print(f"[blue]Citation sources:[/blue] {citations}")
             console.print(f"[blue]Details sources:[/blue] {details}")
@@ -603,7 +603,7 @@ class CitationsStep(BaseStep):
                 for paper_id, citation in missed_citations.items():
                     f.write(json.dumps({"paper_id": paper_id, "citation": citation}) + "\n")
             if self.debug:
-                console.print(f"[yellow]Wrote {len(missed_citations)} unresolved citations to {self.output_errors}[/yellow]")   
+                console.print(f"[yellow]Wrote {len(missed_citations)} unresolved citations to {self.output_errors}[/yellow]")
 
 
     def _resolve_cited_by_and_fetch_papers(
@@ -674,7 +674,7 @@ class CitationsStep(BaseStep):
                 for paper_id, citation in missed_citations.items():
                     f.write(json.dumps({"paper_id": paper_id, "citation": citation}) + "\n")
             if self.debug:
-                console.print(f"[yellow]Wrote {len(missed_citations)} unresolved citations to {self.output_errors}[/yellow]")   
+                console.print(f"[yellow]Wrote {len(missed_citations)} unresolved citations to {self.output_errors}[/yellow]")
 
 
     def _resolve_citation(

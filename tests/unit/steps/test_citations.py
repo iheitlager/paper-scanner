@@ -56,9 +56,9 @@ class TestValidation:
                 "citations": ["crossref"]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("not a valid PaperType" in err for err in errors)
 
@@ -70,9 +70,9 @@ class TestValidation:
                 "sources": "crossref"
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("'paper-types' must be a list" in err for err in errors)
 
@@ -84,9 +84,9 @@ class TestValidation:
                 "citations": ["crossref"]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("'continue_on_not_found' must be a boolean" in err for err in errors)
 
@@ -98,9 +98,9 @@ class TestValidation:
                 "citations": ["crossref"]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is False
         assert any("'limit' must be a positive integer" in err for err in errors)
 
@@ -117,9 +117,9 @@ class TestValidation:
                 "citations": ["crossref"]
             }
         }
-        
+
         is_valid, errors = CitationsStep.validate(config)
-        
+
         assert is_valid is True
         assert len(errors) == 0
 

@@ -46,7 +46,7 @@ def test_doi_to_slug_conversion():
     print("\n" + "=" * 60)
     print("02_doi_fallback.py - DOI as Fallback Keys")
     print("=" * 60)
-    
+
     # Test 1: Standard DOI slug
     print("\n[TEST 1] Standard DOI to slug")
     doi_str = "10.1287/isre.2017.0732"
@@ -55,7 +55,7 @@ def test_doi_to_slug_conversion():
     print(f"  Slug: {slug}")
     assert slug == "10-1287-isre", f"Expected '10-1287-isre', got '{slug}'"
     print("  ✓ PASS")
-    
+
     # Test 2: Different publisher
     print("\n[TEST 2] Different publisher DOI")
     doi_str = "10.1038/nature12373"
@@ -64,7 +64,7 @@ def test_doi_to_slug_conversion():
     print(f"  Slug: {slug}")
     assert slug == "10-1038-nature", f"Expected '10-1038-nature', got '{slug}'"
     print("  ✓ PASS")
-    
+
     # Test 3: arXiv-style DOI
     print("\n[TEST 3] arXiv DOI")
     doi_str = "10.48550/arxiv.2301.13688"
@@ -73,7 +73,7 @@ def test_doi_to_slug_conversion():
     print(f"  Slug: {slug}")
     assert slug == "10-48550-arxiv", f"Expected '10-48550-arxiv', got '{slug}'"
     print("  ✓ PASS")
-    
+
     # Test 4: DOI with URL prefix
     print("\n[TEST 4] DOI with URL prefix")
     doi_str = "https://doi.org/10.1145/3062341.3062383"
@@ -82,7 +82,7 @@ def test_doi_to_slug_conversion():
     print(f"  Slug: {slug}")
     assert slug == "10-1145-3062341", f"Expected '10-1145-3062341', got '{slug}'"
     print("  ✓ PASS")
-    
+
     # Test 5: Invalid DOI
     print("\n[TEST 5] Invalid DOI returns None")
     doi_str = "not-a-valid-doi"
@@ -91,7 +91,7 @@ def test_doi_to_slug_conversion():
     print(f"  Slug: {slug}")
     assert slug is None, f"Expected None for invalid DOI, got '{slug}'"
     print("  ✓ PASS")
-    
+
     # Test 6: DOI object validation
     print("\n[TEST 6] DOI object validation")
     valid_dois = [
@@ -100,7 +100,7 @@ def test_doi_to_slug_conversion():
         "doi:10.1038/nature12373",
         "doi.10.48550/arxiv.2301.13688",
     ]
-    
+
     for doi_str in valid_dois:
         try:
             doi = DOI(doi_str)
@@ -109,7 +109,7 @@ def test_doi_to_slug_conversion():
             print(f"  ✗ Failed to parse: {doi_str}")
             assert False, f"Should parse {doi_str}"
     print("  ✓ PASS")
-    
+
     # Test 7: DOI normalization
     print("\n[TEST 7] DOI normalization to stem")
     test_cases = [
@@ -118,7 +118,7 @@ def test_doi_to_slug_conversion():
         ("doi:10.1038/nature12373", "10.1038/nature12373"),  # case-insensitive
         ("doi:10.48550/arxiv.2301.13688", "10.48550/arxiv.2301.13688"),
     ]
-    
+
     for input_doi, expected_stem in test_cases:
         try:
             doi = DOI(input_doi)
@@ -130,7 +130,7 @@ def test_doi_to_slug_conversion():
             print(f"  ✗ {e}")
             raise
     print("  ✓ PASS")
-    
+
     print("\n" + "=" * 60)
     print("✓ All DOI fallback tests passed!")
     print("=" * 60)

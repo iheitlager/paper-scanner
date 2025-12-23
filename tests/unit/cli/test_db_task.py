@@ -10,7 +10,7 @@ import psycopg2
 import pytest
 from rich.console import Console
 
-from paper_scanner.cli.tasks.db import execute_db_stats, execute_db_clear, _get_database_url, _resolve_env_var
+from paper_scanner.cli.tasks.db import _get_database_url, _resolve_env_var, execute_db_clear, execute_db_stats
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ class TestDatabaseStats:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Mock query results
         mock_cursor.fetchone.side_effect = [
             (42,),          # papers count
@@ -45,14 +45,14 @@ class TestDatabaseStats:
             (5, 2020, 2025, 35),  # stats tuple
             (38,),          # screened count
         ]
-        
+
         # Execute
         result = execute_db_stats(
             database_url="postgresql://user:pass@localhost/testdb",
             cache_dir=None,
             console=mock_console
         )
-        
+
         # Verify
         assert result == 0
         assert mock_psycopg2_connect.called
@@ -68,7 +68,7 @@ class TestDatabaseStats:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Mock query results
         mock_cursor.fetchone.side_effect = [
             (10,),          # papers count
@@ -76,7 +76,7 @@ class TestDatabaseStats:
             (3, 2021, 2024, 8),   # stats tuple
             (9,),           # screened count
         ]
-        
+
         # Execute with custom URL
         custom_url = "postgresql://user:pass@host:5432/customdb"
         result = execute_db_stats(
@@ -84,7 +84,7 @@ class TestDatabaseStats:
             cache_dir=None,
             console=mock_console
         )
-        
+
         # Verify
         assert result == 0
         mock_psycopg2_connect.assert_called_with(custom_url)
@@ -95,14 +95,14 @@ class TestDatabaseStats:
         """Test error handling when connection fails."""
         # Simulate connection error
         mock_psycopg2_connect.side_effect = psycopg2.Error("Connection refused")
-        
+
         # Execute
         result = execute_db_stats(
             database_url="postgresql://user:pass@localhost/testdb",
             cache_dir=None,
             console=mock_console
         )
-        
+
         # Verify error handling
         assert result == 1
         mock_console.print.assert_called()
@@ -116,7 +116,7 @@ class TestDatabaseStats:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Mock query results
         mock_cursor.fetchone.side_effect = [
             (100,),         # papers count
@@ -124,14 +124,14 @@ class TestDatabaseStats:
             (10, 2015, 2025, 80),  # stats tuple
             (95,),          # screened count
         ]
-        
+
         # Execute without providing console
         result = execute_db_stats(
             database_url="postgresql://user:pass@localhost/testdb",
             cache_dir=None,
             console=None
         )
-        
+
         # Verify
         assert result == 0
         assert mock_cursor.execute.called
@@ -145,17 +145,17 @@ class TestDatabaseStats:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Simulate query error
         mock_cursor.execute.side_effect = Exception("Query error")
-        
+
         # Execute
         result = execute_db_stats(
             database_url="postgresql://user:pass@localhost/testdb",
             cache_dir=None,
             console=mock_console
         )
-        
+
         # Verify error handling
         assert result == 1
         mock_console.print.assert_called()
@@ -169,7 +169,7 @@ class TestDatabaseStats:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Mock query results with empty database
         mock_cursor.fetchone.side_effect = [
             (0,),           # papers count
@@ -177,14 +177,14 @@ class TestDatabaseStats:
             (0, None, None, 0),  # stats tuple with None values
             (0,),           # screened count
         ]
-        
+
         # Execute
         result = execute_db_stats(
             database_url="postgresql://user:pass@localhost/testdb",
             cache_dir=None,
             console=mock_console
         )
-        
+
         # Verify
         assert result == 0
         mock_console.print.assert_called()
@@ -198,7 +198,7 @@ class TestDatabaseStats:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Mock query results
         mock_cursor.fetchone.side_effect = [
             (50,),          # papers count
@@ -206,14 +206,14 @@ class TestDatabaseStats:
             (7, 2018, 2025, 40),   # stats tuple
             (48,),          # screened count
         ]
-        
+
         # Execute
         result = execute_db_stats(
             database_url="postgresql://user:pass@localhost/testdb",
             cache_dir=None,
             console=mock_console
         )
-        
+
         # Verify cleanup
         assert result == 0
         mock_cursor.close.assert_called_once()
@@ -222,47 +222,47 @@ class TestDatabaseStats:
 
 class TestDatabaseUrlResolution:
     """Tests for _get_database_url and _resolve_env_var functions."""
-    
+
     def test_resolve_env_var_literal_value(self):
         """Test _resolve_env_var with literal value."""
         result = _resolve_env_var("postgresql://localhost/db")
         assert result == "postgresql://localhost/db"
-    
+
     def test_resolve_env_var_env_reference(self):
         """Test _resolve_env_var with environment variable reference."""
         import os
         os.environ["TEST_DB_URL"] = "postgresql://user:pass@host/db"
-        
+
         result = _resolve_env_var("$TEST_DB_URL")
         assert result == "postgresql://user:pass@host/db"
-    
+
     def test_resolve_env_var_missing_env(self):
         """Test _resolve_env_var with missing environment variable."""
         result = _resolve_env_var("$NONEXISTENT_VAR_XYZ")
         assert result is None
-    
+
     def test_resolve_env_var_none_value(self):
         """Test _resolve_env_var with None value."""
         result = _resolve_env_var(None)
         assert result is None
-    
+
     def test_resolve_env_var_empty_string(self):
         """Test _resolve_env_var with empty string."""
         result = _resolve_env_var("")
         assert result is None
-    
+
     @patch.dict("os.environ", {"DATABASE_URL": "postgresql://explicit/url"})
     def test_get_database_url_explicit(self):
         """Test _get_database_url with explicit parameter."""
         result = _get_database_url("postgresql://custom:pass@host/customdb")
         assert result == "postgresql://custom:pass@host/customdb"
-    
+
     @patch.dict("os.environ", {"DATABASE_URL": "postgresql://envvar/url"})
     def test_get_database_url_env_var(self):
         """Test _get_database_url with DATABASE_URL env var."""
         result = _get_database_url(None)
         assert result == "postgresql://envvar/url"
-    
+
     @patch.dict(
         "os.environ",
         {
@@ -278,13 +278,13 @@ class TestDatabaseUrlResolution:
         """Test _get_database_url with individual components."""
         result = _get_database_url(None)
         assert result == "postgresql://testuser:testpass@localhost:5432/testdb"
-    
+
     @patch.dict("os.environ", {}, clear=True)
     def test_get_database_url_no_config(self):
         """Test _get_database_url with no configuration."""
         result = _get_database_url(None)
         assert result is None
-    
+
     @patch.dict(
         "os.environ",
         {
@@ -314,7 +314,7 @@ class TestDatabaseClear:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Mock query results for all tables
         mock_cursor.fetchone.side_effect = [
             (0,),   # paper_cluster_assignments
@@ -330,7 +330,7 @@ class TestDatabaseClear:
             (0,),   # paper_screening
             (100,), # papers
         ]
-        
+
         # Execute with dry run
         result = execute_db_clear(
             target="all",
@@ -340,13 +340,13 @@ class TestDatabaseClear:
             dry_run=True,
             verbose=False,
         )
-        
+
         # Verify dry run returned 0 (success)
         assert result == 0
         # Verify mock_cursor.execute was called for count queries
         assert mock_cursor.execute.called
         # Verify DELETE was NOT called (dry run)
-        delete_calls = [call for call in mock_cursor.execute.call_args_list 
+        delete_calls = [call for call in mock_cursor.execute.call_args_list
                        if call[0][0].startswith("DELETE")]
         assert len(delete_calls) == 0
 
@@ -359,7 +359,7 @@ class TestDatabaseClear:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Mock query results - counts for each table
         fetch_results = [
             (0,),   # COUNT for paper_cluster_assignments
@@ -376,7 +376,7 @@ class TestDatabaseClear:
             (50,),  # COUNT for papers
         ]
         mock_cursor.fetchone.side_effect = fetch_results
-        
+
         # Execute actual clear
         result = execute_db_clear(
             target="all",
@@ -386,11 +386,11 @@ class TestDatabaseClear:
             dry_run=False,
             verbose=True,
         )
-        
+
         # Verify success
         assert result == 0
         # Verify DELETE was called for papers table
-        delete_calls = [call for call in mock_cursor.execute.call_args_list 
+        delete_calls = [call for call in mock_cursor.execute.call_args_list
                        if call[0][0].startswith("DELETE")]
         assert len(delete_calls) > 0
         # Verify conn.commit was called
@@ -405,10 +405,10 @@ class TestDatabaseClear:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Mock count query result
         mock_cursor.fetchone.return_value = (30,)
-        
+
         # Execute clear for specific table
         result = execute_db_clear(
             target="papers",
@@ -418,11 +418,11 @@ class TestDatabaseClear:
             dry_run=False,
             verbose=False,
         )
-        
+
         # Verify success
         assert result == 0
         # Verify DELETE was called
-        delete_calls = [call for call in mock_cursor.execute.call_args_list 
+        delete_calls = [call for call in mock_cursor.execute.call_args_list
                        if "DELETE FROM papers" in call[0][0]]
         assert len(delete_calls) > 0
 
@@ -439,7 +439,7 @@ class TestDatabaseClear:
             dry_run=False,
             verbose=False,
         )
-        
+
         # Verify error
         assert result == 1
         mock_console.print.assert_called()
@@ -450,7 +450,7 @@ class TestDatabaseClear:
         """Test error handling when connection fails."""
         # Simulate connection error
         mock_psycopg2_connect.side_effect = psycopg2.Error("Connection refused")
-        
+
         # Execute
         result = execute_db_clear(
             target="all",
@@ -460,7 +460,7 @@ class TestDatabaseClear:
             dry_run=False,
             verbose=False,
         )
-        
+
         # Verify error handling
         assert result == 1
         mock_console.print.assert_called()
@@ -474,10 +474,10 @@ class TestDatabaseClear:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Simulate psycopg2 error during execution
         mock_cursor.execute.side_effect = psycopg2.Error("Query error")
-        
+
         # Execute
         result = execute_db_clear(
             target="all",
@@ -487,7 +487,7 @@ class TestDatabaseClear:
             dry_run=False,
             verbose=False,
         )
-        
+
         # Verify error handling
         assert result == 1
         mock_console.print.assert_called()
@@ -501,10 +501,10 @@ class TestDatabaseClear:
         mock_cursor = Mock()
         mock_psycopg2_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # All tables have 0 records
         mock_cursor.fetchone.return_value = (0,)
-        
+
         # Execute
         result = execute_db_clear(
             target="all",
@@ -514,7 +514,7 @@ class TestDatabaseClear:
             dry_run=False,
             verbose=False,
         )
-        
+
         # Verify success (nothing to clear)
         assert result == 0
         # Verify conn.commit was called

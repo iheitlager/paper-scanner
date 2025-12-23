@@ -12,8 +12,7 @@ This demonstrates:
 from dataclasses import dataclass
 from typing import Dict, List
 
-from paper_scanner.definition import (BibtexSource, Definition,
-                                      create_standard_pipeline)
+from paper_scanner.definition import BibtexSource, Definition, create_standard_pipeline
 
 
 @dataclass
@@ -41,7 +40,7 @@ def create_batch_pipelines(
         Dictionary mapping year to Definition object
     """
     pipelines = {}
-    
+
     for config in reviews:
         # Build sources from file paths
         sources = [
@@ -52,7 +51,7 @@ def create_batch_pipelines(
             )
             for path in config.sources
         ]
-        
+
         # Create pipeline using factory function
         pipeline = create_standard_pipeline(
             project_name=f"{config.topic}_{config.year}",
@@ -62,9 +61,9 @@ def create_batch_pipelines(
             export_format="jsonl",
             output_path=f"{output_dir}/{config.topic}_{config.year}_review.jsonl"
         )
-        
+
         pipelines[config.year] = pipeline
-    
+
     return pipelines
 
 
@@ -72,7 +71,7 @@ def main():
     print("=" * 70)
     print("Example 4: Batch Processing Multiple Research Reviews")
     print("=" * 70)
-    
+
     # Configuration for multiple research reviews
     reviews = [
         ResearchConfig(
@@ -119,25 +118,25 @@ def main():
             ]
         ),
     ]
-    
+
     # Generate all pipelines
     print("\nGenerating research review pipelines...")
     pipelines = create_batch_pipelines(reviews, output_dir="~/research_outputs")
-    
+
     print(f"✓ Generated {len(pipelines)} pipelines")
-    
+
     # Display summary
     print("\nPipelines:")
     for year, pipeline in sorted(pipelines.items()):
         print(f"  {year}: {pipeline.name} ({len(pipeline.get_steps())} steps)")
-    
+
     # Example: Execute pipelines in sequence
     print("\n# Execute pipelines in sequence:")
     print("# for year, pipeline in sorted(pipelines.items()):")
     print("#     print(f'Processing {year}...')")
     print("#     results = pipeline.run(verbose=False)")
     print("#     print(f'  ✓ Complete: {results[\"steps_executed\"]} steps')")
-    
+
     # Example: Execute pipelines in parallel (with concurrent.futures)
     print("\n# Or execute in parallel:")
     print("# from concurrent.futures import ThreadPoolExecutor")
@@ -150,11 +149,11 @@ def main():
     print("#         year = futures[future]")
     print("#         results = future.result()")
     print("#         print(f'{year}: Complete')")
-    
+
     # Save one pipeline to YAML for reference
     print("\n# Save a pipeline to YAML for reference:")
     print("# pipelines[2024].to_yaml(Path('review_2024_definition.yml'))")
-    
+
     return pipelines
 
 

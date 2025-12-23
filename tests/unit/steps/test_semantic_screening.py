@@ -8,8 +8,7 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import ScreeningDecision
-from paper_scanner.core.models import (Author, Paper, PaperType,
-                                       ProcessingMetadata, SemanticScreening)
+from paper_scanner.core.models import Author, Paper, PaperType, ProcessingMetadata, SemanticScreening
 from paper_scanner.steps.semantic_screening import SemanticScreeningStep
 
 

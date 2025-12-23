@@ -14,8 +14,7 @@ from paper_scanner.core.doi import DOI
 from paper_scanner.core.enum import CitationDirection, PaperType
 from paper_scanner.core.models import Citation, OpenAccessStatus
 from paper_scanner.tools.documents.abstract_parser import AbstractParser
-from paper_scanner.tools.fetchers.fetcher_handlers.base import \
-    BaseFetcherHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 
 # Polite pool per Crossref requirements
 CROSSREF_API_URL = "https://api.crossref.org"
@@ -71,7 +70,7 @@ class CrossrefHandler(BaseFetcherHandler):
             return None
 
         # TODO: remove this broad exception handling and just fail
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             return None
 
     def _extract_abstract(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -169,7 +168,7 @@ class CrossrefHandler(BaseFetcherHandler):
                         return int(year_parts[0])
                     except (ValueError, TypeError):
                         pass
-        
+
         # Try published-online
         if "published-online" in api_data:
             date_parts = api_data["published-online"].get("date-parts")
@@ -180,7 +179,7 @@ class CrossrefHandler(BaseFetcherHandler):
                         return int(year_parts[0])
                     except (ValueError, TypeError):
                         pass
-        
+
         # Try issued
         if "issued" in api_data:
             date_parts = api_data["issued"].get("date-parts")
@@ -191,7 +190,7 @@ class CrossrefHandler(BaseFetcherHandler):
                         return int(year_parts[0])
                     except (ValueError, TypeError):
                         pass
-        
+
         # Try created
         if "created" in api_data:
             date_parts = api_data["created"].get("date-parts")
@@ -202,7 +201,7 @@ class CrossrefHandler(BaseFetcherHandler):
                         return int(year_parts[0])
                     except (ValueError, TypeError):
                         pass
-        
+
         return None
 
     def _extract_journal(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -220,7 +219,7 @@ class CrossrefHandler(BaseFetcherHandler):
                 return container_title[0].strip() if isinstance(container_title[0], str) else None
             elif isinstance(container_title, str):
                 return container_title.strip() if container_title else None
-        
+
         # Try short-container-title as fallback
         short_title = api_data.get("short-container-title")
         if short_title:
@@ -228,7 +227,7 @@ class CrossrefHandler(BaseFetcherHandler):
                 return short_title[0].strip() if isinstance(short_title[0], str) else None
             elif isinstance(short_title, str):
                 return short_title.strip() if short_title else None
-        
+
         return None
 
     def _extract_url(self, api_data: Dict[str, Any]) -> Optional[str]:
@@ -247,12 +246,12 @@ class CrossrefHandler(BaseFetcherHandler):
                 url = primary.get("URL")
                 if url and isinstance(url, str):
                     return url.strip() if url else None
-        
+
         # Try top-level URL field as fallback
         url = api_data.get("URL")
         if url and isinstance(url, str):
             return url.strip() if url else None
-        
+
         return None
 
     def _extract_oa_status(self, api_data: Dict[str, Any]) -> Optional[OpenAccessStatus]:
@@ -277,12 +276,12 @@ class CrossrefHandler(BaseFetcherHandler):
         alternative_ids = api_data.get("alternative-id")
         if alternative_ids and isinstance(alternative_ids, list) and len(alternative_ids) > 0:
             return alternative_ids[0]
-        
+
         # Fall back to DOI (normalized)
         doi = api_data.get("DOI")
         if doi:
             return DOI(doi).stem
-        
+
         return None
 
     def _extract_isbn(self, api_data: Dict[str, Any]) -> Optional[str]:

@@ -5,11 +5,16 @@
 from unittest.mock import Mock, patch
 
 from paper_scanner.models.anthropic import ClaudeHandler
-from paper_scanner.models.base import (_HANDLER_REGISTRY, get_all_models,
-                                       get_handler, get_models_by_group,
-                                       get_registered_handlers,
-                                       initialize_handlers,
-                                       parse_json_response, register_handler)
+from paper_scanner.models.base import (
+    _HANDLER_REGISTRY,
+    get_all_models,
+    get_handler,
+    get_models_by_group,
+    get_registered_handlers,
+    initialize_handlers,
+    parse_json_response,
+    register_handler,
+)
 from paper_scanner.models.ollama import OllamaHandler
 
 

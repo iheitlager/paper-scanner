@@ -127,25 +127,25 @@ def _apply_patch_to_paper(paper: Paper, patch: Dict[str, Any]) -> Tuple[bool, Op
 # Class-based step interface (new architecture)
 class PatchStep(BaseStep):
     """Wrapper for patch step (legacy function-based)."""
-    
+
     @staticmethod
     def validate(config):
-        """Delegate to module validate function."""   
+        """Delegate to module validate function."""
         errors = []
-        
+
         # Check that either 'file' or 'patches' is provided
         has_file = "file" in config
         has_patches = "patches" in config
-        
+
         if not has_file and not has_patches:
             errors.append("Either 'file' or 'patches' must be specified")
-        
+
         # Validate file path if provided
         if has_file:
             file_path = config["file"]
             if not isinstance(file_path, str):
                 errors.append("'file' must be a string")
-        
+
         # Validate patches structure if provided
         if has_patches:
             patches = config["patches"]
@@ -161,7 +161,7 @@ class PatchStep(BaseStep):
                         errors.append(f"Patch {i} 'replace_fields' must be a dictionary")
                     elif not isinstance(patch.get("append_fields", {}), dict):
                         errors.append(f"Patch {i} 'append_fields' must be a dictionary")
-        
+
         return (len(errors) == 0, errors)
 
     def execute(self, config, verbose=False, dry_run=False, debug=False):

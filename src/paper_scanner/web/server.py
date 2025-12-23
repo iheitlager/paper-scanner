@@ -15,8 +15,7 @@ from flask_cors import CORS
 
 from .config import Config, get_config
 from .database import DatabaseManager
-from .exceptions import (DatabaseException, FileNotFoundException,
-                         InvalidDataException, PDFNotFoundException)
+from .exceptions import DatabaseException, FileNotFoundException, InvalidDataException, PDFNotFoundException
 from .http_handlers import register_error_handlers
 
 # Logging

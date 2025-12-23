@@ -20,13 +20,13 @@ SEMANTIC_SCHOLAR_API_URL = "https://api.semanticscholar.org/graph/v1/paper/DOI"
 def fetch_paper_details():
     """Fetch paper details from Semantic Scholar API."""
     url = f"{SEMANTIC_SCHOLAR_API_URL}:{DOI}"
-    
+
     params = {
         "fields": "paperId,externalIds,title,year,authors,abstract,publicationTypes,publicationDate,citationCount,isOpenAccess,openAccessPdf,fieldsOfStudy"
     }
-    
+
     response = requests.get(url, params=params)
-    
+
     if response.status_code == 200:
         data = response.json()
         print(json.dumps(data, indent=2))

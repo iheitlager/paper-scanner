@@ -32,8 +32,7 @@ import requests
 from dotenv import load_dotenv
 from psycopg2.extras import RealDictCursor
 from rich.console import Console
-from rich.progress import (BarColumn, Progress, SpinnerColumn,
-                           TaskProgressColumn, TextColumn)
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
 from rich.table import Table
 
 # Try to import PDF libraries
@@ -82,7 +81,7 @@ class DOIExtractor:
                 doi = method_func(pdf_path)
                 if doi:
                     return doi
-            except Exception as e:
+            except Exception:
                 pass
 
         return None
@@ -310,7 +309,7 @@ class PDFDatabaseManager:
         }
 
         # Step 1: Extract DOI from PDF
-        console.print(f"[cyan]Extracting DOI...[/cyan]")
+        console.print("[cyan]Extracting DOI...[/cyan]")
         doi = self.extractor.extract_from_pdf(pdf_path)
 
         if not doi:
@@ -322,7 +321,7 @@ class PDFDatabaseManager:
         console.print(f"[green]✓ DOI extracted:[/green] {doi}")
 
         # Step 2: Look up in database
-        console.print(f"[cyan]Looking up in database...[/cyan]")
+        console.print("[cyan]Looking up in database...[/cyan]")
         db_record = self.find_doi_in_database(doi)
 
         if not db_record:
@@ -343,7 +342,7 @@ class PDFDatabaseManager:
         # Step 4: Check if already renamed
         if pdf_path.name == new_filename:
             result['actions'].append('File already has DOI-based name')
-            console.print(f"[blue]ℹ️  File already named with DOI[/blue]")
+            console.print("[blue]ℹ️  File already named with DOI[/blue]")
         else:
             # Rename file
             if not dry_run:
@@ -351,7 +350,7 @@ class PDFDatabaseManager:
                     pdf_path.rename(new_filepath)
                     result['renamed'] = True
                     result['actions'].append(f'Renamed: {pdf_path.name} → {new_filename}')
-                    console.print(f"[green]✓ File renamed[/green]")
+                    console.print("[green]✓ File renamed[/green]")
                 except Exception as e:
                     result['error'] = f'Failed to rename file: {e}'
                     console.print(f"[red]✗ {result['error']}[/red]")
@@ -374,7 +373,7 @@ class PDFDatabaseManager:
 
                 result['db_updated'] = True
                 result['actions'].append(f'Updated DB: file_path → {new_filepath}')
-                console.print(f"[green]✓ Database record updated[/green]")
+                console.print("[green]✓ Database record updated[/green]")
             except psycopg2.Error as e:
                 result['error'] = f'Failed to update database: {e}'
                 console.print(f"[red]✗ {result['error']}[/red]")
@@ -385,7 +384,7 @@ class PDFDatabaseManager:
                 cursor.close()
 
         result['success'] = True
-        console.print(f"[bold green]✓ Processing complete![/bold green]")
+        console.print("[bold green]✓ Processing complete![/bold green]")
         return result
 
     def process_all_pdfs(self, trial_filename: Optional[str] = None, dry_run: bool = False) -> Dict:
@@ -495,12 +494,12 @@ class PDFDatabaseManager:
         table.add_column("Metric", style="cyan", width=25)
         table.add_column("Count", justify="right", style="bold yellow")
 
-        table.add_row(f"[bold]Total PDFs[/bold]", str(stats['total']))
-        table.add_row(f"[green]✓ Successfully Processed[/green]", str(stats['processed']))
-        table.add_row(f"[cyan]Files Renamed[/cyan]", str(stats['renamed']))
-        table.add_row(f"[blue]Database Records Updated[/blue]", str(stats['db_updated']))
-        table.add_row(f"[magenta]Database Matches Found[/magenta]", str(stats['db_match']))
-        table.add_row(f"[red]✗ Errors[/red]", str(stats['errors']))
+        table.add_row("[bold]Total PDFs[/bold]", str(stats['total']))
+        table.add_row("[green]✓ Successfully Processed[/green]", str(stats['processed']))
+        table.add_row("[cyan]Files Renamed[/cyan]", str(stats['renamed']))
+        table.add_row("[blue]Database Records Updated[/blue]", str(stats['db_updated']))
+        table.add_row("[magenta]Database Matches Found[/magenta]", str(stats['db_match']))
+        table.add_row("[red]✗ Errors[/red]", str(stats['errors']))
 
         console.print(table)
 
