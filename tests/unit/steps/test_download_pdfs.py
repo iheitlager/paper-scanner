@@ -13,7 +13,9 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Paper, PDFInfo
+from paper_scanner.core.step_result import StepResult
 from paper_scanner.steps.download_pdfs import DownloadPDFsStep
+from paper_scanner.core.enum import StepStatus
 
 
 class TestDownloadPDFsValidation:
@@ -144,10 +146,10 @@ class TestDownloadPDFsExecution:
         with patch("paper_scanner.steps.download_pdfs.Fetcher"):
             result = step.execute(config)
 
-        assert result["status"] == "ok"
-        assert result["count"] == 0
-        assert result["skipped"] == 0
-        assert "No papers needing PDF downloads" in result["message"]
+        assert result.status == StepStatus.SUCCESS
+        assert result.stats["count"] == 0
+        assert result.stats["skipped"] == 0
+        assert "No papers needing PDF downloads" in result.message
 
     def test_execute_creates_store_directory(self, step, mock_db, tmp_path):
         """Execution should create store directory if missing."""
@@ -196,8 +198,8 @@ class TestDownloadPDFsExecution:
         with patch("paper_scanner.steps.download_pdfs.Fetcher"):
             result = step.execute(config)
 
-        assert result["skipped"] == 1
-        assert result["count"] == 0
+        assert result.stats["skipped"] == 1
+        assert result.stats["count"] == 0
 
     def test_execute_downloads_pdf_and_updates_paper(self, step, mock_db, tmp_path):
         """Successful download should update paper and move file."""
@@ -233,9 +235,9 @@ class TestDownloadPDFsExecution:
 
             result = step.execute(config)
 
-        assert result["count"] == 1
-        assert result["skipped"] == 0
-        assert result["status"] == "ok"
+        assert result.stats["count"] == 1
+        assert result.stats["skipped"] == 0
+        assert result.status == StepStatus.SUCCESS
 
     def test_execute_dry_run_mode(self, step, mock_db, tmp_path):
         """Dry run should not write files or update database."""
@@ -267,7 +269,7 @@ class TestDownloadPDFsExecution:
 
             result = step.execute(config, dry_run=True)
 
-        assert result["count"] == 1
+        assert result.stats["count"] == 1
         # In dry_run mode, db.update should not be called
         # (this depends on implementation details, but files shouldn't be copied)
         assert not (tmp_path / "pdfs" / "TestPaper2024.pdf").exists()
@@ -293,7 +295,7 @@ class TestDownloadPDFsExecution:
 
             result = step.execute(config)
 
-        assert result["errors"] > 0
+        assert result.stats["errors"] > 0
 
         # Check error log was created
         error_log = tmp_path / "errors.jsonl"
@@ -346,8 +348,8 @@ class TestDownloadPDFsExecution:
 
             result = step.execute(config)
 
-        assert result["count"] == 1  # Only paper1 succeeded
-        assert result["skipped"] == 2  # paper2 (no DOI) + paper3 (no PDF found)
+        assert result.stats["count"] == 1  # Only paper1 succeeded
+        assert result.stats["skipped"] == 2  # paper2 (no DOI) + paper3 (no PDF found)
 
 
 class TestDownloadPDFsIntegration:
@@ -398,6 +400,6 @@ class TestDownloadPDFsIntegration:
             result = step.execute(config)
 
         # With no PDFs found, papers are skipped but status should still be ok
-        assert result["status"] == "ok"
-        assert result["papers_total"] == 2
-        assert result["skipped"] == 2  # Both papers have DOI but no PDF found
+        assert result.status == StepStatus.SUCCESS
+        assert result.stats["papers_total"] == 2
+        assert result.stats["skipped"] == 2  # Both papers have DOI but no PDF found

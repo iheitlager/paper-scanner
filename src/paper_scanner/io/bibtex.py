@@ -548,7 +548,7 @@ def infer_bibtex_type(paper: Paper) -> str:
         return 'misc'
 
 
-def paper_to_bibtex_entry(paper: Paper, use_source_key: bool = True) -> Dict:
+def paper_to_bibtex_entry(paper: Paper, use_source_key: bool = False) -> Dict:
     """
     Convert Paper Pydantic model to BibTeX entry dictionary
     
@@ -628,7 +628,7 @@ def paper_to_bibtex_entry(paper: Paper, use_source_key: bool = True) -> Dict:
 
 def papers_to_bibtex(
     papers: List[Paper],
-    use_source_key: bool = True
+    use_source_key: bool = False
 ) -> str:
     """
     Convert list of Paper models to BibTeX string

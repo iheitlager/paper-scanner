@@ -16,6 +16,7 @@ from rich.console import Console
 from paper_scanner.core.doi import DOI
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import PDFInfo
+from paper_scanner.core.step_result import StepResult
 from paper_scanner.tools.fetchers.fetcher import Fetcher
 
 from .base import BaseStep
@@ -122,14 +123,16 @@ class DownloadPDFsStep(BaseStep):
         )
 
         if not papers_needing_pdf:
-            return {
-                "status": StepStatus.SUCCESS,
-                "count": 0,
-                "papers_total": self.db.count(primary_only=True),
-                "skipped": self.db.count(primary_only=True),
-                "errors": 0,
-                "message": "No papers needing PDF downloads",
-            }
+            return StepResult(
+                status=StepStatus.SUCCESS,
+                stats={
+                    "count": 0,
+                    "papers_total": self.db.count(primary_only=True),
+                    "skipped": self.db.count(primary_only=True),
+                    "errors": 0,
+                },
+                message="No papers needing PDF downloads",
+            )
 
         # Download PDFs with progress
         downloaded = 0
@@ -202,13 +205,18 @@ class DownloadPDFsStep(BaseStep):
                 for detail in error_details:
                     f.write(json.dumps(detail) + "\n")
 
-        return {
-            "status": StepStatus.SUCCESS if not errors else StepStatus.ERROR,
-            "count": downloaded,
-            "papers_total": self.db.count(primary_only=True),
-            "skipped": skipped,
-            "errors": len(errors),
-            "store_path": str(store_path),
-            "sources": sources,
-            "message": f"Downloaded {downloaded} PDFs, skipped {skipped}",
-        }
+        return StepResult(
+            status=StepStatus.SUCCESS if not error_details else StepStatus.ERROR,
+            stats = {
+                "count": downloaded,
+                "papers_total": self.db.count(primary_only=True),
+                "skipped": skipped,
+                "errors": len(error_details),
+            },
+            error= "\n".join(detail["error"] for detail in error_details) if error_details else None, 
+            details = { 
+                "store_path":str(store_path),
+                "sources":sources
+            },
+            message=f"Downloaded {downloaded} PDFs, skipped {skipped}",
+        )
