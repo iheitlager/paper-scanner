@@ -97,6 +97,7 @@ def execute_cache_info(
         ("checkpoints", "checkpoints"),
         ("crossref", "crossref"),
         ("openalex", "openalex"),
+        ("manual", "manual"),
         ("pdfs", "pdfs"),
     ]
 
@@ -306,3 +307,171 @@ def execute_cache_load(
                 console.print(f"  • {name}: {error}")
 
     return 1 if errors > 0 else 0
+
+
+def execute_cache_load_manual(
+    bibtex_path: str,
+    cache_dir: Optional[Path] = None,
+    verbose: bool = False,
+    dry_run: bool = False,
+) -> int:
+    """
+    Load bibtex entries into manual handler cache.
+
+    Parses bibtex file with custom citation fields (cites, citedby, studytype, lastchecked),
+    validates required fields (title, abstract, keywords), and caches paper/citation data.
+
+    Args:
+        bibtex_path: Path to bibtex file
+        cache_dir: Cache directory (default: ~/.paper-scanner)
+        verbose: Enable verbose output
+        dry_run: Don't actually cache entries
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    import os
+
+    from paper_scanner.tools.fetchers.fetcher_handlers.bibtex_parser import BibtexParser, BibtexParseError
+    from paper_scanner.tools.fetchers.fetcher_handlers.manual_handler import ManualHandler
+
+    # Determine cache_dir
+    if cache_dir is None:
+        cache_dir = Path(os.getenv("CACHE_DIR", ""))
+        if not cache_dir or str(cache_dir) == ".":
+            cache_dir = None
+
+    if cache_dir is None:
+        cache_dir = Path("~/.paper-scanner").expanduser()
+    else:
+        cache_dir = cache_dir.expanduser()
+
+    # Validate bibtex file
+    bibtex_file = Path(bibtex_path).expanduser()
+    if not bibtex_file.exists():
+        console.print(f"[red]✗ Error[/red]: Bibtex file not found: {bibtex_file}")
+        return 1
+
+    if verbose:
+        console.print(f"Loading bibtex entries from {_collapse_home(bibtex_file)}...\n")
+
+    # Parse bibtex file
+    try:
+        entries, skipped = BibtexParser.parse_file(bibtex_file)
+    except BibtexParseError as e:
+        console.print(f"[red]✗ Error parsing bibtex[/red]: {e}")
+        return 1
+
+    if not entries and not skipped:
+        console.print(f"[yellow]⚠ No entries found[/yellow] in {_collapse_home(bibtex_file)}")
+        return 0
+
+    # Initialize manual handler cache
+    manual_handler = ManualHandler(cache_dir=cache_dir, verbose=verbose)
+
+    cached = 0
+    errors = 0
+    failed_items = []
+
+    # Process each entry
+    for i, entry in enumerate(entries, 1):
+        try:
+            doi = entry.get("doi")
+            if not doi:
+                errors += 1
+                failed_items.append(("entry", "Missing DOI"))
+                continue
+
+            if not dry_run:
+                # Cache the paper metadata
+                manual_handler._jsoncache.set(doi, entry)
+
+            cached += 1
+
+            if verbose:
+                title = entry.get("title", "")[:40]
+                console.print(
+                    f" [green]✓[/green] {i}/{len(entries)} {doi} → {title}..."
+                )
+
+        except Exception as e:
+            errors += 1
+            doi = entry.get("doi", "unknown")
+            failed_items.append((doi, str(e)[:80]))
+            if verbose:
+                console.print(
+                    f" [red]✗[/red] {i}/{len(entries)} {doi}: [red]{str(e)[:50]}[/red]"
+                )
+
+    # Summary
+    console.print()
+    if skipped:
+        console.print(f"[yellow]⚠ Skipped {len(skipped)} entries:[/yellow]")
+        for reason in skipped[:5]:  # Show first 5
+            console.print(f"  • {reason}")
+        if len(skipped) > 5:
+            console.print(f"  ... and {len(skipped) - 5} more")
+        console.print()
+
+    if errors == 0:
+        console.print(
+            f"[green]✓ Success[/green]: Loaded {cached} entries into manual cache"
+        )
+    else:
+        console.print(
+            f"[yellow]⚠ Completed with errors[/yellow]: {cached} loaded, {len(skipped)} skipped, {errors} errors"
+        )
+        if verbose and failed_items:
+            console.print("\n[red]Failed items:[/red]")
+            for doi, error in failed_items:
+                console.print(f"  • {doi}: {error}")
+
+    return 1 if errors > 0 else 0
+
+
+def execute_cache_clear_manual(
+    cache_dir: Optional[Path] = None,
+    verbose: bool = False,
+) -> int:
+    """
+    Clear manual handler cache.
+
+    Removes all cached entries stored by the manual handler.
+
+    Args:
+        cache_dir: Cache directory (default: ~/.paper-scanner)
+        verbose: Enable verbose output
+
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    import os
+    import shutil
+
+    # Determine cache_dir
+    if cache_dir is None:
+        cache_dir = Path(os.getenv("CACHE_DIR", ""))
+        if not cache_dir or str(cache_dir) == ".":
+            cache_dir = None
+
+    if cache_dir is None:
+        cache_dir = Path("~/.paper-scanner").expanduser()
+    else:
+        cache_dir = cache_dir.expanduser()
+
+    manual_cache_dir = cache_dir / "manual"
+
+    if verbose:
+        console.print(f"Cache directory: [cyan]{_collapse_home(cache_dir)}[/cyan]")
+
+    if manual_cache_dir.exists():
+        try:
+            shutil.rmtree(manual_cache_dir)
+            console.print(f"[green]✓ Cleared manual cache[/green]: {_collapse_home(manual_cache_dir)}")
+            return 0
+        except Exception as e:
+            console.print(f"[red]✗ Error clearing manual cache[/red]: {e}")
+            return 1
+    else:
+        console.print("[green]✓ No manual cache to clear[/green] (directory is clean)")
+        return 0

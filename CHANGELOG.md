@@ -9,17 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **ManualHandler** (`manual`): Fourth citation handler for local cache of user-curated papers
+  - Cache-only handler (no API calls) for papers from local bibtex files
+  - Bibtex parser supporting custom fields: `cites`, `citedby`, `studytype`, `lastchecked`
+  - Validates required fields: title, abstract, keywords (skips invalid entries with logging)
+  - Automatic `citedbycount` calculation from `citedby` field if not provided
+  - Citation objects created with `extraction_method="manual"` and `confidence=1.0`
+  - CLI commands: `paper-processor cache manual load <file.bib>` and `paper-processor cache manual clear`
+  - Comprehensive unit tests covering bibtex parsing, cache storage/retrieval, citation creation
+
 - **JSONCache Expiration Support**: Enhanced `JSONFileCache` with configurable time-to-live (TTL)
   - Default TTL of 30 days for cached API responses
   - Support for custom TTL values (int days or timedelta)
   - Special TTL values: `-1` (never expire, default for `get()`), `0` (never expire), `None` (use default)
   - Automatic cache file deletion when expired
-  - Comprehensive test suite with 20 test cases covering all expiration scenarios
 
 - **404 Not Found Caching**: Cache 404 responses to reduce redundant API calls
   - Supports TTL expiration for cache invalidation
   - Works across all API handlers (Crossref, OpenAlex, Semantic Scholar)
-  - 15 test cases covering marker creation, detection, and caching behavior
+
+### Changed
+
+- Fixed bracket parsing in paper metadata extraction
 
 ## [3.2.1] - 2025-12-23
 

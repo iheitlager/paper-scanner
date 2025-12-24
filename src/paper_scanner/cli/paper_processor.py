@@ -17,8 +17,10 @@ from paper_scanner import __version__
 from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.cli.tasks import (
     execute_cache_clear,
+    execute_cache_clear_manual,
     execute_cache_info,
     execute_cache_load,
+    execute_cache_load_manual,
     execute_db_clear,
     execute_db_stats,
     execute_info_steps,
@@ -331,6 +333,31 @@ def main():
 
     load_parser.add_argument("--dry-run", action="store_true", help="Don't actually cache files")
 
+    # Manual cache commands (nested under cache)
+    manual_parser = cache_subparsers.add_parser("manual", help="Manual handler cache operations")
+
+    manual_subparsers = manual_parser.add_subparsers(dest="manual_command", help="Manual cache operations")
+
+    manual_load_parser = manual_subparsers.add_parser("load", help="Load bibtex into manual handler cache")
+
+    manual_load_parser.add_argument("bibtex_file", type=str, help="Path to bibtex file")
+
+    manual_load_parser.add_argument(
+        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+    )
+
+    manual_load_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+
+    manual_load_parser.add_argument("--dry-run", action="store_true", help="Don't actually cache entries")
+
+    manual_clear_parser = manual_subparsers.add_parser("clear", help="Clear manual handler cache")
+
+    manual_clear_parser.add_argument(
+        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+    )
+
+    manual_clear_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
+
     # ===== DB COMMAND =====
     db_parser = subparsers.add_parser("db", help="Database management commands")
 
@@ -460,6 +487,27 @@ def main():
                     dry_run=args.dry_run,
                 )
                 sys.exit(exit_code)
+
+            elif args.cache_command == "manual":
+                if not args.manual_command:
+                    manual_parser.print_help()
+                    sys.exit(1)
+
+                if args.manual_command == "load":
+                    exit_code = execute_cache_load_manual(
+                        args.bibtex_file,
+                        cache_dir=args.cache_dir,
+                        verbose=args.verbose,
+                        dry_run=args.dry_run,
+                    )
+                    sys.exit(exit_code)
+
+                elif args.manual_command == "clear":
+                    exit_code = execute_cache_clear_manual(
+                        cache_dir=args.cache_dir,
+                        verbose=args.verbose,
+                    )
+                    sys.exit(exit_code)
 
         elif args.command == "db":
             if not args.db_command:

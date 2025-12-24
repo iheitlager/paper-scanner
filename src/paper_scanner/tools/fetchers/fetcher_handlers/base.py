@@ -262,8 +262,6 @@ class BaseFetcherHandler(ABC):
         if api_data is not None:
             # Check if this is a 404 marker
             if is_404_marker(api_data):
-                if self.debug:
-                    console.print(f"[dim]Cache hit (404) for {doi}[/dim]")
                 return None, True
             return api_data, True
 

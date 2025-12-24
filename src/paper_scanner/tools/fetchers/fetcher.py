@@ -15,6 +15,7 @@ from paper_scanner.core.models import Citation, Paper, PDFInfo
 from paper_scanner.core.cache import PDFCache
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
+from paper_scanner.tools.fetchers.fetcher_handlers.manual_handler import ManualHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import OpenAlexHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import PublisherHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.semantic_scholar_handler import SemanticScholarHandler
@@ -23,6 +24,7 @@ console = Console(file=sys.stderr)
 
 # Mapping of method names to handler classes
 handler_classes = {
+    "manual": ManualHandler,
     "crossref": CrossrefHandler,
     "openalex": OpenAlexHandler,
     "semanticscholar": SemanticScholarHandler,

@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 
 # Try to import PDF libraries
 try:
-    import PyPDF2
-    HAS_PYPDF2 = True
+    from pypdf import PdfReader
+    HAS_PYPDF = True
 except ImportError:
-    HAS_PYPDF2 = False
+    HAS_PYPDF = False
 
 try:
     import pdfplumber
@@ -72,8 +72,8 @@ class DOIExtractor:
     Extract DOI from PDF using multiple methods.
     
     Tries extraction methods in order:
-    1. PDF metadata extraction (using PyPDF2)
-    2. Content regex search (using pdfplumber or PyPDF2)
+    1. PDF metadata extraction (using pypdf)
+    2. Content regex search (using pdfplumber or pypdf)
     3. Title lookup via Crossref API (fallback)
     """
 
@@ -126,12 +126,12 @@ class DOIExtractor:
 
     def _extract_from_metadata(self, pdf_path: Path) -> Optional[str]:
         """Extract DOI from PDF metadata."""
-        if not HAS_PYPDF2:
+        if not HAS_PYPDF:
             return None
 
         try:
             with open(pdf_path, 'rb') as f:
-                reader = PyPDF2.PdfReader(f)
+                reader = PdfReader(f)
                 metadata = reader.metadata
 
                 if metadata:
@@ -167,11 +167,11 @@ class DOIExtractor:
             except Exception as e:
                 logger.debug(f"pdfplumber extraction failed: {e}")
 
-        # Fallback: try PyPDF2
-        if HAS_PYPDF2:
+        # Fallback: try pypdf
+        if HAS_PYPDF:
             try:
                 with open(pdf_path, 'rb') as f:
-                    reader = PyPDF2.PdfReader(f)
+                    reader = PdfReader(f)
                     # Search first 3 pages
                     for page_num in range(min(3, len(reader.pages))):
                         page = reader.pages[page_num]
@@ -182,7 +182,7 @@ class DOIExtractor:
                                 return doi
 
             except Exception as e:
-                logger.debug(f"PyPDF2 extraction failed: {e}")
+                logger.debug(f"pypdf extraction failed: {e}")
 
         return None
 
@@ -227,7 +227,7 @@ class DOIExtractor:
         Returns:
             DOI if found via Crossref lookup, None otherwise
         """
-        if not HAS_PDFPLUMBER and not HAS_PYPDF2:
+        if not HAS_PDFPLUMBER and not HAS_PYPDF:
             return None
 
         try:
@@ -244,10 +244,10 @@ class DOIExtractor:
                 except Exception:
                     pass
 
-            if not title and HAS_PYPDF2:
+            if not title and HAS_PYPDF:
                 try:
                     with open(pdf_path, 'rb') as f:
-                        reader = PyPDF2.PdfReader(f)
+                        reader = PdfReader(f)
                         text = reader.pages[0].extract_text()
                         lines = text.split('\n')
                         title = lines[0].strip() if lines else None
@@ -365,7 +365,7 @@ class FileReader:
         if self._text is not None:
             return self._text
 
-        if not HAS_PDFPLUMBER and not HAS_PYPDF2:
+        if not HAS_PDFPLUMBER and not HAS_PYPDF:
             logger.warning("No PDF extraction libraries available")
             return None
 
@@ -383,16 +383,16 @@ class FileReader:
                 except Exception as e:
                     logger.debug(f"pdfplumber extraction failed: {e}")
 
-            # Fallback to PyPDF2
-            if HAS_PYPDF2:
+            # Fallback to pypdf
+            if HAS_PYPDF:
                 try:
                     with open(self.pdf_path, 'rb') as f:
-                        reader = PyPDF2.PdfReader(f)
+                        reader = PdfReader(f)
                         text = "\n".join(page.extract_text() or "" for page in reader.pages)
                         self._text = text
                         return text
                 except Exception as e:
-                    logger.debug(f"PyPDF2 extraction failed: {e}")
+                    logger.debug(f"pypdf extraction failed: {e}")
 
         except Exception as e:
             logger.error(f"Text extraction failed: {e}")
@@ -417,10 +417,10 @@ class FileReader:
                 except Exception:
                     pass
 
-            if HAS_PYPDF2:
+            if HAS_PYPDF:
                 try:
                     with open(self.pdf_path, 'rb') as f:
-                        reader = PyPDF2.PdfReader(f)
+                        reader = PdfReader(f)
                         return len(reader.pages)
                 except Exception:
                     pass

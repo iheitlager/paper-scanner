@@ -287,7 +287,7 @@ class TestDOIExtractorFromPDFStub:
         doi = self.extractor._extract_doi_from_text(metadata_text)
         assert doi == "10.1108/scm-09-2024-0617"
 
-    @patch('paper_scanner.tools.documents.filereader.HAS_PYPDF2', False)
+    @patch('paper_scanner.tools.documents.filereader.HAS_PYPDF', False)
     @patch('paper_scanner.tools.documents.filereader.HAS_PDFPLUMBER', False)
     def test_extract_from_content_no_pdf_libraries(self):
         """Test extraction when no PDF libraries available."""

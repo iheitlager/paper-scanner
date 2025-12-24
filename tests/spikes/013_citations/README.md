@@ -40,6 +40,57 @@ We are going to use the following fields to capture citations based on DOI
 
 the bibtex entry type is translated to papertype. This way we can make a overview. The PDF coupling will be done separately. Otherwise it becomes to complex.
 
+### Design Decisions (Clarified)
+
+- **Missing fields**: Skip entries without title/abstract/keywords (log skipped). Later uploads overwrite cache entries.
+- **citedbycount**: Take provided value, otherwise calculate from citedby length.
+- **studytype validation**: Must match enum values (empirical_case_study, empirical_qualitative, etc.).
+- **Citation direction**: Create Citation objects with direction=BACKWARD for cites, FORWARD for citedby.
+- **lastchecked**: Respect user-provided value if present, don't overwrite; auto-set on first import.
+- **DOI validity**: Assume valid (separate DOI validator step will catch malformed ones later).
+- **No conflicts**: Cannot happen—fetcher stops at first handler match (cached or not).
+- **Cache loading scope**: Load to cache only; transient paper records for CLI run duration.
+- **Handler chain**: Manual handler integrates via existing handler list in YAML config (top-to-bottom, stop at first hit).
+- **Citation metadata**: Set extraction_method="manual" and confidence=1.0 for all citations (user-curated).
+- **Bibtex parsing**: Use bibtexparser; handle both comma-separated and array formats for cites/citedby.
+
+### Implementation Plan
+
+#### 1. Create [ManualHandler](src/paper_scanner/tools/fetchers/fetcher_handlers/manual_handler.py) class
+- Extend `BaseFetcherHandler`
+- Implement `_fetch_from_api()` as no-op (return None—no API calls)
+- Implement cache-only retrieval: check cache for DOI, return if hit, None if miss
+- Implement all required `_extract_*()` methods by returning values from cache
+- Handle 404 markers appropriately
+
+#### 2. Add bibtex parsing via bibtexparser library
+- Parse `cites` and `citedby` fields (handle comma-separated DOI strings and array formats)
+- Validate required fields: title, abstract, keywords (skip entry and log if missing)
+- Extract optional fields: studytype, citedbycount, lastchecked
+- Auto-calculate citedbycount from citedby length if not provided
+- Respect user's lastchecked value if present
+
+#### 3. Implement bibtex-to-model conversion
+- Create Paper model from bibtex entry (use [bibtex_type_mapping.yaml](../../etc/bibtex_type_mapping.yaml) for entrytype → paper_type)
+- Create Citation objects from cites (direction=BACKWARD) and citedby (direction=FORWARD)
+- Set extraction_method="manual" and confidence=1.0 for all citations
+- Store Paper and Citation models in ManualHandler's cache
+
+#### 4. Add CLI commands in paper_processor.py
+- `paper-processor cache load manual <file.bib>`: Parse bibtex, validate, cache, report counts (loaded/skipped/validation errors)
+- `paper-processor cache clear manual`: Remove all cached entries under manual handler
+
+#### 5. Register ManualHandler in fetcher.py
+- Add to handler_classes mapping: `"manual": ManualHandler`
+- No changes to handler chain logic (already respects handler order, stops at first hit)
+
+#### 6. Add tests
+- Test bibtex parsing with valid/invalid entries
+- Test citation field extraction (CSV and array formats)
+- Test cache storage and retrieval
+- Test 404 marker handling
+- Integration tests with retrieve_metadata step for handler chain fallback
+
 # caching of non found entries - this is already implemented
 We are going to improve the handlers with the mechanisms to also capture nonfound (404) entries. This will increase speed and reduce API calls further. If an API receives a 404, a dummy json like `{"ITEM" : "404 - NOT FOUND", "LAST-CHECKED": "YYYY-MM-DD", "URL": "...."}` will be created. During fetching if an cache hit is found, the handler will first check the `"ITEM": "404 - NOT FOUND"` and return empty, other wise it will return the cached item. I think this is generic, so we can extend fetcher by default. No need to improve every single handler. Note that the manual handler does not need this (since there are no API calls, the purpose of this not found caching, reduce load even further). No cache found is just returning None
 
