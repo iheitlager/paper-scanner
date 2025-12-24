@@ -459,7 +459,7 @@ class TestGetAllPdfs:
 
             assert result == mock_records
             mock_cursor.execute.assert_called_once()
-            assert "SELECT * FROM papers ORDER BY file_name" in mock_cursor.execute.call_args[0][0]
+            assert "SELECT * FROM papers ORDER BY title, file_name" in mock_cursor.execute.call_args[0][0]
             mock_cursor.close.assert_called()
             mock_conn.close.assert_called()
 
@@ -480,7 +480,7 @@ class TestGetAllPdfs:
 
             assert result == mock_records
             mock_cursor.execute.assert_called_once_with(
-                "SELECT * FROM papers WHERE directory = %s ORDER BY file_name",
+                "SELECT * FROM papers WHERE directory = %s ORDER BY title, file_name",
                 ("/docs",),
             )
 

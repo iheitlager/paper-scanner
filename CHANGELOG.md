@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2025-12-24
+
+### Added
+
+- **JSONCache Expiration Support**: Enhanced `JSONFileCache` with configurable time-to-live (TTL)
+  - Default TTL of 30 days for cached API responses
+  - Support for custom TTL values (int days or timedelta)
+  - Special TTL values: `-1` (never expire, default for `get()`), `0` (never expire), `None` (use default)
+  - Automatic cache file deletion when expired
+  - Comprehensive test suite with 20 test cases covering all expiration scenarios
+
+- **404 Not Found Caching**: Cache 404 responses to reduce redundant API calls
+  - Supports TTL expiration for cache invalidation
+  - Works across all API handlers (Crossref, OpenAlex, Semantic Scholar)
+  - 15 test cases covering marker creation, detection, and caching behavior
+
 ## [3.2.1] - 2025-12-23
 
 ### Added

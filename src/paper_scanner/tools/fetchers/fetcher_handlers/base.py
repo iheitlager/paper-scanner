@@ -15,7 +15,7 @@ from rich.console import Console
 
 from paper_scanner.core.doi import DOI
 from paper_scanner.core.models import Citation, Paper, PDFInfo
-from paper_scanner.core.cache import JSONFileCache
+from paper_scanner.core.cache import JSONFileCache, create_404_marker, is_404_marker
 
 console = Console(file=sys.stderr)
 
@@ -208,6 +208,7 @@ class BaseFetcherHandler(ABC):
         Fetch and parse forward citations for a given DOI.
 
         Tries handlers in order until one succeeds.
+        Caches 404 responses to reduce API calls for non-existent entries.
 
         Args:
             doi: Digital Object Identifier
@@ -217,13 +218,24 @@ class BaseFetcherHandler(ABC):
         """
         key = f"{doi}_fwd" # this is going to be mangled to md5
         api_data = self._jsoncache.get(key)
-        if api_data == []:  # we can also set empty lists in cache
-            return [], True
-        elif api_data is not None:
+        
+        if api_data is not None:
+            # Check if this is a 404 marker
+            if is_404_marker(api_data):
+                if self.debug:
+                    console.print(f"[dim]Cache hit (404) for forward citations of {doi}[/dim]")
+                return [], True
+            # Check if cached empty list
+            if isinstance(api_data, list) and len(api_data) == 0:
+                return [], True
             return [self._parse_cited_by(c) for c in api_data], True
 
         api_data = self._fetch_cited_by_from_api(doi, limit)
-        if api_data is None:
+        if api_data is None or (isinstance(api_data, list) and len(api_data) == 0):
+            # Cache the 404/empty response
+            if self.debug:
+                console.print(f"[dim]Caching 404 for forward citations of {doi}[/dim]")
+            self._jsoncache.set(key, create_404_marker(key=key, url=f"https://doi.org/{doi}"))
             return [], False
 
         if self.debug:
@@ -237,6 +249,7 @@ class BaseFetcherHandler(ABC):
         Fetch metadata for a DOI from cache or API.
 
         Checks cache first, then API, storing result in cache.
+        Caches 404 responses to reduce API calls for non-existent entries.
 
         Args:
             doi: Digital Object Identifier
@@ -247,10 +260,19 @@ class BaseFetcherHandler(ABC):
         # Check cache
         api_data = self._jsoncache.get(doi)
         if api_data is not None:
+            # Check if this is a 404 marker
+            if is_404_marker(api_data):
+                if self.debug:
+                    console.print(f"[dim]Cache hit (404) for {doi}[/dim]")
+                return None, True
             return api_data, True
 
         api_data = self._fetch_from_api(doi)
         if api_data is None:
+            # Cache the 404 response to avoid future API calls
+            if self.debug:
+                console.print(f"[dim]Caching 404 for {doi}[/dim]")
+            self._jsoncache.set(doi, create_404_marker(key=doi, url=f"https://doi.org/{doi}"))
             return None, False
 
         if self.debug:

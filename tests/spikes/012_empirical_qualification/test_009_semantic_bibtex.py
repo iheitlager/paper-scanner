@@ -162,12 +162,12 @@ def normalize_category(category: str) -> str:
     return mappings.get(category, category)
 
 
-def test_model(
+def evaluate_model(
     model_name: str,
     papers: Dict[str, Dict[str, str]],
     output_dir: Path
 ) -> Dict:
-    """Test a specific model on all papers."""
+    """Evaluate a specific model on all papers."""
     
     print(f"\n{'=' * 80}")
     print(f"Testing Model: {model_name}")
@@ -299,7 +299,7 @@ def main():
     all_results = []
     for model_name in models:
         try:
-            result = test_model(model_name, papers, output_dir)
+            result = evaluate_model(model_name, papers, output_dir)
             all_results.append(result)
         except Exception as e:
             print(f"\n⚠️  Error testing {model_name}: {e}")

@@ -3,15 +3,59 @@ JSON file caching for API responses, particularly Crossref API.
 
 This module provides a simple file-based caching mechanism for storing
 API responses keyed by content hash (e.g., DOI).
+
+Supports 404 caching to reduce API calls for non-existent entries.
 """
 
 import json
 import shutil
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
+from datetime import timedelta, datetime
 
 from paper_scanner.core import doi
 from paper_scanner.core.exceptions import PaperScannerError
+
+
+# 404 Cache Marker - indicates an item was not found at the API
+NOT_FOUND_MARKER = {"ITEM": "404 - NOT FOUND", "LAST-CHECKED": None, "URL": None}
+
+
+def create_404_marker(key: str, url: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Create a 404 marker for caching not-found responses.
+    
+    Args:
+        url: Optional URL that was checked and returned 404
+        
+    Returns:
+        Dictionary with 404 marker
+    """
+    return {
+        "ITEM": "404 - NOT FOUND",
+        "LAST-CHECKED": datetime.now().isoformat(),
+        "URL": url,
+        "KEY": key,
+    }
+
+
+def is_404_marker(data: Any) -> bool:
+    """
+    Check if cached data is a 404 marker.
+    
+    Args:
+        data: Cached data to check
+        
+    Returns:
+        True if data is a 404 marker, False otherwise
+    """
+    return (
+        isinstance(data, dict)
+        and data.get("ITEM") == "404 - NOT FOUND"
+        and "LAST-CHECKED" in data
+        and "URL" in data
+        and "KEY" in data
+    )
 
 
 class CacheError(PaperScannerError):
@@ -26,19 +70,23 @@ class JSONFileCache:
     avoiding filesystem restrictions on special characters.
     """
 
-    def __init__(self, cache_dir: Optional[Path] = None):
+    def __init__(self, cache_dir: Optional[Path] = None, default_ttl: Optional[Union[int, timedelta]] = 30):
         """
         Initialize cache.
 
         Args:
             cache_dir: Directory to store cache files.
                       Defaults to ~/.cache_files if not provided.
+            default_ttl: Default time-to-live for cache entries in days.
+                         Can be int (days) or timedelta. Defaults to 30 days.
         """
         if cache_dir is None:
             cache_dir = Path.home() / ".cache_files"
 
         self.cache_dir = Path(cache_dir).expanduser()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.default_ttl = timedelta(days=default_ttl) if isinstance(default_ttl, int) else default_ttl
+
 
     def _get_cache_path(self, key: str) -> Path:
         """
@@ -56,20 +104,36 @@ class JSONFileCache:
         key_hash = doi.DOI(key).md5
         return self.cache_dir / f"{key_hash}.json"
 
-    def get(self, key: str) -> Optional[Dict[str, Any]]:
+    def get(self, key: str, ttl: Optional[Union[int, timedelta]] = -1) -> Optional[Dict[str, Any]]:
         """
-        Load cached value from file.
+        Load cached value if it exists and hasn't exceeded its time-to-live.
 
         Args:
             key: The key to look up (e.g., DOI)
+            ttl: Time-to-live (int = days, timedelta = custom duration, 0 = never expire, None = use default)
 
         Returns:
-            Cached JSON data if found, None otherwise
+            Cached JSON data if found and not expired, None otherwise
         """
         cache_path = self._get_cache_path(key)
 
         if not cache_path.exists():
             return None
+
+        # Convert ttl to timedelta
+        if ttl == -1: # Never expires
+            ttl_delta = None 
+        elif ttl is None: # Take default
+            ttl_delta = self.default_ttl
+        else: # take what we got or transform into days
+            ttl_delta = timedelta(days=ttl) if isinstance(ttl, int) else ttl
+
+        # Check expiration only if ttl_delta is positive
+        if ttl_delta and ttl_delta.total_seconds() > 0:
+            file_age = datetime.now() - datetime.fromtimestamp(cache_path.stat().st_mtime)
+            if file_age > ttl_delta:
+                cache_path.unlink()
+                return None
 
         try:
             with open(cache_path, 'r') as f:

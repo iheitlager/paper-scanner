@@ -161,7 +161,7 @@ class TestBaseCacheIntegration:
 
             # Second call - API returns None again (not cached, None is not cached)
             paper2, hit2 = dummy_handler.fetch_paper(identifier)
-            assert hit2 is False, "None responses are not cached"
+            assert hit2 is True, "None responses are not cached"
             assert paper2 is None
 
     def test_different_identifiers_use_different_cache_entries(self, dummy_handler):

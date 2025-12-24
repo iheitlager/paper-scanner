@@ -96,6 +96,10 @@ class OllamaHandler(LLMHandler):
             self.log(f"Error calling Ollama: {e}")
             return (None, token_usage)
 
+    def _get_model_name(self) -> str:
+        """Get the current model name."""
+        return self.model
+
     @staticmethod
     def _estimate_tokens(text: str) -> int:
         """Rough token estimation (4 chars ≈ 1 token)."""

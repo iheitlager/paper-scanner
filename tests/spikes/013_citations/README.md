@@ -24,19 +24,26 @@ We are going to use the following fields to capture citations based on DOI
   title = {Example Paper},
   year = {2023},
   doi = {10.1234/example},
+  abstract = {...},
+  keywords = {..., ..., ...},
   
   % Custom fields for citation tracking
   cites = {10.1234/ref1, 10.1234/ref2, 10.1234/ref3},
   citedby = {10.1234/citing1, 10.1234/citing2},
   citedbycount = {15},
-  lastchecked = {2024-12-24}
+  lastchecked = {2024-12-24},
+
+  % Study classification
+  studytype = {empirical_case_study, empirical_qualitative}
 }
 ```
 
-# caching of non found entries
+the bibtex entry type is translated to papertype. This way we can make a overview. The PDF coupling will be done separately. Otherwise it becomes to complex.
+
+# caching of non found entries - this is already implemented
 We are going to improve the handlers with the mechanisms to also capture nonfound (404) entries. This will increase speed and reduce API calls further. If an API receives a 404, a dummy json like `{"ITEM" : "404 - NOT FOUND", "LAST-CHECKED": "YYYY-MM-DD", "URL": "...."}` will be created. During fetching if an cache hit is found, the handler will first check the `"ITEM": "404 - NOT FOUND"` and return empty, other wise it will return the cached item. I think this is generic, so we can extend fetcher by default. No need to improve every single handler. Note that the manual handler does not need this (since there are no API calls, the purpose of this not found caching, reduce load even further). No cache found is just returning None
 
-# Cache invalidation
+# Cache invalidation - this is already inplemented
 extend the JSONCache with expiration (ttl_days setting and ttl in get call). This will invalidate the cache entry after TTL, regular logic will download the item and store it again.
 
 ```python

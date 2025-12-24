@@ -207,8 +207,8 @@ class DOIExtractor:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 doi = match.group('doi')
-                # Clean up common artifacts
-                doi = re.sub(r'[.,;)\s]*$', '', doi)
+                # Clean up common artifacts (trailing punctuation and brackets)
+                doi = re.sub(r'[.,;)\s\]]*$', '', doi)
                 # Validate DOI format
                 if doi.startswith('10.') and '/' in doi:
                     return doi.lower()

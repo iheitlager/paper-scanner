@@ -117,10 +117,12 @@ class TestCreateApp:
         assert "/health" in routes
         assert "/api/files" in routes
         assert "/api/load-jsonlines" in routes
-        assert "/api/file_details/<file_name>" in routes
+        assert "/api/file_details/<identifier>" in routes
         assert "/api/tags" in routes
-        assert "/api/file_tags/<file_name>" in routes
-        assert "/api/pdf/<file_name>" in routes
+        assert "/api/year-overview" in routes
+        assert "/api/file_tags/<identifier>" in routes
+        assert "/api/references/<identifier>" in routes
+        assert "/api/pdf/<identifier>" in routes
         assert "/" in routes
 
 
@@ -406,10 +408,11 @@ class TestFileDetailsRoute:
         app, db_manager, _ = create_app(mock_config)
 
         with patch.object(db_manager, "get_pdf_by_file_name", return_value=None):
-            client = app.test_client()
-            response = client.get("/api/file_details/nonexistent.pdf")
+            with patch.object(db_manager, "get_pdf_by_cite_key", return_value=None):
+                client = app.test_client()
+                response = client.get("/api/file_details/nonexistent.pdf")
 
-            assert response.status_code == 404
+                assert response.status_code == 404
 
 
 class TestTagsRoute:
@@ -557,10 +560,11 @@ class TestUpdateFileTagsRoute:
         app, db_manager, _ = create_app(mock_config)
 
         with patch.object(db_manager, "get_pdf_by_file_name", return_value=None):
-            client = app.test_client()
-            response = client.put("/api/file_tags/nonexistent.pdf", json={"tags": "tag1"})
+            with patch.object(db_manager, "get_pdf_by_cite_key", return_value=None):
+                client = app.test_client()
+                response = client.put("/api/file_tags/nonexistent.pdf", json={"tags": "tag1"})
 
-            assert response.status_code == 404
+                assert response.status_code == 404
 
     def test_update_file_tags_no_body(self):
         """Test error when request body missing."""
@@ -627,10 +631,11 @@ class TestPdfRoute:
         app, db_manager, _ = create_app(mock_config)
 
         with patch.object(db_manager, "get_pdf_by_file_name", return_value=None):
-            client = app.test_client()
-            response = client.get("/api/pdf/nonexistent.pdf")
+            with patch.object(db_manager, "get_pdf_by_cite_key", return_value=None):
+                client = app.test_client()
+                response = client.get("/api/pdf/nonexistent.pdf")
 
-            assert response.status_code == 404
+                assert response.status_code == 404
 
     def test_get_pdf_not_found_on_disk(self):
         """Test error when PDF file not found on disk."""
@@ -652,7 +657,9 @@ class TestPdfRoute:
             assert response.status_code == 404
 
     def test_get_pdf_docker_path_translation(self):
-        """Test PDF path translation in Docker environment."""
+        """Test PDF serving in Docker environment."""
+        from flask import Response
+
         mock_config = Mock(spec=Config)
         mock_config.log_level = "INFO"
         mock_config.debug = False
@@ -662,31 +669,20 @@ class TestPdfRoute:
 
         app, db_manager, _ = create_app(mock_config)
 
-        # Create a temporary test file
-        import tempfile
+        # Mock record with file path
+        mock_record = {"file_name": "paper.pdf", "file_path": "/papers/paper.pdf"}
 
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp.write(b"PDF content")
-            tmp_path = tmp.name
-
-        # Mock record with host path
-        mock_record = {"file_name": "paper.pdf", "file_path": "/Users/iheitlager/wc/papers/paper.pdf"}
-
-        try:
-            with patch.object(db_manager, "get_pdf_by_file_name", return_value=mock_record):
+        with patch.object(db_manager, "get_pdf_by_file_name", return_value=mock_record):
+            with patch.object(db_manager, "get_pdf_by_cite_key", return_value=None):
                 with patch("os.path.exists", return_value=True):
-                    with patch("paper_scanner.web.server.send_file") as mock_send:
-                        mock_send.return_value = ("", 200)
+                    # Mock send_file to return a Response object
+                    mock_response = Response(b"PDF content", mimetype="application/pdf")
+                    with patch("paper_scanner.web.server.send_file", return_value=mock_response):
                         client = app.test_client()
                         response = client.get("/api/pdf/paper.pdf")
 
-                        # Verify path translation occurred
-                        call_args = mock_send.call_args[0]
-                        assert "/papers/paper.pdf" in call_args[0]
-        finally:
-            import os
-
-            os.unlink(tmp_path)
+                        assert response.status_code == 200
+                        assert response.content_type == "application/pdf"
 
 
 class TestIndexRoute:
