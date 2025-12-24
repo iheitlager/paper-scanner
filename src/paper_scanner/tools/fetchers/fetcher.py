@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple
 from rich.console import Console
 
 from paper_scanner.core.models import Citation, Paper, PDFInfo
-from paper_scanner.tools.cache import PDFCache
+from paper_scanner.core.cache import PDFCache
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import OpenAlexHandler

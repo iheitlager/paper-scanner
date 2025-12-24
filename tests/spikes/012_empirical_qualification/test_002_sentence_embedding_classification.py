@@ -67,10 +67,16 @@ STUDY_TYPE_EXEMPLARS = {
         "A theoretical analysis of existing concepts is provided.",
         "We propose a new theoretical perspective on this issue.",
     ],
+    "editorial": [
+        "This editorial presents our perspective on recent developments.",
+        "As editors, we introduce this special issue.",
+        "This commentary discusses emerging trends in the field.",
+        "We provide our thoughts on the state of the discipline.",
+    ],
 }
 
 
-def extract_text_from_pdf(pdf_path: str, max_pages: int = 5) -> str:
+def extract_text_from_pdf(pdf_path: str, max_pages: int = 3) -> str:
     """Extract text from PDF file."""
     try:
         reader = PdfReader(pdf_path)

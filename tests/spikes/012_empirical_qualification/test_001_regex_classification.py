@@ -74,15 +74,24 @@ STUDY_TYPE_PATTERNS = {
         r"\btheory building\b",
         r"\btheoretical model\b",
     ],
+    "editorial": [
+        r"\beditorial\b",
+        r"\beditor'?s?\s+note\b",
+        r"\bletter to (the )?editor\b",
+        r"\bguest editorial\b",
+        r"\bcommentary\b",
+        r"\bperspective\b",
+    ],
 }
 
 
-def extract_text_from_pdf(pdf_path: str) -> str:
+def extract_text_from_pdf(pdf_path: str, max_pages: int = 3) -> str:
     """Extract text from PDF file."""
     try:
         reader = PdfReader(pdf_path)
         text = ""
-        for page_num in range(min(5, len(reader.pages))):  # First 5 pages only
+        # Scan at least 3 pages to handle extra front pages
+        for page_num in range(min(max_pages, len(reader.pages))):
             page = reader.pages[page_num]
             text += page.extract_text()
         return text.lower()
@@ -122,6 +131,7 @@ def extract_abstract(text: str) -> str:
         abstract = re.sub(r"\s+", " ", abstract).strip()
         return abstract[:800]
     
+    # Return empty string if not found (some papers don't have abstracts)
     return ""
 
 
@@ -252,13 +262,14 @@ def process_pdfs_regex() -> Dict:
         paper_result = {
             "filename": pdf_path.name,
             "title": title,
-            "abstract": abstract,
+            "abstract": abstract if abstract else "(no abstract found)",
             "keywords": keywords,
             "study_type": study_type,
             "pattern_count": pattern_count,
             "metadata": metadata,
             "latency_ms": latency_ms,
             "text_length": len(text),
+            "has_abstract": bool(abstract),
         }
         
         results["papers"].append(paper_result)

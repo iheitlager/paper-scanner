@@ -17,7 +17,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from paper_scanner.tools.cache import PDFCache
+from paper_scanner.core.cache import PDFCache
 
 from ..core.enum import DiscoveryMethod, StepStatus
 from ..core.doi import DOI

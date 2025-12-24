@@ -15,20 +15,27 @@ class OllamaHandler(LLMHandler):
     # Supported Ollama/SLM models with max output tokens (estimates)
     MODELS = {
         "phi": 2048,  # Phi model
+        "phi3:mini": 2048,  # Phi3 mini model
+        "phi3.5": 2048,  # Phi3.5 model
         "tinyllama": 2048,  # TinyLlama model
         "llama3.2:1b": 4096,  # Llama3.2:1b model
+        "llama3.2:3b": 4096,  # Llama3.2:3b model
+        "mistral:7b": 8192,  # Mistral 7B model
+        "qwen2.5:3b": 4096,  # Qwen 2.5 3B model
     }
 
     TIMEOUT = 300  # 5 minute timeout for local processing
 
-    def __init__(self, logger: Optional[Callable] = None):
+    def __init__(self, model: str = "phi", logger: Optional[Callable] = None):
         """
         Initialize Ollama handler.
 
         Args:
+            model: Model name to use (default: phi)
             logger: Optional logging function
         """
         super().__init__(logger=logger)
+        self.model = model
 
     def call(
         self,
@@ -55,7 +62,7 @@ class OllamaHandler(LLMHandler):
 
             # Call Ollama via subprocess
             result = subprocess.run(
-                ["ollama", "run", self._get_model_name(), full_prompt],
+                ["ollama", "run", self.model, full_prompt],
                 capture_output=True,
                 text=True,
                 timeout=self.TIMEOUT,
@@ -88,11 +95,6 @@ class OllamaHandler(LLMHandler):
         except Exception as e:
             self.log(f"Error calling Ollama: {e}")
             return (None, token_usage)
-
-    def _get_model_name(self) -> str:
-        """Get the model name from environment or default."""
-        # This will be set by the processor when initializing the handler
-        return "phi"  # Default, will be overridden by caller
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:

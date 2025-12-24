@@ -15,7 +15,7 @@ from rich.console import Console
 
 from paper_scanner.core.doi import DOI
 from paper_scanner.core.models import Citation, Paper, PDFInfo
-from paper_scanner.tools.cache import JSONFileCache
+from paper_scanner.core.cache import JSONFileCache
 
 console = Console(file=sys.stderr)
 

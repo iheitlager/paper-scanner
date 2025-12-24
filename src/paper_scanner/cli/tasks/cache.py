@@ -13,7 +13,7 @@ from typing import Optional
 from rich.console import Console
 from rich.table import Table
 
-from paper_scanner.tools.cache import PDFCache
+from paper_scanner.core.cache import PDFCache
 from paper_scanner.tools.documents import FileReader
 
 console = Console(file=sys.stderr)

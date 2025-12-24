@@ -18,7 +18,7 @@ from paper_scanner.core.exceptions import (
     StepError,
 )
 from paper_scanner.steps.halt import HaltException
-from paper_scanner.tools.cache import CacheError
+from paper_scanner.core.cache import CacheError
 
 
 class TestPaperScannerError:
@@ -173,7 +173,7 @@ class TestCacheError:
 
     def test_backwards_compatibility(self):
         """CacheError should still be importable from cache module."""
-        from paper_scanner.tools.cache import CacheError as OriginalCache
+        from paper_scanner.core.cache import CacheError as OriginalCache
         assert OriginalCache is CacheError
 
 

@@ -38,7 +38,7 @@ OLLAMA_API = "http://localhost:11434/api/generate"
 OLLAMA_MODELS = ["phi3:mini", "phi3.5"]  # Try both models
 
 
-def extract_text_from_pdf(pdf_path: str, max_pages: int = 5) -> str:
+def extract_text_from_pdf(pdf_path: str, max_pages: int = 3) -> str:
     """Extract text from PDF file."""
     try:
         reader = PdfReader(pdf_path)
@@ -174,6 +174,7 @@ Study types:
 - mixed_methods: combination of quantitative and qualitative
 - literature_review: systematic review, meta-analysis, literature synthesis
 - conceptual: theoretical framework, model, conceptual analysis
+- editorial: editor's perspective, commentary, opinion piece
 
 Abstract:
 {abstract}
@@ -196,6 +197,8 @@ Classification:"""
             study_type = "literature_review"
         elif "conceptual" in type_str or "theoretical" in type_str:
             study_type = "conceptual"
+        elif "editorial" in type_str or "commentary" in type_str:
+            study_type = "editorial"
         else:
             study_type = "unknown"
     else:

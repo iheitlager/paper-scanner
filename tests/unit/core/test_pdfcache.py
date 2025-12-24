@@ -17,7 +17,7 @@ from unittest.mock import patch
 import pytest
 
 from paper_scanner.core import doi
-from paper_scanner.tools.cache import CacheError, PDFCache
+from paper_scanner.core.cache import CacheError, PDFCache
 
 
 class TestPDFCacheInitialization:
