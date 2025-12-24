@@ -207,6 +207,107 @@ function renderAnalysisSection(analysis) {
   let html =
     '<div class="detail-section analysis-section"><div class="detail-section-title">🔬 Analysis</div>';
 
+  // Title
+  if (analysis.title) {
+    html += `<div class="detail-subsection paper-subsection"><div class="detail-subsection-title">Title</div><p>${escapeHtml(analysis.title)}</p></div>`;
+  }
+
+  // Author, Year, Journal
+  let metaHtml = '';
+  if (analysis.authors) {
+    const authorsStr = Array.isArray(analysis.authors) 
+      ? analysis.authors.map(a => {
+          if (typeof a === 'object' && a !== null) {
+            return a.full_name || a.name || String(a);
+          }
+          return String(a);
+        }).join('; ')
+      : analysis.authors;
+    metaHtml += `<strong>Authors:</strong> ${escapeHtml(authorsStr)}<br/>`;
+  }
+  if (analysis.year) {
+    metaHtml += `<strong>Year:</strong> ${escapeHtml(analysis.year)}<br/>`;
+  }
+  if (analysis.journal) {
+    metaHtml += `<strong>Journal:</strong> ${escapeHtml(analysis.journal)}`;
+  }
+  if (metaHtml) {
+    html += `<div class="detail-subsection paper-subsection"><p>${metaHtml}</p></div>`;
+  }
+
+  // Abstract
+  if (analysis.abstract) {
+    html += `<div class="detail-subsection paper-subsection"><div class="detail-subsection-title">Abstract</div><p>${escapeHtml(analysis.abstract)}</p></div>`;
+  }
+
+  // Keywords
+  if (analysis.keywords && Array.isArray(analysis.keywords) && analysis.keywords.length > 0) {
+    html += `<div class="detail-subsection paper-subsection"><div class="detail-subsection-title">Keywords</div><p>${escapeHtml(analysis.keywords.join('; '))}</p></div>`;
+  }
+
+  // Topics
+  if (analysis.topics && Array.isArray(analysis.topics) && analysis.topics.length > 0) {
+    html += `<div class="detail-subsection paper-subsection"><div class="detail-subsection-title">Topics</div><p>${escapeHtml(analysis.topics.join('; '))}</p></div>`;
+  }
+
+  // Screening Details
+  if (analysis.screening) {
+    const screening = analysis.screening;
+    html +=
+      '<div class="detail-subsection paper-subsection"><div class="detail-subsection-title">📋 Screening</div>';
+
+    if (screening.current_stage) {
+      html += `<p><strong>Stage:</strong> ${escapeHtml(screening.current_stage)}</p>`;
+    }
+
+    if (screening.final_decision) {
+      html += `<p><strong>Decision:</strong> ${escapeHtml(screening.final_decision)}</p>`;
+    }
+
+    // Categorization
+    if (screening.categorization) {
+      const cat = screening.categorization;
+      html +=
+        '<p><strong>Categorization:</strong></p><ul style="margin-top: 5px;">';
+      if (cat.paper_type) {
+        html += `<li>Type: ${escapeHtml(cat.paper_type)} (confidence: ${cat.paper_type_confidence ? (cat.paper_type_confidence * 100).toFixed(0) : 'N/A'}%)</li>`;
+      }
+      if (cat.study_type) {
+        html += `<li>Study: ${escapeHtml(cat.study_type)} (confidence: ${cat.study_type_confidence ? (cat.study_type_confidence * 100).toFixed(0) : 'N/A'}%)</li>`;
+      }
+      if (cat.quality_tier) {
+        html += `<li>Quality Tier: ${escapeHtml(cat.quality_tier)}</li>`;
+      }
+      html += `<li>Peer Reviewed: ${cat.is_peer_reviewed ? 'Yes' : 'No'}</li>`;
+      html += `<li>Empirical: ${cat.is_empirical ? 'Yes' : 'No'}</li>`;
+      html += `<li>Open Access: ${cat.is_open_access ? 'Yes' : 'No'}</li>`;
+      html += '</ul>';
+    }
+
+    // Keyword Screening
+    if (screening.keyword_screening) {
+      const kws = screening.keyword_screening;
+      html += '<p><strong>Keyword Screening:</strong></p><ul style="margin-top: 5px;">';
+      html += `<li>Passed: ${kws.passed ? '✓ Yes' : '✗ No'}</li>`;
+      html += `<li>Score: ${kws.score || 0}</li>`;
+      if (kws.inclusion_keywords && kws.inclusion_keywords.length > 0) {
+        html += `<li>Inclusion Keywords: ${escapeHtml(kws.inclusion_keywords.join(', '))}</li>`;
+      }
+      if (kws.abstract_matches !== undefined) {
+        html += `<li>Abstract Matches: ${kws.abstract_matches}</li>`;
+      }
+      if (kws.title_matches !== undefined) {
+        html += `<li>Title Matches: ${kws.title_matches}</li>`;
+      }
+      if (kws.keywords_matches !== undefined) {
+        html += `<li>Keywords Matches: ${kws.keywords_matches}</li>`;
+      }
+      html += '</ul>';
+    }
+
+    html += '</div>';
+  }
+
   // Summary
   if (analysis.summary) {
     const summary = analysis.summary;
@@ -338,13 +439,17 @@ function switchTab(tabName) {
 
   // Load content if switching to analysis, details, references, or tags tab and we have a file
   if (tabName === 'analysis' && currentFile) {
-    loadFileAnalysis(currentFile.file_name);
+    const identifier = currentFile.file_name || currentFile.cite_key;
+    if (identifier) loadFileAnalysis(identifier);
   } else if (tabName === 'details' && currentFile) {
-    loadFileDetails(currentFile.file_name);
+    const identifier = currentFile.file_name || currentFile.cite_key;
+    if (identifier) loadFileDetails(identifier);
   } else if (tabName === 'references' && currentFile) {
-    loadFileReferences(currentFile.file_name);
+    const identifier = currentFile.file_name || currentFile.cite_key;
+    if (identifier) loadFileReferences(identifier);
   } else if (tabName === 'tags' && currentFile) {
-    loadTagsEditor(currentFile.file_name);
+    const identifier = currentFile.file_name || currentFile.cite_key;
+    if (identifier) loadTagsEditor(identifier);
   }
 }
 
@@ -730,20 +835,25 @@ async function loadFileAnalysis(fileName) {
     const details = data.details;
     const viewer = document.getElementById('analysisViewer');
 
-    // Parse analysis JSON if present
+    // Create analysis object from details (title, abstract, keywords, topics at top level)
     let analysisHtml = '';
-    if (details.analysis) {
-      try {
-        const analysis =
-          typeof details.analysis === 'string' ? JSON.parse(details.analysis) : details.analysis;
-
-        analysisHtml = renderAnalysisSection(analysis);
-      } catch (e) {
-        console.error('Error parsing analysis:', e);
-        analysisHtml = '<div class="status-message">Error: Could not parse analysis data</div>';
-      }
-    } else {
-      analysisHtml = '<div class="status-message">No analysis data available for this PDF</div>';
+    try {
+      // Build analysis object from available fields
+      const analysisData = {
+        title: details.title,
+        abstract: details.abstract,
+        keywords: details.keywords,
+        topics: details.topics,
+        screening: details.screening,
+        authors: details.authors,
+        year: details.year,
+        journal: details.journal,
+      };
+      
+      analysisHtml = renderAnalysisSection(analysisData);
+    } catch (e) {
+      console.error('Error creating analysis data:', e);
+      analysisHtml = '<div class="status-message">Error: Could not create analysis data</div>';
     }
 
     const viewerHtml = `
@@ -893,7 +1003,8 @@ async function loadFileDetails(fileName) {
                         <div class="detail-label">File Size</div>
                         <div class="detail-value">${formatFileSize(details.size_bytes || 0)}</div>
                     </div>
-                    ${tagsHtml}\n                </div>
+                    ${tagsHtml}
+                </div>
                 
                 <div class="detail-section">
                     <div class="detail-section-title">Paths</div>
@@ -901,26 +1012,34 @@ async function loadFileDetails(fileName) {
                         <div class="detail-label">Full Path</div>
                         <div class="detail-value">${escapeHtml(details.file_path || 'N/A')}</div>
                     </div>
-                    <div class="detail-row">
-                        <div class="detail-label">Directory</div>
-                        <div class="detail-value">${escapeHtml(details.directory || 'N/A')}</div>
-                    </div>
                 </div>
                 
                 <div class="detail-section">
-                    <div class="detail-section-title">Timestamps</div>
-                    <div class="detail-row">
-                        <div class="detail-label">Created</div>
-                        <div class="detail-value">${formatDateTime(details.created_time)}</div>
-                    </div>
-                    <div class="detail-row">
-                        <div class="detail-label">Modified</div>
-                        <div class="detail-value">${formatDateTime(details.modified_time)}</div>
-                    </div>
-                    <div class="detail-row">
-                        <div class="detail-label">Accessed</div>
-                        <div class="detail-value">${formatDateTime(details.accessed_time)}</div>
-                    </div>
+                    <div class="detail-section-title">Paper Details</div>
+                    ${details.cite_key ? `<div class="detail-row">
+                        <div class="detail-label">Citation Key</div>
+                        <div class="detail-value code-value">${escapeHtml(details.cite_key)}</div>
+                    </div>` : ''}
+                    ${details.doi ? `<div class="detail-row">
+                        <div class="detail-label">DOI</div>
+                        <div class="detail-value code-value"><a href="https://doi.org/${escapeHtml(details.doi)}" target="_blank">${escapeHtml(details.doi)}</a></div>
+                    </div>` : ''}
+                    ${details.authors ? `<div class="detail-row">
+                        <div class="detail-label">Authors</div>
+                        <div class="detail-value">${details.authors && Array.isArray(details.authors) ? escapeHtml(details.authors.map(a => a.full_name || a.family_name).join('; ')) : 'N/A'}</div>
+                    </div>` : ''}
+                    ${details.title ? `<div class="detail-row">
+                        <div class="detail-label">Title</div>
+                        <div class="detail-value">${escapeHtml(details.title)}</div>
+                    </div>` : ''}
+                    ${details.journal ? `<div class="detail-row">
+                        <div class="detail-label">Journal</div>
+                        <div class="detail-value">${escapeHtml(details.journal)}</div>
+                    </div>` : ''}
+                    ${details.volume || details.issue || details.pages ? `<div class="detail-row">
+                        <div class="detail-label">Volume/Issue/Pages</div>
+                        <div class="detail-value">${escapeHtml((details.volume || '') + (details.issue ? `(${details.issue})` : '') + (details.pages ? `, pp. ${details.pages}` : ''))}</div>
+                    </div>` : ''}
                 </div>
                 
                 <div class="detail-section">
@@ -1434,6 +1553,7 @@ async function loadFiles() {
     }
 
     files = data.files || [];
+    console.log(`Loaded ${files.length} files from API`);
     renderFileList();
   } catch (error) {
     if (error instanceof AppError) {
@@ -1457,9 +1577,18 @@ function renderFileList() {
     return;
   }
 
+  console.log(`Rendering ${files.length} files in sidebar`);
+
   files.forEach((file) => {
-    if (!file || !file.file_name) {
+    if (!file) {
       console.warn('Invalid file object:', file);
+      return;
+    }
+
+    // Use file_name if available, otherwise cite_key as fallback
+    const identifier = file.file_name || file.cite_key;
+    if (!identifier) {
+      console.warn('File has neither file_name nor cite_key:', file);
       return;
     }
 
@@ -1469,8 +1598,8 @@ function renderFileList() {
       div.classList.add('active');
     }
 
-    // Use citekey if available, otherwise file_name
-    const displayName = file.citekey ? escapeHtml(file.citekey) : escapeHtml(file.file_name);
+    // Use cite_key if available, otherwise file_name
+    const displayName = file.cite_key ? escapeHtml(file.cite_key) : escapeHtml(file.file_name);
 
     // Show tags if available
     const tags = file.tags ? file.tags.split(':').filter((t) => t.trim()) : [];
@@ -1481,7 +1610,7 @@ function renderFileList() {
 
     div.innerHTML = `
             <div class="file-item-name">${displayName}</div>
-            <div class="file-item-size">${formatFileSize(file.size_bytes)}</div>
+            <div class="file-item-size">${file.size_bytes ? formatFileSize(file.size_bytes) : 'N/A'}</div>
             ${tagsHtml}
         `;
     div.onclick = () => selectFile(file);
@@ -1495,8 +1624,15 @@ function renderFileList() {
  * @param {boolean} keepBreadcrumb - Whether to keep breadcrumb visible (for papers list view)
  */
 function selectFile(file, keepBreadcrumb = false) {
-  if (!file || !file.file_name) {
+  if (!file) {
     console.error('Invalid file object:', file);
+    return;
+  }
+
+  // Require either file_name or cite_key
+  const identifier = file.file_name || file.cite_key;
+  if (!identifier) {
+    console.error('File has neither file_name nor cite_key:', file);
     return;
   }
 
@@ -1626,10 +1762,10 @@ window.addEventListener('load', async () => {
   const tabParam = params.get('tab');
 
   if (paperId) {
-    // Find and select the paper with matching file_name or citekey
+    // Find and select the paper with matching file_name or cite_key
     const targetFile = files.find(
       (f) =>
-        f.file_name === decodeURIComponent(paperId) || f.citekey === decodeURIComponent(paperId)
+        f.file_name === decodeURIComponent(paperId) || f.cite_key === decodeURIComponent(paperId)
     );
 
     if (targetFile) {
@@ -1644,7 +1780,7 @@ window.addEventListener('load', async () => {
       document.getElementById('toolbarBreadcrumb').style.display = 'flex';
 
       // Switch to the requested tab if specified
-      if (tabParam && ['pdf', 'analysis', 'details', 'tags'].includes(tabParam)) {
+      if (tabParam && ['pdf', 'analysis', 'details', 'references', 'tags'].includes(tabParam)) {
         switchTab(tabParam);
       } else {
         switchTab('pdf');
@@ -1668,3 +1804,19 @@ window.addEventListener('load', async () => {
     goBackToOverview();
   }
 });
+
+// Fallback initialization for Safari and other browsers
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', async () => {
+    if (files.length === 0 && document.getElementById('fileList')) {
+      await loadFiles();
+      goBackToOverview();
+    }
+  });
+} else if (files.length === 0 && document.getElementById('fileList')) {
+  // Page already loaded
+  (async () => {
+    await loadFiles();
+    goBackToOverview();
+  })();
+}

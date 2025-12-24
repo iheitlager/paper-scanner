@@ -1,415 +1,519 @@
-# Spike Tests
+# Spike Tests: Hypothesis-Driven Experimentation
 
-This directory contains exploratory tests for future features and experimental work. Spikes help us evaluate new technologies, approaches, or ideas before committing to implementation.
+This directory contains hypothesis-driven exploratory tests for evaluating new technologies, approaches, and architectural decisions before committing to implementation. Each spike follows a rigorous experimental methodology to answer specific research questions.
 
 ## Spike Index
-| Spike | Description | Addition Date | Status |
-|-------|-------------|--------------|--------|
-| [001_first_tests](001_first_tests/) | Initial batch processing, flush, JSON, and parser experiments | 2024-07-19 | Complete |
-| [002_browser](002_browser/) | Flask + React frontend with PostgreSQL and Docker for file browser | 2024-12-02 | Integrated |
-| [003_local_llm](003_local_llm/) | Ollama integration and Small Language Model (SLM) support | 2024-12-03 | Integrated |
-| [004_embedding](004_embedding/) | Vector embeddings exploration for semantic search | 2024-12-04 | In Progress |
-| [005_references](005_references/) | Reference extraction and citation management exploration | 2024-12-05 | Integrated |
-| [006_bibtex](006_bibtex/) | BibTeX import/export, PDF processing, and Crossref reference fetching | 2024-12-06 | Integrated |
-| [007_new_approach](007_new_approach/) | Pythonic definition API exploration as alternative to YAML | 2024-12-11 | Completed |
-| [008_fetchers](008_fetchers/) | Metadata fetching strategies - Crossref, arXiv, and custom resolver integration | 2024-12-22 | Integrated |
-| [009_retrieve_pdf](009_retrieve_pdf/) | PDF retrieval and download strategies from various sources | 2024-12-19 | Integrated |
-| [010_cite_key](010_cite_key/) | Citation key generation strategies - Author/Year fallback to DOI slug to UUID | 2025-12-22 | Complete |
-| [011_step_executor](011_step_executor/) | Step executor architecture and pipeline execution patterns | 2025-12-20 | In Progress |
 
-## Purpose
+| Spike | Hypothesis | Date | Status | Outcome |
+|-------|-----------|------|--------|---------|
+| [001_first_tests](001_first_tests/) | Batch JSON processing with flush semantics is viable | 2024-07-19 | Complete | ✅ Confirmed |
+| [002_browser](002_browser/) | PostgreSQL + Flask provides scalable browser interface | 2024-12-02 | Integrated | ✅ Confirmed |
+| [003_local_llm](003_local_llm/) | Ollama local LLM integration achieves acceptable latency | 2024-12-03 | Integrated | ✅ Confirmed |
+| [004_embedding](004_embedding/) | Vector embeddings enable semantic paper similarity search | 2024-12-04 | In Progress | ⏳ Testing |
+| [006_bibtex](006_bibtex/) | Crossref API can populate missing reference metadata | 2024-12-06 | Integrated | ✅ Confirmed |
+| [007_new_approach](007_new_approach/) | Pythonic fluent API is more maintainable than YAML | 2024-12-11 | Completed | ⚠️  Deferred |
+| [008_fetchers](008_fetchers/) | Multi-source metadata fetching improves coverage | 2024-12-22 | Integrated | ✅ Confirmed |
+| [009_retrieve_pdf](009_retrieve_pdf/) | DOI-based PDF retrieval achieves >80% success rate | 2024-12-19 | Integrated | ✅ Confirmed |
+| [010_cite_key](010_cite_key/) | Author+Year cite keys prevent collision better than UUIDs | 2025-12-22 | Complete | ✅ Confirmed |
+| [011_step_executor](011_step_executor/) | Plugin-based step architecture enables extensibility | 2025-12-20 | In Progress | ⏳ Testing |
 
-- **Exploration**: Try out new ideas and technologies
-- **Evaluation**: Compare different approaches
-- **Proof of Concept**: Demonstrate feasibility
-- **Documentation**: Record findings for future reference
-- **Decision Support**: Inform architecture decisions and ADRs
+## Methodology: Hypothesis-Driven Experimentation
 
-## When to Create Spike Tests
+Each spike follows a structured experimental methodology:
 
-Create a spike test when:
-- Evaluating a new library or framework
-- Exploring alternative implementations
-- Investigating performance optimizations
-- Testing feasibility of a feature
-- Researching new technologies
+```
+Problem Statement → Hypothesis → Research Design → Experiment → Analysis → Conclusion
+```
 
+### 1. Problem Statement
+Clear definition of the decision or question being addressed.
 
+### 2. Hypothesis
+Testable prediction (usually binary):
+- **Hypothesis**: "Technology/approach X will achieve Y with Z constraints"
+- **Null Hypothesis**: "Technology/approach X will NOT achieve Y"
 
-## Spike Workflow
+### 3. Research Design
+- **Success Criteria**: Quantifiable metrics (latency, accuracy, compatibility)
+- **Test Strategy**: What tests prove/disprove the hypothesis?
+- **Constraints**: Budget (time, resources), scope limitations
+- **Control Variables**: What are we holding constant?
 
-### 1. Create Spike Branch
+### 4. Experiment
+Execute tests, collect metrics, document findings as discovered.
 
+### 5. Analysis
+Compare results against success criteria. Interpret findings.
+
+### 6. Conclusion
+Accept/reject hypothesis. Document decision pathway.
+
+---
+
+## Spike Structure
+
+### Directory Layout
+
+```
+tests/spikes/
+├── NNN_descriptive_name/
+│   ├── README.md           # Hypothesis statement and findings
+│   ├── test_NNN_main.py    # Primary test executable
+│   ├── fixtures/           # Test data (optional)
+│   └── outputs/            # Results/logs (optional)
+```
+
+### Required Documentation Format
+
+Every spike test MUST contain a `README.md` with this structure:
+
+```markdown
+# Spike NNN: [Title]
+
+**Branch**: `spike/branch-name`  
+**Date**: YYYY-MM-DD  
+**Author**: Name  
+**Status**: In Progress | Complete | Integrated | Rejected | Deferred
+
+---
+
+## 1. Problem Statement
+
+[What decision are we making? What gap in knowledge exists?]
+
+Example:
+"We need to determine if PostgreSQL can scale to 1M+ documents while maintaining <100ms query latency for full-text search across all papers."
+
+---
+
+## 2. Hypothesis
+
+**Primary Hypothesis (H1)**:  
+[Testable prediction]
+
+Example:
+"PostgreSQL with full-text search indices will achieve <100ms query latency on 1M+ documents with keyword queries."
+
+**Null Hypothesis (H0)**:  
+[Opposite prediction]
+
+Example:
+"PostgreSQL will NOT achieve <100ms query latency or query latency will exceed 100ms."
+
+---
+
+## 3. Research Design
+
+### Success Criteria
+
+| Metric | Target | Rationale |
+|--------|--------|-----------|
+| Query Latency | <100ms | User-facing UI responsiveness |
+| Index Size | <2GB | Storage/cost constraints |
+| Update Latency | <500ms | Re-indexing performance |
+| False Positive Rate | <5% | Search result quality |
+
+### Experimental Design
+
+- **Unit Under Test**: PostgreSQL full-text search
+- **Test Environment**: [Docker/Local/Cloud]
+- **Dataset**: [Type and size of test data]
+- **Duration**: [How long will tests run?]
+- **Replicates**: [How many times to repeat?]
+- **Control Conditions**: [What variables are held constant?]
+
+### Test Strategy
+
+1. **Baseline Test**: Measure current state (if applicable)
+2. **Configuration Test**: Try different configurations
+3. **Load Test**: Stress test with production-like load
+4. **Edge Case Test**: Boundary conditions
+
+---
+
+## 4. Experiment Execution
+
+### Setup
 ```bash
-git checkout -b spike/tree-sitter-evaluation
+# Instructions to reproduce
 ```
 
-**Important**:
-- Branch prefix: `spike/`
-- **NO version update**
-- No requirement to merge to main
+### Results
 
-### 2. Create Spike Test Folder
+#### Test 1: Basic Query Performance
+- **Condition**: 100K documents, simple keyword query
+- **Result**: 45ms average latency ✅
+- **Notes**: Within target range
 
-Naming: `NNN_descriptive_name` where NNN is a sequential number
+#### Test 2: Complex Query Performance
+- **Condition**: 1M documents, multi-keyword phrase query
+- **Result**: 250ms average latency ⚠️
+- **Notes**: Exceeds target by 2.5x
 
-```python
-# mkdir tests/spikes/001_tree_sitter_evaluation/
+#### Test 3: Index Size
+- **Condition**: 1M documents with full-text index
+- **Result**: 1.2GB index size ✅
+- **Notes**: Within acceptable range
+
+---
+
+## 5. Analysis
+
+### Hypothesis Evaluation
+
+| Metric | Target | Actual | Status |
+|--------|--------|--------|--------|
+| Query Latency (simple) | <100ms | 45ms | ✅ PASS |
+| Query Latency (complex) | <100ms | 250ms | ❌ FAIL |
+| Index Size | <2GB | 1.2GB | ✅ PASS |
+
+### Key Findings
+
+**Finding 1**: [What did we discover?]
+- Evidence: [Supporting data]
+- Interpretation: [What does this mean?]
+
+**Finding 2**: [Next finding]
+
+### Limitations
+
+- [What wasn't tested?]
+- [What are the constraints?]
+- [What assumptions did we make?]
+
+---
+
+## 6. Conclusion
+
+### Hypothesis Verdict
+
+**Result**: ✅ ACCEPTED | ⚠️ PARTIALLY ACCEPTED | ❌ REJECTED
+
+**Summary**: [1-2 sentences on whether hypothesis was supported]
+
+### Decision
+
+Based on findings:
+- **Proceed**: [If hypothesis accepted, what's next?]
+- **Iterate**: [If partially accepted, what to try next?]
+- **Reject**: [If hypothesis failed, why and what alternative to try?]
+- **Defer**: [If good idea but not now, when to revisit?]
+
+---
+
+## 7. Recommendations
+
+### Immediate Action
+1. [Specific next step]
+2. [Specific next step]
+
+### If Proceeding
+- Create feature branch: `feat/feature-name`
+- Create ADR: `ADR-NNN: [Decision Title]`
+- Estimate effort: [T-shirt size]
+
+### If Rejected
+- Document why in CHANGELOG
+- Suggest alternative approach
+- Note for future reference
+
+---
+
+## 8. References
+
+- [Documentation link]
+- [Benchmark article]
+- [Related ADR or issue]
+
+---
+
+## Test Results
+
+**Last Run**: YYYY-MM-DD HH:MM UTC  
+**Environment**: [Python X.X, PostgreSQL X, Docker, etc.]  
+**Status**: ✅ All tests pass | ⚠️ Some failures | ❌ Major issues
+
 ```
 
-### 3. Document Exploration in README.md
+---
+
+## Spike Test Code Structure
+
+### Minimal Test File (`test_NNN_main.py`)
 
 ```python
 """
-Spike: Evaluate tree-sitter for multi-language parsing.
+Spike NNN: [Title]
 
-Branch: spike/tree-sitter-evaluation
-Date: 2025-11-19
-Author: Claude
-
-## Goals
-
-Explore whether tree-sitter could replace our current language-specific
-parsers with a unified multi-language solution.
-
-## Research Questions
-
-1. How does tree-sitter performance compare to ast module?
-2. Does it preserve comments and formatting?
-3. How difficult is multi-language support?
-4. What's the installation/deployment complexity?
-
-## Approach
-
-- Install tree-sitter-python
-- Parse sample Python files
-- Compare performance with current parser
-- Test comment preservation
-- Evaluate API complexity
-
-## Findings
-
-### Performance
-- ✅ 3x faster than ast module on large files
-- ✅ Handles 10K LOC in ~50ms vs ~150ms
-
-### Comment Preservation
-- ✅ Comments are preserved in syntax tree
-- ✅ Easy to extract and associate with nodes
-
-### Multi-Language Support
-- ✅ Excellent - same API for all languages
-- ✅ Just need language-specific grammar
-- ⚠️  Grammars need to be installed separately
-
-### API Complexity
-- ⚠️  More complex than ast module
-- ✅ Well documented
-- ✅ Active community
-
-### Installation
-- ⚠️  Requires C compiler for building
-- ⚠️  Language grammars are separate packages
-- ❌ Harder to deploy than pure Python
-
-## Conclusions
-
-Tree-sitter is promising for v2.0 multi-language support:
-
-**Pros:**
-- Significantly faster
-- Unified API for all languages
-- Good comment preservation
-- Active development
-
-**Cons:**
-- C dependency complicates deployment
-- More complex API than ast
-- Would require rewriting existing parser
-
-## Recommendations
-
-1. ⏸️  Not for v0.x - too disruptive
-2. ✅ Consider for v2.0 major rewrite
-3. ✅ Create ADR if we decide to proceed
-4. ✅ Keep monitoring project for improvements
-
-## Next Steps
-
-If we proceed:
-1. Create ADR-0XX: Migration to tree-sitter
-2. Create feat/tree-sitter-integration branch
-3. Implement incrementally alongside current parsers
-4. Deprecate old parsers after migration
-
-## References
-
-- [tree-sitter documentation](https://tree-sitter.github.io/tree-sitter/)
-- [tree-sitter-python](https://github.com/tree-sitter/tree-sitter-python)
+Hypothesis: [One line hypothesis]
 """
 
 import pytest
+from hypothesis import given, strategies as st
 
-# Spike tests below...
+
+class TestBasicFunctionality:
+    """Core functionality tests."""
+    
+    def test_proves_hypothesis(self):
+        """Validates the primary hypothesis."""
+        # Setup
+        # Act
+        # Assert
+        pass
+
+
+class TestPerformance:
+    """Benchmark and performance tests."""
+    
+    def test_meets_latency_requirement(self, benchmark):
+        """Query latency <100ms."""
+        # Use pytest-benchmark for measurements
+        pass
+    
+    def test_meets_throughput_requirement(self, benchmark):
+        """Throughput requirement."""
+        pass
+
+
+class TestEdgeCases:
+    """Boundary condition tests."""
+    
+    @given(st.integers(min_value=0, max_value=1000000))
+    def test_large_dataset_handling(self, size):
+        """Hypothesis property test for various sizes."""
+        pass
+
+
+if __name__ == "__main__":
+    # Can run tests directly
+    pytest.main([__file__, "-v", "--tb=short"])
 ```
 
-## Spike Test Structure
-
-### Filestructure
-
-1. README.md with description and test hypothesis
-2. `XXXX_main.py` with the experiment
-3. `test_XXXX_experiment_name.py` with a minimal test to be included in `pytest`. We want the spike to evolve with us.
-
-### Required Documentation
-
-Every spike test MUST include:
-
-```python
-"""
-Spike: <Title>
-
-Branch: spike/<branch-name>
-Date: <YYYY-MM-DD>
-Author: <Name>
-
-## Goals
-[What are we trying to learn?]
-
-## Research Questions
-[Specific questions to answer]
-
-## Approach
-[How we'll explore this]
-
-## Findings
-[What we discovered - add as we go]
-
-## Conclusions
-[Summary of learnings]
-
-## Recommendations
-[What should we do next?]
-
-## Next Steps
-[If we proceed, what's the path?]
-
-## References
-[Links to docs, articles, etc.]
-"""
-```
-
-### Test Code
-
-Spike tests can be messy - that's okay:
-
-```python
-def test_basic_functionality():
-    """Just prove it works."""
-    # Quick and dirty proof of concept
-    pass
-
-
-def test_performance_comparison():
-    """Rough benchmark."""
-    import time
-    # Compare approaches
-    pass
-
-
-def test_edge_case_that_concerns_us():
-    """Check if our concern is valid."""
-    pass
-```
-
-## Naming Convention
-
-```
-NNN_descriptive_name.py
-```
-
-Where:
-- `NNN` = Sequential number (001, 002, 003, ...)
-- `descriptive_name` = What you're exploring
-
-Examples:
-- `001_tree_sitter_evaluation`
-- `002_graph_database_migration`
-- `003_llm_integration_patterns`
-- `004_performance_optimization_strategies`
-
-## Spike Outcomes
-
-Spikes can lead to different outcomes:
-
-### 1. Feature Branch
-
-```
-spike/tree-sitter → feat/tree-sitter-integration
-```
-
-Findings are positive, create feature branch:
-- Use spike as reference
-- Create proper implementation
-- Write ADR documenting decision
-- Add comprehensive tests
-
-### 2. Rejection
-
-```
-spike/graphql-schema → [Closed, not proceeding]
-```
-
-Findings show it's not viable:
-- Document why in spike test
-- Close spike branch
-- Keep test for future reference
-- Update CHANGELOG [Unreleased] with findings
-
-### 3. Deferred
-
-```
-spike/performance-opt → [Deferred to v2.0]
-```
-
-Good idea but not now:
-- Document findings
-- Note in CHANGELOG
-- Reference in roadmap
-- Keep test for future
-
-## Example Spike Tests
-
-### Example 1: Library Evaluation
-
-```python
-# tests/spikes/001_esprima_vs_acorn/README.md
-"""
-Spike: Compare Esprima vs Acorn for JavaScript parsing.
-
-Branch: spike/js-parser-comparison
-Date: 2025-11-19
-
-## Goals
-Choose the best JavaScript parser for our needs.
-
-## Findings
-
-### Esprima
-- ✅ More mature
-- ✅ Better error messages
-- ⚠️  Slower
-
-### Acorn
-- ✅ Faster
-- ✅ Smaller
-- ❌ Less helpful errors
-
-## Conclusion
-Choose Esprima for better developer experience.
-"""
-```
-
-### Example 2: Performance Investigation
-
-```python
-# tests/spikes/002_graph_serialization_formats.py
-"""
-Spike: Compare JSON vs MessagePack vs Protocol Buffers.
-
-Branch: spike/serialization-performance
-
-## Findings
-- JSON: Easy, slow, large
-- MessagePack: Fast, compact, harder to debug
-- Protocol Buffers: Fastest, smallest, most complex
-
-## Conclusion
-Stick with JSON for now. Add MessagePack as option later.
-"""
-```
-
-### Example 3: Architecture Exploration
-
-```python
-# tests/spikes/003_event_driven_parsing.py
-"""
-Spike: Explore event-driven parser architecture.
-
-Branch: spike/event-driven-arch
-
-## Findings
-- More complex than current approach
-- Would enable streaming large files
-- Not needed for current use cases
-
-## Conclusion
-Defer to v2.0 if we need to handle very large files.
-"""
-```
-
-## Guidelines
-
-### DO
-
-✅ Document your exploration thoroughly
-✅ Include findings as you discover them
-✅ Note both successes and failures
-✅ Provide clear conclusions
-✅ Recommend next steps
-
-### DON'T
-
-❌ Worry about code quality (it's exploratory)
-❌ Write comprehensive tests (just prove concepts)
-❌ Spend time on edge cases
-❌ Merge incomplete spikes to main
+---
 
 ## Running Spike Tests
 
 ```bash
-# Run all spikes
-uv run pytest tests/spikes/
-
-# Run specific spike test
-uv run python tests/spikes/001_tree_sitter_evaluation/test_001.py
+# Run all spikes with results
+uv run pytest tests/spikes/ -v --tb=short
 
 # Run specific spike
-uv run python tests/spikes/001_tree_sitter_evaluation/001_main.py
+uv run pytest tests/spikes/001_tree_sitter_evaluation/ -v
+
+# Run with benchmarking
+uv run pytest tests/spikes/002_browser/ -v --benchmark-only
+
+# Generate spike report
+uv run pytest tests/spikes/ --html=spike_report.html --self-contained-html
 ```
 
-## Relationship to ADRs
+---
 
-Spikes often inform ADRs:
+## Spike Outcomes and Pathways
+
+### Pathway 1: Hypothesis Confirmed → Feature Branch
 
 ```
-1. Create spike branch
-2. Run experiments in spike test
-3. Document findings
-4. If proceeding → Create ADR
-5. Create feature branch
-6. Reference spike in ADR
+spike/tree-sitter-evaluation (findings support approach)
+    ↓
+ADR-010: Use Tree-Sitter for Multi-Language Parsing
+    ↓
+feat/tree-sitter-integration (production implementation)
+    ↓
+Merge to main with comprehensive tests
 ```
 
-Example:
+**Action**:
+1. Create ADR referencing spike findings
+2. Create feature branch from spike
+3. Rewrite with production quality standards
+4. Full test coverage before merge
+
+### Pathway 2: Hypothesis Partially Confirmed → Refinement
+
+```
+spike/postgres-performance (latency mostly acceptable)
+    ↓
+feat/postgres-index-optimization (refine configuration)
+    ↓
+Re-run spike with optimized setup
+    ↓
+If confirmed, proceed to feature branch
+```
+
+**Action**:
+1. Identify what partially failed
+2. Try alternative configuration or technology
+3. Create follow-up spike or feature branch
+
+### Pathway 3: Hypothesis Rejected → Document and Archive
+
+```
+spike/graphql-integration (performance unacceptable)
+    ↓
+Close spike branch, document findings
+    ↓
+Add to CHANGELOG rejected approaches
+    ↓
+Keep test for historical reference
+    ↓
+Suggest alternative in recommendations
+```
+
+**Action**:
+1. Document why hypothesis failed clearly
+2. Note in CHANGELOG under "Investigated but Rejected"
+3. Keep test for future reference
+4. Recommend alternative approach
+
+### Pathway 4: Good Idea, Wrong Timing → Deferred
+
+```
+spike/event-driven-arch (confirmed to work, but not needed now)
+    ↓
+Document decision and timing constraints
+    ↓
+Reference in roadmap for v2.0
+    ↓
+Archive spike for future use
+```
+
+**Action**:
+1. Document feasibility clearly
+2. Note why we're deferring
+3. Add to future roadmap with estimated timeline
+4. Periodically review for timing shift
+
+---
+
+## When to Create a Spike
+
+✅ **CREATE SPIKE WHEN:**
+- Making significant architectural decision
+- Evaluating new technology/framework
+- Investigating performance bottleneck
+- Exploring alternative implementation strategy
+- Testing feasibility of requested feature
+- Assessing integration complexity
+
+❌ **DON'T CREATE SPIKE WHEN:**
+- Obvious solution exists
+- Decision is low-impact
+- Similar spike already exists
+- Feature is already well-understood
+
+---
+
+## Spike Development Workflow
+
+### 1. Initialize Spike
+```bash
+# Create branch
+git checkout -b spike/NNN-descriptive-name
+
+# Create directory
+mkdir -p tests/spikes/NNN_descriptive_name
+
+# Create template files
+touch tests/spikes/NNN_descriptive_name/README.md
+touch tests/spikes/NNN_descriptive_name/test_NNN_main.py
+```
+
+### 2. Document Hypothesis
+Write README.md with problem statement and hypothesis BEFORE running experiments.
+
+### 3. Execute Experiments
+Run tests, collect data, update findings in README as discoveries are made.
+
+### 4. Analyze Results
+Compare against success criteria, document conclusions.
+
+### 5. Decide and Communicate
+Determine next action and update spike status.
+
+### 6. Archive
+Keep spike indefinitely as historical record.
+
+---
+
+## Best Practices
+
+### DO ✅
+- **Document hypothesis first** before running experiments
+- **Record results as discovered** - don't wait until end
+- **Be honest about findings** - both positive and negative
+- **Test boundaries** - not just happy path
+- **Include failures** - they're informative
+- **State assumptions** - make implicit knowledge explicit
+- **Recommend action** - don't just report findings
+- **Reference related work** - spikes, ADRs, issues
+
+### DON'T ❌
+- Start coding before hypothesis is clear
+- Ignore results that contradict hypothesis
+- Over-engineer spike tests
+- Spend weeks on single spike
+- Make it production code
+- Forget to document constraints and limitations
+- Leave spike status ambiguous
+
+---
+
+## Integration with ADRs
+
+Spikes inform Architecture Decision Records:
+
 ```markdown
-# ADR-010: Use Tree-sitter for Multi-Language Parsing
+# ADR-010: Use PostgreSQL Full-Text Search
 
 ## Context
-Investigation in spike/tree-sitter-evaluation (see tests/spikes/001_tree_sitter_evaluation.py)
-showed significant performance benefits...
+Investigation in spike/001_postgres_performance (see 
+tests/spikes/001_first_tests/README.md) confirmed that
+PostgreSQL full-text search achieves <100ms latency on
+typical datasets...
 ```
 
-## Archive Policy
+Every spike that leads to decision should reference ADR, and every ADR making technology decision should reference supporting spike.
 
-- Keep all spikes indefinitely
-- They serve as historical record
-- Future developers can learn from past explorations
-- May become relevant again later
+---
 
-## Questions?
+## Archive and Future Reference
 
-- Spikes are meant to be exploratory
-- Don't overthink them
-- Document findings
-- Help future decision making
+- **Keep all spikes indefinitely** - they're learning artifacts
+- **Historical record** - document what we've tried
+- **Future reconsideration** - situations change, may revisit
+- **Knowledge transfer** - new team members see past explorations
+- **Pattern recognition** - helps identify recurring problems
+
+---
+
+## FAQ
+
+**Q: Can spike tests be messy?**  
+A: Yes, absolutely. They're exploratory. Quality matters less than learning.
+
+**Q: Do spikes need full test coverage?**  
+A: No - just enough to prove/disprove hypothesis.
+
+**Q: What if hypothesis is ambiguous?**  
+A: Rewrite it until it's testable and binary.
+
+**Q: How long should a spike take?**  
+A: 1-5 days typically. If it's taking weeks, it should be a feature.
+
+**Q: Can we merge spike code to main?**  
+A: No. If findings justify it, create feature branch and rewrite properly.
+
+**Q: What if results are inconclusive?**  
+A: Document constraints that prevented conclusion. Recommend refinements.
+
+---
+
+## Template Reference
+
+Create new spike from template:
+```bash
+cp -r tests/spikes/000_template/ tests/spikes/NNN_descriptive_name/
+# Edit README.md and test_NNN_main.py
+```

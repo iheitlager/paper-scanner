@@ -320,6 +320,7 @@ class StepExecutor:
             raise ConfigurationError("Step configuration missing 'builtin.<step>' key")
 
         # Extract step name from builtin key
+        # TODO: solve this so we can use external plugins too
         step_name = builtin_key.replace("builtin.", "")
 
         # If step_value contains spaces or is not a valid step name, use it as description

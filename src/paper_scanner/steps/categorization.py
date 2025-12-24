@@ -17,6 +17,7 @@ Outputs comprehensive categorization results to screening.categorization with:
 - metadata: processing timestamp and duration
 """
 
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -201,6 +202,45 @@ def _is_conceptual_paper(title: Optional[str], abstract: Optional[str]) -> bool:
     # If more conceptual than empirical, likely conceptual
     return conceptual_count > empirical_count
 
+def _is_empirical_research(title: Optional[str], abstract: Optional[str]) -> Dict[str, Any]:
+    combined_text = _normalize_text(f"{title or ''} {abstract or ''}")
+    
+    # Quantitative indicators
+    quant_patterns = [
+        r'\bn\s*=\s*\d+',  # sample size
+        r'survey.*\d+.*participants?',
+        r'statistical analysis',
+        r'regression|correlation|anova|t-test',
+        r'questionnaire|measurement|hypothesis',
+        r'significant.*p\s*[<>]',
+    ]
+    
+    # Qualitative indicators  
+    qual_patterns = [
+        r'interview.*[participant.*|expert.*]?',
+        r'case study|ethnograph|grounded theory',
+        r'thematic analysis|content analysis',
+        r'observational study|field work',
+        r'focus group|phenomenological',
+    ]
+    
+    # Method indicators
+    method_patterns = [
+        r'data collection|data gathered',
+        r'empirical study|empirical investigation',
+        r'experimental design|quasi-experimental',
+        r'longitudinal|cross-sectional',
+    ]
+    
+    quant_score = sum(1 for p in quant_patterns if re.search(p, combined_text))
+    qual_score = sum(1 for p in qual_patterns if re.search(p, combined_text))
+    method_score = sum(1 for p in method_patterns if re.search(p, combined_text))
+    
+    return {
+        'is_empirical': (quant_score + qual_score + method_score) >= 2,
+        'type': 'quantitative' if quant_score > qual_score else 'qualitative' if qual_score > 0 else 'unknown',
+        'confidence': min((quant_score + qual_score + method_score) / 10, 1.0)
+    }
 
 def _assign_quality_tier(journal: Optional[str], year: Optional[int]) -> QualityTier:
     """Assign quality tier based on journal/venue."""
@@ -262,18 +302,25 @@ def _categorize_paper(
     # 3. Check if conceptual paper
     is_conceptual = _is_conceptual_paper(paper.title, paper.abstract)
 
-    # 4. Determine study type
-    if is_review:
+    # 4. Check empirical nature
+    empirical_info = _is_empirical_research(paper.title, paper.abstract)
+
+    # 5. Determine study type
+    if empirical_info['is_empirical'] and empirical_info['type'] == 'qualitative':
+        study_type = StudyType.EMPIRICAL_QUALITATIVE
+    elif empirical_info['is_empirical'] and empirical_info['type'] == 'quantitative':
+        study_type = StudyType.EMPIRICAL_QUANTITATIVE
+    elif is_review:
         study_type = StudyType.LITERATURE_REVIEW
     elif is_conceptual:
         study_type = StudyType.CONCEPTUAL
     else:
         study_type = StudyType.EMPIRICAL_QUANTITATIVE  # Default empirical type
 
-    # 5. Assign quality tier
+    # 6. Assign quality tier
     quality_tier = _assign_quality_tier(paper.journal, paper.year)
 
-    # 6. Determine inclusion
+    # 7. Determine inclusion
     should_include = True
     exclusion_reason = None
 

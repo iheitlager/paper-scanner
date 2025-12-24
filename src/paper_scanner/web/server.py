@@ -125,25 +125,11 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
 
             loaded_count = 0
             failed_count = 0
-            references_count = 0
 
             for idx, record in enumerate(records):
                 try:
                     db_manager.insert_pdf_record(record)
                     loaded_count += 1
-
-                    # If references are present, insert them into the database
-                    if "references" in record and record["references"]:
-                        try:
-                            # Get the inserted paper's ID by file_name
-                            pdf_record = db_manager.get_pdf_by_file_name(record["file_name"])
-                            if pdf_record:
-                                db_manager.insert_references(pdf_record["id"], record["references"])
-                                references_count += len(record.get("references", {}).get("references", []))
-                        except DatabaseException as e:
-                            logger.warning(f"Failed to insert references for record {idx}: {e}")
-                            # Continue without references; don't fail the paper insertion
-
                 except (InvalidDataException, DatabaseException) as e:
                     logger.warning(f"Failed to insert record {idx}: {e}")
                     failed_count += 1
@@ -154,26 +140,29 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
                     "loaded": loaded_count,
                     "failed": failed_count,
                     "total": loaded_count + failed_count,
-                    "references_loaded": references_count,
                 }
             ), 200
         except InvalidDataException:
             raise
 
-    @app.route("/api/file_details/<file_name>", methods=["GET"])
-    def get_file_details(file_name: str) -> Tuple[Dict[str, Any], int]:
-        """Get file details by name.
+    @app.route("/api/file_details/<identifier>", methods=["GET"])
+    def get_file_details(identifier: str) -> Tuple[Dict[str, Any], int]:
+        """Get file details by name or cite_key.
 
         Args:
-            file_name: Name of the PDF file
+            identifier: Either file_name or cite_key of the paper
 
         Returns:
             JSON response with file details
         """
         try:
-            pdf_record = db_manager.get_pdf_by_file_name(file_name)
+            # Try file_name first, then cite_key
+            pdf_record = db_manager.get_pdf_by_file_name(identifier)
             if not pdf_record:
-                raise PDFNotFoundException(file_name)
+                pdf_record = db_manager.get_pdf_by_cite_key(identifier)
+            
+            if not pdf_record:
+                raise PDFNotFoundException(identifier)
 
             return jsonify({"success": True, "details": pdf_record}), 200
         except DatabaseException:
@@ -205,12 +194,12 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
         except DatabaseException:
             raise
 
-    @app.route("/api/file_tags/<file_name>", methods=["PUT"])
-    def update_file_tags(file_name: str) -> Tuple[Dict[str, Any], int]:
+    @app.route("/api/file_tags/<identifier>", methods=["PUT"])
+    def update_file_tags(identifier: str) -> Tuple[Dict[str, Any], int]:
         """Update tags for a PDF file.
 
         Args:
-            file_name: Name of the PDF file
+            identifier: Either file_name or cite_key of the PDF
 
         Expected JSON:
             {
@@ -227,70 +216,82 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
 
             tags = data.get("tags", "")
 
-            # Verify file exists
-            pdf_record = db_manager.get_pdf_by_file_name(file_name)
+            # Verify file exists - try file_name first, then cite_key
+            pdf_record = db_manager.get_pdf_by_file_name(identifier)
             if not pdf_record:
-                raise PDFNotFoundException(file_name)
+                pdf_record = db_manager.get_pdf_by_cite_key(identifier)
+            
+            if not pdf_record:
+                raise PDFNotFoundException(identifier)
 
-            db_manager.update_pdf_tags(file_name, tags)
+            # Update using file_name (primary key in update_pdf_tags)
+            # If no file_name, use cite_key
+            lookup_key = pdf_record.get("file_name") or pdf_record.get("cite_key")
+            db_manager.update_pdf_tags(lookup_key, tags)
             return jsonify({"success": True, "message": "Tags updated successfully"}), 200
         except (DatabaseException, InvalidDataException, PDFNotFoundException):
             raise
 
-    @app.route("/api/references/<file_name>", methods=["GET"])
-    def get_references(file_name: str) -> Tuple[Dict[str, Any], int]:
-        """Get all references for a specific paper.
+    @app.route("/api/references/<identifier>", methods=["GET"])
+    def get_references(identifier: str) -> Tuple[Dict[str, Any], int]:
+        """Get all papers cited by a specific paper.
 
         Args:
-            file_name: Name of the PDF file
+            identifier: Either file_name or cite_key of the PDF
 
         Returns:
-            JSON response with list of references
+            JSON response with list of cited papers
         """
         try:
-            pdf_record = db_manager.get_pdf_by_file_name(file_name)
+            # Try file_name first, then cite_key
+            pdf_record = db_manager.get_pdf_by_file_name(identifier)
             if not pdf_record:
-                raise PDFNotFoundException(file_name)
+                pdf_record = db_manager.get_pdf_by_cite_key(identifier)
+            
+            if not pdf_record:
+                raise PDFNotFoundException(identifier)
 
-            references = db_manager.get_references_for_paper(pdf_record["id"])
+            # Use db_id (PostgreSQL auto-increment ID) to fetch citations
+            citations = db_manager.get_citations_for_paper(pdf_record["db_id"])
 
-            # Parse JSONB fields back to objects for JSON response
-            for ref in references:
-                if ref.get("authors") and isinstance(ref["authors"], str):
-                    try:
-                        ref["authors"] = json.loads(ref["authors"])
-                    except json.JSONDecodeError:
-                        pass
-
-            return jsonify({"success": True, "references": references}), 200
+            return jsonify({"success": True, "references": citations}), 200
         except (DatabaseException, PDFNotFoundException):
             raise
 
-    @app.route("/api/pdf/<file_name>", methods=["GET"])
-    def get_pdf(file_name: str) -> Tuple[Any, int]:
-        """Serve a PDF file by name.
+    @app.route("/api/pdf/<identifier>", methods=["GET"])
+    def get_pdf(identifier: str) -> Tuple[Any, int]:
+        """Serve a PDF file by name or cite_key.
 
         Args:
-            file_name: Name of the PDF file
+            identifier: Either file_name or cite_key of the PDF
 
         Returns:
             PDF file or JSON error response
         """
         try:
-            pdf_record = db_manager.get_pdf_by_file_name(file_name)
+            # Try file_name first, then cite_key
+            pdf_record = db_manager.get_pdf_by_file_name(identifier)
             if not pdf_record:
-                raise PDFNotFoundException(file_name)
+                pdf_record = db_manager.get_pdf_by_cite_key(identifier)
+            
+            if not pdf_record:
+                raise PDFNotFoundException(identifier)
 
-            file_path: str = pdf_record["file_path"]
+            file_path: str = pdf_record.get("file_path")
+            if not file_path:
+                raise FileNotFoundException(f"No file_path for paper: {identifier}")
 
-            # In Docker, translate paths from host machine to container paths
-            if app.config["ENV_MODE"] == "docker":
-                if file_path.startswith("/Users/iheitlager/wc/papers"):
-                    file_path = file_path.replace("/Users/iheitlager/wc/papers", "/papers", 1)
-                elif file_path.startswith(app.config["PDF_BASE_DIR"]):
-                    file_path = file_path.replace(app.config["PDF_BASE_DIR"], "/papers", 1)
+            # Resolve path relative to current working directory
+            # If path is relative, resolve from cwd; if absolute, use as-is
+            if not os.path.isabs(file_path):
+                file_path = os.path.join(os.getcwd(), file_path)
+            else:
+                # For absolute paths, try relative to cwd first, then absolute
+                relative_attempt = os.path.join(os.getcwd(), os.path.basename(file_path))
+                if os.path.exists(relative_attempt):
+                    file_path = relative_attempt
 
-            logger.info(f"Looking for PDF at path: {file_path} (ENV: {app.config['ENV_MODE']})")
+            logger.info(f"Looking for PDF at path: {file_path} (CWD: {os.getcwd()})")
 
             if not os.path.exists(file_path):
                 logger.error(f"PDF file not found on disk at: {file_path}")
