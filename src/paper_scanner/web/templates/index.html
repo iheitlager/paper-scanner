@@ -12,13 +12,45 @@
         <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
-                <h2>📄 Files</h2>
-                <div class="load-section">
-                    <button class="file-picker-button" onclick="openFileModal()">📁 Load JSONL File</button>
-                    <div id="statusMessage"></div>
+                <h2 onclick="resetToHistogramView()" style="cursor: pointer; flex-shrink: 0;">📄 Papers</h2>
+                <input type="text" id="sidebarSearchInput" class="sidebar-search-input" placeholder="Search..." onkeyup="updateSidebarSearch()">
+                <div class="sidebar-sort-menu">
+                    <button class="sidebar-sort-btn" onclick="toggleSortMenu()" title="Sort options">
+                        <span id="sortIndicator">⬇ Title</span>
+                    </button>
+                    <div class="sort-dropdown" id="sortDropdown" style="display: none;">
+                        <div class="sort-direction">
+                            <button onclick="cycleSortDirection()" class="sort-option" title="Toggle sort direction">
+                                <span id="directionIndicator">⬇ Descending</span>
+                            </button>
+                        </div>
+                        <div class="sort-divider"></div>
+                        <button class="sort-option" onclick="setSortBy('title')">Title</button>
+                        <button class="sort-option" onclick="setSortBy('year')">Year</button>
+                        <button class="sort-option" onclick="setSortBy('author')">Author</button>
+                        <button class="sort-option" onclick="setSortBy('journal')">Journal</button>
+                    </div>
+                </div>
+                <div class="sidebar-sort-menu">
+                    <button class="sidebar-sort-btn" onclick="toggleItemsPerPageMenu()" title="Items per page">
+                        <span id="itemsPerPageIndicator">25</span>
+                    </button>
+                    <div class="sort-dropdown items-per-page-dropdown" id="itemsPerPageDropdown" style="display: none;">
+                        <button class="sort-option" onclick="setItemsPerPage(10)">10</button>
+                        <button class="sort-option" onclick="setItemsPerPage(25)">25</button>
+                        <button class="sort-option" onclick="setItemsPerPage(50)">50</button>
+                        <button class="sort-option" onclick="setItemsPerPage(100)">100</button>
+                    </div>
                 </div>
             </div>
             <div class="file-list" id="fileList"></div>
+            <div class="sidebar-footer">
+                <div class="sidebar-pagination-info" id="sidebarPaginationInfo"></div>
+                <div class="sidebar-pagination-controls">
+                    <button class="sidebar-pagination-btn" id="sidebarPrevBtn" onclick="goToPreviousSidebarPage()" disabled>← Previous</button>
+                    <button class="sidebar-pagination-btn" id="sidebarNextBtn" onclick="goToNextSidebarPage()" disabled>Next →</button>
+                </div>
+            </div>
         </div>
 
         <!-- Main Content -->
@@ -36,8 +68,8 @@
                         <span id="breadcrumbCurrent"></span>
                     </div>
                     <div class="toolbar-title-section">
-                        <span class="toolbar-authors" id="currentAuthors"></span>
                         <h3 id="currentFileName">Select a PDF to view</h3>
+                        <span class="toolbar-authors" id="currentAuthors"></span>
                     </div>
                 </div>
                 <div class="toolbar-actions">

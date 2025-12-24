@@ -306,6 +306,10 @@ class PaperUploader:
                 "skipped": int,
                 "errors": List[str],
                 "error_count": int,
+                "citation_edges": {
+                    "edges_inserted": int,
+                    "edges_skipped": int,
+                }
             }
         """
         stats = {
@@ -314,6 +318,10 @@ class PaperUploader:
             "skipped": 0,
             "errors": [],
             "error_count": 0,
+            "citation_edges": {
+                "edges_inserted": 0,
+                "edges_skipped": 0,
+            }
         }
 
         if not papers:
@@ -342,8 +350,18 @@ class PaperUploader:
                             if conflict_strategy == "raise":
                                 raise
 
+                    # Insert citation edges after all papers
+                    edge_stats = self._insert_citation_edges(cursor, papers)
+                    stats["citation_edges"]["edges_inserted"] = edge_stats["edges_inserted"]
+                    stats["citation_edges"]["edges_skipped"] = edge_stats["edges_skipped"]
+                    if edge_stats["errors"]:
+                        stats["errors"].extend(edge_stats["errors"])
+
                     cursor.close()
-                    logger.info(f"Inserted {stats['inserted']} papers, errors: {stats['error_count']}")
+                    logger.info(
+                        f"Inserted {stats['inserted']} papers, {stats['citation_edges']['edges_inserted']} "
+                        f"citation edges, errors: {stats['error_count']}"
+                    )
 
         except Exception as e:
             logger.error(f"Bulk insert failed: {e}")
@@ -395,6 +413,95 @@ class PaperUploader:
             insert_sql += sql.SQL(" ON CONFLICT (cite_key) DO UPDATE SET ") + update_clause
 
         cursor.execute(insert_sql, row)
+
+    def _insert_citation_edges(
+        self,
+        cursor,
+        papers: List[Paper],
+    ) -> Dict[str, Any]:
+        """
+        Insert citation edges for all papers.
+        
+        For each paper with citations, creates edges linking the citing paper
+        to cited papers. Handles cases where cited papers may or may not be in DB.
+        
+        Args:
+            cursor: psycopg2 cursor (should be in transaction)
+            papers: List of Paper models with citations
+            
+        Returns:
+            Dictionary with edge insertion statistics:
+            {
+                "edges_inserted": int,
+                "edges_skipped": int,  # cited paper not in DB
+                "errors": List[str]
+            }
+        """
+        stats = {
+            "edges_inserted": 0,
+            "edges_skipped": 0,
+            "errors": [],
+        }
+
+        for paper in papers:
+            if not paper.citations:
+                continue
+            
+            # Get citing paper's db_id
+            cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
+            result = cursor.fetchone()
+            
+            if not result:
+                stats["errors"].append(f"Paper {paper.cite_key} not found in DB for citations")
+                continue
+            
+            citing_paper_db_id = result[0]
+            
+            # Insert edges for each citation
+            for citation in paper.citations:
+                try:
+                    cited_paper_db_id = None
+                    
+                    # Try to find the cited paper by DOI first, then by title+year
+                    if citation.doi:
+                        cursor.execute(
+                            "SELECT db_id FROM papers WHERE doi = %s LIMIT 1",
+                            (citation.doi,)
+                        )
+                        result = cursor.fetchone()
+                        if result:
+                            cited_paper_db_id = result[0]
+                    
+                    if not cited_paper_db_id and citation.title:
+                        cursor.execute(
+                            "SELECT db_id FROM papers WHERE title = %s AND year = %s LIMIT 1",
+                            (citation.title, citation.year)
+                        )
+                        result = cursor.fetchone()
+                        if result:
+                            cited_paper_db_id = result[0]
+                    
+                    # Insert edge (cited_paper_db_id can be NULL if not found)
+                    cursor.execute(
+                        """
+                        INSERT INTO citation_edges (citing_paper_id, cited_paper_id)
+                        VALUES (%s, %s)
+                        ON CONFLICT (citing_paper_id, cited_paper_id) DO NOTHING
+                        """,
+                        (citing_paper_db_id, cited_paper_db_id)
+                    )
+                    
+                    if cited_paper_db_id is None:
+                        stats["edges_skipped"] += 1
+                    else:
+                        stats["edges_inserted"] += 1
+                        
+                except Exception as e:
+                    error_msg = f"Citation edge for {paper.cite_key}: {str(e)}"
+                    logger.error(error_msg)
+                    stats["errors"].append(error_msg)
+
+        return stats
 
     def get_paper_by_cite_key(self, cite_key: str) -> Optional[Paper]:
         """

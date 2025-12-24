@@ -168,11 +168,26 @@ class ManualHandler(BaseFetcherHandler):
         return api_data.get("source_key")
 
     def _extract_citations(self, api_data: Dict[str, Any]) -> List[Citation]:
-        """Extract citations from cached data."""
-        citations = api_data.get("citations", [])
-        if isinstance(citations, list):
-            return citations
-        return []
+        """Extract citations from cached data and convert to Citation objects."""
+        citations_raw = api_data.get("citations", [])
+        if not isinstance(citations_raw, list):
+            return []
+
+        citations = []
+        for citation_item in citations_raw:
+            if isinstance(citation_item, dict):
+                # Convert dict to Citation object
+                try:
+                    citation = Citation(**citation_item)
+                    citations.append(citation)
+                except Exception:
+                    # Skip invalid citations
+                    pass
+            elif isinstance(citation_item, Citation):
+                # Already a Citation object
+                citations.append(citation_item)
+
+        return citations
 
     def _find_download_url(self, api_data: Dict[str, Any]) -> Optional[str]:
         """Extract download URL from cached data."""

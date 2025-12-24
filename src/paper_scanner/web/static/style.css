@@ -41,7 +41,7 @@ body {
 }
 
 .sidebar {
-  width: 280px;
+  width: 630px;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   overflow-y: auto;
@@ -49,15 +49,20 @@ body {
 }
 
 .sidebar-header {
-  padding: 20px;
+  padding: 8px;
   border-bottom: 1px solid var(--border-color);
   background-color: var(--bg-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .sidebar-header h2 {
-  font-size: 16px;
+  font-size: 14px;
   color: var(--text-primary);
-  margin-bottom: 10px;
+  margin: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .load-section {
@@ -123,15 +128,17 @@ body {
 
 .file-item {
   padding: 12px;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   background-color: var(--bg-input);
   border-left: 3px solid var(--border-color);
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.2s;
-  max-height: 60px;
+  max-height: 120px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .file-item:hover {
@@ -145,13 +152,26 @@ body {
   font-weight: 500;
 }
 
-.file-item-name {
-  font-size: 13px;
+.file-item-title {
+  font-size: 14px;
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.file-item-metadata {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-item-metadata em {
+  font-style: italic;
+  font-weight: 400;
 }
 
 .file-item-size {
@@ -164,7 +184,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 6px;
+  margin-top: 2px;
 }
 
 .file-tag {
@@ -175,6 +195,135 @@ body {
   border-radius: 10px;
   font-size: 10px;
   font-weight: 500;
+}
+
+.sidebar-search-input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 11px;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.sidebar-search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.sidebar-sort-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sidebar-sort-btn {
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 11px;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.sidebar-sort-btn:hover {
+  background-color: var(--bg-hover);
+}
+
+.sidebar-sort-btn:active {
+  background-color: var(--bg-selected);
+}
+
+.sort-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  min-width: 140px;
+  z-index: 100;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  margin-top: 4px;
+}
+
+.sort-option {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background-color 0.2s;
+}
+
+.sort-option:hover {
+  background-color: var(--bg-hover);
+}
+
+.sort-option:first-child {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sort-divider {
+  height: 1px;
+  background-color: var(--border-color);
+}
+
+.items-per-page-dropdown {
+  left: auto;
+  right: 0;
+  min-width: 70px;
+}
+
+.sidebar-footer {
+  padding: 10px;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-pagination-info {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.sidebar-pagination-controls {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.sidebar-pagination-btn {
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 11px;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.sidebar-pagination-btn:hover:not(:disabled) {
+  background-color: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.sidebar-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .main-content {
@@ -254,12 +403,17 @@ body {
 }
 
 .toolbar-authors {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.toolbar-authors em {
+  font-style: italic;
+  font-weight: 400;
 }
 
 .toolbar-authors:empty {
@@ -267,8 +421,9 @@ body {
 }
 
 .toolbar h3 {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--accent-color);
+  font-weight: 700;
   flex: 1;
   margin: 0;
   overflow: hidden;
@@ -463,6 +618,18 @@ body {
   color: var(--text-primary);
   margin-bottom: 4px;
   line-height: 1.3;
+  font-weight: 600;
+}
+
+.reference-metadata {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.reference-metadata em {
+  font-style: italic;
+  font-weight: 400;
 }
 
 .reference-source {
@@ -1227,6 +1394,8 @@ body {
 
 /* Papers List Viewer */
 .papers-list-viewer {
+  width: 100%;
+  height: 100%;
   flex: 1;
   overflow: auto;
   padding: 20px;
@@ -1236,25 +1405,79 @@ body {
 }
 
 .papers-list-container {
-  max-width: 800px;
-  margin: 0 auto;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .papers-list-title {
   font-size: 18px;
   color: var(--accent-color);
-  margin-bottom: 20px;
+  margin-bottom: 15px;
+}
+
+.papers-pagination-controls {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.papers-per-page-selector {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.papers-per-page-selector select {
+  padding: 6px 10px;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.papers-per-page-selector select:hover {
+  border-color: var(--accent-color);
+}
+
+.papers-search-box {
+  flex: 1;
+  min-width: 200px;
+}
+
+.papers-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+.papers-search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(14, 99, 156, 0.2);
 }
 
 .papers-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 15px;
 }
 
 .paper-list-item {
-  padding: 15px;
+  padding: 12px;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 4px;
@@ -1268,28 +1491,89 @@ body {
   transform: translateX(4px);
 }
 
-.paper-list-item-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.paper-list-item-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--accent-color);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .paper-list-item-title {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
   line-height: 1.4;
-  margin-top: 6px;
+  margin-bottom: 6px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.paper-list-item-metadata {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+  margin-bottom: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.metadata-year,
+.metadata-authors,
+.metadata-journal {
+  display: inline;
+}
+
+.metadata-journal {
+  font-style: italic;
+}
+
+.paper-list-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.papers-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination-info {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.pagination-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.pagination-btn {
+  padding: 6px 12px;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-page-info {
+  color: var(--text-secondary);
+  white-space: nowrap;
 }

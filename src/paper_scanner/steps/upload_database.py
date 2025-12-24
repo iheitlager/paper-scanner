@@ -209,6 +209,10 @@ class UploadDatabaseStep(BaseStep):
                 "skipped": 0,
                 "errors": [],
                 "error_count": 0,
+                "citation_edges": {
+                    "edges_inserted": 0,
+                    "edges_skipped": 0,
+                }
             }
 
             for i in range(0, total_papers, batch_size):
@@ -235,6 +239,8 @@ class UploadDatabaseStep(BaseStep):
                 all_stats["skipped"] += stats["skipped"]
                 all_stats["error_count"] += stats["error_count"]
                 all_stats["errors"].extend(stats["errors"])
+                all_stats["citation_edges"]["edges_inserted"] += stats["citation_edges"]["edges_inserted"]
+                all_stats["citation_edges"]["edges_skipped"] += stats["citation_edges"]["edges_skipped"]
 
                 # TODO: Move this outside the Step
                 if verbose and stats["error_count"] > 0:
@@ -270,6 +276,8 @@ class UploadDatabaseStep(BaseStep):
                     "skipped": all_stats["skipped"],
                     "errors": all_stats["error_count"],
                     "conflict_strategy": conflict_strategy,
+                    "citation_edges_inserted": all_stats["citation_edges"]["edges_inserted"],
+                    "citation_edges_skipped": all_stats["citation_edges"]["edges_skipped"],
                 },
                 details=details
             )
@@ -319,6 +327,10 @@ class UploadDatabaseStep(BaseStep):
 
         if stats["error_count"] > 0:
             parts.append(f"errors: {stats['error_count']}")
+
+        # Add citation edges info
+        if stats["citation_edges"]["edges_inserted"] > 0:
+            parts.append(f"citation edges: {stats['citation_edges']['edges_inserted']}")
 
         summary = ", ".join(parts) if parts else "no changes"
         return f"Upload complete: {summary} (strategy: {strategy})"

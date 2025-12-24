@@ -28,13 +28,21 @@
 let files = [];
 let currentFile = null;
 let selectedFile = null;
-let currentTab = 'pdf';
+let currentTab = 'details';
 let isLoading = false;
 let allTags = [];
 let yearData = [];
 let currentView = 'overview'; // 'overview', 'papers-list', or 'paper-detail'
 let selectedYear = null;
 let yearChart = null;
+
+// Sidebar pagination and search state
+let sidebarSearchQuery = '';
+let sidebarCurrentPage = 1;
+let sidebarItemsPerPage = 25;
+let sidebarFilteredFiles = [];
+let sidebarSortBy = 'title';
+let sidebarSortOrder = 'asc'; // 'asc' or 'desc'
 
 // Storage keys for localStorage
 const STORAGE_KEYS = {
@@ -44,14 +52,14 @@ const STORAGE_KEYS = {
 
 /**
  * Load last active tab from localStorage
- * @returns {string} Tab name or 'pdf' as default
+ * @returns {string} Tab name or 'details' as default
  */
 function getLastTab() {
   try {
     const lastTab = localStorage.getItem(STORAGE_KEYS.LAST_TAB);
-    return lastTab && ['pdf', 'analysis', 'details', 'references', 'tags'].includes(lastTab) ? lastTab : 'pdf';
+    return lastTab && ['pdf', 'analysis', 'details', 'references', 'tags'].includes(lastTab) ? lastTab : 'details';
   } catch {
-    return 'pdf';
+    return 'details';
   }
 }
 
@@ -394,8 +402,19 @@ function switchTab(tabName) {
 
   // Update URL to reflect current tab
   if (currentFile) {
-    const paperId = currentFile.citekey || currentFile.file_name;
-    const newUrl = `${window.location.pathname}?paper=${encodeURIComponent(paperId)}&tab=${tabName}`;
+    const dbId = currentFile.id;
+    let newUrl = `${window.location.pathname}?db_id=${dbId}&tab=${tabName}&page=${sidebarCurrentPage}&limit=${sidebarItemsPerPage}&sort_by=${sidebarSortBy}&sort_order=${sidebarSortOrder}`;
+    
+    // Preserve year filter if active
+    if (selectedYear) {
+      newUrl += `&year=${selectedYear}`;
+    }
+    
+    // Preserve search query if active
+    if (sidebarSearchQuery) {
+      newUrl += `&search=${encodeURIComponent(sidebarSearchQuery)}`;
+    }
+    
     window.history.replaceState({ tab: tabName }, '', newUrl);
   }
 
@@ -482,6 +501,31 @@ function goBackToOverview() {
 
   // Load and display year overview
   loadYearOverview();
+}
+
+/**
+ * Reset to histogram overview view - clears year filter and search
+ */
+function resetToHistogramView() {
+  // Clear year filter and search
+  selectedYear = null;
+  sidebarSearchQuery = '';
+  sidebarCurrentPage = 1;
+  
+  // Reset URL to just the base path
+  window.history.replaceState({}, '', window.location.pathname);
+  
+  // Clear search input
+  const searchInput = document.getElementById('sidebarSearchInput');
+  if (searchInput) searchInput.value = '';
+  
+  // Show all papers
+  sidebarFilteredFiles = [...files];
+  renderSidebarFileList();
+  updateSidebarPaginationControls();
+  
+  // Show overview histogram
+  goBackToOverview();
 }
 
 /**
@@ -622,19 +666,28 @@ function renderYearHistogram() {
  */
 async function showPapersForYear(year) {
   selectedYear = year;
-  currentView = 'papers-list';
+  currentView = 'overview';
 
-  // Show breadcrumb in toolbar for papers list
-  const paperListBreadcrumb = document.getElementById('paperListBreadcrumb');
-  if (paperListBreadcrumb) {
-    paperListBreadcrumb.style.display = 'flex';
-    const breadcrumbCurrent = document.getElementById('breadcrumbCurrent');
-    if (breadcrumbCurrent) {
-      breadcrumbCurrent.innerHTML = `${year} (${year ? yearData.find((y) => y.year === year)?.count || 0 : '?'} papers)`;
-    }
-  }
+  // Update URL with year parameter
+  const newUrl = `${window.location.pathname}?year=${year}`;
+  window.history.replaceState({ year: year }, '', newUrl);
 
-  // Clear title/author info from toolbar
+  // Filter sidebar by year
+  sidebarSearchQuery = '';
+  sidebarCurrentPage = 1;
+  
+  // Clear search input
+  const searchInput = document.getElementById('sidebarSearchInput');
+  if (searchInput) searchInput.value = '';
+
+  // Filter files by selected year
+  sidebarFilteredFiles = files.filter(file => file.year === year);
+  
+  // Render the filtered file list
+  renderSidebarFileList();
+  updateSidebarPaginationControls();
+
+  // Clear any toolbar info
   const currentAuthors = document.getElementById('currentAuthors');
   if (currentAuthors) currentAuthors.innerHTML = '';
   const currentFileName = document.getElementById('currentFileName');
@@ -642,36 +695,11 @@ async function showPapersForYear(year) {
   const fileInfo = document.getElementById('fileInfo');
   if (fileInfo) fileInfo.innerHTML = '';
 
-  // Hide toolbar and tabs
-  const toolbar = document.querySelector('.toolbar');
-  if (toolbar) toolbar.style.display = 'flex';
+  // Hide tabs
   const tabNav = document.getElementById('tabNavigation');
   if (tabNav) tabNav.style.display = 'none';
-
-  // Switch to papers list tab
-  const overviewTab = document.getElementById('overviewTab');
-  if (overviewTab) overviewTab.classList.remove('active');
-  const papersListTab = document.getElementById('papersListTab');
-  if (papersListTab) papersListTab.classList.add('active');
-  const pdfTab = document.getElementById('pdfTab');
-  if (pdfTab) pdfTab.classList.remove('active');
-  const analysisTab = document.getElementById('analysisTab');
-  if (analysisTab) analysisTab.classList.remove('active');
-  const detailsTab = document.getElementById('detailsTab');
-  if (detailsTab) detailsTab.classList.remove('active');
-  const tagsTab = document.getElementById('tagsTab');
-  if (tagsTab) tagsTab.classList.remove('active');
-
-  // Get papers for this year
-  const yearEntry = yearData.find((y) => y.year === year);
-  if (!yearEntry || !yearEntry.papers) {
-    const viewer = document.getElementById('papersListViewer');
-    viewer.innerHTML = '<div class="status-message">No papers found for this year</div>';
-    return;
-  }
-
-  renderPapersList(yearEntry.papers);
 }
+
 
 /**
  * Render list of papers for selected year
@@ -686,16 +714,26 @@ function renderPapersList(papers) {
   }
 
   const papersList = papers
-    .map((paper, idx) => {
-      const displayName = paper.citekey || paper.file_name || `Paper ${idx + 1}`;
+    .map((paper) => {
       const title = paper.title || paper.file_name || 'Untitled';
+      const year = paper.year || '';
+      const authors = paper.authors
+        ? Array.isArray(paper.authors)
+          ? paper.authors.map((a) => (typeof a === 'object' ? a.family_name : a)).join(', ')
+          : String(paper.authors)
+        : '';
+      const journal = paper.journal || '';
+      const tags = paper.tags ? paper.tags.split(':').filter((t) => t.trim()) : [];
 
       return `
             <div class="paper-list-item" onclick="selectPaperFromList('${escapeHtml(paper.file_name || '')}')" title="Click to view details">
-                <div class="paper-list-item-header">
-                    <div class="paper-list-item-name">${escapeHtml(displayName)}</div>
-                </div>
                 <div class="paper-list-item-title">${escapeHtml(title)}</div>
+                <div class="paper-list-item-metadata">
+                    ${year ? `<span class="metadata-year">${escapeHtml(year)}</span>` : ''}
+                    ${authors ? `<span class="metadata-dash"> – </span><span class="metadata-authors">${escapeHtml(authors)}</span>` : ''}
+                    ${journal ? `<span class="metadata-dash"> – </span><span class="metadata-journal"><em>${escapeHtml(journal)}</em></span>` : ''}
+                </div>
+                ${tags.length > 0 ? `<div class="paper-list-item-tags">${tags.map((tag) => `<span class="tag-chip">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
             </div>
         `;
     })
@@ -779,6 +817,51 @@ function switchTabToPaper() {
 }
 
 /**
+ * Search for a paper by DOI or title and display its details
+ * @param {string} doi - DOI of the paper to search for
+ * @param {string} title - Title of the paper to search for
+ */
+async function searchAndDisplayPaperDetails(doi, title) {
+  // Try to find the paper in files array by DOI or title
+  let paper = null;
+
+  if (doi) {
+    paper = files.find(
+      (f) =>
+        f.title_details &&
+        typeof f.title_details === 'string' &&
+        f.title_details.includes(escapeHtml(doi))
+    );
+  }
+
+  if (!paper && title) {
+    paper = files.find(
+      (f) =>
+        f.title && f.title.toLowerCase().includes(title.toLowerCase())
+    );
+  }
+
+  if (paper) {
+    // Found matching paper - set as current and load details
+    currentFile = paper;
+    switchTab('details');
+    loadFileDetails();
+  } else {
+    // Paper not in collection - show a message in details viewer
+    const viewer = document.getElementById('detailsViewer');
+    viewer.innerHTML = `
+      <div class="status-message">
+        <p>This referenced paper is not in your collection.</p>
+        ${doi ? `<p><strong>DOI:</strong> ${escapeHtml(doi)}</p>` : ''}
+        ${title ? `<p><strong>Title:</strong> ${escapeHtml(title)}</p>` : ''}
+        <p>You can search for it online using the DOI or title.</p>
+      </div>
+    `;
+    switchTab('details');
+  }
+}
+
+/**
  * Copy deeplink to current paper to clipboard
  */
 function copyDeeplink() {
@@ -788,9 +871,9 @@ function copyDeeplink() {
   }
 
   // Use citekey if available, otherwise file_name
-  const paperId = currentFile.citekey || currentFile.file_name;
+  const dbId = currentFile.id;
   const baseUrl = window.location.origin + window.location.pathname;
-  const deeplinkUrl = `${baseUrl}?paper=${encodeURIComponent(paperId)}`;
+  const deeplinkUrl = `${baseUrl}?db_id=${dbId}`;
 
   // Copy to clipboard
   navigator.clipboard
@@ -966,6 +1049,14 @@ async function loadFileDetails(fileName) {
                         </div>`
                             : ''
                         }
+                        ${
+                          bib.url
+                            ? `<div class="detail-row">
+                            <div class="detail-label">URL</div>
+                            <div class="detail-value code-value"><a href="${escapeHtml(bib.url)}" target="_blank">${escapeHtml(bib.url)}</a></div>
+                        </div>`
+                            : ''
+                        }
                         <div class="detail-row">
                             <div class="detail-label">APA Citation</div>
                             <div class="detail-value citation-value">${escapeHtml(bib.citation_apa || 'N/A')}</div>
@@ -1039,6 +1130,10 @@ async function loadFileDetails(fileName) {
                     ${details.volume || details.issue || details.pages ? `<div class="detail-row">
                         <div class="detail-label">Volume/Issue/Pages</div>
                         <div class="detail-value">${escapeHtml((details.volume || '') + (details.issue ? `(${details.issue})` : '') + (details.pages ? `, pp. ${details.pages}` : ''))}</div>
+                    </div>` : ''}
+                    ${details.url ? `<div class="detail-row">
+                        <div class="detail-label">URL</div>
+                        <div class="detail-value code-value"><a href="${escapeHtml(details.url)}" target="_blank">${escapeHtml(details.url)}</a></div>
                     </div>` : ''}
                 </div>
                 
@@ -1296,9 +1391,19 @@ async function loadFileReferences(fileName) {
       if (Array.isArray(authors) && authors.length > 0) {
         authorString = authors
           .map((author) => {
+            // Handle Author objects with family_name/given_name
+            if (typeof author === 'object' && author.family_name) {
+              return author.family_name + (author.given_name ? `, ${author.given_name}` : '');
+            }
+            // Handle Author objects with last_name/first_name (legacy)
             if (typeof author === 'object' && author.last_name) {
               return author.last_name + (author.first_name ? `, ${author.first_name}` : '');
             }
+            // Handle full_name field
+            if (typeof author === 'object' && author.full_name) {
+              return author.full_name;
+            }
+            // Handle plain strings
             return String(author);
           })
           .join('; ');
@@ -1315,20 +1420,28 @@ async function loadFileReferences(fileName) {
       if (ref.arxiv_id) {
         identifiersHtml += `<a href="https://arxiv.org/abs/${escapeHtml(ref.arxiv_id)}" target="_blank" class="ref-link">📄 arXiv</a> `;
       }
+      // Add details link - try to find paper by DOI, title, or just open details viewer
+      const detailsSearchQuery = ref.doi || ref.title || '';
+      if (detailsSearchQuery) {
+        identifiersHtml += `<a href="javascript:void(0)" onclick="searchAndDisplayPaperDetails('${escapeHtml(ref.doi || '')}', '${escapeHtml(ref.title || '')}')" class="ref-link">📋 Details</a> `;
+      }
 
       // Build reference entry
+      // Build metadata line: year - authors - journal (only journal italic)
+      const metadataParts = [];
+      if (ref.year) metadataParts.push(escapeHtml(ref.year.toString()));
+      if (authorString) metadataParts.push(escapeHtml(authorString));
+      if (ref.journal) metadataParts.push(`<em>${escapeHtml(ref.journal)}</em>`);
+      const metadataLine = metadataParts.join(' - ') || '';
+
       referencesHtml += `
         <div class="reference-item">
           <div class="reference-header">
             <span class="reference-number">[${index + 1}]</span>
             <span class="reference-type">${ref.reference_type ? escapeHtml(ref.reference_type) : 'article'}</span>
           </div>
-          <div class="reference-authors">${escapeHtml(authorString || 'Unknown authors')}</div>
           <div class="reference-title"><strong>${escapeHtml(ref.title || 'Untitled')}</strong></div>
-          <div class="reference-source">
-            ${ref.source_name ? `<em>${escapeHtml(ref.source_name)}</em>` : ''}
-            ${ref.year ? `(${escapeHtml(ref.year)})` : ''}
-          </div>
+          <div class="reference-metadata">${metadataLine}</div>
           ${ref.pages_range ? `<div class="reference-pages">pp. ${escapeHtml(ref.pages_range)}</div>` : ''}
           ${identifiersHtml ? `<div class="reference-links">${identifiersHtml}</div>` : ''}
           ${ref.parsing_status === 'warning' ? `<div class="reference-warning">⚠️ Parsing issues detected</div>` : ''}
@@ -1568,55 +1681,22 @@ async function loadFiles() {
  * Render file list in sidebar
  */
 function renderFileList() {
-  const fileList = document.getElementById('fileList');
-  fileList.innerHTML = '';
-
-  if (!files || files.length === 0) {
-    fileList.innerHTML =
-      '<div class="status-message">No files loaded. Load a JSONL file to begin.</div>';
-    return;
-  }
-
-  console.log(`Rendering ${files.length} files in sidebar`);
-
-  files.forEach((file) => {
-    if (!file) {
-      console.warn('Invalid file object:', file);
-      return;
-    }
-
-    // Use file_name if available, otherwise cite_key as fallback
-    const identifier = file.file_name || file.cite_key;
-    if (!identifier) {
-      console.warn('File has neither file_name nor cite_key:', file);
-      return;
-    }
-
-    const div = document.createElement('div');
-    div.className = 'file-item';
-    if (currentFile && currentFile.file_name === file.file_name) {
-      div.classList.add('active');
-    }
-
-    // Use cite_key if available, otherwise file_name
-    const displayName = file.cite_key ? escapeHtml(file.cite_key) : escapeHtml(file.file_name);
-
-    // Show tags if available
-    const tags = file.tags ? file.tags.split(':').filter((t) => t.trim()) : [];
-    const tagsHtml =
-      tags.length > 0
-        ? `<div class="file-item-tags">${tags.map((tag) => `<span class="file-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
-        : '';
-
-    div.innerHTML = `
-            <div class="file-item-name">${displayName}</div>
-            <div class="file-item-size">${file.size_bytes ? formatFileSize(file.size_bytes) : 'N/A'}</div>
-            ${tagsHtml}
-        `;
-    div.onclick = () => selectFile(file);
-    fileList.appendChild(div);
-  });
+  // Initialize sidebar search and pagination when files are loaded
+  sidebarSearchQuery = '';
+  sidebarCurrentPage = 1;
+  sidebarFilteredFiles = [...files];
+  
+  // Clear search input and reset items per page
+  const searchInput = document.getElementById('sidebarSearchInput');
+  if (searchInput) searchInput.value = '';
+  
+  const select = document.getElementById('sidebarItemsPerPage');
+  if (select) select.value = sidebarItemsPerPage.toString();
+  
+  // Render the file list with pagination
+  updateSidebarFileList();
 }
+
 
 /**
  * Select and display a file
@@ -1661,68 +1741,41 @@ function selectFile(file, keepBreadcrumb = false) {
   let authorYearHtml = '';
   let titleHtml = escapeHtml(file.title || file.file_name);
 
-  // If we have title_details with authors and year, display them
-  let titleDetailsObj = null;
-  if (file.title_details) {
-    try {
-      titleDetailsObj =
-        typeof file.title_details === 'string'
-          ? JSON.parse(file.title_details)
-          : file.title_details;
-    } catch (e) {
-      console.error('Error parsing title_details:', e);
+  // Build metadata line: year - authors - journal
+  const metadataParts = [];
+  
+  if (file.year) {
+    metadataParts.push(file.year.toString());
+  }
+  
+  if (file.authors && Array.isArray(file.authors) && file.authors.length > 0) {
+    const authorNames = file.authors.slice(0, 2).map(auth => {
+      if (typeof auth === 'string') return escapeHtml(auth);
+      if (auth.family_name && auth.given_name) {
+        return escapeHtml(`${auth.family_name}, ${auth.given_name}`);
+      }
+      if (auth.family_name) return escapeHtml(auth.family_name);
+      if (auth.given_name) return escapeHtml(auth.given_name);
+      return '';
+    }).filter(a => a);
+    
+    if (authorNames.length > 0) {
+      metadataParts.push(authorNames.join(', '));
     }
   }
+  
+  if (file.journal) {
+    metadataParts.push(`<em>${escapeHtml(file.journal)}</em>`);
+  }
+  
+  if (metadataParts.length > 0) {
+    authorYearHtml = metadataParts.join(' - ');
+  }
 
-  if (titleDetailsObj) {
-    // Build author (year) line
-    let authorLine = '';
-    if (
-      titleDetailsObj.authors &&
-      Array.isArray(titleDetailsObj.authors) &&
-      titleDetailsObj.authors.length > 0
-    ) {
-      const firstAuthor = titleDetailsObj.authors[0];
-      const authorsDisplay =
-        titleDetailsObj.authors.length > 1 ? `${firstAuthor} et al.` : firstAuthor;
-      authorLine = authorsDisplay;
-    }
-
-    if (titleDetailsObj.year) {
-      authorLine += (authorLine ? ' ' : '') + `(${titleDetailsObj.year})`;
-    }
-
-    // Add journal and month/edition if available
-    let journalLine = '';
-    if (titleDetailsObj.journal) {
-      journalLine = escapeHtml(titleDetailsObj.journal);
-    }
-
-    if (titleDetailsObj.volume) {
-      journalLine += (journalLine ? ' • ' : '') + `Vol. ${escapeHtml(titleDetailsObj.volume)}`;
-    }
-
-    if (titleDetailsObj.issue) {
-      journalLine += (journalLine ? ' • ' : '') + `Issue ${escapeHtml(titleDetailsObj.issue)}`;
-    }
-
-    if (titleDetailsObj.month) {
-      journalLine += (journalLine ? ' • ' : '') + escapeHtml(titleDetailsObj.month);
-    }
-
-    if (journalLine) {
-      authorLine += (authorLine ? ' • ' : '') + journalLine;
-    }
-
-    if (authorLine) {
-      authorYearHtml = escapeHtml(authorLine);
-    }
-
-    // Make title a link if we have DOI
-    if (titleDetailsObj.doi) {
-      const doiUrl = `https://doi.org/${escapeHtml(titleDetailsObj.doi)}`;
-      titleHtml = `<a href="${doiUrl}" target="_blank" title="Open DOI in new tab">${titleHtml}</a>`;
-    }
+  // Make title a link if we have DOI
+  if (file.doi) {
+    const doiUrl = `https://doi.org/${escapeHtml(file.doi)}`;
+    titleHtml = `<a href="${doiUrl}" target="_blank" title="Open DOI in new tab">${titleHtml}</a>`;
   }
 
   document.getElementById('currentAuthors').innerHTML = authorYearHtml;
@@ -1732,8 +1785,7 @@ function selectFile(file, keepBreadcrumb = false) {
     `${formatFileSize(file.size_bytes)} • Modified: ${formatDate(file.modified_time)}`;
 
   // Save paper reference and switch to last opened tab
-  const paperId = file.citekey || file.file_name;
-  saveLastPaper(paperId);
+  saveLastPaper(file.id.toString());
   const lastTab = getLastTab();
 
   // Switch all tabs to inactive first
@@ -1758,15 +1810,45 @@ window.addEventListener('load', async () => {
 
   // Check for deeplink parameter in URL
   const params = new URLSearchParams(window.location.search);
-  const paperId = params.get('paper');
+  const dbId = params.get('db_id');
   const tabParam = params.get('tab');
+  const pageParam = params.get('page');
+  const limitParam = params.get('limit');
+  const yearParam = params.get('year');
+  const searchParam = params.get('search');
+  const sortByParam = params.get('sort_by');
+  const sortOrderParam = params.get('sort_order');
 
-  if (paperId) {
-    // Find and select the paper with matching file_name or cite_key
-    const targetFile = files.find(
-      (f) =>
-        f.file_name === decodeURIComponent(paperId) || f.cite_key === decodeURIComponent(paperId)
-    );
+  // Set sort state from URL if available
+  if (sortByParam && ['title', 'year', 'author', 'journal'].includes(sortByParam)) {
+    sidebarSortBy = sortByParam;
+  }
+  if (sortOrderParam && ['asc', 'desc'].includes(sortOrderParam)) {
+    sidebarSortOrder = sortOrderParam;
+  }
+  updateSortIndicator();
+
+  // Set pagination from URL if available
+  if (pageParam) sidebarCurrentPage = Math.max(1, parseInt(pageParam));
+  if (limitParam) sidebarItemsPerPage = parseInt(limitParam);
+
+  // Restore search query if present
+  if (searchParam) {
+    sidebarSearchQuery = searchParam.toLowerCase();
+    const searchInput = document.getElementById('sidebarSearchInput');
+    if (searchInput) searchInput.value = searchParam;
+  }
+
+  if (dbId) {
+    // Find and select the paper with matching id (handle both numeric and UUID string formats)
+    const targetFile = files.find((f) => {
+      // Try numeric ID first
+      const numId = parseInt(dbId);
+      if (!isNaN(numId) && f.id === numId) return true;
+      // Try string UUID
+      if (f.id === dbId) return true;
+      return false;
+    });
 
     if (targetFile) {
       currentView = 'paper-detail';
@@ -1779,11 +1861,22 @@ window.addEventListener('load', async () => {
       // Show breadcrumb for paper link
       document.getElementById('toolbarBreadcrumb').style.display = 'flex';
 
-      // Switch to the requested tab if specified
+      // Switch to the requested tab if specified, otherwise use default (details)
       if (tabParam && ['pdf', 'analysis', 'details', 'references', 'tags'].includes(tabParam)) {
         switchTab(tabParam);
       } else {
-        switchTab('pdf');
+        switchTab('details');
+      }
+
+      // Apply year filter if present
+      if (yearParam) {
+        selectedYear = parseInt(yearParam);
+        sidebarFilteredFiles = files.filter(file => file.year === selectedYear);
+      } else if (sidebarSearchQuery) {
+        // Apply search filter if present
+        updateSidebarFileList();
+      } else {
+        sidebarFilteredFiles = [...files];
       }
 
       // Scroll the file into view in the sidebar
@@ -1796,14 +1889,405 @@ window.addEventListener('load', async () => {
 
       selectFile(targetFile);
     } else {
-      console.warn(`Paper not found: ${paperId}`);
+      console.warn(`Paper not found with db_id: ${dbId}`);
       goBackToOverview();
     }
+  } else if (yearParam) {
+    // Filter sidebar by year
+    const year = parseInt(yearParam);
+    selectedYear = year;
+    currentView = 'overview';
+    sidebarFilteredFiles = files.filter(file => file.year === year);
+    renderSidebarFileList();
+    updateSidebarPaginationControls();
   } else {
     // Default: show year overview
     goBackToOverview();
   }
 });
+
+/**
+ * Update sidebar search filter
+ */
+function updateSidebarSearch() {
+  const searchInput = document.getElementById('sidebarSearchInput');
+  sidebarSearchQuery = (searchInput?.value || '').toLowerCase();
+  sidebarCurrentPage = 1;
+  updateSidebarFileList();
+}
+
+/**
+ * Update sidebar pagination when items per page changes
+ */
+/**
+ * Toggle sort menu visibility
+ */
+function toggleSortMenu() {
+  const dropdown = document.getElementById('sortDropdown');
+  if (dropdown) {
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+/**
+ * Cycle through sort direction (asc <-> desc) and update URL
+ */
+function cycleSortDirection() {
+  sidebarSortOrder = sidebarSortOrder === 'asc' ? 'desc' : 'asc';
+  updateSortIndicator();
+  updateSidebarFileList();
+  updateUrlWithSortState();
+}
+
+/**
+ * Set sort field and update URL
+ */
+function setSortBy(field) {
+  sidebarSortBy = field;
+  sidebarCurrentPage = 1;
+  updateSortIndicator();
+  updateSidebarFileList();
+  updateUrlWithSortState();
+  toggleSortMenu(); // Close menu after selection
+}
+
+/**
+ * Update the sort indicator display
+ */
+function updateSortIndicator() {
+  const indicator = document.getElementById('sortIndicator');
+  const directionIndicator = document.getElementById('directionIndicator');
+  
+  if (indicator) {
+    const arrow = sidebarSortOrder === 'asc' ? '⬆' : '⬇';
+    const fieldLabel = sidebarSortBy.charAt(0).toUpperCase() + sidebarSortBy.slice(1);
+    indicator.textContent = `${arrow} ${fieldLabel}`;
+  }
+  
+  if (directionIndicator) {
+    const dir = sidebarSortOrder === 'asc' ? 'Ascending' : 'Descending';
+    const arrow = sidebarSortOrder === 'asc' ? '⬆' : '⬇';
+    directionIndicator.textContent = `${arrow} ${dir}`;
+  }
+}
+
+/**
+ * Update URL with sort state
+ */
+function updateUrlWithSortState() {
+  const params = new URLSearchParams(window.location.search);
+  params.set('sort_by', sidebarSortBy);
+  params.set('sort_order', sidebarSortOrder);
+  window.history.replaceState({}, '', `?${params.toString()}`);
+}
+
+/**
+ * Toggle items per page menu
+ */
+function toggleItemsPerPageMenu() {
+  const dropdown = document.getElementById('itemsPerPageDropdown');
+  if (dropdown) {
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+/**
+ * Set items per page and update URL
+ */
+function setItemsPerPage(count) {
+  sidebarItemsPerPage = count;
+  sidebarCurrentPage = 1;
+  updateItemsPerPageIndicator();
+  updateSidebarFileList();
+  updateUrlWithPaginationState();
+  toggleItemsPerPageMenu(); // Close menu after selection
+}
+
+/**
+ * Update the items per page indicator display
+ */
+function updateItemsPerPageIndicator() {
+  const indicator = document.getElementById('itemsPerPageIndicator');
+  if (indicator) {
+    indicator.textContent = sidebarItemsPerPage.toString();
+  }
+}
+
+/**
+ * Update URL with pagination state
+ */
+function updateUrlWithPaginationState() {
+  const params = new URLSearchParams(window.location.search);
+  params.set('limit', sidebarItemsPerPage);
+  window.history.replaceState({}, '', `?${params.toString()}`);
+}
+
+/**
+ * Filter and paginate the sidebar file list
+ */
+function updateSidebarFileList() {
+  // Filter files by search query
+  sidebarFilteredFiles = files.filter(file => {
+    if (!sidebarSearchQuery) return true;
+    
+    const searchTerm = sidebarSearchQuery.toLowerCase();
+    
+    // Title and cite_key
+    const title = (file.title || file.cite_key || '').toLowerCase();
+    if (title.includes(searchTerm)) return true;
+    
+    // Authors (both string and object formats)
+    const authors = Array.isArray(file.authors) 
+      ? file.authors.map(a => {
+          if (typeof a === 'string') return a.toLowerCase();
+          const parts = [];
+          if (a.family_name) parts.push(a.family_name.toLowerCase());
+          if (a.given_name) parts.push(a.given_name.toLowerCase());
+          return parts.join(' ');
+        }).join(' ')
+      : '';
+    if (authors.includes(searchTerm)) return true;
+    
+    // Journal
+    const journal = (file.journal || '').toLowerCase();
+    if (journal.includes(searchTerm)) return true;
+    
+    // Year
+    const year = (file.year || '').toString();
+    if (year.includes(searchTerm)) return true;
+    
+    // DOI
+    const doi = (file.doi || '').toLowerCase();
+    if (doi.includes(searchTerm)) return true;
+    
+    // Tags
+    const tags = (file.tags || '').toLowerCase();
+    if (tags.includes(searchTerm)) return true;
+    
+    // Research questions (if available)
+    if (file.analysis && file.analysis.research_questions) {
+      const questions = (file.analysis.research_questions || '').toLowerCase();
+      if (questions.includes(searchTerm)) return true;
+    }
+    
+    return false;
+  });
+
+  // Sort filtered files
+  sidebarFilteredFiles.sort((a, b) => {
+    let aVal, bVal;
+    
+    switch (sidebarSortBy) {
+      case 'title':
+        aVal = (a.title || a.file_name || '').toLowerCase();
+        bVal = (b.title || b.file_name || '').toLowerCase();
+        break;
+      case 'year':
+        aVal = a.year || 0;
+        bVal = b.year || 0;
+        break;
+      case 'author':
+        aVal = getFirstAuthorName(a.authors).toLowerCase();
+        bVal = getFirstAuthorName(b.authors).toLowerCase();
+        break;
+      case 'journal':
+        aVal = (a.journal || '').toLowerCase();
+        bVal = (b.journal || '').toLowerCase();
+        break;
+      default:
+        aVal = (a.title || a.file_name || '').toLowerCase();
+        bVal = (b.title || b.file_name || '').toLowerCase();
+    }
+    
+    // Handle numeric vs string comparison
+    if (typeof aVal === 'number' && typeof bVal === 'number') {
+      return sidebarSortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+    }
+    
+    // String comparison
+    if (sidebarSortOrder === 'asc') {
+      return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+    } else {
+      return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+    }
+  });
+
+  // Render with pagination
+  renderSidebarFileList();
+  updateSidebarPaginationControls();
+}
+
+/**
+ * Get first author name from authors array
+ */
+function getFirstAuthorName(authors) {
+  if (!Array.isArray(authors) || authors.length === 0) return '';
+  const author = authors[0];
+  if (typeof author === 'string') return author;
+  if (author.family_name && author.given_name) {
+    return `${author.family_name}, ${author.given_name}`;
+  }
+  if (author.family_name) return author.family_name;
+  if (author.given_name) return author.given_name;
+  return '';
+}
+
+/**
+ * Render sidebar file list with pagination
+ */
+function renderSidebarFileList() {
+  const fileList = document.getElementById('fileList');
+  fileList.innerHTML = '';
+
+  if (!sidebarFilteredFiles || sidebarFilteredFiles.length === 0) {
+    fileList.innerHTML =
+      '<div class="status-message">No papers match your search.</div>';
+    return;
+  }
+
+  // Calculate pagination
+  const start = (sidebarCurrentPage - 1) * sidebarItemsPerPage;
+  const end = start + sidebarItemsPerPage;
+  const pageFiles = sidebarFilteredFiles.slice(start, end);
+
+  pageFiles.forEach((file) => {
+    if (!file) {
+      console.warn('Invalid file object:', file);
+      return;
+    }
+
+    // Use file_name if available, otherwise cite_key as fallback
+    const identifier = file.file_name || file.cite_key;
+    if (!identifier) {
+      console.warn('File has neither file_name nor cite_key:', file);
+      return;
+    }
+
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    if (currentFile && currentFile.id === file.id) {
+      div.classList.add('active');
+    }
+
+    // Extract metadata
+    const title = escapeHtml(file.title || file.cite_key || 'Unknown Title');
+    const year = file.year || '';
+    const authors = file.authors || [];
+    const journal = escapeHtml(file.journal || '');
+    
+    // Format authors: "Author1, Author2, Author3"
+    const authorNames = authors.slice(0, 2).map(auth => {
+      if (typeof auth === 'string') return escapeHtml(auth);
+      if (auth.family_name && auth.given_name) {
+        return escapeHtml(`${auth.family_name}, ${auth.given_name}`);
+      }
+      if (auth.family_name) return escapeHtml(auth.family_name);
+      if (auth.given_name) return escapeHtml(auth.given_name);
+      return '';
+    }).filter(a => a).join(', ');
+    
+    const authorText = authorNames || 'Unknown Authors';
+
+    // Show tags if available
+    const tags = file.tags ? file.tags.split(':').filter((t) => t.trim()) : [];
+    const tagsHtml =
+      tags.length > 0
+        ? `<div class="file-item-tags">${tags.map((tag) => `<span class="file-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
+        : '';
+
+    // Build metadata line: year - authors - journal (only journal italic)
+    const metadataParts = [];
+    if (year) metadataParts.push(escapeHtml(year));
+    if (authorText) metadataParts.push(escapeHtml(authorText));
+    if (journal) metadataParts.push(`<em>${escapeHtml(journal)}</em>`);
+    const metadataLine = metadataParts.join(' - ') || 'No metadata available';
+
+    div.innerHTML = `
+            <div class="file-item-title">${title}</div>
+            <div class="file-item-metadata">${metadataLine}</div>
+            ${tagsHtml}
+        `;
+    div.onclick = () => selectFile(file);
+    fileList.appendChild(div);
+  });
+}
+
+/**
+ * Update sidebar pagination controls
+ */
+function updateSidebarPaginationControls() {
+  const totalPages = Math.ceil(sidebarFilteredFiles.length / sidebarItemsPerPage);
+  const start = (sidebarCurrentPage - 1) * sidebarItemsPerPage + 1;
+  const end = Math.min(sidebarCurrentPage * sidebarItemsPerPage, sidebarFilteredFiles.length);
+  const total = sidebarFilteredFiles.length;
+
+  // Update pagination info
+  const infoEl = document.getElementById('sidebarPaginationInfo');
+  if (infoEl) {
+    infoEl.textContent = total > 0 ? `${start}-${end} of ${total}` : 'No papers';
+  }
+
+  // Update button states
+  const prevBtn = document.getElementById('sidebarPrevBtn');
+  const nextBtn = document.getElementById('sidebarNextBtn');
+  if (prevBtn) prevBtn.disabled = sidebarCurrentPage <= 1;
+  if (nextBtn) nextBtn.disabled = sidebarCurrentPage >= totalPages;
+}
+
+/**
+ * Go to next sidebar page
+ */
+function goToNextSidebarPage() {
+  const totalPages = Math.ceil(sidebarFilteredFiles.length / sidebarItemsPerPage);
+  if (sidebarCurrentPage < totalPages) {
+    sidebarCurrentPage++;
+    renderSidebarFileList();
+    updateSidebarPaginationControls();
+    
+    // Update URL with new page
+    if (currentFile) {
+      const dbId = currentFile.id;
+      let newUrl = `${window.location.pathname}?db_id=${dbId}&tab=${currentTab}&page=${sidebarCurrentPage}&limit=${sidebarItemsPerPage}&sort_by=${sidebarSortBy}&sort_order=${sidebarSortOrder}`;
+      
+      // Preserve year and search filters
+      if (selectedYear) {
+        newUrl += `&year=${selectedYear}`;
+      }
+      if (sidebarSearchQuery) {
+        newUrl += `&search=${encodeURIComponent(sidebarSearchQuery)}`;
+      }
+      
+      window.history.replaceState({}, '', newUrl);
+    }
+  }
+}
+
+/**
+ * Go to previous sidebar page
+ */
+function goToPreviousSidebarPage() {
+  if (sidebarCurrentPage > 1) {
+    sidebarCurrentPage--;
+    renderSidebarFileList();
+    updateSidebarPaginationControls();
+    
+    // Update URL with new page
+    if (currentFile) {
+      const dbId = currentFile.id;
+      let newUrl = `${window.location.pathname}?db_id=${dbId}&tab=${currentTab}&page=${sidebarCurrentPage}&limit=${sidebarItemsPerPage}&sort_by=${sidebarSortBy}&sort_order=${sidebarSortOrder}`;
+      
+      // Preserve year and search filters
+      if (selectedYear) {
+        newUrl += `&year=${selectedYear}`;
+      }
+      if (sidebarSearchQuery) {
+        newUrl += `&search=${encodeURIComponent(sidebarSearchQuery)}`;
+      }
+      
+      window.history.replaceState({}, '', newUrl);
+    }
+  }
+}
 
 // Fallback initialization for Safari and other browsers
 if (document.readyState === 'loading') {

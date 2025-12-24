@@ -6,16 +6,19 @@ This directory contains hypothesis-driven exploratory tests for evaluating new t
 
 | Spike | Hypothesis | Date | Status | Outcome |
 |-------|-----------|------|--------|---------|
-| [001_first_tests](001_first_tests/) | Batch JSON processing with flush semantics is viable | 2024-07-19 | Complete | ✅ Confirmed |
-| [002_browser](002_browser/) | PostgreSQL + Flask provides scalable browser interface | 2024-12-02 | Integrated | ✅ Confirmed |
-| [003_local_llm](003_local_llm/) | Ollama local LLM integration achieves acceptable latency | 2024-12-03 | Integrated | ✅ Confirmed |
-| [004_embedding](004_embedding/) | Vector embeddings enable semantic paper similarity search | 2024-12-04 | In Progress | ⏳ Testing |
-| [006_bibtex](006_bibtex/) | Crossref API can populate missing reference metadata | 2024-12-06 | Integrated | ✅ Confirmed |
-| [007_new_approach](007_new_approach/) | Pythonic fluent API is more maintainable than YAML | 2024-12-11 | Completed | ⚠️  Deferred |
-| [008_fetchers](008_fetchers/) | Multi-source metadata fetching improves coverage | 2024-12-22 | Integrated | ✅ Confirmed |
-| [009_retrieve_pdf](009_retrieve_pdf/) | DOI-based PDF retrieval achieves >80% success rate | 2024-12-19 | Integrated | ✅ Confirmed |
-| [010_cite_key](010_cite_key/) | Author+Year cite keys prevent collision better than UUIDs | 2025-12-22 | Complete | ✅ Confirmed |
-| [011_step_executor](011_step_executor/) | Plugin-based step architecture enables extensibility | 2025-12-20 | In Progress | ⏳ Testing |
+| [001_first_tests](001_first_tests/README.md) | Batch JSON processing with flush semantics is viable | 2024-07-19 | Complete | ✅ Confirmed |
+| [002_browser](002_browser/README.md) | PostgreSQL + Flask provides scalable browser interface | 2024-12-02 | Integrated | ✅ Confirmed |
+| [003_local_llm](003_local_llm/README.md) | Ollama local LLM integration achieves acceptable latency | 2024-12-03 | Integrated | ✅ Confirmed |
+| [004_embedding](004_embedding/README.md) | Vector embeddings enable semantic paper similarity search | 2024-12-04 | In Progress | ⏳ Testing |
+| [006_bibtex](006_bibtex/README.md) | Crossref API can populate missing reference metadata | 2024-12-06 | Integrated | ✅ Confirmed |
+| [007_new_approach](007_new_approach/README.md) | Pythonic fluent API is more maintainable than YAML | 2024-12-11 | Completed | ⚠️  Deferred |
+| [008_fetchers](008_fetchers/README.md) | Multi-source metadata fetching improves coverage | 2024-12-22 | Integrated | ✅ Confirmed |
+| [009_retrieve_pdf](009_retrieve_pdf/README.md) | DOI-based PDF retrieval achieves >80% success rate | 2024-12-19 | Integrated | ✅ Confirmed |
+| [010_cite_key](010_cite_key/README.md) | Author+Year cite keys prevent collision better than UUIDs | 2025-12-22 | Complete | ✅ Confirmed |
+| [011_step_executor](011_step_executor/README.md) | Plugin-based step architecture enables extensibility | 2025-12-20 | In Progress | ⏳ Testing |
+| [012_empirical_qualification](012_empirical_qualification/README.md) | Claude Sonnet achieves 75% study classification accuracy on PDFs | 2025-12-24 | Complete | ✅ Confirmed |
+| [013_citations](013_citations/README.md) | Manual handler + improved caching reduces citation processing errors | 2025-12-24 | Complete | ✅ Confirmed |
+| [014_classification](014_classification/README.md) | Multi-pass screening with confidence thresholds scales to 27K papers | 2025-12-24 | In Progress | ⏳ Testing |
 
 ## Methodology: Hypothesis-Driven Experimentation
 

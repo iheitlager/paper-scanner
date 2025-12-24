@@ -9,7 +9,7 @@ Processes PDF files:
 5. Copies PDF to store_path with DOI-based filename
 6. Updates PDFInfo with file details
 """
-
+import random
 import shutil
 import sys
 from datetime import datetime
@@ -48,23 +48,34 @@ class LoadFilesStep(BaseStep):
         """
         errors = []
 
-        # Check file_path
-        if "file_path" not in config:
-            errors.append("'file_path' is required")
-        elif not isinstance(config["file_path"], str):
-            errors.append("'file_path' must be a string")
-
-        # Check store_path
-        if "store_path" not in config:
-            errors.append("'store_path' is required")
-        elif not isinstance(config["store_path"], str):
-            errors.append("'store_path' must be a string")
-
-        # Check expected_count (optional)
-        if "expected_count" in config:
-            expected = config["expected_count"]
-            if not isinstance(expected, int) or expected < 0:
-                errors.append("'expected_count' must be a non-negative integer")
+        for key in config.keys():
+            if key == "limit":
+                limit = config["limit"]
+                if not isinstance(limit, int) or limit <= 0:
+                    errors.append("'limit' must be a positive integer")
+            elif key == "randomize":
+                randomize = config["randomize"]
+                if not isinstance(randomize, bool):
+                    errors.append("'randomize' must be a boolean")
+            elif key == "random_seed":
+                seed = config["random_seed"]
+                if not isinstance(seed, int):
+                    errors.append("'random_seed' must be an integer")
+            elif key == "file_path":
+                file_path = Path(config.get("file_path", "")).expanduser()
+                if not file_path.exists() or not file_path.is_dir():
+                    raise ConfigurationError(f"File path does not exist or is not a directory: {file_path}")
+            elif key == "store_path":
+                store_path = Path(config.get("store_path", "")).expanduser()
+                store_path.mkdir(parents=True, exist_ok=True)
+                if not store_path.exists() or not store_path.is_dir():
+                    raise ConfigurationError(f"Store path does not exist or is not a directory: {store_path}")
+            elif key == "expected_count":
+                expected = config["expected_count"]
+                if not isinstance(expected, int) or expected < 0:
+                    errors.append("'expected_count' must be a non-negative integer")
+            else:
+                errors.append(f"Unknown configuration key: {key}")
 
         return len(errors) == 0, errors
 
@@ -88,20 +99,15 @@ class LoadFilesStep(BaseStep):
         """
 
         file_path = Path(config.get("file_path", "")).expanduser()
+        randomize = config.get("randomize", False)
+        random_seed = config.get("random_seed", None)
+        limit = config.get("limit", None)
         store_path = Path(config.get("store_path", "")).expanduser()
         expected_count = config.get("expected_count")
 
-        # Validate paths
-        if not file_path.exists() or not file_path.is_dir():
-            raise ConfigurationError(f"File path does not exist or is not a directory: {file_path}")
-
-        # Create store path
-        store_path.mkdir(parents=True, exist_ok=True)
 
         # Scan for PDF files
         pdf_files = sorted(file_path.glob("*.pdf"))
-
-        pdf_cache = PDFCache(cache_dir=self.cache_dir / "pdfs")
 
         if verbose:
             console.print(f" Loading {len(pdf_files)} PDF files from: {file_path}")
@@ -119,6 +125,23 @@ class LoadFilesStep(BaseStep):
                     "files_copied": 0,
                 }
             )
+
+        # Randomize papers if limit is set
+        if limit and randomize:
+            if random_seed is not None:
+                random.seed(random_seed)
+            random.shuffle(pdf_files)
+            if verbose:
+                seed_display = f" (seed={random_seed})" if random_seed is not None else ""
+                console.print(f" [cyan]✓[/cyan] Randomized files{seed_display}")
+
+        # Apply limit after randomization
+        if limit:
+            pdf_files = pdf_files[:limit]
+            if debug:
+                console.print(f" [dim]✓ Limited to {limit} papers[/dim]")
+
+        pdf_cache = PDFCache(cache_dir=self.cache_dir / "pdfs")
 
         # Track results
         stats = {

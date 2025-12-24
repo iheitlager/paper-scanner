@@ -267,9 +267,6 @@ class BaseFetcherHandler(ABC):
 
         api_data = self._fetch_from_api(doi)
         if api_data is None:
-            # Cache the 404 response to avoid future API calls
-            if self.debug:
-                console.print(f"[dim]Caching 404 for {doi}[/dim]")
             self._jsoncache.set(doi, create_404_marker(key=doi, url=f"https://doi.org/{doi}"))
             return None, False
 
@@ -419,6 +416,9 @@ class BaseFetcherHandler(ABC):
         language = api_data.get("language", "en")
         publication_date = api_data.get("publication_date")
 
+        # Extract citations
+        citations = self._extract_citations(api_data)
+
         # Generate cite key from author + year
         cite_key = self._generate_cite_key(authors, year, doi)
 
@@ -446,6 +446,7 @@ class BaseFetcherHandler(ABC):
             language=language,
             paper_type=paper_type,
             oa_status=oa_status,
+            citations=citations,
             discovery=Discovery(
                 method=DiscoveryMethod.API,
                 source_database=self.name,
