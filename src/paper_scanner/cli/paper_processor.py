@@ -436,17 +436,7 @@ def main():
             sys.exit(exit_code)
 
         elif args.command == "repl":
-            builtin_steps = StepExecutor.BUILTIN_STEPS
-
-            exit_code = execute_repl(
-                cache_dir=args.cache_dir,
-                definition_file=args.definition,
-                auto_run=not args.no_autorun,
-                verbose=args.verbose,
-                debug=args.debug,
-                quit_after_definition=args.quit,
-                builtin_steps=builtin_steps,
-            )
+            exit_code = execute_repl(args)
             sys.exit(exit_code)
 
         elif args.command == "info":
