@@ -222,17 +222,32 @@ class DatabaseManager:
         try:
             # Select only essential columns, excluding large JSONB fields (raw_json, discovery, screening)
             # to improve API response performance
-            columns = """
-                db_id, id, cite_key, source_key, doi, arxiv_id, pmid, isbn, issn, url,
-                title, abstract, authors, keywords, topics, year, journal, journal_abbreviation,
-                booktitle, publisher, volume, issue, pages, paper_type, language,
-                publication_date, pdf_info, file_path, file_name,
-                size_bytes, conceptual_analysis, manually_validated,
-                validation_notes, validated_by, validated_at, raw_bibtex, tags,
-                created_at, updated_at
-            """
-            
-            cursor.execute(f"SELECT {columns} FROM papers ORDER BY title")
+            # Include citation counts for UI display
+            cursor.execute("""
+                SELECT 
+                    p.db_id, p.id, p.cite_key, p.source_key, p.doi, p.arxiv_id, p.pmid, p.isbn, p.issn, p.url,
+                    p.title, p.abstract, p.authors, p.keywords, p.topics, p.year, p.journal, p.journal_abbreviation,
+                    p.booktitle, p.publisher, p.volume, p.issue, p.pages, p.paper_type, p.language,
+                    p.publication_date, p.pdf_info, p.file_path, p.file_name,
+                    p.size_bytes, p.conceptual_analysis, p.manually_validated,
+                    p.validation_notes, p.validated_by, p.validated_at, p.raw_bibtex, p.tags,
+                    p.created_at, p.updated_at,
+                    COALESCE(inbound.count, 0) as inbound_count,
+                    COALESCE(outbound.count, 0) as outbound_count
+                FROM papers p
+                LEFT JOIN (
+                    SELECT cited_paper_id, COUNT(*) as count
+                    FROM citation_edges
+                    WHERE cited_paper_id IS NOT NULL
+                    GROUP BY cited_paper_id
+                ) inbound ON p.db_id = inbound.cited_paper_id
+                LEFT JOIN (
+                    SELECT citing_paper_id, COUNT(*) as count
+                    FROM citation_edges
+                    GROUP BY citing_paper_id
+                ) outbound ON p.db_id = outbound.citing_paper_id
+                ORDER BY p.title
+            """)
 
             results = cursor.fetchall()
             # Serialize each row to handle JSONB and datetime columns

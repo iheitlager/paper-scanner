@@ -738,7 +738,7 @@ function renderPapersList(papers) {
   }
 
   const papersList = papers
-    .map((paper) => {
+    .map((paper, index) => {
       const title = paper.title || paper.file_name || 'Untitled';
       const year = paper.year || '';
       const authors = paper.authors
@@ -748,14 +748,19 @@ function renderPapersList(papers) {
         : '';
       const journal = paper.journal || '';
       const tags = paper.tags ? paper.tags.split(':').filter((t) => t.trim()) : [];
+      const citeCount = paper.inbound_count || 0;
+      const citedByCount = paper.outbound_count || 0;
+      const itemId = `paper-list-item-${index}`;
 
       return `
-            <div class="paper-list-item" onclick="selectPaperFromList('${escapeHtml(paper.file_name || '')}')" title="Click to view details">
-                <div class="paper-list-item-title">${escapeHtml(title)}</div>
+            <div class="paper-list-item" id="${itemId}" title="Click to view details">
+                <div class="paper-list-item-title"><strong>${escapeHtml(title)}</strong></div>
                 <div class="paper-list-item-metadata">
                     ${year ? `<span class="metadata-year">${escapeHtml(year)}</span>` : ''}
                     ${authors ? `<span class="metadata-dash"> – </span><span class="metadata-authors">${escapeHtml(authors)}</span>` : ''}
-                    ${journal ? `<span class="metadata-dash"> – </span><span class="metadata-journal"><em>${escapeHtml(journal)}</em></span>` : ''}
+                    ${journal ? `<span class="metadata-dash"> – </span><span class="metadata-journal"><em>!${escapeHtml(journal)}</em></span>` : ''}
+                    <span class="metadata-dash"> – </span><span class="metadata-cites">Cites: ${citeCount}</span>
+                    <span class="metadata-dash"> – </span><span class="metadata-cited-by">Cited by: ${citedByCount}</span>
                 </div>
                 ${tags.length > 0 ? `<div class="paper-list-item-tags">${tags.map((tag) => `<span class="tag-chip">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
             </div>
@@ -771,6 +776,15 @@ function renderPapersList(papers) {
             </div>
         </div>
     `;
+
+  // Add click handlers after DOM is rendered
+  papers.forEach((paper, index) => {
+    const itemId = `paper-list-item-${index}`;
+    const element = document.getElementById(itemId);
+    if (element) {
+      element.onclick = () => selectPaperFromList(paper.file_name);
+    }
+  });
 }
 
 /**
@@ -1763,9 +1777,9 @@ function selectFile(file, keepBreadcrumb = false) {
 
   // Update toolbar with author/year and title
   let authorYearHtml = '';
-  let titleHtml = escapeHtml(file.title || file.file_name);
+  let titleHtml = `<strong>${escapeHtml(file.title || file.file_name)}</strong>`;
 
-  // Build metadata line: year - authors - journal
+  // Build metadata line: year - authors - journal - cites - cited by
   const metadataParts = [];
   
   if (file.year) {
@@ -1789,8 +1803,14 @@ function selectFile(file, keepBreadcrumb = false) {
   }
   
   if (file.journal) {
-    metadataParts.push(`<em>${escapeHtml(file.journal)}</em>`);
+    metadataParts.push(`<em>!${escapeHtml(file.journal)}</em>`);
   }
+  
+  // Add citation counts
+  const citeCount = file.inbound_count || 0;
+  const citedByCount = file.outbound_count || 0;
+  metadataParts.push(`Cites: ${citeCount}`);
+  metadataParts.push(`Cited by: ${citedByCount}`);
   
   if (metadataParts.length > 0) {
     authorYearHtml = metadataParts.join(' - ');
@@ -2706,11 +2726,15 @@ function renderSidebarFileList() {
         ? `<div class="file-item-tags">${tags.map((tag) => `<span class="file-tag">${escapeHtml(tag)}</span>`).join('')}</div>`
         : '';
 
-    // Build metadata line: year - authors - journal (only journal italic)
+    // Build metadata line: year - authors - journal (only journal italic) - cites - cited by
     const metadataParts = [];
     if (year) metadataParts.push(escapeHtml(year));
     if (authorText) metadataParts.push(escapeHtml(authorText));
-    if (journal) metadataParts.push(`<em>${escapeHtml(journal)}</em>`);
+    if (journal) metadataParts.push(`<em>!${escapeHtml(journal)}</em>`);
+    const citeCount = file.inbound_count || 0;
+    const citedByCount = file.outbound_count || 0;
+    metadataParts.push(`Cites: ${citeCount}`);
+    metadataParts.push(`Cited by: ${citedByCount}`);
     const metadataLine = metadataParts.join(' - ') || 'No metadata available';
 
     div.innerHTML = `

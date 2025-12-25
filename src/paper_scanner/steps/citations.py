@@ -172,7 +172,7 @@ class CitationsStep(BaseStep):
         backward_config = config.get("backward", {})
         forward_config = config.get("forward", {})
 
-
+        self.iteration = 1
         if backward_config:
             results = self.backward_execute(config)
         elif forward_config:
@@ -719,6 +719,7 @@ class CitationsStep(BaseStep):
             else:
                 enriched_paper, cache_hit = fetcher.fetch_paper(normalized_doi)
                 cache = "💾" if cache_hit else "🌐"
+                enriched_paper.discovery.iteration = self.iteration
 
                 # Track cache statistics
                 if cache_hit:
