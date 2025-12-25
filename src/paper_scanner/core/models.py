@@ -478,7 +478,8 @@ class Paper(BaseModel):
 
     # Publication venue
     journal: Optional[str] = None
-    journal_abbreviation: Optional[str] = None
+    journal_acronym: Optional[str] = None
+    journal_iso4: Optional[str] = None
     booktitle: Optional[str] = None  # For conference papers
     publisher: Optional[str] = None
 

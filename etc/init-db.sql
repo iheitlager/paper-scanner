@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS papers (
     topics TEXT[],  -- Array of topic tags
     year INTEGER,
     journal VARCHAR(500),
-    journal_abbreviation VARCHAR(255),
+    journal _acronym VARCHAR(100),
+    journal_iso4 VARCHAR(255),
     booktitle VARCHAR(500),  -- For conference papers
     publisher VARCHAR(255),
     volume VARCHAR(50),

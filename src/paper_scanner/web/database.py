@@ -226,7 +226,7 @@ class DatabaseManager:
             cursor.execute("""
                 SELECT 
                     p.db_id, p.id, p.cite_key, p.source_key, p.doi, p.arxiv_id, p.pmid, p.isbn, p.issn, p.url,
-                    p.title, p.abstract, p.authors, p.keywords, p.topics, p.year, p.journal, p.journal_abbreviation,
+                    p.title, p.abstract, p.authors, p.keywords, p.topics, p.year, p.journal, p.journal_acronym, p.journal_iso4,
                     p.booktitle, p.publisher, p.volume, p.issue, p.pages, p.paper_type, p.language,
                     p.publication_date, p.pdf_info, p.file_path, p.file_name,
                     p.size_bytes, p.conceptual_analysis, p.manually_validated,

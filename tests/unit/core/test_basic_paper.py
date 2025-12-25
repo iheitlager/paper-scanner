@@ -701,17 +701,30 @@ class TestPaperClass:
         )
         assert paper.booktitle == "Proceedings of ICML 2020"
 
-    def test_paper_journal_abbreviation(self):
+    def test_paper_journal_iso4(self):
         """Verify Paper can have journal abbreviation"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         paper = Paper(
             cite_key="nature2020",
             title="Nature Paper",
             journal="Nature Machine Intelligence",
-            journal_abbreviation="Nat. Mach. Intell.",
+            journal_iso4="Nat. Mach. Intell.",
             discovery=discovery
         )
-        assert paper.journal_abbreviation == "Nat. Mach. Intell."
+        assert paper.journal_iso4 == "Nat. Mach. Intell."
+
+    def test_paper_journal_acronym(self):
+        """Verify Paper can have journal acronym"""
+        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
+        paper = Paper(
+            cite_key="nature2020",
+            title="Nature Paper",
+            journal="Nature Machine Intelligence",
+            journal_acronym="NMI",
+            journal_iso4="Nat. Mach. Intell.",
+            discovery=discovery
+        )
+        assert paper.journal_acronym == "NMI"
 
     def test_paper_publication_date(self):
         """Verify Paper can have publication date"""

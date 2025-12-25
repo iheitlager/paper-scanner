@@ -38,8 +38,9 @@ def sample_paper():
         keywords=["keyword1", "keyword2"],
         topics=["topic1"],
         year=2023,
-        journal="Test Journal",
-        journal_abbreviation="TJ",
+        journal="International Test Journal",
+        journal_acronym="ITJ",
+        journal_iso4="Int. Test J.",
         volume="10",
         number="5",
         pages="1-10",
@@ -167,7 +168,7 @@ class TestPaperToRowConverter:
         assert row["title"] == "Test Paper Title"
         assert row["abstract"] == "This is a test abstract"
         assert row["year"] == 2023
-        assert row["journal"] == "Test Journal"
+        assert row["journal"] == "International Test Journal"
 
     def test_paper_to_row_complex_fields(self, sample_paper):
         """Test conversion with complex fields."""

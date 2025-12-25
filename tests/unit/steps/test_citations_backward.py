@@ -290,6 +290,7 @@ class TestResolveCitationsAndFetchPapers:
         step.verbose = False
         step.debug = False
         step.output_errors = None
+        step.iteration = 1
         return step
 
     @patch("paper_scanner.steps.citations.Fetcher")
@@ -361,7 +362,8 @@ class TestResolveCitationsAndFetchPapers:
             title="New Paper from Citation",
             doi="10.1234/new",
             year=2019,
-            paper_type=PaperType.JOURNAL_ARTICLE
+            paper_type=PaperType.JOURNAL_ARTICLE,
+            discovery=Discovery(method=DiscoveryMethod.API, iteration=1)
         )
 
         citation = Citation(
@@ -370,6 +372,7 @@ class TestResolveCitationsAndFetchPapers:
             year=2019,
             extraction_method="crossref",
             direction=CitationDirection.BACKWARD,
+            discovery=Discovery(method=DiscoveryMethod.API, iteration=1)
         )
         citing_paper.citations = [citation]
 
