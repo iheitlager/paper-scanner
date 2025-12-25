@@ -80,7 +80,7 @@ class TestClaudeHandler:
         assert hasattr(handler, "extract_pdf_text")
         assert callable(handler.extract_pdf_text)
 
-    @patch("pypdf.PdfReader")
+    @patch("paper_scanner.models.base.PdfReader")
     def test_claude_handler_pdf_extraction(self, mock_pdf_reader):
         """Test Claude handler PDF extraction."""
         handler = ClaudeHandler(api_key="test_key")

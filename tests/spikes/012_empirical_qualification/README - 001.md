@@ -132,7 +132,7 @@ ollama pull phi3:mini
 ollama pull phi3.5
 
 # Install dependencies
-pip install sentence-transformers scibert pdf2image PyPDF2 pydantic
+pip install sentence-transformers scibert pdf2image pypdf pydantic
 
 # Verify test data
 ls -la tests/data/*.pdf  # Should have 8 PDFs

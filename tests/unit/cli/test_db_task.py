@@ -294,7 +294,8 @@ class TestDatabaseUrlResolution:
             "DB_PORT": "5432",
             "DB_NAME": "testdb",
             "USER_ENV": "myuser"
-        }
+        },
+        clear=True
     )
     def test_get_database_url_with_env_references(self):
         """Test _get_database_url with environment variable references in components."""

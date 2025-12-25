@@ -2,6 +2,7 @@
 
 """Unit tests for base LLM handler functionality and registry."""
 
+import pytest
 from unittest.mock import Mock, patch
 
 from paper_scanner.models.anthropic import ClaudeHandler
@@ -16,7 +17,6 @@ from paper_scanner.models.base import (
     register_handler,
 )
 from paper_scanner.models.ollama import OllamaHandler
-
 
 class TestHandlerBase:
     """Tests for base LLM handler functionality."""
@@ -81,7 +81,7 @@ class TestHandlerBase:
         """Test PDF extraction when pypdf is available."""
         handler = OllamaHandler()
 
-        with patch("pypdf.PdfReader") as mock_pdf_reader:
+        with patch("paper_scanner.models.base.PdfReader") as mock_pdf_reader:
             # Mock the PDF reading
             mock_page = Mock()
             mock_page.extract_text.return_value = "Sample PDF text content"
@@ -89,23 +89,6 @@ class TestHandlerBase:
 
             result = handler.extract_pdf_text("/path/to/test.pdf")
             assert result == "Sample PDF text content"
-
-    def test_extract_pdf_text_without_pypdf(self):
-        """Test PDF extraction when pypdf is not available."""
-        handler = OllamaHandler()
-        logged_messages = []
-
-        def mock_logger(msg: str):
-            logged_messages.append(msg)
-
-        handler.logger = mock_logger
-
-        with patch.dict("sys.modules", {"pypdf": None}):
-            with patch("builtins.__import__", side_effect=ImportError):
-                result = handler.extract_pdf_text("/path/to/test.pdf")
-                assert result is None
-                assert any("pypdf not installed" in msg for msg in logged_messages)
-
 
 class TestHandlerRegistry:
     """Tests for handler registration and retrieval."""
@@ -322,3 +305,7 @@ class TestHandlerGrouping:
             flattened.update(group_models)
 
         assert all_models == flattened
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
+

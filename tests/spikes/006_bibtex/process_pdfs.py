@@ -127,7 +127,7 @@ class DOIExtractor:
             except Exception:
                 pass
 
-        # Fallback: try PyPDF2
+        # Fallback: try pypdf
         if HAS_PYPDF:
             try:
                 with open(pdf_path, 'rb') as f:
@@ -590,8 +590,8 @@ Examples:
 
     # Check for PDF parsing libraries
     if not HAS_PYPDF and not HAS_PDFPLUMBER:
-        console.print("[red]✗ Error: PyPDF2 or pdfplumber required[/red]")
-        console.print("  Install with: pip install PyPDF2 pdfplumber")
+        console.print("[red]✗ Error: pypdf or pdfplumber required[/red]")
+        console.print("  Install with: pip install pypdf pdfplumber")
         sys.exit(1)
 
     # Create manager

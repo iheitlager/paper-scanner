@@ -354,7 +354,7 @@ Enhanced Regex:    202 × $0     = $0.00    (63% accuracy on PDFs)
          ▼
 ┌─────────────────┐
 │  Stage 1:       │
-│  Extract        │  ← PyPDF2, pdfplumber, OCR, etc.
+│  Extract        │  ← pypdf, pdfplumber, OCR, etc.
 │  Abstracts      │
 └────────┬────────┘
          │

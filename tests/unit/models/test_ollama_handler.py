@@ -116,7 +116,7 @@ class TestOllamaHandler:
         assert hasattr(handler, "extract_pdf_text")
         assert callable(handler.extract_pdf_text)
 
-    @patch("pypdf.PdfReader")
+    @patch("paper_scanner.models.base.PdfReader")
     def test_ollama_handler_pdf_extraction(self, mock_pdf_reader):
         """Test Ollama handler PDF extraction."""
         handler = OllamaHandler()
