@@ -419,3 +419,64 @@ class DatabaseManager:
         finally:
             cursor.close()
             conn.close()
+
+    def get_full_citation_network(self) -> Dict[str, Any]:
+        """Get full citation network with all papers and citation edges.
+
+        Returns:
+            Dictionary with nodes (all papers) and links (citation edges)
+
+        Raises:
+            DatabaseException: If query fails
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        try:
+            # Get all papers with citation counts
+            cursor.execute(
+                """
+                SELECT 
+                    p.*,
+                    COALESCE(inbound.count, 0) as inbound_count,
+                    COALESCE(outbound.count, 0) as outbound_count
+                FROM papers p
+                LEFT JOIN (
+                    SELECT cited_paper_id, COUNT(*) as count
+                    FROM citation_edges
+                    WHERE cited_paper_id IS NOT NULL
+                    GROUP BY cited_paper_id
+                ) inbound ON p.db_id = inbound.cited_paper_id
+                LEFT JOIN (
+                    SELECT citing_paper_id, COUNT(*) as count
+                    FROM citation_edges
+                    GROUP BY citing_paper_id
+                ) outbound ON p.db_id = outbound.citing_paper_id
+                ORDER BY p.title
+                """
+            )
+            paper_rows = cursor.fetchall()
+            nodes = [self._serialize_row(dict(row)) for row in paper_rows]
+
+            # Get all citation edges
+            cursor.execute(
+                """
+                SELECT citing_paper_id as source, cited_paper_id as target
+                FROM citation_edges
+                WHERE cited_paper_id IS NOT NULL
+                ORDER BY citing_paper_id, cited_paper_id
+                """
+            )
+            link_rows = cursor.fetchall()
+            links = [dict(row) for row in link_rows]
+
+            return {
+                "nodes": nodes,
+                "links": links
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch citation network: {e}")
+            raise DatabaseException(f"Failed to fetch citation network: {e}")
+        finally:
+            cursor.close()
+            conn.close()

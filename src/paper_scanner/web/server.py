@@ -258,6 +258,19 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
         except (DatabaseException, PDFNotFoundException):
             raise
 
+    @app.route("/api/citation-network", methods=["GET"])
+    def get_citation_network() -> Tuple[Dict[str, Any], int]:
+        """Get full citation network graph data.
+
+        Returns:
+            JSON response with all papers (nodes) and citation edges (links)
+        """
+        try:
+            network_data = db_manager.get_full_citation_network()
+            return jsonify({"success": True, **network_data}), 200
+        except DatabaseException:
+            raise
+
     @app.route("/api/pdf/<identifier>", methods=["GET"])
     def get_pdf(identifier: str) -> Tuple[Any, int]:
         """Serve a PDF file by name or cite_key.

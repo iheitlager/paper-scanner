@@ -6,6 +6,7 @@
     <title>PDF Browser</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -89,8 +90,15 @@
             <div class="tab-content">
                 <!-- Year Overview Tab -->
                 <div class="tab-pane active" id="overviewTab">
+                    <div class="overview-controls">
+                        <button class="overview-btn active" id="histogramViewBtn" onclick="switchOverviewView('histogram')">📊 Histogram</button>
+                        <button class="overview-btn" id="networkViewBtn" onclick="switchOverviewView('network')">🕸️ Network</button>
+                    </div>
                     <div class="overview-viewer" id="overviewViewer">
                         <div class="status-message">Loading year overview...</div>
+                    </div>
+                    <div class="network-viewer" id="networkViewer" style="display: none;">
+                        <canvas id="networkCanvas" width="800" height="600"></canvas>
                     </div>
                 </div>
                 
@@ -159,6 +167,12 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
-</body>
-</html>
+    <!-- Network Details Overlay -->
+    <div class="network-details-overlay" id="networkDetailsOverlay" style="display: none;">
+        <div class="details-panel-network">
+            <button class="close-details-btn" onclick="closeNetworkDetails()" title="Close">✕</button>
+            <div class="network-details-content" id="networkDetailsContent"></div>
+            <button class="details-button" id="networkViewDetailsBtn" onclick="goToNetworkPaperDetails()" style="display: none;">📋 View Full Details</button>
+        </div>
+    </div>
+

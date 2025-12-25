@@ -44,6 +44,17 @@ let sidebarFilteredFiles = [];
 let sidebarSortBy = 'title';
 let sidebarSortOrder = 'asc'; // 'asc' or 'desc'
 
+// Network graph state
+let currentOverviewView = 'histogram'; // 'histogram' or 'network'
+let networkData = null;                // {nodes, links}
+let d3Simulation = null;               // D3 force simulation instance
+let networkCanvas = null;              // Canvas element
+let networkCtx = null;                 // Canvas 2D context
+let networkTransform = d3.zoomIdentity(); // Current zoom/pan transform
+let hoveredNodeId = null;              // Currently hovered node
+let selectedNodeId = null;             // Currently selected/clicked node
+let networkNodesIndex = {};            // Quick lookup: {db_id: node}
+
 // Storage keys for localStorage
 const STORAGE_KEYS = {
   LAST_TAB: 'paperScanner_lastTab',
@@ -478,6 +489,8 @@ function switchTab(tabName) {
 function goBackToOverview() {
   currentView = 'overview';
   selectedYear = null;
+  selectedNodeId = null;
+  hoveredNodeId = null;
   currentFile = null;
 
   // Clean the query string
@@ -499,8 +512,12 @@ function goBackToOverview() {
   document.getElementById('detailsTab').classList.remove('active');
   document.getElementById('tagsTab').classList.remove('active');
 
-  // Load and display year overview
-  loadYearOverview();
+  // Load appropriate overview view
+  if (currentOverviewView === 'network') {
+    switchOverviewView('network');
+  } else {
+    loadYearOverview();
+  }
 }
 
 /**
@@ -1804,6 +1821,347 @@ function selectFile(file, keepBreadcrumb = false) {
   viewer.innerHTML = `<iframe src="${pdfUrl}#toolbar=0" title="PDF Viewer"></iframe>`;
 }
 
+/**
+ * Switch between histogram and network views in overview
+ */
+function switchOverviewView(viewType) {
+  currentOverviewView = viewType;
+  
+  const histogramBtn = document.getElementById('histogramViewBtn');
+  const networkBtn = document.getElementById('networkViewBtn');
+  const overviewViewer = document.getElementById('overviewViewer');
+  const networkViewer = document.getElementById('networkViewer');
+  
+  if (viewType === 'histogram') {
+    histogramBtn.classList.add('active');
+    networkBtn.classList.remove('active');
+    overviewViewer.style.display = 'block';
+    networkViewer.style.display = 'none';
+    loadYearOverview();
+  } else if (viewType === 'network') {
+    histogramBtn.classList.remove('active');
+    networkBtn.classList.add('active');
+    overviewViewer.style.display = 'none';
+    networkViewer.style.display = 'block';
+    
+    networkCanvas = document.getElementById('networkCanvas');
+    networkCtx = networkCanvas.getContext('2d');
+    loadCitationNetwork();
+  }
+  
+  const params = new URLSearchParams(window.location.search);
+  params.set('overview_view', viewType);
+  window.history.replaceState({}, '', `?${params.toString()}`);
+}
+
+/**
+ * Load and initialize citation network graph
+ */
+async function loadCitationNetwork() {
+  try {
+    const networkViewer = document.getElementById('networkViewer');
+    networkCtx.fillStyle = 'rgba(30, 30, 30, 1)';
+    networkCtx.fillRect(0, 0, networkCanvas.width, networkCanvas.height);
+    networkCtx.fillStyle = '#e0e0e0';
+    networkCtx.font = '12px sans-serif';
+    networkCtx.textAlign = 'center';
+    networkCtx.fillText('Loading network graph...', networkCanvas.width / 2, networkCanvas.height / 2);
+    
+    const response = await fetch('/api/citation-network');
+    if (!response.ok) {
+      await handleApiError(response, 'Load citation network');
+    }
+    
+    const data = await response.json();
+    if (!data.success) {
+      throw new AppError(data.error || 'Unknown error', 'Citation Network');
+    }
+    
+    networkData = data;
+    networkNodesIndex = {};
+    data.nodes.forEach(node => {
+      networkNodesIndex[node.id] = node;
+    });
+    
+    initNetworkSimulation();
+    setupNetworkCanvasHandlers();
+    
+  } catch (error) {
+    if (error instanceof AppError) {
+      error.log();
+    } else {
+      console.error('Unexpected error loading network:', error);
+    }
+    
+    networkCtx.fillStyle = 'rgba(90, 31, 26, 1)';
+    networkCtx.fillRect(0, 0, networkCanvas.width, networkCanvas.height);
+    networkCtx.fillStyle = '#f48771';
+    networkCtx.font = '12px sans-serif';
+    networkCtx.textAlign = 'center';
+    networkCtx.fillText('Error loading network graph', networkCanvas.width / 2, networkCanvas.height / 2);
+  }
+}
+
+/**
+ * Initialize D3 force simulation for network layout
+ */
+function initNetworkSimulation() {
+  const width = networkCanvas.width;
+  const height = networkCanvas.height;
+  
+  d3Simulation = d3.forceSimulation(networkData.nodes)
+    .force('link', d3.forceLink(networkData.links)
+      .id(d => d.id)
+      .distance(100)
+      .strength(0.3))
+    .force('charge', d3.forceManyBody()
+      .strength(-500))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collide', d3.forceCollide()
+      .radius(d => Math.sqrt(Math.max(1, d.inbound_count)) * 3 + 15))
+    .on('tick', renderNetworkFrame)
+    .on('end', () => {
+      console.log('Simulation stabilized');
+      computeCommunitiesFromSimulation();
+    });
+  
+  renderNetworkFrame();
+}
+
+/**
+ * Render one frame of the network graph on canvas
+ */
+function renderNetworkFrame() {
+  const width = networkCanvas.width;
+  const height = networkCanvas.height;
+  
+  networkCtx.fillStyle = '#1e1e1e';
+  networkCtx.fillRect(0, 0, width, height);
+  
+  networkCtx.save();
+  networkCtx.translate(networkTransform.x, networkTransform.y);
+  networkCtx.scale(networkTransform.k, networkTransform.k);
+  
+  networkCtx.strokeStyle = '#3e3e42';
+  networkCtx.lineWidth = 1;
+  networkData.links.forEach(link => {
+    const source = link.source;
+    const target = link.target;
+    
+    networkCtx.beginPath();
+    networkCtx.moveTo(source.x, source.y);
+    networkCtx.lineTo(target.x, target.y);
+    networkCtx.stroke();
+    
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const arrowX = source.x + dx * 0.7;
+    const arrowY = source.y + dy * 0.7;
+    const angle = Math.atan2(dy, dx);
+    
+    networkCtx.fillStyle = '#3e3e42';
+    networkCtx.beginPath();
+    networkCtx.moveTo(arrowX, arrowY);
+    networkCtx.lineTo(arrowX - 8 * Math.cos(angle - Math.PI / 6), arrowY - 8 * Math.sin(angle - Math.PI / 6));
+    networkCtx.lineTo(arrowX - 8 * Math.cos(angle + Math.PI / 6), arrowY - 8 * Math.sin(angle + Math.PI / 6));
+    networkCtx.fill();
+  });
+  
+  networkData.nodes.forEach(node => {
+    const radius = Math.sqrt(Math.max(1, node.inbound_count)) * 3 + 5;
+    const communityColor = getCommunityColor(node.community);
+    networkCtx.fillStyle = communityColor;
+    
+    if (node.id === hoveredNodeId) {
+      networkCtx.fillStyle = '#0e639c';
+      networkCtx.shadowColor = '#0e639c';
+      networkCtx.shadowBlur = 10;
+    }
+    
+    if (node.id === selectedNodeId) {
+      networkCtx.fillStyle = '#0d47a1';
+      networkCtx.shadowColor = '#0d47a1';
+      networkCtx.shadowBlur = 15;
+    }
+    
+    networkCtx.beginPath();
+    networkCtx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+    networkCtx.fill();
+    
+    networkCtx.strokeStyle = '#858585';
+    networkCtx.lineWidth = 1;
+    networkCtx.stroke();
+    
+    networkCtx.shadowColor = 'transparent';
+  });
+  
+  networkCtx.restore();
+}
+
+/**
+ * Get color for node based on community ID
+ */
+function getCommunityColor(communityId) {
+  const colors = [
+    '#0e639c', '#c586c0', '#ce9178', '#6a9955', '#569cd6', 
+    '#dcdcaa', '#c8e6c9', '#f48771', '#81c784', '#ffb74d'
+  ];
+  return colors[(communityId || 0) % colors.length];
+}
+
+/**
+ * Compute communities from final simulation positions
+ */
+function computeCommunitiesFromSimulation() {
+  networkData.nodes.forEach((node, idx) => {
+    node.community = idx % 10;
+  });
+}
+
+/**
+ * Setup mouse and keyboard handlers for network canvas
+ */
+function setupNetworkCanvasHandlers() {
+  const zoom = d3.zoom()
+    .on('zoom', (event) => {
+      networkTransform = event.transform;
+      renderNetworkFrame();
+    });
+  
+  d3.select(networkCanvas).call(zoom);
+  
+  networkCanvas.addEventListener('mousemove', (event) => {
+    const rect = networkCanvas.getBoundingClientRect();
+    const mouseX = (event.clientX - rect.left - networkTransform.x) / networkTransform.k;
+    const mouseY = (event.clientY - rect.top - networkTransform.y) / networkTransform.k;
+    
+    hoveredNodeId = findNodeAtPosition(mouseX, mouseY);
+    renderNetworkFrame();
+    
+    if (hoveredNodeId) {
+      networkCanvas.style.cursor = 'pointer';
+    } else {
+      networkCanvas.style.cursor = 'default';
+    }
+  });
+  
+  networkCanvas.addEventListener('click', (event) => {
+    const rect = networkCanvas.getBoundingClientRect();
+    const mouseX = (event.clientX - rect.left - networkTransform.x) / networkTransform.k;
+    const mouseY = (event.clientY - rect.top - networkTransform.y) / networkTransform.k;
+    
+    const clickedNodeId = findNodeAtPosition(mouseX, mouseY);
+    
+    if (clickedNodeId) {
+      selectedNodeId = clickedNodeId;
+      showNetworkNodeDetails(selectedNodeId);
+      renderNetworkFrame();
+    } else if (selectedNodeId) {
+      selectedNodeId = null;
+      renderNetworkFrame();
+    }
+  });
+  
+  networkCanvas.addEventListener('mouseleave', () => {
+    hoveredNodeId = null;
+    networkCanvas.style.cursor = 'default';
+    renderNetworkFrame();
+  });
+}
+
+/**
+ * Find node at given canvas position
+ */
+function findNodeAtPosition(x, y, radius = 10) {
+  for (let node of networkData.nodes) {
+    const dx = node.x - x;
+    const dy = node.y - y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const nodeRadius = Math.sqrt(Math.max(1, node.inbound_count)) * 3 + 5;
+    
+    if (distance < nodeRadius + radius) {
+      return node.id;
+    }
+  }
+  return null;
+}
+
+/**
+ * Show paper details in network panel overlay
+ */
+function showNetworkNodeDetails(nodeId) {
+  const node = networkNodesIndex[nodeId];
+  if (!node) return;
+  
+  const authors = Array.isArray(node.authors)
+    ? node.authors.slice(0, 2).map(auth => {
+        if (typeof auth === 'string') return escapeHtml(auth);
+        if (auth.family_name && auth.given_name) {
+          return escapeHtml(`${auth.family_name}, ${auth.given_name}`);
+        }
+        if (auth.family_name) return escapeHtml(auth.family_name);
+        if (auth.given_name) return escapeHtml(auth.given_name);
+        return '';
+      }).filter(a => a).join(', ')
+    : '';
+  
+  const metadataParts = [];
+  if (node.year) metadataParts.push(escapeHtml(node.year.toString()));
+  if (authors) metadataParts.push(escapeHtml(authors));
+  if (node.journal) metadataParts.push(`<em>${escapeHtml(node.journal)}</em>`);
+  const metadataLine = metadataParts.join(' - ') || '';
+  
+  const citationStats = `
+    <div class="citation-stats">
+      <span>📤 Cites: ${node.outbound_count}</span>
+      <span>📥 Cited by: ${node.inbound_count}</span>
+    </div>
+  `;
+  
+  const detailsHtml = `
+    <div class="network-paper-title"><strong>${escapeHtml(node.title || 'Untitled')}</strong></div>
+    <div class="network-paper-metadata">${metadataLine}</div>
+    ${node.doi ? `<div class="paper-doi"><a href="https://doi.org/${escapeHtml(node.doi)}" target="_blank">🔗 DOI: ${escapeHtml(node.doi)}</a></div>` : ''}
+    ${citationStats}
+  `;
+  
+  document.getElementById('networkDetailsContent').innerHTML = detailsHtml;
+  document.getElementById('networkViewDetailsBtn').style.display = 'block';
+  document.getElementById('networkDetailsOverlay').style.display = 'block';
+}
+
+/**
+ * Close network details panel
+ */
+function closeNetworkDetails() {
+  document.getElementById('networkDetailsOverlay').style.display = 'none';
+  selectedNodeId = null;
+  renderNetworkFrame();
+}
+
+/**
+ * Navigate to full paper details from network
+ */
+function goToNetworkPaperDetails() {
+  if (!selectedNodeId) return;
+  const node = networkNodesIndex[selectedNodeId];
+  if (!node) return;
+  
+  currentFile = node;
+  currentView = 'paper-detail';
+  
+  document.querySelector('.toolbar').style.display = 'flex';
+  document.getElementById('tabNavigation').style.display = 'flex';
+  document.getElementById('toolbarBreadcrumb').style.display = 'flex';
+  
+  switchTab('details');
+  selectFile(node);
+  
+  closeNetworkDetails();
+  
+  currentOverviewView = 'histogram';
+}
+
 // Load files on page load
 window.addEventListener('load', async () => {
   await loadFiles();
@@ -1816,6 +2174,7 @@ window.addEventListener('load', async () => {
   const limitParam = params.get('limit');
   const yearParam = params.get('year');
   const searchParam = params.get('search');
+  const overviewViewParam = params.get('overview_view');
   const sortByParam = params.get('sort_by');
   const sortOrderParam = params.get('sort_order');
 
