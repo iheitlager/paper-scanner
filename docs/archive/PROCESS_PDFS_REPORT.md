@@ -24,7 +24,7 @@ Successfully completed reverse workflow to process existing PDFs in the papers d
 ## Key Features Implemented
 
 ### DOI Extraction Methods
-1. **Metadata Extraction** - PyPDF2 metadata parsing
+1. **Metadata Extraction** - pypdf metadata parsing
 2. **Content Regex Search** - Text extraction via pdfplumber with DOI pattern matching
 3. **Title Lookup (Crossref API)** - Fallback method using paper title to query Crossref
 
@@ -105,7 +105,7 @@ Examples:
 
 **Languages & Libraries:**
 - Python 3 with `psycopg2` for PostgreSQL
-- `PyPDF2` - PDF metadata extraction
+- `pypdf` - PDF metadata extraction
 - `pdfplumber` - PDF text extraction
 - `requests` - HTTP for Crossref API
 - `Rich` - Beautiful terminal UI

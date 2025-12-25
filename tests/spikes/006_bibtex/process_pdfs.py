@@ -37,10 +37,11 @@ from rich.table import Table
 
 # Try to import PDF libraries
 try:
-    import PyPDF2
-    HAS_PYPDF2 = True
+    import pypdf
+
+    HAS_PYPDF = True
 except ImportError:
-    HAS_PYPDF2 = False
+    HAS_PYPDF = False
 
 try:
     import pdfplumber
@@ -88,12 +89,12 @@ class DOIExtractor:
 
     def _extract_from_metadata(self, pdf_path: Path) -> Optional[str]:
         """Extract DOI from PDF metadata."""
-        if not HAS_PYPDF2:
+        if not HAS_PYPDF:
             return None
 
         try:
             with open(pdf_path, 'rb') as f:
-                reader = PyPDF2.PdfReader(f)
+                reader = pypdf.PdfReader(f)
                 metadata = reader.metadata
 
                 if metadata:
@@ -127,10 +128,10 @@ class DOIExtractor:
                 pass
 
         # Fallback: try PyPDF2
-        if HAS_PYPDF2:
+        if HAS_PYPDF:
             try:
                 with open(pdf_path, 'rb') as f:
-                    reader = PyPDF2.PdfReader(f)
+                    reader = pypdf.PdfReader(f)
                     # Search first 3 pages
                     for page_num in range(min(3, len(reader.pages))):
                         page = reader.pages[page_num]
@@ -171,7 +172,7 @@ class DOIExtractor:
         
         This is a fallback method when DOI is not directly in PDF.
         """
-        if not HAS_PDFPLUMBER and not HAS_PYPDF2:
+        if not HAS_PDFPLUMBER and not HAS_PYPDF:
             return None
 
         try:
@@ -188,10 +189,10 @@ class DOIExtractor:
                 except Exception:
                     pass
 
-            if not title and HAS_PYPDF2:
+            if not title and HAS_PYPDF:
                 try:
                     with open(pdf_path, 'rb') as f:
-                        reader = PyPDF2.PdfReader(f)
+                        reader = pypdf.PdfReader(f)
                         text = reader.pages[0].extract_text()
                         lines = text.split('\n')
                         title = lines[0].strip() if lines else None
@@ -588,7 +589,7 @@ Examples:
     args = parser.parse_args()
 
     # Check for PDF parsing libraries
-    if not HAS_PYPDF2 and not HAS_PDFPLUMBER:
+    if not HAS_PYPDF and not HAS_PDFPLUMBER:
         console.print("[red]✗ Error: PyPDF2 or pdfplumber required[/red]")
         console.print("  Install with: pip install PyPDF2 pdfplumber")
         sys.exit(1)

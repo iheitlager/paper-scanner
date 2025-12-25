@@ -12,27 +12,10 @@ import time
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple
-import sys
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
+from pypdf import PdfReader
 
-try:
-    from PyPDF2 import PdfReader
-except ImportError:
-    import subprocess
-    subprocess.check_call(["pip", "install", "PyPDF2"])
-    from PyPDF2 import PdfReader
-
-try:
-    from sentence_transformers import SentenceTransformer, util
-    import torch
-except ImportError:
-    print("Installing sentence-transformers and torch...")
-    import subprocess
-    subprocess.check_call(["pip", "install", "sentence-transformers", "torch"])
-    from sentence_transformers import SentenceTransformer, util
-    import torch
+from sentence_transformers import SentenceTransformer, util
 
 
 # Study type exemplars for semantic classification

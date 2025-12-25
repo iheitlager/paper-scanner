@@ -23,16 +23,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 import sys
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
-
-try:
-    from PyPDF2 import PdfReader
-except ImportError:
-    print("Installing PyPDF2...")
-    import subprocess
-    subprocess.check_call(["pip", "install", "PyPDF2"])
-    from PyPDF2 import PdfReader
+from pypdf import PdfReader
 
 
 # Enhanced study type patterns based on actual paper analysis

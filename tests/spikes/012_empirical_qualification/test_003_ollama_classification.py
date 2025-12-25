@@ -17,20 +17,8 @@ from typing import Dict, Tuple
 import sys
 import subprocess
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
-
-try:
-    from PyPDF2 import PdfReader
-except ImportError:
-    subprocess.check_call(["pip", "install", "PyPDF2"])
-    from PyPDF2 import PdfReader
-
-try:
-    import requests
-except ImportError:
-    subprocess.check_call(["pip", "install", "requests"])
-    import requests
+from pypdf import PdfReader
+import requests
 
 
 # Ollama API endpoint

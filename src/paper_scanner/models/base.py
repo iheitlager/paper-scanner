@@ -4,6 +4,8 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from pypdf import PdfReader
+
 
 class LLMHandler(ABC):
     """Abstract base class for LLM handlers (Claude, Ollama, etc.)."""
@@ -73,12 +75,6 @@ class LLMHandler(ABC):
         Returns:
             Extracted text or None on error
         """
-        try:
-            from pypdf import PdfReader
-        except ImportError:
-            self.log("Warning: pypdf not installed. Install with: pip install pypdf")
-            return None
-
         try:
             reader = PdfReader(file_path)
             text = ""
