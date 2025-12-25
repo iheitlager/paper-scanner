@@ -48,6 +48,12 @@ class LoadFilesStep(BaseStep):
         """
         errors = []
 
+        # Check required fields
+        if "file_path" not in config:
+            errors.append("'file_path' is required")
+        if "store_path" not in config:
+            errors.append("'store_path' is required")
+
         for key in config.keys():
             if key == "limit":
                 limit = config["limit"]
@@ -62,14 +68,13 @@ class LoadFilesStep(BaseStep):
                 if not isinstance(seed, int):
                     errors.append("'random_seed' must be an integer")
             elif key == "file_path":
-                file_path = Path(config.get("file_path", "")).expanduser()
-                if not file_path.exists() or not file_path.is_dir():
-                    raise ConfigurationError(f"File path does not exist or is not a directory: {file_path}")
+                file_path = config.get("file_path")
+                if not isinstance(file_path, str):
+                    errors.append("'file_path' must be a string")
             elif key == "store_path":
-                store_path = Path(config.get("store_path", "")).expanduser()
-                store_path.mkdir(parents=True, exist_ok=True)
-                if not store_path.exists() or not store_path.is_dir():
-                    raise ConfigurationError(f"Store path does not exist or is not a directory: {store_path}")
+                store_path = config.get("store_path")
+                if not isinstance(store_path, str):
+                    errors.append("'store_path' must be a string")
             elif key == "expected_count":
                 expected = config["expected_count"]
                 if not isinstance(expected, int) or expected < 0:
@@ -104,6 +109,19 @@ class LoadFilesStep(BaseStep):
         limit = config.get("limit", None)
         store_path = Path(config.get("store_path", "")).expanduser()
         expected_count = config.get("expected_count")
+
+        # Validate paths exist and are accessible
+        if not file_path.exists() or not file_path.is_dir():
+            raise ConfigurationError(f"File path does not exist or is not a directory: {file_path}")
+        
+        # Create store path if needed
+        try:
+            store_path.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            raise ConfigurationError(f"Cannot create store path {store_path}: {e}")
+        
+        if not store_path.is_dir():
+            raise ConfigurationError(f"Store path is not a directory: {store_path}")
 
 
         # Scan for PDF files

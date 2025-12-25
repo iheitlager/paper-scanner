@@ -207,14 +207,11 @@ class DatabaseManager:
             cursor.close()
             conn.close()
 
-    def get_all_pdfs(self, directory: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_all_pdfs(self) -> List[Dict[str, Any]]:
         """Get all PDF records from database.
 
-        Args:
-            directory: Optional directory filter
-
         Returns:
-            List of PDF records with JSON-serializable fields
+            List of PDF records with JSON-serializable fields, excluding large JSONB fields
 
         Raises:
             DatabaseException: If query fails
@@ -223,13 +220,19 @@ class DatabaseManager:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
         try:
-            if directory:
-                cursor.execute(
-                    "SELECT * FROM papers WHERE directory = %s ORDER BY title, file_name",
-                    (directory,),
-                )
-            else:
-                cursor.execute("SELECT * FROM papers ORDER BY title, file_name")
+            # Select only essential columns, excluding large JSONB fields (raw_json, discovery, screening)
+            # to improve API response performance
+            columns = """
+                db_id, id, cite_key, source_key, doi, arxiv_id, pmid, isbn, issn, url,
+                title, abstract, authors, keywords, topics, year, journal, journal_abbreviation,
+                booktitle, publisher, volume, issue, pages, paper_type, language,
+                publication_date, pdf_info, file_path, file_name,
+                size_bytes, conceptual_analysis, manually_validated,
+                validation_notes, validated_by, validated_at, raw_bibtex, tags,
+                created_at, updated_at
+            """
+            
+            cursor.execute(f"SELECT {columns} FROM papers ORDER BY title")
 
             results = cursor.fetchall()
             # Serialize each row to handle JSONB and datetime columns
@@ -433,11 +436,11 @@ class DatabaseManager:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
         try:
-            # Get all papers with citation counts
+            # Get all papers with citation counts, excluding large JSONB fields
             cursor.execute(
                 """
                 SELECT 
-                    p.*,
+                    db_id, id, cite_key, title, authors, year, journal, doi, url,
                     COALESCE(inbound.count, 0) as inbound_count,
                     COALESCE(outbound.count, 0) as outbound_count
                 FROM papers p
@@ -458,17 +461,24 @@ class DatabaseManager:
             paper_rows = cursor.fetchall()
             nodes = [self._serialize_row(dict(row)) for row in paper_rows]
 
-            # Get all citation edges
+            # Get all citation edges, mapping db_ids to UUIDs
             cursor.execute(
                 """
-                SELECT citing_paper_id as source, cited_paper_id as target
-                FROM citation_edges
-                WHERE cited_paper_id IS NOT NULL
-                ORDER BY citing_paper_id, cited_paper_id
+                SELECT 
+                    cp.id as source_id,
+                    cip.id as target_id
+                FROM citation_edges ce
+                JOIN papers cp ON ce.citing_paper_id = cp.db_id
+                JOIN papers cip ON ce.cited_paper_id = cip.db_id
+                WHERE ce.cited_paper_id IS NOT NULL
+                ORDER BY ce.citing_paper_id, ce.cited_paper_id
                 """
             )
             link_rows = cursor.fetchall()
-            links = [dict(row) for row in link_rows]
+            links = [
+                {"source": dict(row)["source_id"], "target": dict(row)["target_id"]}
+                for row in link_rows
+            ]
 
             return {
                 "nodes": nodes,

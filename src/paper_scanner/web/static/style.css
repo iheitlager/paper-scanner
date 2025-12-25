@@ -1578,15 +1578,15 @@ body {
   white-space: nowrap;
 }
 /* Network Graph Visualization */
-.overview-controls {
+
+/* Overview Switcher in Toolbar */
+.overview-switcher {
   display: flex;
-  gap: 8px;
-  padding: 10px;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-tertiary);
+  gap: 6px;
+  align-items: center;
 }
 
-.overview-btn {
+.overview-switcher-btn {
   padding: 6px 12px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
@@ -1594,30 +1594,44 @@ body {
   color: var(--text-primary);
   cursor: pointer;
   font-size: 12px;
-  transition: background-color 0.2s;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.overview-btn:hover {
+.overview-switcher-btn:hover {
   background-color: var(--bg-hover);
-}
-
-.overview-btn.active {
-  background-color: var(--accent-color);
-  color: white;
   border-color: var(--accent-color);
 }
 
+.overview-switcher-btn.active {
+  background-color: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+  box-shadow: 0 2px 6px rgba(20, 113, 200, 0.25);
+}
+
+/* Network Viewer Container */
 .network-viewer {
   display: flex;
-  flex-direction: column;
-  height: 100%;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
   background-color: var(--bg-primary);
+  width: 100%;
+  height: 100%;
+  position: relative;
 }
 
 #networkCanvas {
-  flex: 1;
-  background-color: #1e1e1e;
+  max-width: 100%;
+  max-height: 100%;
   cursor: grab;
+  background-color: #1e1e1e;
+}
+
+#networkCanvas:active {
+  cursor: grabbing;
 }
 
 #networkCanvas:active {

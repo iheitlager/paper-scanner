@@ -197,27 +197,6 @@ class TestFilesRoute:
             assert data["success"] is True
             assert data["files"] == mock_files
 
-    def test_get_files_with_directory_filter(self):
-        """Test retrieving files with directory filter."""
-        mock_config = Mock(spec=Config)
-        mock_config.log_level = "INFO"
-        mock_config.debug = False
-        mock_config.database_url = "postgresql://localhost/test"
-        mock_config.pdf_base_dir = "/path/to/pdfs"
-        mock_config.env = "local"
-
-        app, db_manager, _ = create_app(mock_config)
-
-        mock_files = [
-            {"file_name": "file1.pdf", "file_path": "/docs/file1.pdf", "directory": "/docs"},
-        ]
-        with patch.object(db_manager, "get_all_pdfs", return_value=mock_files) as mock_get:
-            client = app.test_client()
-            response = client.get("/api/files?directory=/docs")
-
-            assert response.status_code == 200
-            mock_get.assert_called_once_with("/docs")
-
     def test_get_files_empty(self):
         """Test retrieving files when database is empty."""
         mock_config = Mock(spec=Config)

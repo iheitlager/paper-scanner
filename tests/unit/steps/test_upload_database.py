@@ -339,6 +339,10 @@ class TestExecuteRealUpload:
             "skipped": 0,
             "errors": [],
             "error_count": 0,
+            "citation_edges": {
+                "edges_inserted": 0,
+                "edges_skipped": 0,
+            },
         }
 
         # Create mock papers
@@ -377,6 +381,10 @@ class TestExecuteRealUpload:
             "skipped": 1,
             "errors": ["Error with paper 1", "Error with paper 2"],
             "error_count": 2,
+            "citation_edges": {
+                "edges_inserted": 0,
+                "edges_skipped": 0,
+            },
         }
 
         # Create mock papers
@@ -454,6 +462,10 @@ class TestBatchProcessing:
                 "skipped": 0,
                 "errors": [],
                 "error_count": 0,
+                "citation_edges": {
+                    "edges_inserted": 0,
+                    "edges_skipped": 0,
+                },
             }
 
         mock_uploader.insert_papers.side_effect = mock_insert
@@ -491,6 +503,10 @@ class TestBatchProcessing:
             "skipped": 0,
             "errors": [],
             "error_count": 0,
+            "citation_edges": {
+                "edges_inserted": 0,
+                "edges_skipped": 0,
+            },
         }
 
         # Create 100 mock papers
@@ -504,3 +520,87 @@ class TestBatchProcessing:
 
         # Should be called once (all papers in one batch)
         assert mock_uploader.insert_papers.call_count == 1
+
+    @patch("paper_scanner.steps.upload_database.DatabaseConnectionPool")
+    @patch("paper_scanner.steps.upload_database.PaperUploader")
+    @patch("paper_scanner.steps.upload_database.load_dotenv")
+    def test_execute_with_citation_edges(self, mock_load_dotenv, mock_uploader_class, mock_pool_class, mock_db, cache_dir, general_config):
+        """Test that citation edges are properly aggregated when present."""
+        # Setup mocks
+        mock_pool = Mock()
+        mock_pool_class.return_value = mock_pool
+
+        mock_uploader = Mock()
+        mock_uploader_class.return_value = mock_uploader
+
+        # Mock insert_papers with citation edges
+        mock_uploader.insert_papers.return_value = {
+            "inserted": 10,
+            "updated": 0,
+            "skipped": 0,
+            "errors": [],
+            "error_count": 0,
+            "citation_edges": {
+                "edges_inserted": 25,
+                "edges_skipped": 3,
+            },
+        }
+
+        # Create mock papers
+        mock_papers = [Mock(spec=Paper) for _ in range(10)]
+        mock_db.all.return_value = mock_papers
+
+        step = create_step(mock_db, cache_dir, general_config)
+        config = {"database_url": "postgresql://user:pass@localhost:5432/db"}
+
+        result = step.execute(config, dry_run=False)
+
+        assert isinstance(result, StepResult)
+        from paper_scanner.core.enum import StepStatus
+        assert result.status == StepStatus.SUCCESS
+        assert result.stats["inserted"] == 10
+        assert result.stats["citation_edges_inserted"] == 25
+        assert result.stats["citation_edges_skipped"] == 3
+        mock_pool.close.assert_called_once()
+
+    @patch("paper_scanner.steps.upload_database.DatabaseConnectionPool")
+    @patch("paper_scanner.steps.upload_database.PaperUploader")
+    @patch("paper_scanner.steps.upload_database.load_dotenv")
+    def test_execute_without_citation_edges(self, mock_load_dotenv, mock_uploader_class, mock_pool_class, mock_db, cache_dir, general_config):
+        """Test that zero citation edges are handled correctly."""
+        # Setup mocks
+        mock_pool = Mock()
+        mock_pool_class.return_value = mock_pool
+
+        mock_uploader = Mock()
+        mock_uploader_class.return_value = mock_uploader
+
+        # Mock insert_papers without citation edges
+        mock_uploader.insert_papers.return_value = {
+            "inserted": 5,
+            "updated": 0,
+            "skipped": 0,
+            "errors": [],
+            "error_count": 0,
+            "citation_edges": {
+                "edges_inserted": 0,
+                "edges_skipped": 0,
+            },
+        }
+
+        # Create mock papers
+        mock_papers = [Mock(spec=Paper) for _ in range(5)]
+        mock_db.all.return_value = mock_papers
+
+        step = create_step(mock_db, cache_dir, general_config)
+        config = {"database_url": "postgresql://user:pass@localhost:5432/db"}
+
+        result = step.execute(config, dry_run=False)
+
+        assert isinstance(result, StepResult)
+        from paper_scanner.core.enum import StepStatus
+        assert result.status == StepStatus.SUCCESS
+        assert result.stats["inserted"] == 5
+        assert result.stats["citation_edges_inserted"] == 0
+        assert result.stats["citation_edges_skipped"] == 0
+        mock_pool.close.assert_called_once()

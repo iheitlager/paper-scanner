@@ -442,7 +442,7 @@ class TestGetAllPdfs:
     """Test get_all_pdfs method."""
 
     def test_get_all_pdfs_no_filter(self):
-        """Test retrieving all PDF records without directory filter."""
+        """Test retrieving all PDF records."""
         manager = DatabaseManager("postgresql://localhost/test")
         mock_conn = Mock()
         mock_cursor = Mock()
@@ -459,30 +459,9 @@ class TestGetAllPdfs:
 
             assert result == mock_records
             mock_cursor.execute.assert_called_once()
-            assert "SELECT * FROM papers ORDER BY title, file_name" in mock_cursor.execute.call_args[0][0]
             mock_cursor.close.assert_called()
             mock_conn.close.assert_called()
-
-    def test_get_all_pdfs_with_directory_filter(self):
-        """Test retrieving PDF records filtered by directory."""
-        manager = DatabaseManager("postgresql://localhost/test")
-        mock_conn = Mock()
-        mock_cursor = Mock()
-        mock_conn.cursor.return_value = mock_cursor
-
-        mock_records = [
-            {"file_name": "file1.pdf", "file_path": "/docs/file1.pdf", "directory": "/docs"},
-        ]
-        mock_cursor.fetchall.return_value = mock_records
-
-        with patch.object(manager, "get_connection", return_value=mock_conn):
-            result = manager.get_all_pdfs(directory="/docs")
-
-            assert result == mock_records
-            mock_cursor.execute.assert_called_once_with(
-                "SELECT * FROM papers WHERE directory = %s ORDER BY title, file_name",
-                ("/docs",),
-            )
+            mock_conn.close.assert_called()
 
     def test_get_all_pdfs_empty_result(self):
         """Test retrieving PDFs when database is empty."""

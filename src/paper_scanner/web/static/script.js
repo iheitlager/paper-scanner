@@ -9,11 +9,9 @@
  * @property {number} id - Database ID
  * @property {string} file_path - Full file path
  * @property {string} file_name - File name
- * @property {string} directory - Directory path
  * @property {number} size_bytes - File size in bytes
- * @property {string} created_time - Creation timestamp
- * @property {string} modified_time - Modification timestamp
- * @property {string} accessed_time - Access timestamp
+ * @property {string} created_at - Creation timestamp
+ * @property {string} updated_at - Update timestamp
  * @property {string} [tags] - Colon-separated tags
  */
 
@@ -50,7 +48,7 @@ let networkData = null;                // {nodes, links}
 let d3Simulation = null;               // D3 force simulation instance
 let networkCanvas = null;              // Canvas element
 let networkCtx = null;                 // Canvas 2D context
-let networkTransform = d3.zoomIdentity(); // Current zoom/pan transform
+let networkTransform = null;           // Current zoom/pan transform (initialized when needed)
 let hoveredNodeId = null;              // Currently hovered node
 let selectedNodeId = null;             // Currently selected/clicked node
 let networkNodesIndex = {};            // Quick lookup: {db_id: node}
@@ -410,6 +408,9 @@ function switchTab(tabName) {
 
   currentTab = tabName;
   saveLastTab(tabName);
+  
+  // Hide the overview switcher when viewing papers
+  document.getElementById('overviewSwitcher').style.display = 'none';
 
   // Update URL to reflect current tab
   if (currentFile) {
@@ -500,8 +501,9 @@ function goBackToOverview() {
   // Hide breadcrumb
   document.getElementById('toolbarBreadcrumb').style.display = 'none';
 
-  // Hide toolbar and tabs
-  document.querySelector('.toolbar').style.display = 'none';
+  // Hide toolbar and tabs, but show switcher
+  document.querySelector('.toolbar').style.display = 'flex';
+  document.getElementById('overviewSwitcher').style.display = 'flex';
   document.getElementById('tabNavigation').style.display = 'none';
 
   // Show overview tab
@@ -512,11 +514,16 @@ function goBackToOverview() {
   document.getElementById('detailsTab').classList.remove('active');
   document.getElementById('tagsTab').classList.remove('active');
 
+  // Render sidebar with all papers
+  sidebarFilteredFiles = [...files];
+  renderSidebarFileList();
+  updateSidebarPaginationControls();
+
   // Load appropriate overview view
   if (currentOverviewView === 'network') {
     switchOverviewView('network');
   } else {
-    loadYearOverview();
+    switchOverviewView('histogram');
   }
 }
 
@@ -709,8 +716,8 @@ async function showPapersForYear(year) {
   if (currentAuthors) currentAuthors.innerHTML = '';
   const currentFileName = document.getElementById('currentFileName');
   if (currentFileName) currentFileName.innerHTML = '';
-  const fileInfo = document.getElementById('fileInfo');
-  if (fileInfo) fileInfo.innerHTML = '';
+  const paperInfo = document.getElementById('paperInfo');
+  if (paperInfo) paperInfo.innerHTML = '';
 
   // Hide tabs
   const tabNav = document.getElementById('tabNavigation');
@@ -1798,8 +1805,8 @@ function selectFile(file, keepBreadcrumb = false) {
   document.getElementById('currentAuthors').innerHTML = authorYearHtml;
   document.getElementById('currentAuthors').style.display = authorYearHtml ? 'block' : 'none';
   document.getElementById('currentFileName').innerHTML = titleHtml;
-  document.getElementById('fileInfo').textContent =
-    `${formatFileSize(file.size_bytes)} • Modified: ${formatDate(file.modified_time)}`;
+  document.getElementById('paperInfo').textContent =
+    `${formatFileSize(file.size_bytes)} • Modified: ${formatDate(file.updated_at)}`;
 
   // Save paper reference and switch to last opened tab
   saveLastPaper(file.id.toString());
@@ -1835,18 +1842,41 @@ function switchOverviewView(viewType) {
   if (viewType === 'histogram') {
     histogramBtn.classList.add('active');
     networkBtn.classList.remove('active');
-    overviewViewer.style.display = 'block';
+    overviewViewer.style.display = 'flex';
     networkViewer.style.display = 'none';
     loadYearOverview();
   } else if (viewType === 'network') {
     histogramBtn.classList.remove('active');
     networkBtn.classList.add('active');
     overviewViewer.style.display = 'none';
-    networkViewer.style.display = 'block';
+    networkViewer.style.display = 'flex';
     
-    networkCanvas = document.getElementById('networkCanvas');
-    networkCtx = networkCanvas.getContext('2d');
-    loadCitationNetwork();
+    // Clear the current paper display in toolbar
+    clearToolbarPaperDisplay();
+    
+    // Set canvas to container size and load network
+    const canvas = document.getElementById('networkCanvas');
+    const container = networkViewer;
+    
+    // Use setTimeout to ensure DOM is updated and container has size
+    setTimeout(() => {
+      const rect = container.getBoundingClientRect();
+      console.log(`Canvas container size: ${rect.width}x${rect.height}`);
+      
+      if (rect.width === 0 || rect.height === 0) {
+        console.warn('Container has zero size, retrying...');
+        setTimeout(arguments.callee, 100);
+        return;
+      }
+      
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      console.log(`Canvas set to: ${canvas.width}x${canvas.height}`);
+      
+      networkCanvas = canvas;
+      networkCtx = canvas.getContext('2d');
+      loadCitationNetwork();
+    }, 50);
   }
   
   const params = new URLSearchParams(window.location.search);
@@ -1855,11 +1885,28 @@ function switchOverviewView(viewType) {
 }
 
 /**
+ * Clear toolbar paper display when in network view
+ */
+function clearToolbarPaperDisplay() {
+  document.getElementById('currentFileName').innerHTML = 'Citation Network';
+  document.getElementById('currentAuthors').innerHTML = '';
+  document.getElementById('paperInfo').innerHTML = '';
+  document.getElementById('deeplinkBtn').style.display = 'none';
+}
+
+/**
  * Load and initialize citation network graph
  */
 async function loadCitationNetwork() {
   try {
     const networkViewer = document.getElementById('networkViewer');
+    
+    if (!networkCanvas || !networkCtx) {
+      console.error('Network canvas not initialized');
+      throw new Error('Canvas not initialized');
+    }
+    
+    // Show loading message
     networkCtx.fillStyle = 'rgba(30, 30, 30, 1)';
     networkCtx.fillRect(0, 0, networkCanvas.width, networkCanvas.height);
     networkCtx.fillStyle = '#e0e0e0';
@@ -1867,14 +1914,23 @@ async function loadCitationNetwork() {
     networkCtx.textAlign = 'center';
     networkCtx.fillText('Loading network graph...', networkCanvas.width / 2, networkCanvas.height / 2);
     
+    console.log('Fetching citation network data...');
     const response = await fetch('/api/citation-network');
+    
     if (!response.ok) {
-      await handleApiError(response, 'Load citation network');
+      console.error(`API error: ${response.status}`);
+      throw new Error(`HTTP ${response.status}`);
     }
     
     const data = await response.json();
+    console.log(`Received network data: ${data.nodes?.length || 0} nodes, ${data.links?.length || 0} links`);
+    
     if (!data.success) {
       throw new AppError(data.error || 'Unknown error', 'Citation Network');
+    }
+    
+    if (!data.nodes || !data.links) {
+      throw new Error('Invalid response: missing nodes or links');
     }
     
     networkData = data;
@@ -1883,22 +1939,33 @@ async function loadCitationNetwork() {
       networkNodesIndex[node.id] = node;
     });
     
+    console.log('Initializing network simulation...');
     initNetworkSimulation();
     setupNetworkCanvasHandlers();
+    console.log('Network graph loaded successfully');
     
   } catch (error) {
+    console.error('Error loading network:', error);
+    
     if (error instanceof AppError) {
       error.log();
     } else {
-      console.error('Unexpected error loading network:', error);
+      console.error('Unexpected error:', error.message);
     }
     
-    networkCtx.fillStyle = 'rgba(90, 31, 26, 1)';
-    networkCtx.fillRect(0, 0, networkCanvas.width, networkCanvas.height);
-    networkCtx.fillStyle = '#f48771';
-    networkCtx.font = '12px sans-serif';
-    networkCtx.textAlign = 'center';
-    networkCtx.fillText('Error loading network graph', networkCanvas.width / 2, networkCanvas.height / 2);
+    // Draw error message
+    if (networkCtx && networkCanvas) {
+      networkCtx.fillStyle = 'rgba(90, 31, 26, 1)';
+      networkCtx.fillRect(0, 0, networkCanvas.width, networkCanvas.height);
+      networkCtx.fillStyle = '#f48771';
+      networkCtx.font = '12px sans-serif';
+      networkCtx.textAlign = 'center';
+      networkCtx.fillText('Error loading network graph', networkCanvas.width / 2, networkCanvas.height / 2);
+      
+      // Show more details below
+      networkCtx.font = '10px sans-serif';
+      networkCtx.fillText(error.message || 'Unknown error', networkCanvas.width / 2, networkCanvas.height / 2 + 20);
+    }
   }
 }
 
@@ -1906,8 +1973,25 @@ async function loadCitationNetwork() {
  * Initialize D3 force simulation for network layout
  */
 function initNetworkSimulation() {
+  if (!networkCanvas || networkData.nodes.length === 0) {
+    console.error('Cannot initialize simulation: canvas or nodes missing');
+    return;
+  }
+  
   const width = networkCanvas.width;
   const height = networkCanvas.height;
+  
+  console.log(`Initializing simulation with ${networkData.nodes.length} nodes, ${networkData.links.length} links, canvas: ${width}x${height}`);
+  
+  // Initialize node positions randomly if not set
+  networkData.nodes.forEach((node, i) => {
+    if (node.x === undefined) {
+      node.x = width / 2 + (Math.random() - 0.5) * 100;
+    }
+    if (node.y === undefined) {
+      node.y = height / 2 + (Math.random() - 0.5) * 100;
+    }
+  });
   
   d3Simulation = d3.forceSimulation(networkData.nodes)
     .force('link', d3.forceLink(networkData.links)
@@ -1918,13 +2002,16 @@ function initNetworkSimulation() {
       .strength(-500))
     .force('center', d3.forceCenter(width / 2, height / 2))
     .force('collide', d3.forceCollide()
-      .radius(d => Math.sqrt(Math.max(1, d.inbound_count)) * 3 + 15))
-    .on('tick', renderNetworkFrame)
+      .radius(d => Math.sqrt(Math.max(1, d.inbound_count || 0)) * 3 + 15))
+    .on('tick', () => {
+      renderNetworkFrame();
+    })
     .on('end', () => {
       console.log('Simulation stabilized');
       computeCommunitiesFromSimulation();
     });
   
+  console.log('Simulation created, rendering...');
   renderNetworkFrame();
 }
 
@@ -1932,43 +2019,67 @@ function initNetworkSimulation() {
  * Render one frame of the network graph on canvas
  */
 function renderNetworkFrame() {
+  if (!networkCanvas || !networkCtx || !networkData || networkData.nodes.length === 0) {
+    return;
+  }
+  
   const width = networkCanvas.width;
   const height = networkCanvas.height;
   
   networkCtx.fillStyle = '#1e1e1e';
   networkCtx.fillRect(0, 0, width, height);
   
+  // Guard against uninitialized transform
+  if (!networkTransform) {
+    networkTransform = { x: 0, y: 0, k: 1 };
+  }
+  
   networkCtx.save();
   networkCtx.translate(networkTransform.x, networkTransform.y);
   networkCtx.scale(networkTransform.k, networkTransform.k);
   
+  // Draw links
   networkCtx.strokeStyle = '#3e3e42';
-  networkCtx.lineWidth = 1;
+  networkCtx.lineWidth = 0.5 / networkTransform.k;  // Scale line width with zoom
   networkData.links.forEach(link => {
-    const source = link.source;
-    const target = link.target;
+    const source = typeof link.source === 'object' ? link.source : networkNodesIndex[link.source];
+    const target = typeof link.target === 'object' ? link.target : networkNodesIndex[link.target];
+    
+    if (!source || !target || source.x === undefined || target.x === undefined) {
+      return;
+    }
     
     networkCtx.beginPath();
     networkCtx.moveTo(source.x, source.y);
     networkCtx.lineTo(target.x, target.y);
     networkCtx.stroke();
     
+    // Draw arrow
     const dx = target.x - source.x;
     const dy = target.y - source.y;
-    const arrowX = source.x + dx * 0.7;
-    const arrowY = source.y + dy * 0.7;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 1) return;
+    
+    const arrowSize = 6 / networkTransform.k;
+    const arrowX = source.x + dx * 0.85;
+    const arrowY = source.y + dy * 0.85;
     const angle = Math.atan2(dy, dx);
     
     networkCtx.fillStyle = '#3e3e42';
     networkCtx.beginPath();
     networkCtx.moveTo(arrowX, arrowY);
-    networkCtx.lineTo(arrowX - 8 * Math.cos(angle - Math.PI / 6), arrowY - 8 * Math.sin(angle - Math.PI / 6));
-    networkCtx.lineTo(arrowX - 8 * Math.cos(angle + Math.PI / 6), arrowY - 8 * Math.sin(angle + Math.PI / 6));
+    networkCtx.lineTo(arrowX - arrowSize * Math.cos(angle - Math.PI / 6), arrowY - arrowSize * Math.sin(angle - Math.PI / 6));
+    networkCtx.lineTo(arrowX - arrowSize * Math.cos(angle + Math.PI / 6), arrowY - arrowSize * Math.sin(angle + Math.PI / 6));
     networkCtx.fill();
   });
   
+  // Draw nodes
   networkData.nodes.forEach(node => {
-    const radius = Math.sqrt(Math.max(1, node.inbound_count)) * 3 + 5;
+    if (node.x === undefined || node.y === undefined) {
+      return;
+    }
+    
+    const radius = Math.sqrt(Math.max(1, node.inbound_count || 0)) * 3 + 5;
     const communityColor = getCommunityColor(node.community);
     networkCtx.fillStyle = communityColor;
     
@@ -1989,7 +2100,7 @@ function renderNetworkFrame() {
     networkCtx.fill();
     
     networkCtx.strokeStyle = '#858585';
-    networkCtx.lineWidth = 1;
+    networkCtx.lineWidth = 1 / networkTransform.k;
     networkCtx.stroke();
     
     networkCtx.shadowColor = 'transparent';
@@ -2022,6 +2133,11 @@ function computeCommunitiesFromSimulation() {
  * Setup mouse and keyboard handlers for network canvas
  */
 function setupNetworkCanvasHandlers() {
+  // Initialize transform to identity if not already set
+  if (!networkTransform) {
+    networkTransform = { x: 0, y: 0, k: 1 };
+  }
+  
   const zoom = d3.zoom()
     .on('zoom', (event) => {
       networkTransform = event.transform;
@@ -2093,8 +2209,11 @@ function showNetworkNodeDetails(nodeId) {
   const node = networkNodesIndex[nodeId];
   if (!node) return;
   
+  // Update toolbar to show node details
+  document.getElementById('currentFileName').innerHTML = escapeHtml(node.title || 'Untitled');
+  
   const authors = Array.isArray(node.authors)
-    ? node.authors.slice(0, 2).map(auth => {
+    ? node.authors.slice(0, 3).map(auth => {
         if (typeof auth === 'string') return escapeHtml(auth);
         if (auth.family_name && auth.given_name) {
           return escapeHtml(`${auth.family_name}, ${auth.given_name}`);
@@ -2102,9 +2221,24 @@ function showNetworkNodeDetails(nodeId) {
         if (auth.family_name) return escapeHtml(auth.family_name);
         if (auth.given_name) return escapeHtml(auth.given_name);
         return '';
-      }).filter(a => a).join(', ')
+      }).filter(a => a).join('; ')
     : '';
   
+  document.getElementById('currentAuthors').innerHTML = authors;
+  document.getElementById('currentAuthors').style.display = authors ? 'block' : 'none';
+  
+  // Show details button in toolbar
+  document.getElementById('deeplinkBtn').style.display = 'inline-block';
+  document.getElementById('deeplinkBtn').textContent = '📋 Details';
+  document.getElementById('deeplinkBtn').onclick = () => viewNetworkPaperFullDetails(nodeId);
+  
+  // Show info line with citation statistics
+  const infoParts = [];
+  if (node.year) infoParts.push(node.year);
+  const citationStatsHtml = `<span style="margin-left: 1em; color: #888;">📤 Cites: ${node.outbound_count} • 📥 Cited by: ${node.inbound_count}</span>`;
+  document.getElementById('paperInfo').innerHTML = (infoParts.length > 0 ? infoParts.join(' • ') : '') + citationStatsHtml;
+  
+  // Also show in details overlay
   const metadataParts = [];
   if (node.year) metadataParts.push(escapeHtml(node.year.toString()));
   if (authors) metadataParts.push(escapeHtml(authors));
@@ -2118,16 +2252,34 @@ function showNetworkNodeDetails(nodeId) {
     </div>
   `;
   
-  const detailsHtml = `
-    <div class="network-paper-title"><strong>${escapeHtml(node.title || 'Untitled')}</strong></div>
-    <div class="network-paper-metadata">${metadataLine}</div>
-    ${node.doi ? `<div class="paper-doi"><a href="https://doi.org/${escapeHtml(node.doi)}" target="_blank">🔗 DOI: ${escapeHtml(node.doi)}</a></div>` : ''}
-    ${citationStats}
-  `;
+  // Details are now only shown in the header; overlay popup is disabled
+}
+
+/**
+ * View full details of a network paper
+ */
+async function viewNetworkPaperFullDetails(nodeId) {
+  const node = networkNodesIndex[nodeId];
+  if (!node) return;
   
-  document.getElementById('networkDetailsContent').innerHTML = detailsHtml;
-  document.getElementById('networkViewDetailsBtn').style.display = 'block';
-  document.getElementById('networkDetailsOverlay').style.display = 'block';
+  try {
+    // Try to fetch from database using cite_key or id
+    const response = await fetch(`/api/file_details/${encodeURIComponent(node.cite_key || node.id)}`);
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success) {
+        currentFile = data.file;
+        // Show the details in the main UI
+        switchTab('details');
+        return;
+      }
+    }
+    
+    // If not found, show in overlay
+    console.warn('Could not load full details from database, showing limited info');
+  } catch (error) {
+    console.error('Error loading paper details:', error);
+  }
 }
 
 /**

@@ -74,8 +74,12 @@
                     </div>
                 </div>
                 <div class="toolbar-actions">
+                    <div class="overview-switcher" id="overviewSwitcher" style="display: none;">
+                        <button class="overview-switcher-btn active" id="histogramViewBtn" onclick="switchOverviewView('histogram')" title="Year distribution histogram">📊 Histogram</button>
+                        <button class="overview-switcher-btn" id="networkViewBtn" onclick="switchOverviewView('network')" title="Citation network graph">🕸️ Network</button>
+                    </div>
                     <button class="toolbar-btn" id="deeplinkBtn" onclick="copyDeeplink()" title="Copy link to this paper">🔗 Share</button>
-                    <span class="toolbar-info" id="fileInfo"></span>
+                    <span class="toolbar-info" id="paperInfo"></span>
                 </div>
             </div>
             <!-- Tab Navigation -->
@@ -90,15 +94,11 @@
             <div class="tab-content">
                 <!-- Year Overview Tab -->
                 <div class="tab-pane active" id="overviewTab">
-                    <div class="overview-controls">
-                        <button class="overview-btn active" id="histogramViewBtn" onclick="switchOverviewView('histogram')">📊 Histogram</button>
-                        <button class="overview-btn" id="networkViewBtn" onclick="switchOverviewView('network')">🕸️ Network</button>
-                    </div>
-                    <div class="overview-viewer" id="overviewViewer">
+                    <div class="overview-viewer" id="overviewViewer" style="display: none;">
                         <div class="status-message">Loading year overview...</div>
                     </div>
                     <div class="network-viewer" id="networkViewer" style="display: none;">
-                        <canvas id="networkCanvas" width="800" height="600"></canvas>
+                        <canvas id="networkCanvas"></canvas>
                     </div>
                 </div>
                 
@@ -175,4 +175,8 @@
             <button class="details-button" id="networkViewDetailsBtn" onclick="goToNetworkPaperDetails()" style="display: none;">📋 View Full Details</button>
         </div>
     </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
 

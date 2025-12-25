@@ -83,8 +83,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
             JSON response with list of PDF files
         """
         try:
-            directory = request.args.get("directory")
-            files = db_manager.get_all_pdfs(directory)
+            files = db_manager.get_all_pdfs()
             return jsonify({"success": True, "files": files}), 200
         except DatabaseException:
             raise
