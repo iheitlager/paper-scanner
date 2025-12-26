@@ -655,12 +655,47 @@ class Paper(BaseModel):
             base += 0.25
         return min(base, 1.0)
 
+    @property
+    def apa(self) -> str:
+        """Format paper as APA citation"""
+        import json
+        
+        # Format authors
+        if self.authors:
+            author_names = [author.full_name for author in self.authors]
+            if len(author_names) > 3:
+                authors_str = f"{author_names[0]} et al."
+            else:
+                authors_str = " & ".join(author_names)
+        else:
+            authors_str = "Unknown Authors"
+
+        # Build APA citation
+        citation = f"{authors_str} ({self.year}). {self.title}."
+
+        if self.journal:
+            citation += f" {self.journal}"
+            if self.volume:
+                citation += f", {self.volume}"
+                if self.number:
+                    citation += f"({self.number})"
+            if self.pages:
+                citation += f", {self.pages}"
+
+        citation += "."
+
+        if self.doi:
+            citation += f" https://doi.org/{self.doi}"
+
+        return citation
+
+    
     # =============
     # Magic Methods
     # =============
 
     def __str__(self) -> str:
-        return f"{self.cite_key}: {self.title[:60]}... ({self.year})"
+        return f"{self.cite_key}: {self.title[:40]}... ({self.year})"
 
     def __repr__(self) -> str:
         """Simplified repr to avoid infinite recursion with circular references"""

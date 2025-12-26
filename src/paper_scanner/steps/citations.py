@@ -719,7 +719,7 @@ class CitationsStep(BaseStep):
             else:
                 enriched_paper, cache_hit = fetcher.fetch_paper(normalized_doi)
                 cache = "💾" if cache_hit else "🌐"
-                enriched_paper.discovery.iteration = self.iteration
+                # enriched_paper.discovery.iteration = self.iteration
 
                 # Track cache statistics
                 if cache_hit:
