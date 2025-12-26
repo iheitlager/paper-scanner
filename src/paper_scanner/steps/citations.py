@@ -33,7 +33,7 @@ from rich.table import Table
 
 from paper_scanner.core.doi import DOI
 from paper_scanner.core.enum import CitationDirection, StepStatus
-from paper_scanner.core.models import Citation, Paper, PaperType
+from paper_scanner.core.models import Citation, Paper, PaperType, Discovery
 from paper_scanner.tools.fetchers.fetcher import Fetcher
 
 from .base import BaseStep

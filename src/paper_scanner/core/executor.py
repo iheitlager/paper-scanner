@@ -390,6 +390,8 @@ class StepExecutor:
         checkpoints_dir = self.cache_dir / CHECKPOINT_DIR
         checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
+        self.step_reporter.on_definition_loaded(definition_file, self.definition)
+
         return True
 
     def _validate_template_references(self) -> None:
@@ -725,7 +727,7 @@ class StepExecutor:
 
         Returns:
             Aggregated results dictionary
-            
+
         Raises:
             ConfigurationError: If step config is invalid
             StepError: If step not found or step instantiation fails

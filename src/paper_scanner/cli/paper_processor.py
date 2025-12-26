@@ -286,12 +286,11 @@ def main():
     )
 
     repl_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
-
     repl_parser.add_argument("-d", "--debug", action="store_true", help="Enable debug output")
-
     repl_parser.add_argument("-t", "--timings", action="store_true", help="Show timing information")
-
     repl_parser.add_argument("-q", "--quiet", action="store_true", help="Suppress non-error output")
+    repl_parser.add_argument("--dry-run", dest="dry_run", action="store_true", help="Don't actually cache entries")
+
     repl_parser.add_argument(
         "-x",
         "--quit",
@@ -300,7 +299,7 @@ def main():
     )
 
     repl_parser.add_argument(
-        "-n", "--no-autorun", action="store_true", help="Only load definition file (direct into interactive mode)"
+        "-n", "--no-autorun", dest="auto_run", default=True, action="store_false", help="Only load definition file (direct into interactive mode)"
     )
 
     # ===== CACHE COMMAND =====
@@ -530,11 +529,10 @@ def main():
                 sys.exit(exit_code)
 
     except Exception as e:
-        console.print(f"[red bold]Error:[/red bold] {e}", style="red")
-        if args.debug:
-            import traceback
-
-            console.print(traceback.print_exc())
+        # This should never happen, but just in case
+        console.print(f"[red bold]CLI Error:[/red bold] {e}", style="red")
+        import traceback
+        console.print(traceback.format_exc())
         sys.exit(1)
 
 

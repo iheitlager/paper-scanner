@@ -143,6 +143,21 @@ class AbstractControllerReporter(ABC):
         """
         pass
 
+    # ============================================================
+    # Non mandatory hooks
+    # ============================================================
+    def on_definition_loaded(self, definition_file: str, definition: dict) -> None:
+        """Called when a pipeline definition is loaded.
+
+        Args:
+            definition_file: Path to the definition file.
+            definition: The loaded pipeline definition.
+        """
+        pass
+
+    def on_initialized(self) -> None:
+        """Called when the controller has been initialized"""
+        pass
 
 class ConsoleLoggingMixin:
     """Mixin providing console logging capabilities for reporters."""
@@ -154,15 +169,14 @@ class ConsoleLoggingMixin:
         self.quiet = False
 
     def log(self, message: str = "") -> None:
-        """Log a message to the console.
+        """Log a message to the console, guaranteed.
 
         Args:
             message: The message string to log.
         """
-        if not self.quiet:
-            self.console.print(message)
+        self.console.print(message)
 
-    def log_info(self, message: str) -> None:
+    def log_info(self, message: str = "") -> None:
         """Log an info message if not in quiet mode.
 
         Args:
@@ -194,7 +208,10 @@ class ConsoleLoggingMixin:
         Args:
             message: The error message string to log.
         """
-        self.console.print(f"[red]ERROR: {message}[/red]")
+        self.console.print(f"[red]REPL ERROR: {message}[/red]")
+        if self.debug:
+            import traceback
+            self.console.print(traceback.format_exc())
 
     def log_debug(self, message: str) -> None:
         """Log a debug message if debug mode is enabled.
