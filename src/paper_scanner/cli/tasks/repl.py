@@ -494,6 +494,19 @@ class ReplController(AbstractController):
         self.controller_reporter.log("\n  [bold cyan]═══════════════════════[/bold cyan]\n")
         return StepResult(status=StepStatus.SUCCESS)
 
+    @macro_step("reset", "rst")
+    def reset_cmd(self, args: list[str]) -> StepResult:
+        """Reset executor state: \\reset [execution|definition|database|all]"""
+        scope = args[0] if args else "execution"
+        try:
+            self.executor.reset(scope)
+            scope_display = f"[green]✓ Reset {scope} state[/green]"
+            self.controller_reporter.log(f"  {scope_display}\n")
+            return StepResult(status=StepStatus.SUCCESS)
+        except ValueError as e:
+            self.controller_reporter.log_error(str(e))
+            return StepResult(status=StepStatus.ERROR, error=str(e))
+
     @macro_step("checkpoint", "c")
     def checkpoint_cmd(self, args: list[str]) -> StepResult:
         """Save checkpoint"""

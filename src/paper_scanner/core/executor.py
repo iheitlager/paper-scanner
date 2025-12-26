@@ -250,6 +250,51 @@ class StepExecutor:
         return self.execute_step(self.current_step_index, dry_run=dry_run)
 
     # =========================================================================
+    # Session Reset
+    # =========================================================================
+
+    def reset(self, scope: str = "execution") -> None:
+        """
+        Reset executor state to a clean state.
+
+        Args:
+            scope: Reset scope
+                - "execution": Clear execution history, reset to start (keep definition & DB)
+                - "definition": Clear definition, steps, templates (keep DB)
+                - "database": Clear papers database (keep execution state)
+                - "all": Full reset to initialization state
+
+        Raises:
+            ValueError: If invalid scope provided
+        """
+        valid_scopes = {"execution", "definition", "database", "all"}
+        if scope not in valid_scopes:
+            raise ValueError(f"Invalid reset scope: {scope}. Must be one of {valid_scopes}")
+
+        if scope in ("execution", "all"):
+            # Clear execution tracking only
+            self.results = {}
+            self.step_history = []
+            self.current_step_index = 0
+            self.start_time = None
+            self.papers_db = PapersDatabase()
+
+        if scope in ("definition", "all"):
+            # Clear definition and steps
+            self.definition = {}
+            self.templates = {}
+            self.steps = []
+            # Also reset execution tracking when clearing definition
+            if scope == "definition":
+                self.reset("execution")
+
+        if self.step_reporter:
+            self.step_reporter.on_step_event(
+                f"Reset {scope} state",
+                debug=True
+            )
+
+    # =========================================================================
     # Step Registry
     # =========================================================================
 
