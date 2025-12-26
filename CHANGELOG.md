@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Controller Feature**: New controller system for managing pipeline workflows
+- **Network Graph Visualization**: Interactive D3-based citation network graph in web UI
+  - Visual representation of papers as nodes with citation edges as links
+  - Citation count display (inbound and outbound) in sidebar and papers list
+  - Node sizing and coloring based on citation metrics
+  - Pan and zoom controls for navigation
+  - Integration with citation database (inbound_count, outbound_count fields)
 
 ## [3.3.0] - 2025-12-24
 

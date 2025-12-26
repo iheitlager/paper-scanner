@@ -6,6 +6,7 @@ Processes YAML definition files and executes sequential steps
 
 import argparse
 import signal
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Type
@@ -274,21 +275,25 @@ def main():
     repl_parser.add_argument(
         "-f",
         "--definition",
+        dest="definition",
         type=Path,
         default=None,
         help="Optional YAML definition file to load at startup (post-checkpoint)",
     )
 
     repl_parser.add_argument(
-        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+        "--cache-dir", type=Path, default=Path(os.environ.get("CACHE_DIR", "~/.paper-scanner")).expanduser(), help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
     )
 
     repl_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
     repl_parser.add_argument("-d", "--debug", action="store_true", help="Enable debug output")
 
+    repl_parser.add_argument("-t", "--timings", action="store_true", help="Show timing information")
+
+    repl_parser.add_argument("-q", "--quiet", action="store_true", help="Suppress non-error output")
     repl_parser.add_argument(
-        "-q",
+        "-x",
         "--quit",
         action="store_true",
         help="Quit immediately after executing definition file (no interactive mode)",
@@ -331,7 +336,7 @@ def main():
 
     load_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
-    load_parser.add_argument("--dry-run", action="store_true", help="Don't actually cache files")
+    load_parser.add_argument("--dry-run", dest="dry_run", action="store_true", help="Don't actually cache files")
 
     # Manual cache commands (nested under cache)
     manual_parser = cache_subparsers.add_parser("manual", help="Manual handler cache operations")
@@ -348,7 +353,7 @@ def main():
 
     manual_load_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
-    manual_load_parser.add_argument("--dry-run", action="store_true", help="Don't actually cache entries")
+    manual_load_parser.add_argument("--dry-run", dest="dry_run", action="store_true", help="Don't actually cache entries")
 
     manual_clear_parser = manual_subparsers.add_parser("clear", help="Clear manual handler cache")
 
