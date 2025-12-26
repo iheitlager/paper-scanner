@@ -7,9 +7,10 @@ a standard interface for step discovery, configuration validation, and execution
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Callable
 
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.reporter import NOOP
 
 
 
@@ -53,6 +54,7 @@ class BaseStep(ABC):
         general_config: Dict[str, Any],
         db: PapersDatabase,
         cache_dir: Path,
+        on_event: Callable = NOOP,
     ):
         """
         Initialize step with project-level dependencies.
@@ -62,10 +64,12 @@ class BaseStep(ABC):
                           settings that may be needed by multiple steps
             db: PapersDatabase instance for reading/writing papers
             cache_dir: Directory for caching fetched data and intermediate results
+            on_event: Callback function for reporting step events
         """
         self.general_config = general_config
         self.db = db
         self.cache_dir = cache_dir
+        self.callback = on_event
 
     @property
     def name(self) -> str:
@@ -101,7 +105,6 @@ class BaseStep(ABC):
     def execute(
         self,
         step_config: Dict[str, Any],
-        on_event: Optional[callable],
         verbose: bool = False,
         dry_run: bool = False,
         debug: bool = False,

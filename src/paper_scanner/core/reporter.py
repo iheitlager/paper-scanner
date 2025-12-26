@@ -16,7 +16,14 @@ from typing import Any, Dict
 from rich.console import Console
 
 from paper_scanner.core.step_result import StepResult
-from paper_scanner.core.controller import AbstractController
+
+
+class NoOpCallback:
+    '''Default no-operation callback class. Does nothing when called.'''
+    def __call__(self, *args, **kwargs) -> None:
+        pass
+
+NOOP = NoOpCallback()
 
 
 class AbstractStepReporter(ABC):

@@ -10,24 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Controller Feature**: New controller system for managing pipeline workflows
-- **Network Graph Visualization**: Interactive D3-based citation network graph in web UI
-  - Visual representation of papers as nodes with citation edges as links
-  - Citation count display (inbound and outbound) in sidebar and papers list
-  - Node sizing and coloring based on citation metrics
-  - Pan and zoom controls for navigation
-  - Integration with citation database (inbound_count, outbound_count fields)
-
-- **REPL Controller**: Interactive shell for pipeline execution and Python code evaluation
-  - Two-mode interaction: macro commands (`\command`) and Python code (micro mode)
-  - Multi-line Python input support with proper indentation handling
-  - Macro step decorator system (`@macro_step`) for command registration
-  - Commands: `step`, `run`, `checkpoint`, `steps`, `help`, `quit`
-  - Command aliases for shortcuts (e.g., `s` for `step`, `r` for `run`)
-  - Tab-to-spaces expansion (2 spaces) for consistent indentation
-  - Command history persistence across sessions
-  - Status line showing database record count and pipeline progress
-  - Auto-run mode for non-interactive execution
-  - KeyboardInterrupt handling for long-running operations
 
 ## [3.3.0] - 2025-12-24
 

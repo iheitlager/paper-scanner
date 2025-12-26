@@ -37,6 +37,7 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
         ConsoleLoggingMixin.__init__(self)
         AbstractControllerReporter.__init__(self)
         AbstractStepReporter.__init__(self)
+        self.in_macro_task = False
 
     # AbstractControllerReporter
     def on_start(self) -> None:
@@ -59,6 +60,7 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
 
     def on_macro_start(self, command: str) -> None:
         self.log_debug(f"Executing command: {command}")
+        self.in_macro_task = True
 
     def on_macro_end(self, command: str, result: StepResult, duration_ms: float) -> None:
         """Called when macro command completes"""
@@ -66,15 +68,16 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
 
         if command in ("step", "run", "checkpoint"):
             if result.status == StepStatus.SUCCESS:
-                self.log_info(f"{result.message}")
-                self.log_msg(f"[green]ok: {result.stats.get('processed', 0)}[/green] {timings} ")
+                self.log_info(f"{result.message} {timings}\n")
+                # self.log_msg(f"[green]ok: {result.stats.get('processed', 0)}[/green] {timings} ")
             elif result.status == StepStatus.WARNING:
                 self.log_warning(result.message)
         else:
-            self.log_msg(f"[green]ok: [/green] {timings} ")
+            self.log_msg(f"[green]ok: [/green] {timings}\n")
         if command in ("step", "run"):
             if not self.executor.has_next_step:
                 self.log_info("[green bold]🎉 All steps completed![/green bold]")
+        self.in_macro_task = False
 
     def on_macro_error(self, command: str, error: Exception, duration_ms: float) -> None:
         self.log_error(f"✗ {error}")
@@ -98,7 +101,7 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
     def on_step_end(self, idx: int, step_config: Dict, result: StepResult) -> None:
         if result.details:
             self.log_debug(f"{'\n'.join(result.details)}")
-        if result.status == StepStatus.SUCCESS:
+        if result.status == StepStatus.SUCCESS and not self.in_macro_task:
             count = result.stats.get("processed", 0)
             self.log_success(f" ✓ ({count} items)")
         elif result.status == StepStatus.ERROR:
@@ -363,7 +366,7 @@ class ReplController(AbstractController):
     # Macro REPL step implementations
     # ================================================================
 
-    @macro_step("step", "s", "n")
+    @macro_step("step", "n", "\\")
     def step_cmd(self, args: list[str]) -> StepResult:
         """Execute next step"""
         if not self.executor.has_next_step:
@@ -437,6 +440,59 @@ class ReplController(AbstractController):
         self.controller_reporter.log()
         return StepResult(status=StepStatus.SUCCESS)
 
+
+    @macro_step("state", "s")
+    def state_cmd(self, args: list[str]) -> StepResult:
+        """Show current execution state with progress and context"""
+        state = self.executor.get_session_state()
+        
+        # Extract relevant data
+        project_name = state.get('general_config', {}).get('project_name', 'Untitled')
+        papers_db = state.get('papers_db')
+        current_idx = state.get('current_step_index', 0)
+        total_steps = state.get('total_steps', 0)
+        step_history = state.get('step_history', [])
+        last_step = state.get('last_step', {})
+        current_step = state.get('current_step', {})
+        results = state.get('results')
+        
+        # Format output
+        self.controller_reporter.log("\n  [bold cyan]═══ EXECUTION STATE ═══[/bold cyan]")
+        
+        # Project & Database
+        self.controller_reporter.log(f"\n  [bold]Project:[/bold] [white]{project_name}[/white]")
+        if papers_db:
+            count = len(papers_db)
+            unique = papers_db.count(primary_only=True)
+            duplicates = count - unique
+            self.controller_reporter.log(f"  [bold]Database:[/bold] [white]{count}[/white] papers [dim]({unique} primary, {duplicates} duplicates)[/dim]")
+        
+        # Progress bar
+        completed = len(step_history)
+        progress_pct = (completed / total_steps * 100) if total_steps > 0 else 0
+        bar_width = 30
+        filled = int(bar_width * completed / total_steps) if total_steps > 0 else 0
+        bar = "█" * filled + "░" * (bar_width - filled)
+        self.controller_reporter.log(f"\n  [bold]Progress:[/bold] [{bar}] {completed}/{total_steps} steps ({progress_pct:.0f}%)")
+        
+        # Last executed step result
+        if last_step and results:
+            self.controller_reporter.log(f"\n  [bold cyan]Last Step: {last_step.get('name', 'N/A')}[/bold cyan]")
+            self.controller_reporter.log(f"    [cyan]Message:[/cyan] {results.message}")
+            if results.stats:
+                stats_str = " | ".join([f"{k}: [green]{v}[/green]" for k, v in results.stats.items()])
+                self.controller_reporter.log(f"    [cyan]Stats:[/cyan] {stats_str}")
+            duration = results.timings.get('duration_ms', 0) if results.timings else 0
+            if duration:
+                self.controller_reporter.log(f"    [cyan]Duration:[/cyan] [dim]{duration:.0f}ms[/dim]")
+        
+        # Current step info
+        if current_step and current_idx < total_steps:
+            self.controller_reporter.log(f"\n  [bold cyan]Current Step: {current_step.get('name', 'N/A')}[/bold cyan]")
+            self.controller_reporter.log(f"    [cyan]Description:[/cyan] {current_step.get('description', 'N/A')}")
+        
+        self.controller_reporter.log("\n  [bold cyan]═══════════════════════[/bold cyan]\n")
+        return StepResult(status=StepStatus.SUCCESS)
 
     @macro_step("checkpoint", "c")
     def checkpoint_cmd(self, args: list[str]) -> StepResult:

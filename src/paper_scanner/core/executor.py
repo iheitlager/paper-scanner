@@ -290,7 +290,7 @@ class StepExecutor:
         step_class = builtin_steps[step_name]
         try:
             # Instantiate the step with required dependencies
-            return step_class(general_config=self.general_config, db=self.papers_db, cache_dir=self.cache_dir, step_reporter=self.step_reporter)
+            return step_class(general_config=self.general_config, db=self.papers_db, cache_dir=self.cache_dir, on_event=self.step_reporter.on_step_event)
         except Exception as e:
             raise StepError(f"Failed to instantiate step '{step_name}': {e}") from e
 
@@ -625,8 +625,7 @@ class StepExecutor:
         # Execute step
         result = step_instance.execute(
             config=step_params,
-            dry_run=dry_run,
-            on_event=self.step_report.on_step_event
+            dry_run=dry_run
         )
 
         # TODO: Remove this once all steps are updated to return StepResult

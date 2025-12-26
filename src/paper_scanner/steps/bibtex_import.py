@@ -163,11 +163,11 @@ class BibtexImportStep(BaseStep):
         # Load type mapping configuration (fatal if fails)
         type_mapping_config = None
         if type_mapping_config_path:
-            self.callback.on_step_event(f"Loading type mapping config from: {type_mapping_config_path}", debug=True)
+            self.callback(f"Loading type mapping config from: {type_mapping_config_path}", debug=True)
             type_mapping_config = load_type_mapping_config(type_mapping_config_path)
         else:
             # Use default location
-            self.callback.on_step_event("Using default type mapping configuration", debug=True)
+            self.callback("Using default type mapping configuration", debug=True)
             type_mapping_config = load_type_mapping_config()
 
         # Process each import
@@ -183,7 +183,7 @@ class BibtexImportStep(BaseStep):
             if not path.exists() or not path.is_file():
                 raise ConfigurationError(f"File not found or not a file: {file_path}")
 
-            self.callback.on_step_event(f"Processing import '{name}'\nfrom file: {file_path}\nSource: {source_type}", debug=True)
+            self.callback(f"Processing import '{name}'\nfrom file: {file_path}\nSource: {source_type}", debug=True)
 
             # Parse BibTeX file - fatal if parsing fails
             papers = bibtex_file_to_papers(
@@ -199,31 +199,31 @@ class BibtexImportStep(BaseStep):
                     random.seed(random_seed)
                 random.shuffle(papers)
                 seed_display = f" (seed={random_seed})" if random_seed is not None else ""
-                self.callback.on_step_event(f" [cyan]✓[/cyan] Randomized papers{seed_display}")
+                self.callback(f" [cyan]✓[/cyan] Randomized papers{seed_display}")
 
             # Apply limit after randomization
             if limit:
                 papers = papers[:limit]
-                self.callback.on_step_event(f" Limited to {limit} papers", debug=True)
+                self.callback(f" Limited to {limit} papers", debug=True)
 
             # Fix cite_key collisions if requested
             if fix_cite_key:
                 fixed_count = _fix_cite_key_collisions(papers, self.db)
-                self.callback.on_step_event(f" [cyan]✓ Fixed {fixed_count} cite_key collisions[/cyan]", debug=True)
+                self.callback(f" [cyan]✓ Fixed {fixed_count} cite_key collisions[/cyan]", debug=True)
 
             count = len(papers)
             if dry_run:
-                self.callback.on_step_event(f" [yellow][DRY RUN][/yellow] Would import {count} papers")
+                self.callback(f" [yellow][DRY RUN][/yellow] Would import {count} papers")
             else:
                 # Add to database - fatal if write fails
                 self.db.add_many(papers)
                 papers_imported += count
 
-                self.callback.on_step_event(f" [green]✓[/green] Imported {count} papers")
+                self.callback(f" [green]✓[/green] Imported {count} papers")
             if expected_count:
                 match = "✓" if count == expected_count else "!"
                 style = "green" if count == expected_count else "yellow"
-                self.callback.on_step_event(f" [{style}]{match} Expected: {expected_count}, Would get: {count}[/{style}]")
+                self.callback(f" [{style}]{match} Expected: {expected_count}, Would get: {count}[/{style}]")
             files_processed += 1
 
         # All files processed successfully
