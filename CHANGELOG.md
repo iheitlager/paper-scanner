@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Pan and zoom controls for navigation
   - Integration with citation database (inbound_count, outbound_count fields)
 
+- **REPL Controller**: Interactive shell for pipeline execution and Python code evaluation
+  - Two-mode interaction: macro commands (`\command`) and Python code (micro mode)
+  - Multi-line Python input support with proper indentation handling
+  - Macro step decorator system (`@macro_step`) for command registration
+  - Commands: `step`, `run`, `checkpoint`, `steps`, `help`, `quit`
+  - Command aliases for shortcuts (e.g., `s` for `step`, `r` for `run`)
+  - Tab-to-spaces expansion (2 spaces) for consistent indentation
+  - Command history persistence across sessions
+  - Status line showing database record count and pipeline progress
+  - Auto-run mode for non-interactive execution
+  - KeyboardInterrupt handling for long-running operations
+
 ## [3.3.0] - 2025-12-24
 
 ### Added

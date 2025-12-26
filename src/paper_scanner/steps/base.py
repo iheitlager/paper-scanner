@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Tuple
 from paper_scanner.core.database import PapersDatabase
 
 
+
 class BaseStep(ABC):
     """
     Abstract base class for all pipeline steps.
@@ -100,6 +101,7 @@ class BaseStep(ABC):
     def execute(
         self,
         step_config: Dict[str, Any],
+        on_event: Optional[callable],
         verbose: bool = False,
         dry_run: bool = False,
         debug: bool = False,

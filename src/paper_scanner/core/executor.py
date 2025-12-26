@@ -19,7 +19,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
 import yaml
 
@@ -30,6 +30,9 @@ from paper_scanner.core.exceptions import CheckpointError, ConfigurationError, P
 from paper_scanner.core.step_result import FINAL_STEP, StepResult
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
+
+if TYPE_CHECKING:
+    from paper_scanner.core.reporter import AbstractStepReporter
 
 CHECKPOINT_DIR="checkpoints"
 
@@ -106,6 +109,7 @@ class StepExecutor:
     def __init__(
         self,
         general_config: Dict[str, Any],
+        step_reporter: "AbstractStepReporter" = None,
         cache_dir: Optional[Path] = None,
         verbose: bool = False,
         debug: bool = False,
@@ -122,6 +126,7 @@ class StepExecutor:
         self.general_config = general_config
         self.cache_dir = cache_dir or Path.home() / ".paper-scanner"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.step_reporter = step_reporter
 
         self.verbose = verbose
         self.debug = debug
@@ -285,7 +290,7 @@ class StepExecutor:
         step_class = builtin_steps[step_name]
         try:
             # Instantiate the step with required dependencies
-            return step_class(general_config=self.general_config, db=self.papers_db, cache_dir=self.cache_dir)
+            return step_class(general_config=self.general_config, db=self.papers_db, cache_dir=self.cache_dir, step_reporter=self.step_reporter)
         except Exception as e:
             raise StepError(f"Failed to instantiate step '{step_name}': {e}") from e
 
@@ -549,6 +554,8 @@ class StepExecutor:
             # ConfigurationError propagates for invalid config
             step_name, step_params, description = self.parse_step_config(step_config)
 
+            self.step_reporter.on_step_start(self.current_step_index, step_config, total=len(self.steps))
+
             # Handle run-template: recursively execute template steps
             if step_name == "run-template":
                 result = self._execute_template(step_params, description, dry_run)
@@ -572,7 +579,7 @@ class StepExecutor:
             result.stats["db_records"] = self.papers_db.count()
             self.results = result
             self.current_step_index = step_index + 1
-
+            self.step_reporter.on_step_end(self.current_step_index - 1, step_params, result)
             return result
 
         except HaltException as e:
@@ -618,9 +625,8 @@ class StepExecutor:
         # Execute step
         result = step_instance.execute(
             config=step_params,
-            verbose=self.verbose,
             dry_run=dry_run,
-            debug=self.debug,
+            on_event=self.step_report.on_step_event
         )
 
         # TODO: Remove this once all steps are updated to return StepResult

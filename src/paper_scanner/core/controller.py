@@ -76,6 +76,7 @@ class AbstractController(ABC):
 
             self.executor = self.executor_class(
                 general_config =  {},
+                step_reporter = self.step_reporter,
                 cache_dir = self.cache_dir,
                 # TODO: remove these, all will be handled by reporter
                 verbose = self.verbose,
@@ -84,6 +85,7 @@ class AbstractController(ABC):
             # TODO: fix this, make implicit and do this better
             self.step_reporter.executor = self.executor
             self.executor.step_reporter = self.step_reporter
+            self.executor.controller = self
 
             # Then do your initialization logic
             result = self._do_initialize()

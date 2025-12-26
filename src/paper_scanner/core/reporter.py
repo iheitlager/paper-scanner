@@ -55,6 +55,16 @@ class AbstractStepReporter(ABC):
         pass
 
     @abstractmethod
+    def on_step_event(self, msg: str, debug: bool = False) -> None:
+        """Called when a step completes execution.
+
+        Args:
+            msg: Event message from the step.
+            debug: Whether the message is for debugging purposes.
+        """
+        pass
+
+    @abstractmethod
     def on_execution_start(self, total_steps: int) -> None:
         """Called when pipeline execution starts.
 
@@ -175,6 +185,15 @@ class ConsoleLoggingMixin:
             message: The message string to log.
         """
         self.console.print(message)
+
+    def log_msg(self, message: str = "") -> None:
+        """Log a message if not in quiet mode.
+
+        Args:
+            message: The message string to log.
+        """
+        if not self.quiet:
+            self.console.print(message)
 
     def log_info(self, message: str = "") -> None:
         """Log an info message if not in quiet mode.

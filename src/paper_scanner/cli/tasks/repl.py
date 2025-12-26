@@ -40,15 +40,15 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
 
     # AbstractControllerReporter
     def on_start(self) -> None:
-        self.log("[green]Starting REPL...[/green]")
-        self.log("[dim]Type 'help' or '?' for commands[/dim]")
-        self.log()
+        self.log_msg("[green]Starting REPL...[/green]")
+        self.log_msg("[dim]Type 'help' or '?' for commands[/dim]")
+        self.log_msg()
         if self.controller.debug:
-            self.log("[yellow]⚠ Debug mode enabled - verbose output will be shown[/yellow]")
+            self.log_msg("[yellow]⚠ Debug mode enabled - verbose output will be shown[/yellow]")
         if self.controller.verbose:
-            self.log("[yellow]ℹ Verbose mode enabled - showing step details before execution[/yellow]")
+            self.log_msg("[yellow]ℹ Verbose mode enabled - showing step details before execution[/yellow]")
         if self.controller.timings:
-            self.log("[yellow]↻ Timings mode enabled - showing timing info after each step[/yellow]")
+            self.log_msg("[yellow]↻ Timings mode enabled - showing timing info after each step[/yellow]")
 
     def on_close(self) -> None:
         self.log_info()
@@ -58,7 +58,7 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
         self.log_error(f"REPL error: {error}")
 
     def on_macro_start(self, command: str) -> None:
-        pass  # Usually silent
+        self.log_debug(f"Executing command: {command}")
 
     def on_macro_end(self, command: str, result: StepResult, duration_ms: float) -> None:
         """Called when macro command completes"""
@@ -66,11 +66,12 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
 
         if command in ("step", "run", "checkpoint"):
             if result.status == StepStatus.SUCCESS:
-                self.log_info(f"[green]ok: {result.stats.get('processed', 0)}[/green] {timings} ")
+                self.log_info(f"{result.message}")
+                self.log_msg(f"[green]ok: {result.stats.get('processed', 0)}[/green] {timings} ")
             elif result.status == StepStatus.WARNING:
                 self.log_warning(result.message)
         else:
-            self.log_info(f"[green]ok: [/green] {timings} ")
+            self.log_msg(f"[green]ok: [/green] {timings} ")
         if command in ("step", "run"):
             if not self.executor.has_next_step:
                 self.log_info("[green bold]🎉 All steps completed![/green bold]")
@@ -91,15 +92,23 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
 
     # AbstractStepReporter
     def on_step_start(self, idx: int, step_config: Dict, total: int) -> None:
-        description = step_config.get("description", "Unknown")
-        self.log_info(f"[{idx}/{total}] {description}...")
+        description = step_config.get("description", step_config.get("step", "Unknown"))
+        self.log_info(f"Executing step: {description}...")
 
     def on_step_end(self, idx: int, step_config: Dict, result: StepResult) -> None:
+        if result.details:
+            self.log_debug(f"{'\n'.join(result.details)}")
         if result.status == StepStatus.SUCCESS:
             count = result.stats.get("processed", 0)
             self.log_success(f" ✓ ({count} items)")
         elif result.status == StepStatus.ERROR:
             self.log_error(f" ✗ {result.error}")
+
+    def on_step_event(self, msg: str, debug: bool = False) -> None:
+        if debug:
+            self.log_debug(msg)
+        else:
+            self.log_info(msg)
 
     def on_execution_start(self, total_steps: int) -> None:
         self.log_info(f"[blue]Starting pipeline: {total_steps} steps[/blue]\n")
@@ -146,7 +155,7 @@ class ReplController(AbstractController):
 
         # Setup key bindings for tab expansion
         kb = KeyBindings()
-        
+
         @kb.add('tab')
         def _(event):
             """Convert tab to spaces"""
@@ -375,38 +384,63 @@ class ReplController(AbstractController):
     @macro_step("steps", "ls")
     def list_steps_cmd(self, args: list[str]) -> StepResult:
         """List all steps"""
-        # console.print("\n[bold]📋 Pipeline Steps:[/bold]")
+        self.controller_reporter.log("\n[bold]📋 Pipeline Steps:[/bold]")
 
-        # # Show templates
-        # if executor.templates:
-        #     console.print(f"\n[cyan]Templates ({len(executor.templates)}):[/cyan]")
-        #     for template_name, template_steps in executor.templates.items():
-        #         console.print(f"  • [white]{template_name}[/white] [dim]({len(template_steps)} steps)[/dim]")
+        # Show templates
+        if self.executor.templates:
+            self.controller_reporter.log(f"\n[cyan]Templates ({len(self.executor.templates)}):[/cyan]")
+            for template_name, template_steps in self.executor.templates.items():
+                self.controller_reporter.log(f"  • [white]{template_name}[/white] [dim]({len(template_steps)} steps)[/dim]")
 
         # # Show main steps
-        # if executor.steps:
-        #     console.print(f"\n[cyan]Main Steps ({len(executor.steps)}):[/cyan]")
-        steps = self.executor.steps
-        for idx, step in enumerate(steps):
-            status = "✓" if idx < self.executor.current_step_index else " "
-            description = step.get("step", "No description")
-            self.controller_reporter.log(f"[{status}] Step {idx + 1}: [blue]{description}[/blue]")
+        if self.executor.steps:
+            self.controller_reporter.log(f"\n[cyan]Main Steps ({len(self.executor.steps)}):[/cyan]")
+            steps = self.executor.steps
+            for idx, step in enumerate(steps):
+                status = "✓" if idx < self.executor.current_step_index else " "
+                description = step.get("step", "No description")
+                self.controller_reporter.log(f"[{status}] Step {idx + 1}: [blue]{description}[/blue]")
+
         self.controller_reporter.log("")
         return StepResult(status=StepStatus.SUCCESS)
+
+    @macro_step("stats", "i")
+    def stats_cmd(self, args: list[str]) -> StepResult:
+        """Show database stats"""
+        stats = self.executor.get_stats()
+        self.controller_reporter.log("  [bold]📊 Statistics:[/bold]\n")
+
+        project_name = stats.get('project_name', 'N/A')
+        papers_total = stats.get('papers_total', 0)
+        papers_unique = stats.get('papers_unique', 0)
+        papers_duplicates = stats.get('papers_duplicates', 0)
+        current_step = stats.get('current_step_index', 0)
+        total_steps = stats.get('total_steps', 0)
+        steps_executed = stats.get('steps_executed', 0)
+        total_duration = stats.get('total_duration_seconds', 0)
+        step_history = stats.get('step_history', [])
+
+        self.controller_reporter.log(f"  [cyan]Project:[/cyan] [white]{project_name}[/white]")
+        self.controller_reporter.log(f"  [cyan]Papers:[/cyan] [white]{papers_total}[/white] total [dim]([green]{papers_unique}[/green] unique, [yellow]{papers_duplicates}[/yellow] duplicates)[/dim]")
+        self.controller_reporter.log(f"  [cyan]Progress:[/cyan] [white]{current_step}/{total_steps}[/white] steps")
+        self.controller_reporter.log(f"  [cyan]Executed:[/cyan] [white]{steps_executed}[/white] steps")
+        self.controller_reporter.log(f"  [cyan]Total duration:[/cyan] [white]{total_duration:.2f}s[/white]")
+
+        if step_history:
+            self.controller_reporter.log("\n  [bold cyan]Step Timings:[/bold cyan]")
+            for i, entry in enumerate(step_history):
+                step_name = entry.get('step', 'Unknown')
+                duration_ms = entry.get('duration_ms', 0)
+                percentage = (duration_ms / (total_duration * 1000) * 100) if total_duration > 0 else 0
+                color = "white" if i % 2 == 0 else "magenta"
+                self.controller_reporter.log(f"    • [{color}]{step_name:<25}[/{color}] [dim]{duration_ms:>7d}ms ({percentage:>5.1f}%)[/dim]")
+        self.controller_reporter.log()
+        return StepResult(status=StepStatus.SUCCESS)
+
 
     @macro_step("checkpoint", "c")
     def checkpoint_cmd(self, args: list[str]) -> StepResult:
         """Save checkpoint"""
-        # console.print("\n[blue]ℹ Saving checkpoint...[/blue]")
-        # result = executor.checkpoint()
-        # if result['status'] == 'ok':
-        #     console.print("[green]✓[/green] [white]Checkpoint saved[/white]")
-        #     console.print(f"  [cyan]File:[/cyan] [white]{result.get('checkpoint_file', 'unknown')}[/white]")
-        #     console.print(f"  [cyan]Papers:[/cyan] [white]{result.get('papers_count', 0)}[/white]")
-        # else:
-        #     error_msg = result.get('error', 'Unknown error')
-        #     console.print("[red]✗[/red] [white]Checkpoint failed[/white]")
-        #     console.print(f"  [red]Error:[/red] [white]{error_msg}[/white]")
         return self.executor.checkpoint()
 
     @macro_step("help", "?")
