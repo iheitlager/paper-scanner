@@ -123,12 +123,24 @@ class PaperListController:
         # Use the papers_to_bibtex utility which handles list of papers
         return papers_to_bibtex([paper])
 
+    def _paper_to_bibtex(self, paper: Paper) -> Optional[str]:
+        """Convert a single paper to BibTeX string"""
+        if not paper:
+            return None
+        return papers_to_bibtex([paper])
+
     def get_selected_as_json(self) -> Optional[str]:
         """Export selected paper as JSON"""
         paper = self.get_selected_paper()
         if not paper:
             return None
         # Use the paper_to_json utility which handles serialization
+        return paper_to_json(paper, exclude_none=True, indent=2)
+
+    def _paper_to_json(self, paper: Paper) -> Optional[str]:
+        """Convert a single paper to JSON string"""
+        if not paper:
+            return None
         return paper_to_json(paper, exclude_none=True, indent=2)
 
     def get_selected_doi(self) -> Optional[str]:

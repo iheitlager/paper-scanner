@@ -22,9 +22,10 @@ class ConsoleViewer:
         self.controller = PaperListController(papers, page_size)
         self.running = False
         self.message = ""  # For displaying copy/search feedback
-        self.mode = "full"  # "full" or "filter"
+        self.mode = "full"  # "full", "filter", or "search"
         self.filter_query = ""  # Current filter input
         self.filtered_indices = None  # Cached filtered results
+        self.filter_selected_index = None  # Selection within filtered results
 
     def render_page(self) -> None:
         """Render current page of papers"""
@@ -32,8 +33,8 @@ class ConsoleViewer:
 
         page_info = self.controller.get_page_info()
         
-        # In filter mode, show only filtered papers
-        if self.mode == "filter" and self.filtered_indices:
+        # In filter or search mode, show only filtered papers
+        if (self.mode in ("filter", "search")) and self.filtered_indices:
             papers_to_show = [self.controller.papers[i] for i in self.filtered_indices]
             start_idx = 1  # Start numbering from 1
         else:
@@ -45,7 +46,10 @@ class ConsoleViewer:
             idx = start_idx + i
             
             # Check if this paper is selected
-            is_selected = (self.controller.selected_index == i)
+            if self.mode in ("filter", "search"):
+                is_selected = (self.filter_selected_index == i)
+            else:
+                is_selected = (self.controller.selected_index == i)
             
             if is_selected:
                 # Highlight selected paper with background color
@@ -66,17 +70,20 @@ class ConsoleViewer:
             line2 = "[dim]Selected: (none)  [cyan]q[/cyan] quit[/dim]"
             self.console.print(line2)
         
-        # Line 3: Page info or filter status
-        if self.mode == "filter":
+        # Line 3: Page info or mode status
+        if self.mode == "search":
             match_count = len(self.filtered_indices) if self.filtered_indices else 0
-            line3 = f"[yellow][Filter mode] Matching {match_count} papers — Press ESC/Enter to exit[/yellow]"
+            line3 = f"[yellow][Search mode] Matching {match_count} papers — Press Enter to apply, Q/ESC to cancel[/yellow]"
+        elif self.mode == "filter":
+            match_count = len(self.filtered_indices) if self.filtered_indices else 0
+            line3 = f"[yellow][Filter mode] Showing {match_count} filtered papers — Press : to search again, Q/ESC to exit[/yellow]"
         else:
             page_info = self.controller.get_page_info()
             line3 = f"[dim]Page {page_info['current_page']}/{page_info['total_pages']} — {page_info['end_index']}/{page_info['papers_total']} papers[/dim]"
         self.console.print(line3)
         
-        # Line 4: Messages or filter input
-        if self.mode == "filter":
+        # Line 4: Messages or search input
+        if self.mode == "search":
             self.console.print(f"[cyan]:[/cyan] {self.filter_query}[dim]_[/dim]")
         else:
             self.console.print(self.message)
@@ -115,12 +122,21 @@ class ConsoleViewer:
                 try:
                     key = self._get_key()
 
-                    if self.mode == "filter":
-                        # In filter mode, handle key input differently
-                        if key in ('\x1b', '\r'):  # ESC or Enter - exit filter mode
+                    if self.mode == "search":
+                        # In search mode, handle text input
+                        if key in ('\x1b',):  # ESC - cancel search, return to full
                             self.mode = "full"
                             self.filter_query = ""
                             self.filtered_indices = None
+                            self.render_page()
+                        elif key in ('q', 'Q'):  # Q - quit to full mode
+                            self.mode = "full"
+                            self.filter_query = ""
+                            self.filtered_indices = None
+                            self.render_page()
+                        elif key == '\r':  # Enter - apply search, keep filter mode
+                            self.mode = "filter"
+                            self.filter_selected_index = None  # Reset selection in filtered results
                             self.render_page()
                         elif key == '\x08' or key == '\x7f':  # Backspace (^H or DEL)
                             self.filter_query = self.filter_query[:-1]
@@ -128,10 +144,78 @@ class ConsoleViewer:
                         elif len(key) == 1 and ord(key) >= 32:  # Printable characters
                             self.filter_query += key
                             self._update_filter()
-                    else:
-                        # Full mode navigation
-                        if key in ('q', 'Q', '\x1b'):  # q, Q, or ESC
+                    
+                    elif self.mode == "filter":
+                        # In filter mode, all normal commands work but on filtered papers
+                        if key in ('q', 'Q', '\x1b'):  # q, Q, or ESC - exit to full mode
+                            self.mode = "full"
+                            self.filter_query = ""
+                            self.filtered_indices = None
+                            self.filter_selected_index = None
+                            self.render_page()
+                        elif key == ':':  # Enter search mode within filter
+                            self.mode = "search"
+                            self.filter_query = ""
+                            self.render_page()
+                        elif key == 'right':
+                            # Pagination in filtered results
+                            self.render_page()
+                        elif key == 'left':
+                            # Pagination in filtered results
+                            self.render_page()
+                        elif key == 'down':
+                            # Selection in filtered results
+                            if self.filter_selected_index is None:
+                                self.filter_selected_index = 0
+                            elif self.filter_selected_index < len(self.filtered_indices) - 1:
+                                self.filter_selected_index += 1
+                            self.render_page()
+                        elif key == 'up':
+                            # Selection in filtered results
+                            if self.filter_selected_index is None:
+                                self.filter_selected_index = len(self.filtered_indices) - 1
+                            elif self.filter_selected_index > 0:
+                                self.filter_selected_index -= 1
+                            self.render_page()
+                        elif key == '?' and self.filter_selected_index is not None:
+                            self._show_details_filtered()
+                            self.render_page()
+                        elif key == 'd' and self.filter_selected_index is not None:
+                            self._show_details_filtered()
+                            self.render_page()
+                        elif key == 'b' and self.filter_selected_index is not None:
+                            paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
+                            bibtex = self.controller._paper_to_bibtex(paper)
+                            if bibtex and self._copy_to_clipboard(bibtex):
+                                self.message = "[green]✓ BibTeX copied to clipboard[/green]"
+                            else:
+                                self.message = "[red]✗ Failed to copy to clipboard[/red]"
+                            self.render_page()
+                        elif key == 'i' and self.filter_selected_index is not None:
+                            paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
+                            doi = paper.doi
+                            if doi and self._copy_to_clipboard(doi):
+                                self.message = f"[green]✓ DOI copied to clipboard: {doi}[/green]"
+                            else:
+                                self.message = "[red]✗ No DOI or failed to copy[/red]"
+                            self.render_page()
+                        elif key == 'c' and self.filter_selected_index is not None:
+                            paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
+                            json_str = self.controller._paper_to_json(paper)
+                            if json_str and self._copy_to_clipboard(json_str):
+                                self.message = "[green]✓ JSON copied to clipboard[/green]"
+                            else:
+                                self.message = "[red]✗ Failed to copy to clipboard[/red]"
+                            self.render_page()
+                    
+                    else:  # Full mode
+                        if key in ('q', 'Q', '\x1b'):  # q, Q, or ESC - quit
                             self.running = False
+                        elif key == ':':  # Enter search mode
+                            self.mode = "search"
+                            self.filter_query = ""
+                            self.filtered_indices = None
+                            self.render_page()
                         elif key == 'right':
                             if self.controller.next_page():
                                 self.render_page()
@@ -164,6 +248,7 @@ class ConsoleViewer:
                             else:
                                 self.message = "[red]✗ No DOI or failed to copy[/red]"
                             self.render_page()
+
                         elif key == 'c' and self.controller.get_selected_paper():
                             json_str = self.controller.get_selected_as_json()
                             if json_str and self._copy_to_clipboard(json_str):
@@ -226,6 +311,38 @@ class ConsoleViewer:
         if not paper:
             return
 
+        self.console.clear()
+        details = f"""
+[bold cyan]Paper Details[/bold cyan]
+
+[bold]Title:[/bold] {paper.title or 'N/A'}
+[bold]Authors:[/bold] {', '.join(a.full_name for a in paper.authors) if paper.authors else 'N/A'}
+[bold]Year:[/bold] {paper.year or 'N/A'}
+[bold]Journal:[/bold] {paper.journal or 'N/A'}
+[bold]Volume/Issue:[/bold] {paper.volume or 'N/A'}/{paper.number or 'N/A'}
+[bold]Pages:[/bold] {paper.pages or 'N/A'}
+[bold]DOI:[/bold] {paper.doi or 'N/A'}
+[bold]URL:[/bold] {paper.url or 'N/A'}
+
+[bold]Abstract:[/bold]
+{paper.abstract or 'N/A'}
+
+[bold]Keywords:[/bold]
+{', '.join(paper.keywords) if paper.keywords else 'N/A'}
+
+[bold cyan]APA Citation:[/bold cyan]
+{paper.apa}
+"""
+        self.console.print(details)
+        self.console.print("\n[dim]Press any key to return...[/dim]")
+        self._get_key()
+
+    def _show_details_filtered(self) -> None:
+        """Display details of selected paper in filter mode"""
+        if self.filter_selected_index is None or not self.filtered_indices:
+            return
+        
+        paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
         self.console.clear()
         details = f"""
 [bold cyan]Paper Details[/bold cyan]
