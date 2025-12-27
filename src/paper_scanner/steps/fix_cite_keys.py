@@ -40,7 +40,7 @@ class FixCiteKeysStep(BaseStep):
 
     def execute(
         self,
-        step_config: Dict[str, Any],
+        config: Dict[str, Any],
         verbose: bool = False,
         dry_run: bool = False,
         debug: bool = False,
@@ -52,7 +52,7 @@ class FixCiteKeysStep(BaseStep):
         Updates papers in the database.
 
         Args:
-            step_config: Step configuration (unused)
+            config: Step configuration (unused)
             verbose: Enable verbose output
             dry_run: Don't actually update papers
             debug: Enable debug output

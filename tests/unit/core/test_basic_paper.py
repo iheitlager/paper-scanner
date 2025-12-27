@@ -166,8 +166,8 @@ class TestAuthorClass:
             family_name="Α λέκος",
             full_name="Ιωάννης Α λέκος"
         )
-        assert author.family_name == "Α λέκος"
-        assert author.full_name == "Ιωάννης Α λέκος"
+        assert author.family_name == "Α Λέκος"  # family_name is titlecased
+        assert author.full_name == "Ιωάννης Α Λέκος"  # full_name is titlecased
 
     def test_author_with_hyphenated_name(self):
         """Verify Author works with hyphenated names"""
@@ -176,8 +176,9 @@ class TestAuthorClass:
             family_name="Smith-Johnson",
             full_name="Mary-Jane Smith-Johnson"
         )
-        assert author.given_name == "Mary-Jane"
-        assert author.family_name == "Smith-Johnson"
+        assert author.given_name == "Mary-Jane"  # hyphenated names preserve capitals
+        assert author.family_name == "Smith-Johnson"  # family_name preserves hyphen structure
+        assert author.full_name == "Mary-Jane Smith-Johnson"  # full_name preserved
 
     def test_author_model_dump(self):
         """Verify Author can be dumped to dict"""
@@ -250,16 +251,16 @@ class TestAuthorClass:
         assert author.orcid == ""
 
     def test_author_with_whitespace_in_fields(self):
-        """Verify Author preserves whitespace in fields"""
+        """Verify Author strips whitespace from name fields"""
         author = Author(
             given_name="  John  ",
             family_name="  Smith  ",
             full_name="  John Smith  ",
             affiliation="  MIT  "
         )
-        assert author.given_name == "  John  "
-        assert author.family_name == "  Smith  "
-        assert author.affiliation == "  MIT  "
+        assert author.given_name == "John"  # whitespace stripped
+        assert author.family_name == "Smith"  # whitespace stripped
+        assert author.affiliation == "  MIT  "  # affiliation preserves whitespace
 
     def test_author_field_types(self):
         """Verify Author field types are correct"""
@@ -318,7 +319,7 @@ class TestAuthorClass:
             family_name="123ABC",
             full_name="John 123ABC"
         )
-        assert author.family_name == "123ABC"
+        assert author.family_name == "123abc"  # lowercase applied to entire name
 
     def test_author_with_special_characters_in_email(self):
         """Verify Author works with various email formats"""

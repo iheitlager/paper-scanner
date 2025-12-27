@@ -24,7 +24,7 @@ class TestGenerateCiteKey:
         assert generate_cite_key(paper) == "Smith2020"
 
     def test_cite_key_with_multiple_words_in_last_name(self):
-        """Test cite key strips spaces from family name"""
+        """Test cite key strips spaces from family name with particles"""
         author = Author(family_name="Van Der Berg", given_names="John", full_name="John Van Der Berg")
         paper = Paper(
             title="Test Paper",
@@ -33,7 +33,7 @@ class TestGenerateCiteKey:
             cite_key="VanDerBerg2021",
         )
 
-        assert generate_cite_key(paper) == "VanDerBerg2021"
+        assert generate_cite_key(paper) == "VanDerBerg2021"  # family_name capitalizes all words
 
     def test_cite_key_with_hyphenated_last_name(self):
         """Test cite key removes hyphens from family name"""

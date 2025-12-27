@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 
 import bibtexparser
 import yaml
+import titlecase
 from bibtexparser.bibdatabase import BibDatabase
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.bwriter import BibTexWriter
@@ -181,7 +182,7 @@ def parse_authors(author_string: str) -> List[Author]:
         author_str = author_str.strip()
         if not author_str:
             continue
-
+        author_str = titlecase.titlecase(author_str.lower())
         # Try to parse: "Last, First" format
         if ',' in author_str:
             parts = author_str.split(',', 1)
@@ -291,7 +292,7 @@ def bibtex_entry_to_paper(
     title = entry.get('title', '').strip()
     if not title:
         raise ValueError(f"BibTeX entry {cite_key} missing title")
-
+    title = titlecase.titlecase(title.lower())
     # Remove LaTeX braces from title
     title = re.sub(r'[{}]', '', title)
 

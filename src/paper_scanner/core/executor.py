@@ -19,7 +19,7 @@ import json
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
 import yaml
 
@@ -30,6 +30,9 @@ from paper_scanner.core.exceptions import CheckpointError, ConfigurationError, P
 from paper_scanner.core.step_result import FINAL_STEP, StepResult
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
+
+if TYPE_CHECKING:
+    from paper_scanner.core.reporter import AbstractStepReporter
 
 CHECKPOINT_DIR="checkpoints"
 
@@ -106,6 +109,7 @@ class StepExecutor:
     def __init__(
         self,
         general_config: Dict[str, Any],
+        step_reporter: "AbstractStepReporter" = None,
         cache_dir: Optional[Path] = None,
         verbose: bool = False,
         debug: bool = False,
@@ -122,6 +126,7 @@ class StepExecutor:
         self.general_config = general_config
         self.cache_dir = cache_dir or Path.home() / ".paper-scanner"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.step_reporter = step_reporter
 
         self.verbose = verbose
         self.debug = debug
@@ -245,6 +250,51 @@ class StepExecutor:
         return self.execute_step(self.current_step_index, dry_run=dry_run)
 
     # =========================================================================
+    # Session Reset
+    # =========================================================================
+
+    def reset(self, scope: str = "execution") -> None:
+        """
+        Reset executor state to a clean state.
+
+        Args:
+            scope: Reset scope
+                - "execution": Clear execution history, reset to start (keep definition & DB)
+                - "definition": Clear definition, steps, templates (keep DB)
+                - "database": Clear papers database (keep execution state)
+                - "all": Full reset to initialization state
+
+        Raises:
+            ValueError: If invalid scope provided
+        """
+        valid_scopes = {"execution", "definition", "database", "all"}
+        if scope not in valid_scopes:
+            raise ValueError(f"Invalid reset scope: {scope}. Must be one of {valid_scopes}")
+
+        if scope in ("execution", "all"):
+            # Clear execution tracking only
+            self.results = {}
+            self.step_history = []
+            self.current_step_index = 0
+            self.start_time = None
+            self.papers_db = PapersDatabase()
+
+        if scope in ("definition", "all"):
+            # Clear definition and steps
+            self.definition = {}
+            self.templates = {}
+            self.steps = []
+            # Also reset execution tracking when clearing definition
+            if scope == "definition":
+                self.reset("execution")
+
+        if self.step_reporter:
+            self.step_reporter.on_step_event(
+                f"Reset {scope} state",
+                debug=True
+            )
+
+    # =========================================================================
     # Step Registry
     # =========================================================================
 
@@ -285,7 +335,8 @@ class StepExecutor:
         step_class = builtin_steps[step_name]
         try:
             # Instantiate the step with required dependencies
-            return step_class(general_config=self.general_config, db=self.papers_db, cache_dir=self.cache_dir)
+            on_event_callback = self.step_reporter.on_step_event if self.step_reporter else None
+            return step_class(general_config=self.general_config, db=self.papers_db, cache_dir=self.cache_dir, on_event=on_event_callback)
         except Exception as e:
             raise StepError(f"Failed to instantiate step '{step_name}': {e}") from e
 
@@ -389,6 +440,9 @@ class StepExecutor:
         # Initialize checkpoint directory
         checkpoints_dir = self.cache_dir / CHECKPOINT_DIR
         checkpoints_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.step_reporter:
+            self.step_reporter.on_definition_loaded(definition_file, self.definition)
 
         return True
 
@@ -547,6 +601,9 @@ class StepExecutor:
             # ConfigurationError propagates for invalid config
             step_name, step_params, description = self.parse_step_config(step_config)
 
+            if self.step_reporter:
+                self.step_reporter.on_step_start(self.current_step_index, step_config, total=len(self.steps))
+
             # Handle run-template: recursively execute template steps
             if step_name == "run-template":
                 result = self._execute_template(step_params, description, dry_run)
@@ -570,7 +627,8 @@ class StepExecutor:
             result.stats["db_records"] = self.papers_db.count()
             self.results = result
             self.current_step_index = step_index + 1
-
+            if self.step_reporter:
+                self.step_reporter.on_step_end(self.current_step_index - 1, step_params, result)
             return result
 
         except HaltException as e:
@@ -616,9 +674,7 @@ class StepExecutor:
         # Execute step
         result = step_instance.execute(
             config=step_params,
-            verbose=self.verbose,
-            dry_run=dry_run,
-            debug=self.debug,
+            dry_run=dry_run
         )
 
         # TODO: Remove this once all steps are updated to return StepResult
@@ -725,7 +781,7 @@ class StepExecutor:
 
         Returns:
             Aggregated results dictionary
-            
+
         Raises:
             ConfigurationError: If step config is invalid
             StepError: If step not found or step instantiation fails

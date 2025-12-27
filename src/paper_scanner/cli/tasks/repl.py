@@ -9,1106 +9,568 @@ Two modes of interaction:
 - Micro mode: Plain Python code with full access to paper_scanner modules
 """
 
-import json
-import re
-import sys
+import time
+from typing import Dict
+
 import textwrap
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 
-import yaml
-from rich.console import Console
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.styles import Style
+from pygments.lexers.python import PythonLexer
 
-try:
-    from prompt_toolkit import PromptSession
-    from prompt_toolkit.completion import WordCompleter
-    from prompt_toolkit.enums import EditingMode
-    from prompt_toolkit.history import FileHistory
-    from prompt_toolkit.lexers import PygmentsLexer
-    from prompt_toolkit.styles import Style
-    from prompt_toolkit.validation import ValidationError, Validator
-    from pygments.lexers.python import PythonLexer
-    HAS_PROMPT_TOOLKIT = True
-except ImportError:
-    HAS_PROMPT_TOOLKIT = False
-    # Try readline for basic history support on Unix systems
-    try:
-        import readline
-    except ImportError:
-        pass
+from paper_scanner.core.controller import AbstractController, macro_step
+from paper_scanner.core.step_result import StepResult, StepStatus
+from paper_scanner.core.reporter import AbstractStepReporter, AbstractControllerReporter, ConsoleLoggingMixin
+from paper_scanner.viewer import ConsoleViewer
 
-from paper_scanner.cli.tasks.run import StepExecutor
-from paper_scanner.core.database import PapersDatabase
-from paper_scanner.steps.halt import HaltException
+TABSTOP = 2
 
-console = Console(file=sys.stderr)
+class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleLoggingMixin):
+    """Single console reporter implementing both interfaces"""
+
+    def __init__(self) -> None:
+        ConsoleLoggingMixin.__init__(self)
+        AbstractControllerReporter.__init__(self)
+        AbstractStepReporter.__init__(self)
+        self.in_macro_task = False
+
+    # AbstractControllerReporter
+    def on_start(self) -> None:
+        self.log_msg("[green]Starting REPL...[/green]")
+        self.log_msg("[dim]Type 'help' or '?' for commands[/dim]")
+        self.log_msg()
+        if self.controller.debug:
+            self.log_msg("[yellow]⚠ Debug mode enabled - verbose output will be shown[/yellow]")
+        if self.controller.verbose:
+            self.log_msg("[yellow]ℹ Verbose mode enabled - showing step details before execution[/yellow]")
+        if self.controller.timings:
+            self.log_msg("[yellow]↻ Timings mode enabled - showing timing info after each step[/yellow]")
+
+    def on_close(self) -> None:
+        self.log_info()
+        self.log_info("[green]Goodbye![/green]")
+
+    def on_error(self, error: str) -> None:
+        self.log_error(f"REPL error: {error}")
+
+    def on_macro_start(self, command: str) -> None:
+        self.log_debug(f"Executing command: {command}")
+        self.in_macro_task = True
+
+    def on_macro_end(self, command: str, result: StepResult, duration_ms: float) -> None:
+        """Called when macro command completes"""
+        timings = f"[[dim]⏱ {duration_ms:.2f} ms[/dim]]" if self.controller.timings else ""
+
+        if command in ("step", "run", "checkpoint"):
+            if result.status == StepStatus.SUCCESS:
+                self.log_info(f"{result.message} {timings}\n")
+                # self.log_msg(f"[green]ok: {result.stats.get('processed', 0)}[/green] {timings} ")
+            elif result.status == StepStatus.WARNING:
+                self.log_warning(result.message)
+        else:
+            self.log_msg(f"[green]ok: [/green] {timings}\n")
+        if command in ("step", "run"):
+            if not self.executor.has_next_step:
+                self.log_info("[green bold]🎉 All steps completed![/green bold]")
+        self.in_macro_task = False
+
+    def on_macro_error(self, command: str, error: Exception, duration_ms: float) -> None:
+        self.log_error(f"✗ {error}")
+
+    def on_definition_loaded(self, definition_file: str, definition: Dict) -> None:
+        num_steps = len(definition.get("steps", []))
+        self.log_info(f"[blue]Definition [white]{definition_file}[/white] with {num_steps} steps loaded[/blue]\n")
+
+    def on_initialized(self) -> None:
+        if self.controller.autorun and self.definition:
+            self.log_debug("Auto-running all steps...")
+        self.log_debug(f"History file: {str(self.controller.history_file)}")
+        if self.controller.history_file.exists():
+            self.log_debug(f"History file size: {self.controller.history_file.stat().st_size} bytes")
+
+    # AbstractStepReporter
+    def on_step_start(self, idx: int, step_config: Dict, total: int) -> None:
+        description = step_config.get("description", step_config.get("step", "Unknown"))
+        self.log_info(f"Executing step: {description}...")
+
+    def on_step_end(self, idx: int, step_config: Dict, result: StepResult) -> None:
+        if result.details:
+            self.log_debug(f"{'\n'.join(result.details)}")
+        if result.status == StepStatus.SUCCESS and not self.in_macro_task:
+            count = result.stats.get("processed", 0)
+            self.log_success(f" ✓ ({count} items)")
+        elif result.status == StepStatus.ERROR:
+            self.log_error(f" ✗ {result.error}")
+
+    def on_step_event(self, msg: str, debug: bool = False) -> None:
+        if debug:
+            self.log_debug(msg)
+        else:
+            self.log_info(msg)
+
+    def on_execution_start(self, total_steps: int) -> None:
+        self.log_info(f"[blue]Starting pipeline: {total_steps} steps[/blue]\n")
+
+    def on_execution_complete(self, results: StepResult) -> None:
+        self.log_success("\nPipeline complete")
+
+    def on_execution_error(self, error: str) -> None:
+        self.log_error(f"Pipeline error: {error}")
+
+    def on_configuration_error(self, error: str) -> None:
+        self.log_error(f"Configuration error: {error}")
 
 
-def _is_code_complete(code: str) -> bool:
-    """Check if Python code is syntactically complete."""
-    code = code.strip()
-    if not code:
+class ReplController(AbstractController):
+    """Main Controller for REPL task."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize REPL controller with macro steps dict."""
+        super().__init__(*args, **kwargs)
+        self._macro_steps: Dict = {}
+        self._help_text = ["Available commands:", ""]
+        self._commands = {}
+
+    def _do_initialize(self) -> bool:
+        # Initialization logic here
+        self.should_quit = self.args.quit or False
+        self.autorun = self.args.auto_run or False
+
+        self._prep_macro_steps()
+        self._prep_repl_session()
         return True
 
-    # Remove comments to check for colon properly
-    code_no_comment = code.split('#')[0].rstrip()
+    def _prep_repl_session(self) -> None:
+        # Setup history file with manual persistence
+        history_obj = None
+        history_dir = self.cache_dir
+        history_dir.mkdir(parents=True, exist_ok=True)
+        # Use single shared history file for all sessions (not per-project)
+        self.history_file = history_dir / ".repl_history"
 
-    # Check for lines that require indentation (end with colon)
-    # This catches: for, while, if, elif, else, def, class, with, try, except, finally
-    if code_no_comment.endswith(':'):
-        return False
+        # Create FileHistory object
+        history_obj = FileHistory(str(self.history_file))
 
-    try:
-        # Try to compile the dedented code
-        compile(textwrap.dedent(code), '<input>', 'exec')
-        return True
-    except SyntaxError as e:
-        # "unexpected EOF" indicates incomplete code (e.g., unclosed parenthesis, colon without body)
-        return "unexpected EOF" not in str(e)
+        # Setup key bindings for tab expansion
+        kb = KeyBindings()
 
+        @kb.add('tab')
+        def _(event):
+            """Convert tab to spaces"""
+            event.current_buffer.insert_text(' ' * TABSTOP)
 
-class REPLSession:
-    """Interactive REPL session for paper-scanner pipelines"""
+        self.session = PromptSession(
+            completer=WordCompleter([], ignore_case=True),
+            style=Style.from_dict(
+                {
+                    "completion-menu.completion": "bg:#008888 #ffffff",
+                    "completion-menu.completion.current": "bg:#00aaaa #000000",
+                    "prompt": "#00aa00 bold",
+                }
+            ),
+            history=history_obj,
+            lexer=PygmentsLexer(PythonLexer),
+            enable_history_search=True,
+            validate_while_typing=True,
+            key_bindings=kb,
+        )
 
-    def __init__(
-        self,
-        cache_dir: Optional[Path] = None,
-        verbose: bool = False,
-        debug: bool = False,
-        builtin_steps: Optional[Dict[str, Any]] = None,
-    ):
-        """
-        Initialize REPL session
+    def _prep_macro_steps(self) -> None:
+        # Register all macro commands by scanning for @macro_step decorated methods
+        # This is sophisticated Python reflection stuff for decorators
+        for attr_name in dir(self):
+            # Skip private attributes
+            if attr_name.startswith("_"):
+                continue
 
-        Args:
-            cache_dir: Cache directory for checkpoints
-            initial_definition: Optional YAML file to load at startup (post-checkpoint)
-            verbose: Enable verbose output
-            debug: Enable debug output
-            quit_after_definition: Quit immediately after executing definition (no interactive mode)
-            builtin_steps: Available builtin steps registry
-        """
-        self.project_name = "interactive_session"
-        self.cache_dir = cache_dir or Path.home() / ".paper-scanner"
-        self.verbose = verbose
-        self.debug = debug
-        self.builtin_steps = builtin_steps or {}
+            attr = getattr(self, attr_name)
 
-        # Session state
-        self.papers_db: Optional[PapersDatabase] = None
-        self.general_config: Dict[str, Any] = {
-            "project_name": self.project_name,
-            "cache_dir": str(self.cache_dir),
-        }
-        self.results: Dict[str, Any] = {}
-        self.step_history: List[str] = []
-        self.current_step_index: int = 0
-        self.loaded_definition: List[Dict[str, Any]] = []
-        self._current_definition_file: Optional[Path] = None
+            # Check if method is decorated with @macro_step
+            if hasattr(attr, "_macro_names"):
+                names = attr._macro_names
+                # Register under all provided names
+                for name in names:
+                    if type(name) is str:
+                        self._macro_steps[name] = attr
+                    elif type(name) is list:
+                        for n in name:
+                            self._macro_steps[n] = attr
 
+                self._help_text.append((names[0], names[1:], attr.__doc__))
+                for name in names[1:]:
+                    self._commands[name] = names[0]
+        self._help_text.append(("quit", ("q", "x"), "Exit REPL"))
 
+    def _get_macro_step(self, name: str):
+        """Get a registered macro step"""
+        return self._macro_steps.get(name)
 
-    def load_initial_definition(self, definition_path: Path) -> bool:
-        """Load and execute YAML definition up to last checkpoint"""
-        if not definition_path.exists():
-            raise FileNotFoundError(f"Definition file not found: {definition_path}")
+    def _get_status_line(self) -> (str, str):
+        """Get status line and prompt string for REPL"""
+        prompt = ">>> "  # Default prompt
 
-        # Store the definition file path for status display
-        self._current_definition_file = definition_path
-
-        try:
-            # Create database and load from checkpoint if exists
-            self.papers_db = PapersDatabase()
-
-            checkpoint_path = (self.cache_dir / "checkpoint_last.json")
-            if checkpoint_path.exists():
-                console.print(f"[green]Loading checkpoint:[/green] {checkpoint_path}")
-                self.papers_db.load_checkpoint(checkpoint_path)
-                self.step_history.append(
-                    f"Loaded checkpoint: {checkpoint_path} ({self.papers_db.count()} papers)"
-                )
-
-            with open(definition_path) as f:
-                self.loaded_definition = yaml.safe_load(f)
-
-            self.current_step_index = 0
-            self.project_name = self.loaded_definition.get("project", {}).get("name")
-            self.general_config["project_name"] = self.project_name
-            steps = self.loaded_definition.get("steps", [])
-            if not steps:
-                console.print("[yellow]No steps found in definition[/yellow]")
-                return
-            self.loaded_definition_steps = steps
-            if self.debug:
-                console.print(f"[dim]Loaded project: {definition_path} with {len(steps)} steps[/dim]")
-            return True
-        except Exception as e:
-            console.print(f"[red]Error loading definition:[/red] {e}")
-            return False
-
-    def execute_definition_file(self) -> None:
-        """Execute preloaded YAML definition"""
-        # Initialize database if needed
-        if self.papers_db is None:
-            self.papers_db = PapersDatabase()
-
-        # Get steps from definition
-        steps = self.loaded_definition_steps
-        if not steps:
-            console.print("[yellow]No steps found in definition[/yellow]")
-            return
-
-        if self.verbose:
-            console.print("[cyan]Steps in pipeline:[/cyan]")
-            for step in steps:
-                step_name = next(
-                    (k.replace("builtin.", "") for k in step.keys()
-                    if k.startswith("builtin.")), None)
-                console.print(f"  - {step_name or 'unknown'}")
-        try:
-            # Execute each step
-            if self.verbose:
-                console.print("\n[cyan bold]Executing pipeline...[/cyan bold]\n")
-
-            for i, step_config in enumerate(steps, 1):
-                step_config["step_index"] = i - 1
-                step_config["project_name"] = self.project_name
-
-                # Create wrapper for step instantiation
-                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
-                get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
-
-                result = StepExecutor.execute_step(
-                    step_config=step_config,
-                    papers_db=self.papers_db,
-                    step_executor_func=get_step_func,
-                    verbose=self.verbose,
-                    dry_run=False,
-                    cache_dir=self.cache_dir,
-                    step_index=i - 1,
-                    project_name=self.project_name,
-                    project_config=self.general_config,
-                    debug=self.debug,
-                    builtin_steps=self.builtin_steps,
-                )
-
-                # Track execution
-                step_name = next(
-                    (k.replace("builtin.", "") for k in step_config.keys()
-                    if k.startswith("builtin.")), "unknown")
-
-                status = result.get("status", "unknown")
-                count = result.get("count", 0)
-
-                if status == "ok":
-                    if count > 0:
-                        console.print(
-                            f"[green]✓[/green] Step {i}: {step_name} - {count} items processed"
-                        )
-                        self.step_history.append(f"{step_name}: {count} items")
-                    else:
-                        console.print(
-                            f"[green]✓[/green] Step {i}: {step_name}"
-                        )
-                        self.step_history.append(f"{step_name}: ok")
-                elif status == "error":
-                    error_msg = result.get("error", "Unknown error")
-                    console.print(
-                        f"[red]✗[/red] Step {i}: {step_name} - {error_msg}"
-                    )
-                    self.step_history.append(f"{step_name}: ERROR - {error_msg}")
-                    break
-                else:
-                    console.print(
-                        f"[yellow]?[/yellow] Step {i}: {step_name} - {status}"
-                    )
-
-                self.results = result
-
-
-            console.print(
-                f"\n[green]Pipeline complete[/green] - "
-                f"{self.papers_db.count()} papers in database"
-            )
-
-        except HaltException as e:
-            # Pipeline halted gracefully
-            console.print(f"[yellow]⏸ Pipeline halted:[/yellow] {e}")
-            console.print(
-                f"[cyan]Papers in database:[/cyan] {self.papers_db.count()} "
-            )
-        except Exception as e:
-            console.print(f"[red]Error processing definition:[/red] {e}")
-            if self.debug:
-                import traceback
-                traceback.print_exc()
-
-    def _get_status_line(self) -> str:
-        """Build the status line showing DB records, step progress, and definition file"""
         parts = []
-
         # Database record count
-        record_count = self.papers_db.count() if self.papers_db else 0
-        parts.append(f"[cyan]PaperDB:[/cyan] {record_count} records")
+        record_count = self.executor.papers_db.count() if self.executor.papers_db else 0
+        parts.append(f"[cyan]db:[/cyan] {record_count}")
 
-        # Step progress (if loaded)
-        if self.loaded_definition_steps:
-            total = len(self.loaded_definition_steps)
-            current = self.current_step_index
+        if self.definition_file:
+            current, total = self.executor.step_progress
+            prompt = f"[{current}/{total}] > "
+
             if current == total:
                 parts.append(f"[red]All steps completed ({total}/{total})[/red]")
-            else:
-                parts.append(f"[yellow]Step {current}/{total}[/yellow]")
 
-        # Definition file (if loaded)
-        if hasattr(self, '_current_definition_file') and self._current_definition_file:
-            filename = self._current_definition_file.name
-            parts.append(f"[magenta]{filename}[/magenta]")
+            parts.append(f"[magenta]{self.definition_file}[/magenta]")
 
-        return " | ".join(parts)
+        return " | ".join(parts) if not self.quiet else "", prompt
 
-    def _create_namespace(self) -> Dict[str, Any]:
-        """Create namespace for Python REPL with helper objects/functions"""
-        # Import here to avoid circular imports
-        from paper_scanner.definition import Definition
+    def _do_exec(self) -> int:
+        """REPL loop - macro commands and Python code"""
 
-        # Ensure we have a database for this session
-        if self.papers_db is None:
-            self.papers_db = PapersDatabase()
-
-        def run_step(step_name: str, **config) -> Dict[str, Any]:
-            """Helper function to run a single step"""
-            return self._execute_step_directly(step_name, config)
-
-        def show_papers(limit: int = 10) -> None:
-            """Display current papers in database"""
-            if self.papers_db is None:
-                console.print("[yellow]No database loaded[/yellow]")
-                return
-
-            papers = self.papers_db.papers[: min(limit, len(self.papers_db.papers))]
-            console.print(
-                f"[cyan]Showing {len(papers)} of {self.papers_db.count()} papers:[/cyan]"
-            )
-            for i, paper in enumerate(papers, 1):
-                console.print(
-                    f"  {i}. {paper.title or 'Untitled'} "
-                    f"[dim]({paper.doi or 'no DOI'})[/dim]"
-                )
-
-        def help_commands() -> None:
-            """Display available macro commands"""
-            commands = [
-                ("\\run <file.yml>", "Load and execute a YAML definition file"),
-                ("\\load <file.yml>", "Load YAML definition (view steps, don't execute)"),
-                ("\\step, \\n", "Execute the next step in a loaded definition"),
-                ("\\go, \\g", "Execute all remaining steps in a loaded definition"),
-                ("\\do, \\d <step> {params}", "Execute ad-hoc step with parameters"),
-                # ("  Examples:", ""),
-                # ("    \\do summarize summary=true", "Simple parameter"),
-                # ("    \\do summarize tabulate[field=paper_type]", "Nested config"),
-                # ("    \\do summarize tabulate[field=paper_type,duplicates=false]", "Multiple nested params"),
-                ("\\checkpoint <label>", "Save checkpoint with label"),
-                ("\\history, \\h", "Show step execution history"),
-                ("\\show, \\p", "Display current papers"),
-                ("\\export <format> <path>", "Export papers (jsonl, bib, json)"),
-                ("\\status, \\s", "Show session status"),
-                ("\\help, \\?", "Show this message"),
-                ("\\exit, \\q", "Exit REPL"),
-            ]
-
-            console.print(r"[cyan bold]Available Macro Commands (\prefix):[/cyan bold]")
-            for cmd, desc in commands:
-                if desc:
-                    console.print(f"  {cmd:<40} - {desc}")
-                else:
-                    console.print(f"  {cmd:<40}")
-
-            console.print(
-                "\n[cyan bold]Namespace Objects:[/cyan bold]"
-            )
-            console.print(
-                "  papers_db (PapersDatabase)        - Current papers database"
-            )
-            console.print("  db (alias)                        - Shorthand for papers_db")
-            console.print("  results (Dict)                    - Last step results")
-            console.print("  general_config (Dict)             - Session configuration")
-
-        # Create namespace with full paper_scanner access
+        # Python REPL namespace
         namespace = {
-            # Core objects
-            "papers_db": self.papers_db,
-            "db": self.papers_db,  # Alias for papers_db
-            "results": self.results,
-            "general_config": self.general_config,
-            # Helper functions
-            "run_step": run_step,
-            "show_papers": show_papers,
-            "help_commands": help_commands,
-            # Imports for convenience
-            "Definition": Definition,
-            "PapersDatabase": PapersDatabase,
-            "json": json,
-            "Path": Path,
-            "datetime": datetime,
+            "executor": self.executor,
+            "db": self.executor.papers_db,
+            "steps": self.executor.steps,
+            "reporter": self.step_reporter,
         }
 
-        return namespace
-
-    def _execute_step_directly(
-        self, step_name: str, step_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Execute a step directly using StepExecutor"""
-        if self.papers_db is None:
-            return {"status": "error", "error": "No database initialized"}
-
-        try:
-            # Get step class
-            step_class = self.builtin_steps.get(step_name)
-            if not step_class:
-                return {
-                    "status": "error",
-                    "error": f"Unknown step: {step_name}. Available steps: {list(self.builtin_steps.keys())}",
-                }
-
-            # Instantiate step
-            step = step_class(
-                general_config=self.general_config,
-                db=self.papers_db,
-                cache_dir=self.cache_dir,
+        if self.autorun:
+            if not self.executor.has_next_step:
+                return StepResult(status=StepStatus.WARNING, message="All steps done")
+            result = self.executor.run_all(
+                dry_run=self.dry_run,
+                on_step_start=self.step_reporter.on_step_start,
+                on_step_end=self.step_reporter.on_step_end,
             )
-
-            # Validate config
-            is_valid, errors = step.validate(step_config)
-            if not is_valid:
-                return {"status": "error", "error": f"Validation errors: {errors}"}
-
-            # Execute step
-            result = step.execute(
-                step_config=step_config,
-                verbose=self.verbose,
-                dry_run=False,
-                debug=self.debug,
-            )
-
-            # Track history
-            self.step_history.append(
-                f"{step_name}: {result.get('count', 0)} items processed"
-            )
-            self.results = result
-
-            return result
-
-        except Exception as e:
-            return {"status": "error", "error": str(e)}
-
-    def _parse_macro_command(self, line: str) -> Tuple[str, List[str], Dict[str, Any]]:
-        r"""
-        Parse \command syntax into command name, positional args, and kwargs
-
-        Format:
-            \command arg1 arg2 key1=value1 key2=value2
-            \command arg1 nested[key1=val1,key2=val2]
-
-        Shortcuts:
-            d -> do, g -> go, h -> history, s -> status, ? -> help, p -> show, q -> exit
-
-        Returns:
-            (command_name, args, kwargs)
-        """
-        # Shortcut mappings
-        shortcuts = {
-            "d": "do",
-            "g": "go",
-            "h": "history",
-            "n": "step",
-            "s": "status",
-            "?": "help",
-            "p": "show",
-            "q": "exit",
-        }
-
-        # Remove \ prefix and split
-        tokens = line[1:].split()
-        if not tokens:
-            return "", [], {}
-
-        command = tokens[0]
-
-        # Expand shortcuts
-        if command in shortcuts:
-            command = shortcuts[command]
-
-        rest = tokens[1:]
-
-        # Separate positional args and kwargs
-        args = []
-        kwargs = {}
-
-        for token in rest:
-            # Check for nested config: key[nested_params]
-            if "[" in token and "]" in token:
-                match = re.match(r"(\w+)\[(.*)\]", token)
-                if match:
-                    key = match.group(1)
-                    nested_str = match.group(2)
-
-                    # Parse nested parameters
-                    nested_config = {}
-                    for param in nested_str.split(","):
-                        if "=" in param:
-                            k, v = param.split("=", 1)
-                            nested_config[k.strip()] = v.strip()
-
-                    kwargs[key] = nested_config if nested_config else True
-                    continue
-
-            if "=" in token:
-                key, value = token.split("=", 1)
-                kwargs[key] = value
-            else:
-                args.append(token)
-
-        return command, args, kwargs
-
-    def _handle_macro_command(self, line: str) -> bool:
-        r"""
-        Handle \command macro execution
-
-        Returns:
-            True if command was handled, False if should go to Python REPL
-        """
-        if not line.startswith("\\"):
-            return False
-
-        command, args, kwargs = self._parse_macro_command(line)
-
-        if command == "run" and args:
-            # \run <file.yml> - Load and execute YAML definition
-            definition_file = Path(args[0])
-            self._execute_definition_file(definition_file, execute=True, verbose=self.verbose)
-            return True
-
-        elif command == "load" and args:
-            # \load <file.yml> - Load YAML definition without executing
-            definition_file = Path(args[0])
-            self._execute_definition_file(definition_file, execute=False)
-            return True
-
-        elif command == "do" and args:
-            # \do <step_name> [params] - Execute ad-hoc step with parameters
-            step_name = args[0]
-
-            # Convert string values to appropriate types
-            def parse_value(v: Any) -> Any:
-                """Parse values to Python types"""
-                if isinstance(v, dict):
-                    # Recursively parse nested dictionaries
-                    return {k: parse_value(val) for k, val in v.items()}
-                if not isinstance(v, str):
-                    return v
-                if v.lower() == "true":
-                    return True
-                elif v.lower() == "false":
-                    return False
-                elif v.lower() == "none" or v == "":
-                    return None
-                elif v.isdigit():
-                    return int(v)
-                else:
-                    try:
-                        return float(v)
-                    except ValueError:
-                        return v
-
-            # Build config from kwargs, parsing values appropriately
-            step_config = {k: parse_value(v) for k, v in kwargs.items()}
-
-            if self.papers_db is None:
-                console.print("[yellow]No database. Initialize with papers first.[/yellow]")
-                return True
-
-            try:
-                console.print(f"[cyan]Executing step:[/cyan] {step_name}")
-                if step_config:
-                    console.print(f"[dim]Parameters: {step_config}[/dim]")
-
-                # Execute the step
-                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
-
-                # Build step config with required "step" key and builtin. prefix
-                # Format: {"step": "<description>", "builtin.{step_name}": {params}}
-                full_step_config = {
-                    "step": f"Ad-hoc: {step_name}",
-                    f"builtin.{step_name}": step_config
-                }
-
-                get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
-
-                result = StepExecutor.execute_step(
-                    step_config=full_step_config,
-                    papers_db=self.papers_db,
-                    step_executor_func=get_step_func,
-                    verbose=self.verbose,
-                    dry_run=False,
-                    cache_dir=self.cache_dir,
-                    step_index=len(self.step_history),
-                    project_name=self.general_config.get("project_name", "Interactive"),
-                    project_config=self.general_config,
-                    debug=self.debug,
-                    builtin_steps=self.builtin_steps,
-                )
-
-                self.step_history.append(f"Ad-hoc: {step_name} - {result.get('status', 'unknown')}")
-                self.results = result
-
-                if result.get("status") == "error":
-                    console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
-                else:
-                    count = result.get('count', 0)
-                    if count > 0:
-                        console.print(f"[green]✓ Step completed:[/green] {count} items processed")
-                    else:
-                        console.print("[green]✓ Step completed[/green]")
-
-            except Exception as e:
-                console.print(f"[red]Error executing step:[/red] {e}")
-                if self.debug:
-                    import traceback
-                    traceback.print_exc()
-
-            return True
-
-        elif command == "step":
-            # \step - Execute the next step in a loaded definition
-            if not self.loaded_definition_steps:
-                console.print(r"[yellow]No definition loaded. Use \load <file.yml> first[/yellow]")
-                return True
-
-            if self.current_step_index >= len(self.loaded_definition_steps):
-                console.print(
-                    f"[yellow]All {len(self.loaded_definition_steps)} steps completed[/yellow]"
-                )
-                return True
-
-            try:
-                step_config = self.loaded_definition_steps[self.current_step_index]
-                step_num = self.current_step_index + 1
-                total_steps = len(self.loaded_definition_steps)
-
-                # Extract step name from config
-                step_name = next(
-                    (k.replace("builtin.", "") for k in step_config.keys()
-                    if k.startswith("builtin.")), "unknown")
-
-                console.print(
-                    f"[cyan]Executing step {step_num}/{total_steps}:[/cyan] "
-                    f"{step_name}"
-                )
-
-                # Execute the step - create a wrapper function
-                from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
-                get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
-
-                result = StepExecutor.execute_step(
-                    step_config=step_config,
-                    papers_db=self.papers_db,
-                    step_executor_func=get_step_func,
-                    verbose=self.verbose,
-                    dry_run=False,
-                    cache_dir=self.cache_dir,
-                    step_index=self.current_step_index,
-                    project_name=self.general_config.get("project_name", "Interactive"),
-                    project_config=self.general_config,
-                    debug=self.debug,
-                    builtin_steps=self.builtin_steps,
-                )
-
-                self.current_step_index += 1
-                self.step_history.append(
-                    f"Step {step_num}: {step_name} - "
-                    f"{result.get('status', 'unknown')}"
-                )
-
-                if result.get("status") == "error":
-                    console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
-                else:
-                    count = result.get('count', 0)
-                    if count > 0:
-                        console.print(
-                            f"[green]✓ Step completed:[/green] "
-                            f"{count} items processed"
-                        )
-                    else:
-                        console.print("[green]✓ Step completed[/green]")
-
-            except Exception as e:
-                console.print(f"[red]Error executing step:[/red] {e}")
-                if self.debug:
-                    import traceback
-                    traceback.print_exc()
-
-            return True
-
-        elif command == "go":
-            # \go - Execute all remaining steps in a loaded definition
-            if not self.loaded_definition_steps:
-                console.print(r"[yellow]No definition loaded. Use \load <file.yml> first[/yellow]")
-                return True
-
-            if self.current_step_index >= len(self.loaded_definition_steps):
-                console.print(
-                    f"[yellow]All {len(self.loaded_definition_steps)} steps completed[/yellow]"
-                )
-                return True
-
-            try:
-                total_steps = len(self.loaded_definition_steps)
-                remaining = total_steps - self.current_step_index
-                console.print(
-                    f"[cyan bold]Executing {remaining} remaining step(s)...[/cyan bold]\n"
-                )
-
-                while self.current_step_index < total_steps:
-                    step_config = self.loaded_definition_steps[self.current_step_index]
-                    step_num = self.current_step_index + 1
-
-                    # Extract step name from config
-                    step_name = next(
-                        (k.replace("builtin.", "") for k in step_config.keys()
-                        if k.startswith("builtin.")), "unknown")
-
-                    console.print(
-                        f"[cyan]Step {step_num}/{total_steps}: {step_name}[/cyan]"
-                    )
-
-                    # Execute the step
-                    from paper_scanner.cli.paper_processor import StepExecutor as ProcessorStepExecutor
-                    get_step_func = lambda name: ProcessorStepExecutor.get_step(name, self.general_config, self.papers_db, self.cache_dir)
-
-                    result = StepExecutor.execute_step(
-                        step_config=step_config,
-                        papers_db=self.papers_db,
-                        step_executor_func=get_step_func,
-                        verbose=self.verbose,
-                        dry_run=False,
-                        cache_dir=self.cache_dir,
-                        step_index=self.current_step_index,
-                        project_name=self.general_config.get("project_name", "Interactive"),
-                        project_config=self.general_config,
-                        debug=self.debug,
-                        builtin_steps=self.builtin_steps,
-                    )
-
-                    self.current_step_index += 1
-                    self.step_history.append(
-                        f"Step {step_num}: {step_name} - "
-                        f"{result.get('status', 'unknown')}"
-                    )
-
-                    if result.get("status") == "error":
-                        console.print(f"[red]✗ Error:[/red] {result.get('error', 'Unknown error')}")
-                        break
-                    else:
-                        count = result.get('count', 0)
-                        if count > 0:
-                            console.print(
-                                f"[green]✓[/green] {count} items processed"
-                            )
-                        else:
-                            console.print("[green]✓ Completed[/green]")
-
-                if self.current_step_index >= total_steps:
-                    console.print(
-                        f"\n[green bold]All {total_steps} steps completed[/green bold]"
-                    )
-
-            except Exception as e:
-                console.print(f"[red]Error executing steps:[/red] {e}")
-                if self.debug:
-                    import traceback
-                    traceback.print_exc()
-
-            return True
-
-        elif command == "checkpoint" and args:
-            # \checkpoint <label>
-            label = args[0]
-            if self.papers_db is None:
-                console.print("[red]No database initialized[/red]")
-                return True
-
-            try:
-                import json as json_module
-
-                from paper_scanner.io.json import paper_to_dict
-
-                checkpoint_dir = self.cache_dir / "checkpoints"
-                checkpoint_dir.mkdir(parents=True, exist_ok=True)
-
-                checkpoint_path = checkpoint_dir / f"checkpoint_{label}.json"
-
-                # Serialize papers using paper_to_dict to match checkpoint step format
-                checkpoint_data = {
-                    "project_name": self.project_name,
-                    "label": label,
-                    "timestamp": datetime.now().isoformat(),
-                    "papers_count": self.papers_db.count(primary_only=False),
-                    "papers": [
-                        paper_to_dict(p, exclude_none=True)
-                        for p in self.papers_db.to_list(primary_only=False)
-                    ],
-                }
-
-                with open(checkpoint_path, "w") as f:
-                    json_module.dump(checkpoint_data, f, indent=2)
-
-                console.print(
-                    f"[green]Checkpoint saved:[/green] {checkpoint_path} "
-                    f"({self.papers_db.count()} papers)"
-                )
-                self.step_history.append(f"Checkpoint saved: {label}")
-
-            except Exception as e:
-                console.print(f"[red]Error saving checkpoint:[/red] {e}")
-
-            return True
-
-        elif command == "show":
-            # \show
-            show_papers = self._create_namespace()["show_papers"]
-            limit = int(args[0]) if args else 10
-            show_papers(limit=limit)
-            return True
-
-        elif command == "history":
-            # \history
-            if not self.step_history:
-                console.print("[yellow]No steps executed yet[/yellow]")
-            else:
-                console.print("[cyan bold]Step History:[/cyan bold]")
-                for i, entry in enumerate(self.step_history, 1):
-                    console.print(f"  {i}. {entry}")
-            return True
-
-        elif command == "status":
-            # \status
-            status_info = {
-                "Project Name": self.project_name,
-                "Papers in DB": self.papers_db.count() if self.papers_db else 0,
-                "Steps Executed": len(self.step_history),
-                "Cache Dir": str(self.cache_dir),
-            }
-
-            console.print("[cyan bold]Session Status:[/cyan bold]")
-            for key, value in status_info.items():
-                console.print(f"  {key}: {value}")
-
-            return True
-
-        elif command == "help":
-            # \help
-            help_func = self._create_namespace()["help_commands"]
-            help_func()
-            return True
-
-        elif command == "export" and len(args) >= 2:
-            # \export <format> <path>
-            fmt = args[0]
-            output_path = Path(args[1])
-
-            if self.papers_db is None:
-                console.print("[red]No database initialized[/red]")
-                return True
-
-            try:
-                if fmt == "jsonl":
-                    # Export as JSONLines
-                    with open(output_path, "w") as f:
-                        for paper in self.papers_db.papers:
-                            f.write(json.dumps(paper.__dict__) + "\n")
-
-                elif fmt == "json":
-                    # Export as JSON
-                    with open(output_path, "w") as f:
-                        json.dump([p.__dict__ for p in self.papers_db.papers], f, indent=2)
-
-                else:
-                    console.print(f"[red]Unknown export format: {fmt}[/red]")
-                    return True
-
-                console.print(
-                    f"[green]Exported {self.papers_db.count()} papers to[/green] {output_path}"
-                )
-                self.step_history.append(f"Exported to {output_path} ({fmt})")
-
-            except Exception as e:
-                console.print(f"[red]Error exporting:[/red] {e}")
-
-            return True
-
-        elif command == "exit":
-            # \exit
-            console.print("[yellow]Exiting REPL[/yellow]")
-            return True  # Return True to indicate command was handled, don't call sys.exit in tests
-
-        else:
-            # Unknown command
-            console.print(rf"[red]Unknown command:[/red] \{command}")
-            console.print(r"[dim]Type \help for available commands[/dim]")
-            return True
-
-    def run(self) -> None:
-        """Start the interactive REPL session"""
-        # Display banner
-        console.print(f"Project: [green]{self.project_name}[/green]")
-        console.print(r"[dim]Type \help for macro commands or Ctrl+D to exit[/dim]" + "\n")
-
-        # Create namespace
-        namespace = self._create_namespace()
-
-        # Use prompt_toolkit if available for better history/arrow key support
-        if HAS_PROMPT_TOOLKIT:
-            self._run_with_prompt_toolkit(namespace)
-        else:
-            self._run_with_basic_input(namespace)
-
-    def _run_with_prompt_toolkit(self, namespace: Dict[str, Any]) -> None:
-        """Run REPL with prompt_toolkit for full history and arrow key support"""
-        if self.debug:
-            console.print("[dim]Using prompt_toolkit for REPL[/dim]")
-
-        # Setup history file with manual persistence
-        session = None
-        history_file = None
-        history_obj = None
-        try:
-            history_dir = self.cache_dir
-            history_dir.mkdir(parents=True, exist_ok=True)
-            # Use single shared history file for all sessions (not per-project)
-            history_file = history_dir / ".repl_history"
-            if self.debug:
-                console.print(f"[dim]History file: {history_file}[/dim]")
-                console.print(f"[dim]History file exists: {history_file.exists()}[/dim]")
-                if history_file.exists():
-                    console.print(f"[dim]History file size: {history_file.stat().st_size} bytes[/dim]")
-
-            # Create FileHistory object
-            history_obj = FileHistory(str(history_file))
-
-            session = PromptSession(
-                completer=WordCompleter([], ignore_case=True),
-                style=Style.from_dict({
-                    'completion-menu.completion': 'bg:#008888 #ffffff',
-                    'completion-menu.completion.current': 'bg:#00aaaa #000000',
-                    'prompt': '#00aa00 bold',
-                }),
-                history=history_obj,
-                lexer=PygmentsLexer(PythonLexer),
-                enable_history_search=True,
-                validate_while_typing=True,
-            )
-        except Exception as e:
-            console.print(f"[yellow]Warning: Could not set up history:[/yellow] {e}")
-            if self.debug:
-                import traceback
-                traceback.print_exc()
-            try:
-                session = PromptSession(lexer=PygmentsLexer(PythonLexer))
-            except Exception:
-                session = PromptSession()
-
-        try:
-            while True:
-                try:
-                    # Show status line
-                    status_line = self._get_status_line()
-                    console.print(status_line)
-
-                    # Get input - let prompt_toolkit handle history
-                    line = session.prompt(">>> ")
-
-                    if line.startswith("\\exit") or line.startswith("\\q") or line.strip() in ("exit()", "quit()", "quit", "exit", "x", "bye"):
-                        if self.debug:
-                            console.print("[dim]Exiting REPL loop[/dim]")
-                        break
-                    elif line.startswith("\\"):
-                        self._handle_macro_command(line.strip())
-                        continue
-
-                    # Accumulate multiline input manually for incomplete code
-                    accumulated = line
-                    while not _is_code_complete(accumulated):
-                        try:
-                            # Calculate indentation for next line
-                            last_line = accumulated.split('\n')[-1]
-                            if last_line.rstrip().endswith(':'):
-                                indent_level = len(last_line) - len(last_line.lstrip()) + 4
-                            else:
-                                indent_level = 0
-
-                            # Get continuation line with indentation prompt
-                            indent_str = " " * indent_level
-                            continuation = session.prompt(f"... {indent_str}")
-                            accumulated += "\n" + indent_str + continuation
-                        except EOFError:
-                            break
-
-                    if not accumulated.strip():
-                        continue
-
-                    # Execute as Python code (supports multiline)
-                    # Dedent the code to handle indented blocks properly
-                    code_to_exec = textwrap.dedent(accumulated)
-                    # Try eval first (for expressions)
-                    result = eval(code_to_exec, namespace)
-                    if result is not None:
-                        print(repr(result))
-                except SyntaxError:
-                    # Fall back to exec for statements
-                    try:
-                        exec(code_to_exec, namespace)
-                    except SyntaxError as syntax_err:
-                        # Show syntax error with details
-                        console.print(f"[red]SyntaxError:[/red] {syntax_err.msg}")
-                        if syntax_err.text:
-                            console.print(f"  {syntax_err.text.rstrip()}")
-                        if syntax_err.offset:
-                            console.print(f"  {' ' * (syntax_err.offset - 1)}^")
-                        if self.debug:
-                            import traceback
-                            traceback.print_exc()
-                    except Exception as e:
-                        console.print(f"[red]Error:[/red] {e}")
-                        if self.debug:
-                            import traceback
-                            traceback.print_exc()
-                except KeyboardInterrupt:
-                    console.print("\n[yellow]Interrupted[/yellow]")
-                except EOFError:
-                    break
-                except Exception as e:
-                    console.print(f"[red]Unexpected error in REPL loop:[/red] {e}")
-                    if self.debug:
-                        import traceback
-                        traceback.print_exc()
-        finally:
-            # Ensure history is flushed
-            if history_obj is not None:
-                try:
-                    # Force flush of the history object
-                    if hasattr(history_obj, '_file_obj') and history_obj._file_obj:
-                        history_obj._file_obj.flush()
-                    if self.debug:
-                        console.print("[dim]History flushed[/dim]")
-                except Exception as e:
-                    if self.debug:
-                        console.print(f"[yellow]Warning: Could not flush history:[/yellow] {e}")
-
-    def _run_with_basic_input(self, namespace: Dict[str, Any]) -> None:
-        """Fallback REPL using basic input() (readline available on Unix)"""
-        if self.debug:
-            console.print("[dim]Using basic input() for REPL[/dim]")
+            if self.should_quit:
+                return result
 
         while True:
             try:
-                # Get input
-                line = input(">>> ").strip()
+                # Display prompt
+                status_line, prompt = self._get_status_line()
+                self.controller_reporter.log(status_line)
+                user_input = self.session.prompt(prompt, multiline=False, enable_history_search=True).strip()
 
-                if not line:
+                if not user_input:
                     continue
 
-                # Handle multiline input by accumulating lines until we have complete code
-                accumulated = line
-                indent_level = 0
-                while not _is_code_complete(accumulated):
-                    try:
-                        # Calculate indentation for next line
-                        last_line = accumulated.split('\n')[-1]
-                        if last_line.rstrip().endswith(':'):
-                            indent_level = len(last_line) - len(last_line.lstrip()) + 4
+                # Check for quit before we parse anything else
+                if user_input in ("quit", "q", "bye", "exit", "x"):
+                    break
+                elif user_input.startswith("\\") and user_input[1:] in ("quit", "q", "exit", "x"):
+                    break
 
-                        # Build prompt with indentation as visual cue
-                        indent_str = " " * indent_level
-                        continuation = input(f"... {indent_str}")
-                        # Prepend indentation to the user's input
-                        if not continuation.strip():
-                            break
-                        accumulated += "\n" + indent_str + continuation
-                    except EOFError:
-                        break
-
-                # Check if it's a macro command
-                first_line = accumulated.split('\n')[0] if '\n' in accumulated else accumulated
-                if first_line.startswith("\\"):
-                    if first_line.startswith("\\exit") or first_line.startswith("\\q"):
-                        break
-                    self._handle_macro_command(first_line.strip())
+                # Check if it's a macro command (starts with \)
+                if user_input.startswith("\\"):
+                    self._execute_macro_command(user_input)
                 else:
-                    # Execute as Python code
-                    code_to_exec = textwrap.dedent(accumulated)
-                    try:
-                        result = eval(code_to_exec, namespace)
-                        if result is not None:
-                            print(repr(result))
-                    except SyntaxError:
-                        # Try to execute as statement
-                        try:
-                            exec(code_to_exec, namespace)
-                        except SyntaxError as syntax_err:
-                            console.print(f"[red]SyntaxError:[/red] {syntax_err.msg}")
-                            if syntax_err.text:
-                                console.print(f"  {syntax_err.text.rstrip()}")
-                                if syntax_err.offset:
-                                    console.print(f"  {' ' * (syntax_err.offset - 1)}^")
-                        except Exception as ex:
-                            console.print(f"[red]Error:[/red] {ex}")
-                    except Exception as ex:
-                        console.print(f"[red]Error:[/red] {ex}")
+                    self._execute_python_code(user_input, namespace, len(prompt))
 
             except KeyboardInterrupt:
-                console.print("\n[yellow]Interrupted[/yellow]")
+                self.controller_reporter.on_error("\nInterrupted")
             except EOFError:
                 break
 
+        return 0
+
+    def _execute_macro_command(self, user_input: str) -> int:
+        """Execute a macro command (task layer)"""
+        # Strip the backslash and execute as macro
+        command_line = user_input[1:].split(" ")  # Remove \ and split on space
+        command, args = command_line[0], command_line[1:]
+        # expand aliases
+        if command in self._commands:
+            command = self._commands[command]
+        start = time.time()
+        self.controller_reporter.on_macro_start(command)
+
+        try:
+            macro_func = self._get_macro_step(command)
+            if not macro_func:
+                self.controller_reporter.on_error(f"Unknown command: [dim]{command}[/dim]")
+                return 1
+
+            result = macro_func(args)
+            duration_ms = (time.time() - start) * 1000
+            self.controller_reporter.on_macro_end(command, result, duration_ms)
+            return 0
+
+        except Exception as e:
+            duration_ms = (time.time() - start) * 1000
+            self.controller_reporter.on_macro_error(command, e, duration_ms)
+            return 1
+
+    def _execute_python_code(self, user_input: str, namespace: dict, prompt_length: int) -> None:
+        """Execute Python code in REPL (arbitrary computation)"""
+        code = user_input
+        indent_level = 0
+        prompt = f"...{' ' * (prompt_length - 3)}"
+        # Handle multi-line code input
+        while True:
+            try:
+                compile(textwrap.dedent(code), "<input>", "exec")
+                break  # Valid code
+            except IndentationError as e:
+                # Incomplete code, prompt for more input
+                # check comments
+                code = code.split('#')[0].rstrip()
+                # check blocks
+                if code[-1] == ":":
+                    indent_level += 1
+                else:
+                    indent_level = max(0, indent_level - 1)
+                indent_str = " " * (TABSTOP * indent_level)
+                try:
+                    more_input = self.session.prompt(f"{prompt}{indent_str}", multiline=False, enable_history_search=True)
+                except KeyboardInterrupt:
+                    self.controller_reporter.log_warning("KeyboardInterrupt during code input")
+                    return
+                if more_input.strip() == "":  # Empty line ends input
+                    more_input = ""
+                    break
+                code += "\n" + indent_str + more_input
+            except SyntaxError as e:
+                self.controller_reporter.log_error(f"SyntaxError: {e}")
+                return
+            except EOFError:
+                break
+
+        # Now execute the complete code
+        try:
+            # Try eval first (for expressions)
+            result = eval(code, namespace)
+            if result is not None:
+                print(repr(result))
+        except SyntaxError:
+            # Try exec for statements
+            try:
+                exec(code, namespace)
+            except Exception as e:
+                self.controller_reporter.log_error(e)
+        except Exception as e:
+            self.controller_reporter.log_error(e)
+
+    def _do_shutdown(self) -> None:
+        # Shutdown logic here
+        pass
+
+    # ================================================================
+    # Macro REPL step implementations
+    # ================================================================
+
+    @macro_step("step", "n", "\\")
+    def step_cmd(self, args: list[str]) -> StepResult:
+        """Execute next step"""
+        if not self.executor.has_next_step:
+            return StepResult(status=StepStatus.WARNING, message="Step: All steps done")
+        return self.executor.execute_next_step(self.dry_run)
+
+    @macro_step("run", "r")
+    def run_cmd(self, args: list[str]) -> StepResult:
+        """Execute all remaining steps"""
+        if not self.executor.has_next_step:
+            return StepResult(status=StepStatus.WARNING, message="Run: All steps done")
+        return self.executor.run_all(
+            dry_run=self.dry_run,
+            on_step_start=self.step_reporter.on_step_start,
+            on_step_end=self.step_reporter.on_step_end,
+        )
+
+    @macro_step("steps", "ls")
+    def list_steps_cmd(self, args: list[str]) -> StepResult:
+        """List all steps"""
+        self.controller_reporter.log("\n[bold]📋 Pipeline Steps:[/bold]")
+
+        # Show templates
+        if self.executor.templates:
+            self.controller_reporter.log(f"\n[cyan]Templates ({len(self.executor.templates)}):[/cyan]")
+            for template_name, template_steps in self.executor.templates.items():
+                self.controller_reporter.log(f"  • [white]{template_name}[/white] [dim]({len(template_steps)} steps)[/dim]")
+
+        # # Show main steps
+        if self.executor.steps:
+            self.controller_reporter.log(f"\n[cyan]Main Steps ({len(self.executor.steps)}):[/cyan]")
+            steps = self.executor.steps
+            for idx, step in enumerate(steps):
+                status = "✓" if idx < self.executor.current_step_index else " "
+                action = tuple(set(step.keys()) - {"step", "description"})[0]
+                description = step.get("step", "No description")
+                self.controller_reporter.log(f"[{status}] Step {idx + 1}: [blue]{description}[/blue] ([dim]{action}[/dim])")
+
+        self.controller_reporter.log("")
+        return StepResult(status=StepStatus.SUCCESS)
+
+    @macro_step("stats", "i")
+    def stats_cmd(self, args: list[str]) -> StepResult:
+        """Show database stats"""
+        stats = self.executor.get_stats()
+        self.controller_reporter.log("  [bold]📊 Statistics:[/bold]\n")
+
+        project_name = stats.get('project_name', 'N/A')
+        papers_total = stats.get('papers_total', 0)
+        papers_unique = stats.get('papers_unique', 0)
+        papers_duplicates = stats.get('papers_duplicates', 0)
+        current_step = stats.get('current_step_index', 0)
+        total_steps = stats.get('total_steps', 0)
+        steps_executed = stats.get('steps_executed', 0)
+        total_duration = stats.get('total_duration_seconds', 0)
+        step_history = stats.get('step_history', [])
+
+        self.controller_reporter.log(f"  [cyan]Project:[/cyan] [white]{project_name}[/white]")
+        self.controller_reporter.log(f"  [cyan]Papers:[/cyan] [white]{papers_total}[/white] total [dim]([green]{papers_unique}[/green] unique, [yellow]{papers_duplicates}[/yellow] duplicates)[/dim]")
+        self.controller_reporter.log(f"  [cyan]Progress:[/cyan] [white]{current_step}/{total_steps}[/white] steps")
+        self.controller_reporter.log(f"  [cyan]Executed:[/cyan] [white]{steps_executed}[/white] steps")
+        self.controller_reporter.log(f"  [cyan]Total duration:[/cyan] [white]{total_duration:.2f}s[/white]")
+
+        if step_history:
+            self.controller_reporter.log("\n  [bold cyan]Step Timings:[/bold cyan]")
+            for i, entry in enumerate(step_history):
+                step_name = entry.get('step', 'Unknown')
+                duration_ms = entry.get('duration_ms', 0)
+                percentage = (duration_ms / (total_duration * 1000) * 100) if total_duration > 0 else 0
+                color = "white" if i % 2 == 0 else "magenta"
+                self.controller_reporter.log(f"    • [{color}]{step_name:<25}[/{color}] [dim]{duration_ms:>7d}ms ({percentage:>5.1f}%)[/dim]")
+        self.controller_reporter.log()
+        return StepResult(status=StepStatus.SUCCESS)
 
 
-def execute_repl(
-    cache_dir: Optional[Path] = None,
-    definition_file: Optional[Path] = None,
-    auto_run: bool = False,
-    verbose: bool = False,
-    debug: bool = False,
-    quit_after_definition: bool = False,
-    builtin_steps: Optional[Dict[str, Any]] = None,
-) -> int:
-    """
-    Execute REPL session
-        cache_dir: Cache directory
-        definition_file: Optional YAML definition to load at startup
-        verbose: Enable verbose output
-        debug: Enable debug output
-        quit_after_definition: Quit immediately after executing definition (no interactive mode)
-        builtin_steps: Available builtin steps
+    @macro_step("state", "s")
+    def state_cmd(self, args: list[str]) -> StepResult:
+        """Show current execution state with progress and context"""
+        state = self.executor.get_session_state()
+        
+        # Extract relevant data
+        project_name = state.get('general_config', {}).get('project_name', 'Untitled')
+        papers_db = state.get('papers_db')
+        current_idx = state.get('current_step_index', 0)
+        total_steps = state.get('total_steps', 0)
+        step_history = state.get('step_history', [])
+        last_step = state.get('last_step', {})
+        current_step = state.get('current_step', {})
+        results = state.get('results')
+        
+        # Format output
+        self.controller_reporter.log("\n  [bold cyan]═══ EXECUTION STATE ═══[/bold cyan]")
+        
+        # Project & Database
+        self.controller_reporter.log(f"\n  [bold]Project:[/bold] [white]{project_name}[/white]")
+        if papers_db:
+            count = len(papers_db)
+            unique = papers_db.count(primary_only=True)
+            duplicates = count - unique
+            self.controller_reporter.log(f"  [bold]Database:[/bold] [white]{count}[/white] papers [dim]({unique} primary, {duplicates} duplicates)[/dim]")
+        
+        # Progress bar
+        completed = len(step_history)
+        progress_pct = (completed / total_steps * 100) if total_steps > 0 else 0
+        bar_width = 30
+        filled = int(bar_width * completed / total_steps) if total_steps > 0 else 0
+        bar = "█" * filled + "░" * (bar_width - filled)
+        self.controller_reporter.log(f"\n  [bold]Progress:[/bold] [{bar}] {completed}/{total_steps} steps ({progress_pct:.0f}%)")
+        
+        # Last executed step result
+        if last_step and results:
+            self.controller_reporter.log(f"\n  [bold cyan]Last Step: {last_step.get('name', 'N/A')}[/bold cyan]")
+            self.controller_reporter.log(f"    [cyan]Message:[/cyan] {results.message}")
+            if results.stats:
+                stats_str = " | ".join([f"{k}: [green]{v}[/green]" for k, v in results.stats.items()])
+                self.controller_reporter.log(f"    [cyan]Stats:[/cyan] {stats_str}")
+            duration = results.timings.get('duration_ms', 0) if results.timings else 0
+            if duration:
+                self.controller_reporter.log(f"    [cyan]Duration:[/cyan] [dim]{duration:.0f}ms[/dim]")
+        
+        # Current step info
+        if current_step and current_idx < total_steps:
+            self.controller_reporter.log(f"\n  [bold cyan]Current Step: {current_step.get('name', 'N/A')}[/bold cyan]")
+            self.controller_reporter.log(f"    [cyan]Description:[/cyan] {current_step.get('description', 'N/A')}")
+        
+        self.controller_reporter.log("\n  [bold cyan]═══════════════════════[/bold cyan]\n")
+        return StepResult(status=StepStatus.SUCCESS)
 
-    Returns:
-        Exit code (0 for success)
-    """
-    session = REPLSession(
-        cache_dir=cache_dir,
-        verbose=verbose,
-        debug=debug,
-        builtin_steps=builtin_steps,
+    @macro_step("reset", "rst")
+    def reset_cmd(self, args: list[str]) -> StepResult:
+        """Reset executor state: \\reset [execution|definition|database|all]"""
+        scope = args[0] if args else "execution"
+        try:
+            self.executor.reset(scope)
+            scope_display = f"[green]✓ Reset {scope} state[/green]"
+            self.controller_reporter.log(f"  {scope_display}\n")
+            return StepResult(status=StepStatus.SUCCESS)
+        except ValueError as e:
+            self.controller_reporter.log_error(str(e))
+            return StepResult(status=StepStatus.ERROR, error=str(e))
+
+    @macro_step("checkpoint", "c")
+    def checkpoint_cmd(self, args: list[str]) -> StepResult:
+        """Save checkpoint"""
+        return self.executor.checkpoint()
+
+    @macro_step("show", "v")
+    def show_cmd(self, args: list[str]) -> StepResult:
+        """Show database records in paginated APA format"""
+        papers = self.executor.papers_db
+        if not papers:
+            self.controller_reporter.log("[yellow]No papers in database[/yellow]")
+            return StepResult(status=StepStatus.SUCCESS)
+
+        # Get all papers
+        all_papers = list(papers)
+        total_papers = len(all_papers)
+
+        try:
+            # Create and run viewer
+            viewer = ConsoleViewer(all_papers, page_size=10)
+            viewer.run()
+            return StepResult(status=StepStatus.SUCCESS, message=f"Viewed {total_papers} papers")
+        except Exception as e:
+            self.controller_reporter.log_error(f"Error in viewer: {e}")
+            return StepResult(status=StepStatus.ERROR, error=str(e))
+
+    @macro_step("help", "?")
+    def help_cmd(self, args: list[str]) -> StepResult:
+        """Show help"""
+        for line in self._help_text:
+            if type(line) is str:
+                self.controller_reporter.log(f"[yellow]{line}[/yellow]")
+            else:
+                name, aliases, description = line
+                alias_str = ", ".join(aliases)
+                cmd_str = f"{name} ({alias_str})"
+                self.controller_reporter.log(f"  [cyan]{cmd_str:<15}[/cyan] - {description}")
+        self.controller_reporter.log("")
+        return StepResult(status=StepStatus.SUCCESS)
+
+
+def execute_repl(args: dict[str, any]) -> int:
+    """Run the REPL task. This is the main entry point for the CLI command."""
+
+    # Create reporters
+    shared_reporter = ConsoleReporter()
+
+    # Create controller
+    controller = ReplController(
+        controller_reporter=shared_reporter,
+        step_reporter=shared_reporter,
+        # executor_class=StepExecutor,
+        args=args,
     )
 
-    if session.load_initial_definition(definition_file) and auto_run:
-        session.execute_definition_file()
-        if quit_after_definition:
-            console.print(
-                "[green]Definition execution complete.[/green] "
-                "Exiting REPL as --quit mode is enabled."
-            )
-            sys.exit(0)
+    # Lifecycle: initialize → exec → shutdown
+    try:
+        if not controller.initialize():
+            return 1
 
-    session.run()
+        return_code = controller.exec()
+        return return_code
+
+    finally:
+        # ALWAYS shutdown, even if exec() failed
+        # This is sophisticated Python semantics
+        controller.shutdown()

@@ -6,6 +6,7 @@ Processes YAML definition files and executes sequential steps
 
 import argparse
 import signal
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Type
@@ -274,28 +275,31 @@ def main():
     repl_parser.add_argument(
         "-f",
         "--definition",
+        dest="definition",
         type=Path,
         default=None,
         help="Optional YAML definition file to load at startup (post-checkpoint)",
     )
 
     repl_parser.add_argument(
-        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+        "--cache-dir", type=Path, default=Path(os.environ.get("CACHE_DIR", "~/.paper-scanner")).expanduser(), help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
     )
 
     repl_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
-
     repl_parser.add_argument("-d", "--debug", action="store_true", help="Enable debug output")
+    repl_parser.add_argument("-t", "--timings", action="store_true", help="Show timing information")
+    repl_parser.add_argument("-q", "--quiet", action="store_true", help="Suppress non-error output")
+    repl_parser.add_argument("--dry-run", dest="dry_run", action="store_true", help="Don't actually cache entries")
 
     repl_parser.add_argument(
-        "-q",
+        "-x",
         "--quit",
         action="store_true",
         help="Quit immediately after executing definition file (no interactive mode)",
     )
 
     repl_parser.add_argument(
-        "-n", "--no-autorun", action="store_true", help="Only load definition file (direct into interactive mode)"
+        "-n", "--no-autorun", dest="auto_run", default=True, action="store_false", help="Only load definition file (direct into interactive mode)"
     )
 
     # ===== CACHE COMMAND =====
@@ -331,7 +335,7 @@ def main():
 
     load_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
-    load_parser.add_argument("--dry-run", action="store_true", help="Don't actually cache files")
+    load_parser.add_argument("--dry-run", dest="dry_run", action="store_true", help="Don't actually cache files")
 
     # Manual cache commands (nested under cache)
     manual_parser = cache_subparsers.add_parser("manual", help="Manual handler cache operations")
@@ -348,7 +352,7 @@ def main():
 
     manual_load_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
 
-    manual_load_parser.add_argument("--dry-run", action="store_true", help="Don't actually cache entries")
+    manual_load_parser.add_argument("--dry-run", dest="dry_run", action="store_true", help="Don't actually cache entries")
 
     manual_clear_parser = manual_subparsers.add_parser("clear", help="Clear manual handler cache")
 
@@ -436,17 +440,7 @@ def main():
             sys.exit(exit_code)
 
         elif args.command == "repl":
-            builtin_steps = StepExecutor.BUILTIN_STEPS
-
-            exit_code = execute_repl(
-                cache_dir=args.cache_dir,
-                definition_file=args.definition,
-                auto_run=not args.no_autorun,
-                verbose=args.verbose,
-                debug=args.debug,
-                quit_after_definition=args.quit,
-                builtin_steps=builtin_steps,
-            )
+            exit_code = execute_repl(args)
             sys.exit(exit_code)
 
         elif args.command == "info":
@@ -535,11 +529,10 @@ def main():
                 sys.exit(exit_code)
 
     except Exception as e:
-        console.print(f"[red bold]Error:[/red bold] {e}", style="red")
-        if args.debug:
-            import traceback
-
-            console.print(traceback.print_exc())
+        # This should never happen, but just in case
+        console.print(f"[red bold]CLI Error:[/red bold] {e}", style="red")
+        import traceback
+        console.print(traceback.format_exc())
         sys.exit(1)
 
 

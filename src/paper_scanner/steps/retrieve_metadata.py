@@ -23,6 +23,7 @@ from rich.console import Console
 
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import Paper
+from paper_scanner.core.step_result import StepResult
 from paper_scanner.tools.fetchers.fetcher import Fetcher
 
 from .base import BaseStep
@@ -86,8 +87,7 @@ class RetrieveMetadataStep(BaseStep):
         continue_on_not_found = config.get("continue_on_not_found", True)
         overwrite = config.get("overwrite", True)
 
-        if verbose:
-            console.print(f" Using methods: {methods}")
+        self.callback(f"Using methods: {methods}", debug=True)
 
         # Initialize fetcher with specified methods
         fetcher = Fetcher(cache_dir=self.cache_dir, methods=methods, verbose=verbose, debug=debug)
@@ -95,39 +95,42 @@ class RetrieveMetadataStep(BaseStep):
         # Get all papers
         papers = self.db.all(primary_only=True)
 
-        results = {
+        stats = {
             "total_papers": len(papers),
             "updated_papers": 0,
             "skipped_no_doi": 0,
             "not_found": 0,
             "errors": [],
             "cache_hits": 0,
-            "cache_misses": 0,
+            "api_calls": 0,
         }
+        errors = []
 
         for i, paper in enumerate(papers, 1):
             if not paper.doi:
-                results["skipped_no_doi"] += 1
-                console.print(f" [yellow]⚠️  [{i}/{len(papers)}][/yellow] Skipping: no DOI")
+                stats["skipped_no_doi"] += 1
+                self.callback(f" [yellow]⚠️[{i}/{len(papers)}][/yellow] Skipping: no DOI", debug=True)
                 continue
 
             # Fetch metadata
             enriched_paper, cache_hit = fetcher.fetch_paper(paper.doi)
-            cache = "💾" if cache_hit else "🌐"
+            if cache_hit:
+                cache = "💾"
+                stats["cache_hits"] += 1
+            else:
+                cache = "🌐"
+                stats["api_calls"] += 1
 
-            if verbose:
-                console.print(
-                    f" [{i}/{len(papers)}]{cache}Fetching metadata for {paper.doi}...",
-                )
+            self.callback(f" [{i}/{len(papers)}]{cache}Fetching metadata for {paper.doi}...", debug=True)
 
             if enriched_paper is None:
-                results["not_found"] += 1
-                console.print(" [yellow]Not found[/yellow]")
+                stats["not_found"] += 1
+                self.callback(" [yellow]Not found[/yellow]", debug=True)
                 if not continue_on_not_found:
-                    results["errors"].append(f"{paper.doi}: Not found in any source")
+                    errors.append(f"{paper.doi}: Not found in any source")
                 continue
-            elif debug:
-                console.print(f" [dim]Fetched metadata: {enriched_paper}[/dim]")
+            else:
+                self.callback(f" [dim]Fetched metadata: {enriched_paper}[/dim]", debug=True)
 
             # Merge enriched metadata into existing paper
             _merge_paper_metadata(paper, enriched_paper, overwrite=overwrite)
@@ -135,29 +138,15 @@ class RetrieveMetadataStep(BaseStep):
             # Update database (unless in dry_run mode)
             if not dry_run:
                 self.db.update(paper)
-            results["updated_papers"] += 1
+            stats["updated_papers"] += 1
 
-            # Track cache hit/miss
-            if cache_hit:
-                results["cache_hits"] += 1
-            else:
-                results["cache_misses"] += 1
-
-        # Print summary
-        if verbose:
-            console.print(" Metadata Retrieval Summary")
-            console.print(f"  Total papers: {results['total_papers']}")
-            console.print(f"  Updated: {results['updated_papers']}")
-            console.print(f"  Skipped (no DOI): {results['skipped_no_doi']}")
-            console.print(f"  Not found: {results['not_found']}")
-            console.print(f"  Cache hits: {results['cache_hits']}")
-            console.print(f"  Cache misses: {results['cache_misses']}")
-
-        if results["errors"]:
-            console.print(f" [red]✗[/red] [red]Errors: {len(results['errors'])}[/red]")
-
-        results["status"] = StepStatus.SUCCESS if len(results['errors']) == 0 else StepStatus.ERROR
-        return results
+        result = StepResult(
+            status = StepStatus.SUCCESS if len(errors) == 0 else StepStatus.ERROR,
+            stats = stats,
+            message = f"Metadata retrieval complete: {stats['updated_papers']} updated, {stats['not_found']} not found, {stats['skipped_no_doi']} skipped.",
+            details = "\n".join(errors) if errors else None
+        )
+        return result
 
 
 def _merge_paper_metadata(target: Paper, source: Paper, overwrite: bool = False) -> None:
