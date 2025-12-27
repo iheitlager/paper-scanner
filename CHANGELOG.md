@@ -10,13 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Controller Feature**: New controller system for managing pipeline workflows
+  - interactive switch setting for `verbose`, `debug`, `timings`, `dry-run`
+  - `reset` option to start new in the interactive session
 - **Paper APA Citation Property**: New `apa` property on Paper model for formatted APA-style citations
   - Automatically formats: authors (with "et al." for >3), year, title, journal, volume, issue, pages, DOI
 - **REPL Show Command** (`show`, `v`): Interactive paginated viewer for database papers
   - Displays up to 10 papers per page with APA-formatted citations
-  - Navigate with left/right arrow keys for pagination
-  - Exit with `q`, `Q`, or `ESC` key
-  - Clean, indexed list format for easy scanning
+  - allow copy of paper to `json`, `bibtex`, `apa` or only `doi`
+
 
 ## [3.3.0] - 2025-12-24
 
@@ -28,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Validates required fields: title, abstract, keywords (skips invalid entries with logging)
   - Automatic `citedbycount` calculation from `citedby` field if not provided
   - Citation objects created with `extraction_method="manual"` and `confidence=1.0`
-  - CLI commands: `paper-processor cache manual load <file.bib>` and `paper-processor cache manual clear`
+  - CLI commands: `paper-processor cache manual load <file.bib>` and `paper-processor cache manual clear` to preload the cache
   - Comprehensive unit tests covering bibtex parsing, cache storage/retrieval, citation creation
 
 - **JSONCache Expiration Support**: Enhanced `JSONFileCache` with configurable time-to-live (TTL)

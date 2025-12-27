@@ -95,7 +95,7 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
     # AbstractStepReporter
     def on_step_start(self, idx: int, step_config: Dict, total: int) -> None:
         description = step_config.get("description", step_config.get("step", "Unknown"))
-        self.log_info(f"Executing step: {description}...")
+        self.log_info(f"Executing step: {description}... ([dim]('{step_config['command']}')[/dim])")
 
     def on_step_end(self, idx: int, step_config: Dict, result: StepResult) -> None:
         if result.details:
@@ -427,9 +427,8 @@ class ReplController(AbstractController):
             steps = self.executor.steps
             for idx, step in enumerate(steps):
                 status = "✓" if idx < self.executor.current_step_index else " "
-                action = tuple(set(step.keys()) - {"step", "description"})[0]
                 description = step.get("step", "No description")
-                self.controller_reporter.log(f"[{status}] Step {idx + 1}: [blue]{description}[/blue] ([dim]{action}[/dim])")
+                self.controller_reporter.log(f"[{status}] Step {idx + 1}: [blue]{description}[/blue] ([dim]{step['command']}[/dim])")
 
         self.controller_reporter.log("")
         return StepResult(status=StepStatus.SUCCESS)
@@ -523,7 +522,7 @@ class ReplController(AbstractController):
 
     @macro_step("reset", "rst")
     def reset_cmd(self, args: list[str]) -> StepResult:
-        """Reset executor state: \\reset [execution|definition|database|all]"""
+        """Reset executor state: \\reset [execution|definition|all]"""
         scope = args[0] if args else "execution"
         try:
             self.executor.reset(scope)

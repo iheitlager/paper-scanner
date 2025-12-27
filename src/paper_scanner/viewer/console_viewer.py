@@ -32,48 +32,52 @@ class ConsoleViewer:
         self.console.clear()
 
         page_info = self.controller.get_page_info()
-        
+
         # In filter or search mode, show only filtered papers
         if (self.mode in ("filter", "search")) and self.filtered_indices:
             papers_to_show = [self.controller.papers[i] for i in self.filtered_indices]
             start_idx = 1  # Start numbering from 1
         else:
             papers_to_show = self.controller.get_current_page_papers()
-            start_idx = page_info['start_index']
+            start_idx = page_info["start_index"]
 
         # Papers
         for i, paper in enumerate(papers_to_show):
             idx = start_idx + i
-            
+
             # Check if this paper is selected
             if self.mode in ("filter", "search"):
-                is_selected = (self.filter_selected_index == i)
+                is_selected = self.filter_selected_index == i
             else:
-                is_selected = (self.controller.selected_index == i)
-            
+                is_selected = self.controller.selected_index == i
+
             if is_selected:
                 # Highlight selected paper with background color
-                self.console.print(f"[cyan bold on blue]{idx}.[/cyan bold on blue][bold on blue] {paper.apa}[/bold on blue]")
+                self.console.print(
+                    f"[cyan bold on blue]{idx}.[/cyan bold on blue][bold on blue] {paper.apa}[/bold on blue]"
+                )
             else:
                 self.console.print(f"[cyan]{idx}.[/cyan] {paper.apa}")
-            
+
             self.console.print()
 
         # Footer - 4 lines
         line1 = "[dim]Navigation: [cyan]↑/↓[/cyan] select  [cyan]→/←[/cyan] page[/dim]"
         self.console.print(line1)
-        
+
         if self.controller.get_selected_paper():
-            line2 = "[dim]Selected: [cyan]d[/cyan] details  [cyan]b[/cyan] bibtex  [cyan]i[/cyan] doi  [cyan]c[/cyan] json  [cyan]:[/cyan] search  [cyan]?[/cyan] help  [cyan]q[/cyan] quit[/dim]"
+            line2 = "[dim]Selected: [cyan]d[/cyan] details  [cyan]b[/cyan] bibtex  [cyan]i[/cyan] doi  [cyan]a[/cyan] apa  [cyan]c[/cyan] json  [cyan]:[/cyan] search  [cyan]?[/cyan] help  [cyan]q[/cyan] quit[/dim]"
             self.console.print(line2)
         else:
             line2 = "[dim]Selected: (none)  [cyan]q[/cyan] quit[/dim]"
             self.console.print(line2)
-        
+
         # Line 3: Page info or mode status
         if self.mode == "search":
             match_count = len(self.filtered_indices) if self.filtered_indices else 0
-            line3 = f"[yellow][Search mode] Matching {match_count} papers — Press Enter to apply, Q/ESC to cancel[/yellow]"
+            line3 = (
+                f"[yellow][Search mode] Matching {match_count} papers — Press Enter to apply, Q/ESC to cancel[/yellow]"
+            )
         elif self.mode == "filter":
             match_count = len(self.filtered_indices) if self.filtered_indices else 0
             line3 = f"[yellow][Filter mode] Showing {match_count} filtered papers — Press : to search again, Q/ESC to exit[/yellow]"
@@ -81,7 +85,7 @@ class ConsoleViewer:
             page_info = self.controller.get_page_info()
             line3 = f"[dim]Page {page_info['current_page']}/{page_info['total_pages']} — {page_info['end_index']}/{page_info['papers_total']} papers[/dim]"
         self.console.print(line3)
-        
+
         # Line 4: Messages or search input
         if self.mode == "search":
             self.console.print(f"[cyan]:[/cyan] {self.filter_query}[dim]_[/dim]")
@@ -100,7 +104,7 @@ class ConsoleViewer:
             paper = self.controller.get_selected_paper()
             page_info = self.controller.get_page_info()
             # Calculate absolute position across all papers in database
-            absolute_position = page_info['start_index'] + self.controller.selected_index
+            absolute_position = page_info["start_index"] + self.controller.selected_index
             position = f"{absolute_position}/{page_info['papers_total']}"
         else:
             return
@@ -112,20 +116,20 @@ class ConsoleViewer:
 [bold cyan]Paper Details (Detail Mode)[/bold cyan]
 [dim]{position}[/dim]
 
-[bold]Title:[/bold] {paper.title or 'N/A'}
-[bold]Authors:[/bold] {', '.join(a.full_name for a in paper.authors) if paper.authors else 'N/A'}
-[bold]Year:[/bold] {paper.year or 'N/A'}
-[bold]Journal:[/bold] {paper.journal or 'N/A'}
-[bold]Volume/Issue:[/bold] {paper.volume or 'N/A'}/{paper.number or 'N/A'}
-[bold]Pages:[/bold] {paper.pages or 'N/A'}
-[bold]DOI:[/bold] {paper.doi or 'N/A'}
-[bold]URL:[/bold] {paper.url or 'N/A'}
+[bold]Title:[/bold] {paper.title or "N/A"}
+[bold]Authors:[/bold] {", ".join(a.full_name for a in paper.authors) if paper.authors else "N/A"}
+[bold]Year:[/bold] {paper.year or "N/A"}
+[bold]Journal:[/bold] {paper.journal or "N/A"}
+[bold]Volume/Issue:[/bold] {paper.volume or "N/A"}/{paper.number or "N/A"}
+[bold]Pages:[/bold] {paper.pages or "N/A"}
+[bold]DOI:[/bold] {paper.doi or "N/A"}
+[bold]URL:[/bold] {paper.url or "N/A"}
 
 [bold]Abstract:[/bold]
-{paper.abstract or 'N/A'}
+{paper.abstract or "N/A"}
 
 [bold]Keywords:[/bold]
-{', '.join(paper.keywords) if paper.keywords else 'N/A'}
+{", ".join(paper.keywords) if paper.keywords else "N/A"}
 
 [bold cyan]APA Citation:[/bold cyan]
 {paper.apa}
@@ -133,9 +137,9 @@ class ConsoleViewer:
         self.console.print(details)
 
         # Footer with navigation options
-        footer = "[dim][cyan]↑/↓[/cyan] navigate  [cyan]b[/cyan] bibtex  [cyan]i[/cyan] doi  [cyan]c[/cyan] json  [cyan]q/ESC[/cyan] exit detail mode[/dim]"
+        footer = "[dim][cyan]↑/↓[/cyan] navigate  [cyan]b[/cyan] bibtex  [cyan]i[/cyan] doi  [cyan]a[/cyan] apa  [cyan]c[/cyan] json  [cyan]q/ESC[/cyan] exit detail mode[/dim]"
         self.console.print(footer)
-        
+
         # Message line (for copy feedback, etc.)
         self.console.print(self.message)
 
@@ -160,7 +164,7 @@ class ConsoleViewer:
         else:
             self.message = f"[red]✗ {failure_msg}[/red]"
         # Will be called by the mode-specific render method
-    
+
     def _render_and_show_message(self) -> None:
         """Render current view and show message (used after copy operations)"""
         if self.mode == "detail":
@@ -176,18 +180,18 @@ class ConsoleViewer:
             tty.setraw(fd)
             ch = sys.stdin.read(1)
             # Check for escape sequences (arrow keys)
-            if ch == '\x1b':  # ESC sequence
+            if ch == "\x1b":  # ESC sequence
                 next_ch = sys.stdin.read(1)
-                if next_ch == '[':
+                if next_ch == "[":
                     arrow = sys.stdin.read(1)
-                    if arrow == 'C':  # Right arrow
-                        return 'right'
-                    elif arrow == 'D':  # Left arrow
-                        return 'left'
-                    elif arrow == 'A':  # Up arrow
-                        return 'up'
-                    elif arrow == 'B':  # Down arrow
-                        return 'down'
+                    if arrow == "C":  # Right arrow
+                        return "right"
+                    elif arrow == "D":  # Left arrow
+                        return "left"
+                    elif arrow == "A":  # Up arrow
+                        return "up"
+                    elif arrow == "B":  # Down arrow
+                        return "down"
             return ch
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
@@ -205,23 +209,25 @@ class ConsoleViewer:
 
                     if self.mode == "detail":
                         # In detail mode, navigate through papers with up/down
-                        if key in ('q', 'Q', '\x1b'):  # q, Q, or ESC - exit detail mode
+                        if key in ("q", "Q", "\x1b"):  # q, Q, or ESC - exit detail mode
                             self.mode = self.detail_source_mode
                             self.detail_source_mode = None
+                            self.message = ""  # Clear message on mode change
                             self.render_page()
-                        elif key == 'down':
+                        elif key == "down":
                             # Move to next paper
+                            self.message = ""  # Clear message on navigation
                             if self.detail_source_mode == "filter" and self.filter_selected_index is not None:
                                 if self.filter_selected_index < len(self.filtered_indices) - 1:
                                     self.filter_selected_index += 1
                             elif self.detail_source_mode == "full":
                                 page_info = self.controller.get_page_info()
                                 current_page_papers = self.controller.get_current_page_papers()
-                                
+
                                 # Check if at last paper on current page
-                                is_last_on_page = (self.controller.selected_index >= len(current_page_papers) - 1)
-                                has_next_page = (page_info['current_page'] < page_info['total_pages'])
-                                
+                                is_last_on_page = self.controller.selected_index >= len(current_page_papers) - 1
+                                has_next_page = page_info["current_page"] < page_info["total_pages"]
+
                                 if is_last_on_page and has_next_page:
                                     # At end of page and there are more pages - go to next page
                                     self.controller.next_page()
@@ -231,18 +237,19 @@ class ConsoleViewer:
                                     self.controller.select_down()
                                 # else: at last paper of last page, do nothing
                             self._render_detail_page()
-                        elif key == 'up':
+                        elif key == "up":
                             # Move to previous paper
+                            self.message = ""  # Clear message on navigation
                             if self.detail_source_mode == "filter" and self.filter_selected_index is not None:
                                 if self.filter_selected_index > 0:
                                     self.filter_selected_index -= 1
                             elif self.detail_source_mode == "full":
                                 page_info = self.controller.get_page_info()
-                                
+
                                 # Check if at first paper on current page
-                                is_first_on_page = (self.controller.selected_index <= 0)
-                                has_prev_page = (page_info['current_page'] > 1)
-                                
+                                is_first_on_page = self.controller.selected_index <= 0
+                                has_prev_page = page_info["current_page"] > 1
+
                                 if is_first_on_page and has_prev_page:
                                     # At start of page and there are previous pages - go to previous page
                                     self.controller.prev_page()
@@ -253,95 +260,125 @@ class ConsoleViewer:
                                     self.controller.select_up()
                                 # else: at first paper of first page, do nothing
                             self._render_detail_page()
-                        elif key == 'b':
+                        elif key == "b":
                             # Copy bibtex
                             paper = self._get_current_paper()
                             if paper:
                                 bibtex = self.controller._paper_to_bibtex(paper)
-                                self._copy_to_clipboard_and_message(bibtex, f"BibTeX copied to clipboard: {paper.doi}", "Failed to copy to clipboard")
+                                self._copy_to_clipboard_and_message(
+                                    bibtex, f"BibTeX copied to clipboard: {paper.doi}", "Failed to copy to clipboard"
+                                )
                                 self._render_detail_page()
-                        elif key == 'i':
+                        elif key == "i":
                             # Copy DOI
                             paper = self._get_current_paper()
                             if paper:
-                                self._copy_to_clipboard_and_message(paper.doi, f"DOI copied to clipboard: {paper.doi}", "No DOI or failed to copy")
+                                self._copy_to_clipboard_and_message(
+                                    paper.doi, f"DOI copied to clipboard: {paper.doi}", "No DOI or failed to copy"
+                                )
                                 self._render_detail_page()
-                        elif key == 'c':
+                        elif key == "c":
                             # Copy JSON
                             paper = self._get_current_paper()
                             if paper:
-                                json_str = self.controller._paper_to_json(paper) if self.detail_source_mode == "filter" else self.controller.get_selected_as_json()
-                                self._copy_to_clipboard_and_message(json_str, f"JSON copied to clipboard: {paper.doi}", "Failed to copy to clipboard")
+                                json_str = (
+                                    self.controller._paper_to_json(paper)
+                                    if self.detail_source_mode == "filter"
+                                    else self.controller.get_selected_as_json()
+                                )
+                                self._copy_to_clipboard_and_message(
+                                    json_str, f"JSON copied to clipboard: {paper.doi}", "Failed to copy to clipboard"
+                                )
+                                self._render_detail_page()
+                        elif key == "a":
+                            # Copy APA citation
+                            paper = self._get_current_paper()
+                            if paper:
+                                self._copy_to_clipboard_and_message(
+                                    paper.apa,
+                                    f"APA citation copied to clipboard: {paper.doi}",
+                                    "Failed to copy to clipboard",
+                                )
                                 self._render_detail_page()
 
                     elif self.mode == "search":
                         # In search mode, handle text input
-                        if key in ('\x1b',):  # ESC - cancel search, return to full
+                        if key in ("\x1b",):  # ESC - cancel search, return to full
                             self.mode = "full"
                             self.filter_query = ""
                             self.filtered_indices = None
                             self.render_page()
-                        elif key in ('q', 'Q'):  # Q - quit to full mode
+                        elif key in ("q", "Q"):  # Q - quit to full mode
                             self.mode = "full"
                             self.filter_query = ""
                             self.filtered_indices = None
                             self.render_page()
-                        elif key == '\r':  # Enter - apply search, keep filter mode
+                        elif key == "\r":  # Enter - apply search, keep filter mode
                             self.mode = "filter"
                             self.filter_selected_index = None  # Reset selection in filtered results
                             self.render_page()
-                        elif key == '\x08' or key == '\x7f':  # Backspace (^H or DEL)
+                        elif key == "\x08" or key == "\x7f":  # Backspace (^H or DEL)
                             self.filter_query = self.filter_query[:-1]
                             self._update_filter()
                         elif len(key) == 1 and ord(key) >= 32:  # Printable characters
                             self.filter_query += key
                             self._update_filter()
-                    
+
                     elif self.mode == "filter":
                         # In filter mode, all normal commands work but on filtered papers
-                        if key in ('q', 'Q', '\x1b'):  # q, Q, or ESC - exit to full mode
+                        if key in ("q", "Q", "\x1b"):  # q, Q, or ESC - exit to full mode
                             self.mode = "full"
                             self.filter_query = ""
                             self.filtered_indices = None
                             self.filter_selected_index = None
+                            self.message = ""  # Clear message on mode change
                             self.render_page()
-                        elif key == ':':  # Enter search mode within filter
+                        elif key == ":":
+                            self.message = ""  # Clear message when entering search
                             self.mode = "search"
                             self.filter_query = ""
                             self.render_page()
-                        elif key == 'right':
+                        elif key == "right":
                             # Pagination in filtered results
+                            self.message = ""  # Clear message on navigation
                             self.render_page()
-                        elif key == 'left':
+                        elif key == "left":
                             # Pagination in filtered results
+                            self.message = ""  # Clear message on navigation
                             self.render_page()
-                        elif key == 'down':
+                        elif key == "down":
                             # Selection in filtered results
+                            self.message = ""  # Clear message on navigation
                             if self.filter_selected_index is None:
                                 self.filter_selected_index = 0
                             elif self.filter_selected_index < len(self.filtered_indices) - 1:
                                 self.filter_selected_index += 1
                             self.render_page()
-                        elif key == 'up':
+                        elif key == "up":
                             # Selection in filtered results
+                            self.message = ""  # Clear message on navigation
                             if self.filter_selected_index is None:
                                 self.filter_selected_index = len(self.filtered_indices) - 1
                             elif self.filter_selected_index > 0:
                                 self.filter_selected_index -= 1
                             self.render_page()
-                        elif key == '?' and self.filter_selected_index is not None:
+                        elif key == "?" and self.filter_selected_index is not None:
                             self._show_details_filtered()
+                            self.message = ""  # Clear message after showing details
                             self.render_page()
-                        elif key in ('d', '\r') and self.filter_selected_index is not None:
+                        elif key in ("d", "\r") and self.filter_selected_index is not None:
                             self.detail_source_mode = "filter"
                             self.mode = "detail"
+                            self.message = ""  # Clear message when entering detail mode
                             self._render_detail_page()
-                        elif key == 'b' and self.filter_selected_index is not None:
+                        elif key == "b" and self.filter_selected_index is not None:
                             paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
                             bibtex = self.controller._paper_to_bibtex(paper)
-                            self._copy_to_clipboard_and_message(bibtex, f"BibTeX copied to clipboard: {paper.doi}", "Failed to copy to clipboard")
+                            self._copy_to_clipboard_and_message(
+                                bibtex, f"BibTeX copied to clipboard: {paper.doi}", "Failed to copy to clipboard"
+                            )
                             self.render_page()
-                        elif key == 'i' and self.filter_selected_index is not None:
+                        elif key == "i" and self.filter_selected_index is not None:
                             paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
                             doi = paper.doi
                             if doi and self._copy_to_clipboard(doi):
@@ -349,45 +386,67 @@ class ConsoleViewer:
                             else:
                                 self.message = "[red]✗ No DOI or failed to copy[/red]"
                             self.render_page()
-                        elif key == 'c' and self.filter_selected_index is not None:
+                        elif key == "c" and self.filter_selected_index is not None:
                             paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
                             json_str = self.controller._paper_to_json(paper)
-                            self._copy_to_clipboard_and_message(json_str, f"JSON copied to clipboard: {paper.doi}", "Failed to copy to clipboard")
+                            self._copy_to_clipboard_and_message(
+                                json_str, f"JSON copied to clipboard: {paper.doi}", "Failed to copy to clipboard"
+                            )
+                            self.render_page()
+                        elif key == "a" and self.filter_selected_index is not None:
+                            paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
+                            self._copy_to_clipboard_and_message(
+                                paper.apa,
+                                f"APA citation copied to clipboard: {paper.doi}",
+                                "Failed to copy to clipboard",
+                            )
                             self.render_page()
 
                     else:  # Full mode
-                        if key in ('q', 'Q', '\x1b'):  # q, Q, or ESC - quit
+                        if key in ("q", "Q", "\x1b"):  # q, Q, or ESC - quit
                             self.running = False
-                        elif key == ':':  # Enter search mode
+                        elif key == ":":
+                            # Enter search mode
+                            self.message = ""  # Clear message when entering search
                             self.mode = "search"
                             self.filter_query = ""
                             self.filtered_indices = None
                             self.render_page()
-                        elif key == 'right':
+                        elif key == "right":
+                            self.message = ""  # Clear message on navigation
                             if self.controller.next_page():
                                 self.render_page()
-                        elif key == 'left':
+                        elif key == "left":
+                            self.message = ""  # Clear message on navigation
                             if self.controller.prev_page():
                                 self.render_page()
-                        elif key == 'down':
+                        elif key == "down":
+                            self.message = ""  # Clear message on navigation
                             page_changed = self.controller.select_down()
                             self.render_page()
-                        elif key == 'up':
+                        elif key == "up":
+                            self.message = ""  # Clear message on navigation
                             page_changed = self.controller.select_up()
                             self.render_page()
-                        elif key == '?' and self.controller.get_selected_paper():
+                        elif key == "?" and self.controller.get_selected_paper():
                             self._show_help()
+                            self.message = ""  # Clear message after showing help
                             self.render_page()
-                        elif key in ('d', '\r') and self.controller.get_selected_paper():
+                        elif key in ("d", "\r") and self.controller.get_selected_paper():
                             # Enter interactive detail mode
                             self.detail_source_mode = "full"
                             self.mode = "detail"
+                            self.message = ""  # Clear message when entering detail mode
                             self._render_detail_page()
-                        elif key == 'b' and self.controller.get_selected_paper():
+                        elif key == "b" and self.controller.get_selected_paper():
                             bibtex = self.controller.get_selected_as_bibtex()
-                            self._copy_to_clipboard_and_message(bibtex, f"BibTeX copied to clipboard: {self.controller.get_selected_paper().doi}", "Failed to copy to clipboard")
+                            self._copy_to_clipboard_and_message(
+                                bibtex,
+                                f"BibTeX copied to clipboard: {self.controller.get_selected_paper().doi}",
+                                "Failed to copy to clipboard",
+                            )
                             self.render_page()
-                        elif key == 'i' and self.controller.get_selected_paper():
+                        elif key == "i" and self.controller.get_selected_paper():
                             doi = self.controller.get_selected_doi()
                             if doi and self._copy_to_clipboard(doi):
                                 self.message = f"[green]✓ DOI copied to clipboard: {doi}[/green]"
@@ -395,11 +454,23 @@ class ConsoleViewer:
                                 self.message = "[red]✗ No DOI or failed to copy[/red]"
                             self.render_page()
 
-                        elif key == 'c' and self.controller.get_selected_paper():
+                        elif key == "c" and self.controller.get_selected_paper():
                             json_str = self.controller.get_selected_as_json()
-                            self._copy_to_clipboard_and_message(json_str, f"JSON copied to clipboard: {self.controller.get_selected_paper().doi}", "Failed to copy to clipboard")
+                            self._copy_to_clipboard_and_message(
+                                json_str,
+                                f"JSON copied to clipboard: {self.controller.get_selected_paper().doi}",
+                                "Failed to copy to clipboard",
+                            )
                             self.render_page()
-                        elif key == ':':
+                        elif key == "a" and self.controller.get_selected_paper():
+                            paper = self.controller.get_selected_paper()
+                            self._copy_to_clipboard_and_message(
+                                paper.apa,
+                                f"APA citation copied to clipboard: {paper.doi}",
+                                "Failed to copy to clipboard",
+                            )
+                            self.render_page()
+                        elif key == ":":
                             self.mode = "filter"
                             self.filter_query = ""
                             self.filtered_indices = None
@@ -418,8 +489,8 @@ class ConsoleViewer:
     def _copy_to_clipboard(self, text: str) -> bool:
         """Copy text to clipboard using pbcopy (macOS)"""
         try:
-            process = subprocess.Popen(['pbcopy'], stdin=subprocess.PIPE)
-            process.communicate(text.encode('utf-8'))
+            process = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
+            process.communicate(text.encode("utf-8"))
             return process.returncode == 0
         except (FileNotFoundError, Exception):
             return False
@@ -437,6 +508,7 @@ class ConsoleViewer:
   [cyan]d[/cyan]        Show details of selected paper
   [cyan]b[/cyan]        Copy BibTeX entry to clipboard
   [cyan]i[/cyan]        Copy DOI to clipboard
+  [cyan]a[/cyan]        Copy APA citation to clipboard
   [cyan]c[/cyan]        Copy full JSON to clipboard
 
 [bold]Search & Quit:[/bold]
@@ -459,20 +531,20 @@ class ConsoleViewer:
         details = f"""
 [bold cyan]Paper Details[/bold cyan]
 
-[bold]Title:[/bold] {paper.title or 'N/A'}
-[bold]Authors:[/bold] {', '.join(a.full_name for a in paper.authors) if paper.authors else 'N/A'}
-[bold]Year:[/bold] {paper.year or 'N/A'}
-[bold]Journal:[/bold] {paper.journal or 'N/A'}
-[bold]Volume/Issue:[/bold] {paper.volume or 'N/A'}/{paper.number or 'N/A'}
-[bold]Pages:[/bold] {paper.pages or 'N/A'}
-[bold]DOI:[/bold] {paper.doi or 'N/A'}
-[bold]URL:[/bold] {paper.url or 'N/A'}
+[bold]Title:[/bold] {paper.title or "N/A"}
+[bold]Authors:[/bold] {", ".join(a.full_name for a in paper.authors) if paper.authors else "N/A"}
+[bold]Year:[/bold] {paper.year or "N/A"}
+[bold]Journal:[/bold] {paper.journal or "N/A"}
+[bold]Volume/Issue:[/bold] {paper.volume or "N/A"}/{paper.number or "N/A"}
+[bold]Pages:[/bold] {paper.pages or "N/A"}
+[bold]DOI:[/bold] {paper.doi or "N/A"}
+[bold]URL:[/bold] {paper.url or "N/A"}
 
 [bold]Abstract:[/bold]
-{paper.abstract or 'N/A'}
+{paper.abstract or "N/A"}
 
 [bold]Keywords:[/bold]
-{', '.join(paper.keywords) if paper.keywords else 'N/A'}
+{", ".join(paper.keywords) if paper.keywords else "N/A"}
 
 [bold cyan]APA Citation:[/bold cyan]
 {paper.apa}
@@ -485,26 +557,26 @@ class ConsoleViewer:
         """Display details of selected paper in filter mode"""
         if self.filter_selected_index is None or not self.filtered_indices:
             return
-        
+
         paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
         self.console.clear()
         details = f"""
 [bold cyan]Paper Details[/bold cyan]
 
-[bold]Title:[/bold] {paper.title or 'N/A'}
-[bold]Authors:[/bold] {', '.join(a.full_name for a in paper.authors) if paper.authors else 'N/A'}
-[bold]Year:[/bold] {paper.year or 'N/A'}
-[bold]Journal:[/bold] {paper.journal or 'N/A'}
-[bold]Volume/Issue:[/bold] {paper.volume or 'N/A'}/{paper.number or 'N/A'}
-[bold]Pages:[/bold] {paper.pages or 'N/A'}
-[bold]DOI:[/bold] {paper.doi or 'N/A'}
-[bold]URL:[/bold] {paper.url or 'N/A'}
+[bold]Title:[/bold] {paper.title or "N/A"}
+[bold]Authors:[/bold] {", ".join(a.full_name for a in paper.authors) if paper.authors else "N/A"}
+[bold]Year:[/bold] {paper.year or "N/A"}
+[bold]Journal:[/bold] {paper.journal or "N/A"}
+[bold]Volume/Issue:[/bold] {paper.volume or "N/A"}/{paper.number or "N/A"}
+[bold]Pages:[/bold] {paper.pages or "N/A"}
+[bold]DOI:[/bold] {paper.doi or "N/A"}
+[bold]URL:[/bold] {paper.url or "N/A"}
 
 [bold]Abstract:[/bold]
-{paper.abstract or 'N/A'}
+{paper.abstract or "N/A"}
 
 [bold]Keywords:[/bold]
-{', '.join(paper.keywords) if paper.keywords else 'N/A'}
+{", ".join(paper.keywords) if paper.keywords else "N/A"}
 
 [bold cyan]APA Citation:[/bold cyan]
 {paper.apa}

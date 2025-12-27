@@ -261,13 +261,12 @@ class StepExecutor:
             scope: Reset scope
                 - "execution": Clear execution history, reset to start (keep definition & DB)
                 - "definition": Clear definition, steps, templates (keep DB)
-                - "database": Clear papers database (keep execution state)
                 - "all": Full reset to initialization state
 
         Raises:
             ValueError: If invalid scope provided
         """
-        valid_scopes = {"execution", "definition", "database", "all"}
+        valid_scopes = {"execution", "definition", "all"}
         if scope not in valid_scopes:
             raise ValueError(f"Invalid reset scope: {scope}. Must be one of {valid_scopes}")
 
@@ -288,11 +287,7 @@ class StepExecutor:
             if scope == "definition":
                 self.reset("execution")
 
-        if self.step_reporter:
-            self.step_reporter.on_step_event(
-                f"Reset {scope} state",
-                debug=True
-            )
+        self.step_reporter.on_step_event(f"Reset {scope} state", debug=True)
 
     # =========================================================================
     # Step Registry
@@ -390,7 +385,7 @@ class StepExecutor:
             step_params = {
                 k: v
                 for k, v in step_config.items()
-                if k not in ("step", "description") and not k.startswith("builtin.")
+                if k not in ("step", "description")
             }
 
         return step_name, step_params, description
@@ -433,6 +428,8 @@ class StepExecutor:
 
         # Load main steps section
         self.steps = self.definition.get("steps", [])
+        for step in self.steps:
+            step['command'] = tuple(set(step.keys()) - {"step", "description"})[0]
 
         # Validate all template references (fail early)
         self._validate_template_references()
