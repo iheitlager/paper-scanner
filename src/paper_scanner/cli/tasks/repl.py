@@ -29,6 +29,8 @@ from paper_scanner.viewer import ConsoleViewer
 
 TABSTOP = 2
 
+from icecream import ic
+
 class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleLoggingMixin):
     """Single console reporter implementing both interfaces"""
 
@@ -69,6 +71,8 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
             if result.status == StepStatus.SUCCESS:
                 self.log_info(f"{result.message} {timings}\n")
                 # self.log_msg(f"[green]ok: {result.stats.get('processed', 0)}[/green] {timings} ")
+                if result.details:
+                    self.log_debug(f"{'\n'.join(result.details)}")
             elif result.status == StepStatus.WARNING:
                 self.log_warning(result.message)
         else:
@@ -98,6 +102,7 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
         self.log_info(f"[cyan]Executing step:[/cyan] {description}... [dim]('{step_config['command']}')[/dim]")
 
     def on_step_end(self, idx: int, step_config: Dict, result: StepResult) -> None:
+        # TODO: fix if this makes sense or propagates correctly
         if result.details:
             self.log_debug(f"{'\n'.join(result.details)}")
         if result.status == StepStatus.SUCCESS and not self.in_macro_task:
@@ -108,9 +113,9 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
 
     def on_step_event(self, msg: str, debug: bool = False) -> None:
         if debug:
-            self.log_debug(msg)
+            self.log_debug(" "+msg)
         else:
-            self.log_info(msg)
+            self.log_info(" "+msg)
 
     def on_execution_start(self, total_steps: int) -> None:
         self.log_info(f"[blue]Starting pipeline: {total_steps} steps[/blue]\n")
@@ -244,7 +249,7 @@ class ReplController(AbstractController):
             if not self.executor.has_next_step:
                 return StepResult(status=StepStatus.WARNING, message="All steps done")
             result = self.executor.run_all(
-                dry_run=self.dry_run,
+                dry_run=self.dryrun,
                 on_step_start=self.step_reporter.on_step_start,
                 on_step_end=self.step_reporter.on_step_end,
             )
@@ -269,7 +274,6 @@ class ReplController(AbstractController):
 
                 # Check if it's a macro command (starts with \)
                 if user_input[0] == ":":
-                    # Alias ':' to 'steps' command
                     self._execute_settings_command(user_input)
                 elif user_input.startswith("\\"):
                     self._execute_macro_command(user_input)
@@ -290,7 +294,7 @@ class ReplController(AbstractController):
         if command == "settings":
             self.controller_reporter.log("\n[bold]⚙ Current Settings:[/bold]")
             self.controller_reporter.log(f"  • [cyan]Verbose:[/cyan] {'On' if self.verbose else 'Off'}")
-            self.controller_reporter.log(f"  • [cyan]Dry-run:[/cyan] {'On' if self.dry_run else 'Off'}")
+            self.controller_reporter.log(f"  • [cyan]Dry-run:[/cyan] {'On' if self.dryrun else 'Off'}")
             self.controller_reporter.log(f"  • [cyan]Timings:[/cyan] {'On' if self.timings else 'Off'}")
             self.controller_reporter.log(f"  • [cyan]Debug:[/cyan] {'On' if self.debug else 'Off'}\n")
             return 0
@@ -326,7 +330,8 @@ class ReplController(AbstractController):
 
             result = macro_func(args)
             duration_ms = (time.time() - start) * 1000
-            self.controller_reporter.on_macro_end(command, result, duration_ms)
+            ic(result)
+            ic(self.controller_reporter.on_macro_end(command, result, duration_ms))
             return 0
 
         except Exception as e:
@@ -397,7 +402,7 @@ class ReplController(AbstractController):
         """Execute next step"""
         if not self.executor.has_next_step:
             return StepResult(status=StepStatus.WARNING, message="Step: All steps done")
-        return self.executor.execute_next_step(self.dry_run)
+        return self.executor.execute_next_step(self.dryrun)
 
     @macro_step("run", "r")
     def run_cmd(self, args: list[str]) -> StepResult:
@@ -405,7 +410,7 @@ class ReplController(AbstractController):
         if not self.executor.has_next_step:
             return StepResult(status=StepStatus.WARNING, message="Run: All steps done")
         return self.executor.run_all(
-            dry_run=self.dry_run,
+            dry_run=self.dryrun,
             on_step_start=self.step_reporter.on_step_start,
             on_step_end=self.step_reporter.on_step_end,
         )

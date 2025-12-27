@@ -109,7 +109,7 @@ class RetrieveMetadataStep(BaseStep):
         for i, paper in enumerate(papers, 1):
             if not paper.doi:
                 stats["skipped_no_doi"] += 1
-                self.callback(f" [yellow]⚠️[{i}/{len(papers)}][/yellow] Skipping: no DOI", debug=True)
+                self.callback(f"[yellow]⚠️[{i}/{len(papers)}][/yellow] Skipping: no DOI", debug=True)
                 continue
 
             # Fetch metadata
@@ -121,16 +121,16 @@ class RetrieveMetadataStep(BaseStep):
                 cache = "🌐"
                 stats["api_calls"] += 1
 
-            self.callback(f" [{i}/{len(papers)}]{cache}Fetching metadata for {paper.doi}...", debug=True)
+            self.callback(f"[{i}/{len(papers)}]{cache}Fetching metadata for {paper.doi}...", debug=True)
 
             if enriched_paper is None:
                 stats["not_found"] += 1
-                self.callback(" [yellow]Not found[/yellow]", debug=True)
+                self.callback("[yellow]Not found[/yellow]", debug=True)
                 if not continue_on_not_found:
                     errors.append(f"{paper.doi}: Not found in any source")
                 continue
             else:
-                self.callback(f" [dim]Fetched metadata: {enriched_paper} from[/dim] '{handler}'", debug=True)
+                self.callback(f"[dim]Fetched metadata: {enriched_paper} from[/dim] '{handler}'", debug=True)
 
             # Merge enriched metadata into existing paper
             _merge_paper_metadata(paper, enriched_paper, overwrite=overwrite)

@@ -555,14 +555,6 @@ class Paper(BaseModel):
         """Convert Paper reference to ID string during serialization"""
         return value.id if value else None
 
-    # @field_validator('title', mode='before')
-    # @classmethod
-    # def titlecase_title(cls, v):
-    #     """Apply title casing to title field"""
-    #     if v is None:
-    #         return None
-    #     return v.title()
-
     # ========================================
     # BIBLIOGRAPHIC DATA
     # ========================================

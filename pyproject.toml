@@ -60,6 +60,7 @@ dev = [
     "isort",
     "refurb",
     "vulture",
+    "icecream>=2.1.8",
 ]
 
 local = [

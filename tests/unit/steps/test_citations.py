@@ -241,7 +241,8 @@ class TestExecuteWithBackwardConfig:
 
         result = step.execute(config)
 
-        assert result == expected_result
+        # StepResult wraps the backward_execute result in stats
+        assert result.stats == expected_result
         assert result["status"] == StepStatus.ERROR
         assert len(result["errors"]) == 2
 
@@ -312,7 +313,8 @@ class TestExecuteWithForwardConfig:
 
         result = step.execute(config)
 
-        assert result == expected_result
+        # StepResult wraps the forward_execute result in stats
+        assert result.stats == expected_result
         assert result["status"] == StepStatus.ERROR
         assert len(result["errors"]) == 2
 

@@ -24,21 +24,16 @@ Process:
 """
 
 import json
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from rich.console import Console
-from rich.table import Table
-
 from paper_scanner.core.doi import DOI
 from paper_scanner.core.enum import CitationDirection, StepStatus
-from paper_scanner.core.models import Citation, Paper, PaperType, Discovery
+from paper_scanner.core.models import Citation, Paper, PaperType
+from paper_scanner.core.step_result import StepResult
 from paper_scanner.tools.fetchers.fetcher import Fetcher
 
 from .base import BaseStep
-
-console = Console(file=sys.stderr)
 
 
 class CitationsStep(BaseStep):
@@ -146,7 +141,7 @@ class CitationsStep(BaseStep):
         verbose: bool = False,
         dry_run: bool = False,
         debug: bool = False
-    ) -> Dict[str, Any]:
+    ) -> StepResult:
         """
         Execute backward citations extraction for papers in three passes.
 
@@ -164,88 +159,17 @@ class CitationsStep(BaseStep):
             Results dict with statistics
         """
 
-        self.verbose = verbose
         self.dry_run = dry_run
-        self.debug = debug
 
         # Extract configuration
         backward_config = config.get("backward", {})
+        limit = config.get("limit", None)
         forward_config = config.get("forward", {})
+        paper_types = config.get("paper-types", ["journal_article"])
 
         self.iteration = 1
-        if backward_config:
-            results = self.backward_execute(config)
-        elif forward_config:
-            results = self.forward_execute(config)
-        else:
-            raise ValueError("CitationsStep requires 'backward' or 'forward' configuration.")
 
-        if self.verbose:
-            console.print("[green]Citation graph linking completed.[/green]")
-
-            table = Table(title="Citation Statistics")
-            table.add_column("Fact", style="cyan")
-            table.add_column("Value", justify="right", style="green")
-
-            table.add_row("Total papers in DB", str(results.get('total_papers', 0)))
-            table.add_row("Target papers processed", str(results.get('target_papers', 0)))
-            table.add_row("Papers with citations", str(results.get('papers_with_citations', 0)))
-            table.add_row("Papers with cited_by", str(results.get('papers_with_cited_by', 0)))
-            table.add_row("Citations fetched", str(results.get('citations_fetched', 0)))
-            table.add_row("Citations resolved", str(results.get('citations_resolved', 0)))
-            table.add_row("Citations created new papers", str(results.get('citations_created_new_paper', 0)))
-            table.add_row("Citations unresolved", str(results.get('citations_unresolved', 0)))
-            table.add_row("Forward links created", str(results.get('forward_links_created', 0)))
-            table.add_row("Reverse links created", str(results.get('reverse_links_created', 0)))
-            table.add_row("Cache hits", str(results.get('cache_hits', 0)))
-            table.add_row("Cache misses", str(results.get('cache_misses', 0)))
-
-            console.print(table)
-
-            if results.get('errors'):
-                console.print(f"[red]Errors:[/red] {len(results['errors'])}")
-                for error in results['errors'][:5]:  # Show first 5 errors
-                    console.print(f"  [red]- {error}[/red]")
-
-        results['message'] = f"Citations fetched: {results['citations_fetched']}"
-        results["status"] = StepStatus.SUCCESS if len(results['errors']) == 0 else StepStatus.ERROR
-        return results
-
-    def backward_execute(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute backward citations extraction for papers in three passes.
-
-        Pass 1: Fetch citations from external sources and store in papers
-        Pass 2: Resolve citations to existing papers or create new papers
-        Pass 3: Build citation graph in memory
-
-        Args:
-            config: Backward citations configuration
-        Returns:
-            results: Results dict with statistics
-        """
-
-        paper_types = config.get("paper-types", ["journal_article"])
-        continue_on_not_found = config.get("continue_on_not_found", True)
-        limit = config.get("limit", None)
-        backward_config = config.get("backward", {})
-        citations = backward_config.get("citations", ["crossref"])
-        details = backward_config.get("details", ["crossref"])
-        self.output_errors = backward_config.get("output_errors", None)
-        if self.output_errors:
-            # Clear existing error file
-            Path(self.output_errors).write_text("", encoding="utf-8")
-
-        if self.verbose:
-            console.print("[blue]Citations backward processing[/blue]")
-            console.print(f"[blue]Paper types to process:[/blue] {paper_types}")
-            console.print(f"[blue]Citation sources:[/blue] {citations}")
-            console.print(f"[blue]Details sources:[/blue] {details}")
-            console.print(f"[blue]Continue on not found:[/blue] {continue_on_not_found}")
-            if limit:
-                console.print(f"[blue]Limit papers to process:[/blue] {limit}")
-
-        # Get papers to process (filter by paper_type)
+            # Get papers to process (filter by paper_type)
         if paper_types:
             target_papers = self.db.find(
                 lambda p: p.paper_type and p.paper_type.value in paper_types,
@@ -254,9 +178,11 @@ class CitationsStep(BaseStep):
         else:
             target_papers = self.db.all(primary_only=True)
 
-        if self.debug:
-            console.print(f"[blue]Total papers in DB:[/blue] {self.db.count(primary_only=True)}")
-            console.print(f"[blue]Target papers to process:[/blue] {len(target_papers)}")
+        if limit:
+            target_papers = target_papers[:limit]
+
+        self.callback(f"Total papers in DB: {self.db.count(primary_only=True)}\n"
+                      f" Target papers to process: {len(target_papers)}", debug=True)
 
         results = {
             "total_papers": self.db.count(primary_only=True),
@@ -274,13 +200,62 @@ class CitationsStep(BaseStep):
             "cache_misses": 0,
         }
 
+        if backward_config:
+            self.backward_execute(config, target_papers, results)
+        elif forward_config:
+            self.forward_execute(config, target_papers, results)
+        else:
+            raise ValueError("CitationsStep requires 'backward' or 'forward' configuration.")
+
+        return_details = StepResult(
+            message=f"Papers: ({results['papers_with_citations']}/{results['papers_with_cited_by']}) Citations fetched: {results['citations_fetched']}, resolved: {results['citations_resolved']}, new papers: {results['citations_created_new_paper']}, unresolved: {results['citations_unresolved']}",
+            status=StepStatus.SUCCESS if len(results['errors']) == 0 else StepStatus.ERROR,
+        )
+        if 'details' in results:
+            return_details.details = results['details']
+            results.pop('details')
+        return_details.stats = results
+        return return_details
+
+    def backward_execute(self, config: Dict[str, Any], target_papers: List[Paper], results: Dict[str, Any]) -> None:
+        """
+        Execute backward citations extraction for papers in three passes.
+
+        Pass 1: Fetch citations from external sources and store in papers
+        Pass 2: Resolve citations to existing papers or create new papers
+        Pass 3: Build citation graph in memory
+
+        Args:
+            config: Backward citations configuration
+            target_papers: List of papers to process
+            results: Results dict to update with statistics
+        Returns:
+            None
+        """
+
+        continue_on_not_found = config.get("continue_on_not_found", True)
+        limit = config.get("limit", None)
+        paper_types = config.get("paper-types", ["journal_article"])
+        backward_config = config.get("backward", {})
+        citations = backward_config.get("citations", ["crossref"])
+        details = backward_config.get("details", ["crossref"])
+        self.output_errors = backward_config.get("output_errors", None)
+        if self.output_errors:
+            # Clear existing error file
+            Path(self.output_errors).write_text("", encoding="utf-8")
+
+        self.callback(f"Citations backward processing\n"
+                      f"Paper types to process: {paper_types}\n"
+                      f"Citation sources: {citations}\n"
+                      f"Details sources: {details}\n"
+                      f"Continue on not found: {continue_on_not_found}\n"
+                      + (f"Limit papers to process: {limit}" if limit else ""))
+
         # PASS 1: Fetch citations from external sourcess
         # Initialize fetcher
         fetcher = Fetcher(
             cache_dir=self.cache_dir,
             methods=citations,
-            verbose=self.verbose,
-            debug=self.debug
         )
         self._fetch_citations_for_papers(
             target_papers=target_papers,
@@ -293,9 +268,7 @@ class CitationsStep(BaseStep):
         # Initialize fetcher
         fetcher = Fetcher(
             cache_dir=self.cache_dir,
-            methods=details,
-            verbose=self.verbose,
-            debug=self.debug
+            methods=details
         )
         self._resolve_citations_and_fetch_papers(
             papers=target_papers,
@@ -310,9 +283,9 @@ class CitationsStep(BaseStep):
             results=results,
         )
 
-        return results
+        return None
 
-    def forward_execute(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def forward_execute(self, config: Dict[str, Any], target_papers: List[Paper], results: Dict[str, Any]) -> None:
         """
         Execute forward citations extraction for papers in three passes.
 
@@ -322,12 +295,15 @@ class CitationsStep(BaseStep):
 
         Args:
             forward_config: Forward citations configuration
-        Returns:
+            target_papers: List of papers to process
             results: Results dict to update with statistics
+        Returns:
+            None
         """
 
         forward_config = config.get("forward", {})
         continue_on_not_found = config.get("continue_on_not_found", True)
+        paper_types = config.get("paper-types", ["journal_article"])
         limit = config.get("limit", None)
         paper_types = config.get("paper-types", ["journal_article"])
         citations = forward_config.get("citations", ["crossref"])
@@ -337,53 +313,18 @@ class CitationsStep(BaseStep):
             # Clear existing error file
             Path(self.output_errors).write_text("", encoding="utf-8")
 
-        if self.verbose:
-            console.print("[blue]Citations forward processing[/blue]")
-            console.print(f"[blue]Paper types to process:[/blue] {paper_types}")
-            console.print(f"[blue]Citation sources:[/blue] {citations}")
-            console.print(f"[blue]Details sources:[/blue] {details}")
-            console.print(f"[blue]Continue on not found:[/blue] {continue_on_not_found}")
-            if limit:
-                console.print(f"[blue]Limit papers to process:[/blue] {limit}")
-
-
-
-        # Get papers to process (filter by paper_type)
-        if paper_types:
-            target_papers = self.db.find(
-                lambda p: p.paper_type and p.paper_type.value in paper_types,
-                primary_only=True
-            )
-        else:
-            target_papers = self.db.all(primary_only=True)
-
-        results = {
-            "total_papers": self.db.count(primary_only=True),
-            "target_papers": len(target_papers),
-            "papers_with_cited_by": 0,
-            "papers_with_citations": 0,
-            "citations_fetched": 0,
-            "citations_resolved": 0,
-            "citations_created_new_paper": 0,
-            "citations_unresolved": 0,
-            "forward_links_created": 0,
-            "reverse_links_created": 0,
-            "errors": [],
-            "cache_hits": 0,
-            "cache_misses": 0,
-        }
-
-        if self.debug:
-            console.print(f"[blue]Total papers in DB:[/blue] {self.db.count(primary_only=True)}")
-            console.print(f"[blue]Target papers to process:[/blue] {len(target_papers)}")
+        self.callback(f"Citations forward processing\n"
+                      f"Paper types to process: {paper_types}\n"
+                      f"Citation sources: {citations}\n"
+                      f"Details sources: {details}\n"
+                      f"Continue on not found: {continue_on_not_found}\n"
+                      + (f"Limit papers to process: {limit}" if limit else ""))
 
         # PASS 1: Fetch citations from external sourcess
         # Initialize fetcher
         fetcher = Fetcher(
             cache_dir=self.cache_dir,
             methods=citations,
-            verbose=self.verbose,
-            debug=self.debug
         )
         self._fetch_cited_by_for_papers(
             target_papers=target_papers,
@@ -397,8 +338,6 @@ class CitationsStep(BaseStep):
         fetcher = Fetcher(
             cache_dir=self.cache_dir,
             methods=details,
-            verbose=self.verbose,
-            debug=self.debug
         )
         self._resolve_cited_by_and_fetch_papers(
             papers=target_papers,
@@ -413,7 +352,7 @@ class CitationsStep(BaseStep):
             results=results,
         )
 
-        return results
+        return None
 
 
     def _fetch_citations_for_papers(
@@ -445,15 +384,13 @@ class CitationsStep(BaseStep):
 
                 if cache_hit:
                     results["cache_hits"] += 1
+                    cache = "💾"
                 else:
                     results["cache_misses"] += 1
-                cache = "💾" if cache_hit else "🌐"
+                    cache = "🌐"
 
                 if not citations:
-                    if self.verbose:
-                        console.print(
-                            f"[yellow][{i}/{len(target_papers)}] No citations found for {paper.doi}"
-                        )
+                    self.callback(f"[yellow][{i}/{len(target_papers)}] No citations found for {paper.doi}")
                     continue
 
                 if limit:
@@ -461,11 +398,10 @@ class CitationsStep(BaseStep):
                 results["papers_with_citations"] += 1
                 results["citations_fetched"] += len(citations)
 
-                if self.debug:
-                    console.print(
-                        f"[cyan][{i}/{len(target_papers)}]{cache}Fetched {len(citations)} "
-                        f"citations for {paper.doi}[/cyan]"
-                    )
+                self.callback(
+                    f"[cyan][{i}/{len(target_papers)}]{cache}Fetched {len(citations)} "
+                    f"citations for {paper.doi}[/cyan]", debug=True
+                )
 
                 # Store citations in paper
                 paper.citations.extend(citations)
@@ -473,7 +409,7 @@ class CitationsStep(BaseStep):
 
             except Exception as e:
                 results["errors"].append(f"Fetch error for {paper.doi}: {str(e)}")
-                console.print(f"[red]Error fetching citations for {paper.doi}: {e}[/red]")
+                self.callback(f"[red]Error fetching citations for {paper.doi}: {e}[/red]")
 
 
     def _fetch_cited_by_for_papers(
@@ -506,15 +442,13 @@ class CitationsStep(BaseStep):
 
                 if cache_hit:
                     results["cache_hits"] += 1
+                    cache = "💾"
                 else:
                     results["cache_misses"] += 1
-                cache = "💾" if cache_hit else "🌐"
+                    cache = "🌐"
 
                 if not citations:
-                    if self.verbose:
-                        console.print(
-                            f"[yellow][{i}/{len(target_papers)}] No cited_by found for {paper.doi}"
-                        )
+                    self.callback(f"[yellow][{i}/{len(target_papers)}] No cited_by found for {paper.doi}")
                     continue
 
                 if limit:
@@ -522,11 +456,8 @@ class CitationsStep(BaseStep):
                 results["papers_with_cited_by"] += 1
                 results["citations_fetched"] += len(citations)
 
-                if self.debug:
-                    console.print(
-                        f"[cyan][{i}/{len(target_papers)}]{cache}Fetched {len(citations)} "
-                        f"citations for {paper.doi}[/cyan]"
-                    )
+                self.callback(f"[cyan][{i}/{len(target_papers)}]{cache}Fetched {len(citations)}\n"
+                              f"citations for {paper.doi}[/cyan]", debug=True)
 
                 # Store citations in paper
                 paper.cited_by.extend(citations)
@@ -534,7 +465,7 @@ class CitationsStep(BaseStep):
 
             except Exception as e:
                 results["errors"].append(f"Fetch error for {paper.doi}: {str(e)}")
-                console.print(f"[red]Error fetching citations for {paper.doi}: {e}[/red]")
+                self.callback(f"[red]Error fetching citations for {paper.doi}: {e}[/red]")
 
     def _resolve_citations_and_fetch_papers(
         self,
@@ -564,8 +495,7 @@ class CitationsStep(BaseStep):
             if not paper.citations:
                 continue
 
-            if self.debug:
-                console.print(f"[cyan]Resolving {len(paper.citations)} citations for {paper.doi}[/cyan]")
+            self.callback(f"[cyan]Resolving {len(paper.citations)} citations for {paper.doi}[/cyan]", debug=True)
 
             # Resolve each citation
             for citation in paper.citations:
@@ -591,19 +521,13 @@ class CitationsStep(BaseStep):
                         citation_dict = citation.model_dump(exclude_none=True)
                         missed_citations.setdefault(paper.id, []).append(citation_dict)
                     results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
-                    if self.verbose:
-                        console.print(
-                            f"  [red]Unresolved citation {citation.doi} in paper {paper.doi}[/red]"
-                        )
-                    if self.debug:
-                        console.print(f"  [blue]{citation}[/blue]")
-
+                    self.callback(f"[red]Unresolved citation {citation.doi} in paper {paper.doi}[/red]")
+                    self.callback(f"[blue]{citation}[/blue]", debug=True)
         if self.output_errors and missed_citations:
             with open(self.output_errors, "a", encoding="utf-8") as f:
                 for paper_id, citation in missed_citations.items():
                     f.write(json.dumps({"paper_id": paper_id, "citation": citation}) + "\n")
-            if self.debug:
-                console.print(f"[yellow]Wrote {len(missed_citations)} unresolved citations to {self.output_errors}[/yellow]")
+                self.callback(f"[yellow]Wrote {len(missed_citations)} unresolved citations to {self.output_errors}[/yellow]", debug=True)
 
 
     def _resolve_cited_by_and_fetch_papers(
@@ -634,8 +558,7 @@ class CitationsStep(BaseStep):
             if not paper.cited_by:
                 continue
 
-            if self.debug:
-                console.print(f"[cyan]Resolving {len(paper.citations)} citations for {paper.doi}[/cyan]")
+            self.callback(f"[cyan]Resolving {len(paper.citations)} citations for {paper.doi}[/cyan]", debug=True)
 
             # Resolve each citation
             for citation in paper.cited_by:
@@ -660,22 +583,17 @@ class CitationsStep(BaseStep):
                 else:
                     if self.output_errors:
                         citation_dict = citation.model_dump(exclude_none=True)
-                        missed_citations.setdefault(paper.id, []).append(citation_dict)
+                        missed_citations.setdefault(paper.doi, []).append(citation_dict)
                     results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
-                    if self.verbose:
-                        console.print(
-                            f"  [red]Unresolved citation {citation.doi} in paper {paper.doi}[/red]"
-                        )
-                    if self.debug:
-                        console.print(f"  [blue]{citation}[/blue]")
-
+                    
+                    self.callback(f"[red]Unresolved citation {citation.doi} in paper {paper.doi}[/red]")
+                    self.callback(f"[blue]{citation}[/blue]", debug=True)
         if self.output_errors and missed_citations:
             with open(self.output_errors, "a", encoding="utf-8") as f:
                 for paper_id, citation in missed_citations.items():
                     f.write(json.dumps({"paper_id": paper_id, "citation": citation}) + "\n")
-            if self.debug:
-                console.print(f"[yellow]Wrote {len(missed_citations)} unresolved citations to {self.output_errors}[/yellow]")
-
+            self.callback(f"[yellow]Wrote {len(missed_citations)} paper with unresolved citations to {self.output_errors}[/yellow]")
+        results['details'] = missed_citations
 
     def _resolve_citation(
         self,
@@ -706,6 +624,8 @@ class CitationsStep(BaseStep):
         """
         if results is None:
             results = {}
+        results["cache_hits"] = 0
+        results["cache_misses"] = 0
 
         # Try to resolve by DOI first
         if citation.doi:
@@ -713,28 +633,26 @@ class CitationsStep(BaseStep):
             papers = self.db.get_by_doi(normalized_doi, primary_only=True)
             if papers:
                 paper = papers[0]
-                if self.debug:
-                    console.print(f"  [green]Paper already in database: {normalized_doi}[/green]")
+                self.callback(f"[green]Paper already in database: {normalized_doi}[/green]", debug=True)
                 return paper, False
             else:
                 enriched_paper, cache_hit, handler = fetcher.fetch_paper(normalized_doi)
-                cache = "💾" if cache_hit else "🌐"
                 # enriched_paper.discovery.iteration = self.iteration
 
                 # Track cache statistics
                 if cache_hit:
-                    results["cache_hits"] = results.get("cache_hits", 0) + 1
+                    results["cache_hits"] += 1
+                    cache = "💾"
                 else:
-                    results["cache_misses"] = results.get("cache_misses", 0) + 1
-                if self.debug:
-                    console.print(f"  [green]{cache}Retrieving metadata for citation DOI {normalized_doi}[/green]")
+                    results["cache_misses"] += 1
+                    cache = "🌐"
                 # Only add if fetcher successfully returned a paper
                 if enriched_paper:
                     self.db.add(enriched_paper)
+                    self.callback(f"[green]{cache}Retrieved metadata for citation DOI {normalized_doi}[/green] with '{handler}'", debug=True)
                     return enriched_paper, True
                 else:
-                    if self.debug:
-                        console.print(f"[yellow]Could not fetch paper for DOI {normalized_doi}[/yellow]")
+                    self.callback(f"[yellow]Could not fetch paper for DOI {normalized_doi}[/yellow]", debug=True)
                     return None, False
 
         # Citation not found in database

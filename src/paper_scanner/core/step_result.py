@@ -38,6 +38,8 @@ class StepResult:
 
         Allows: result['message'] → result.message
         Preferred: Use attribute access directly (result.message)
+        
+        Also checks stats dict for keys not found as direct attributes.
 
         Args:
             key: Field name
@@ -51,6 +53,9 @@ class StepResult:
         try:
             return getattr(self, key)
         except AttributeError:
+            # Check stats dict for backward compatibility
+            if key in self.stats:
+                return self.stats[key]
             raise KeyError(key)
 
     def get(self, key: str, default: Any = None) -> Any:

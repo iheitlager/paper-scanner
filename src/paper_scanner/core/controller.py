@@ -47,7 +47,7 @@ class AbstractController(ABC):
         self.timings = args.timings or False
         self.quiet = args.quiet or False
         self.definition_file = args.definition
-        self.dry_run = args.dry_run or False
+        self.dryrun = args.dry_run or False
 
         self.controller_reporter = controller_reporter
         self.controller_reporter.controller = self

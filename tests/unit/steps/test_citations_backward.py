@@ -124,8 +124,6 @@ class TestFetchCitationsForPapers:
         """Create a CitationsStep instance"""
         step = CitationsStep(general_config={}, db=mock_db, cache_dir=tmp_path)
         # Initialize attributes used by the step
-        step.verbose = False
-        step.debug = False
         step.output_errors = None
         return step
 
