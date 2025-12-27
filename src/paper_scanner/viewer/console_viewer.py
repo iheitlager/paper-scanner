@@ -88,6 +88,82 @@ class ConsoleViewer:
         else:
             self.console.print(self.message)
 
+<<<<<<< Updated upstream
+=======
+    def _render_detail_page(self) -> None:
+        """Render detail view with navigation hints"""
+        self.console.clear()
+        
+        # Get the paper to display
+        if self.detail_source_mode == "filter" and self.filter_selected_index is not None:
+            paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
+            position = f"{self.filter_selected_index + 1}/{len(self.filtered_indices)}"
+        elif self.detail_source_mode == "full":
+            paper = self.controller.get_selected_paper()
+            page_info = self.controller.get_page_info()
+            # Calculate absolute position across all papers in database
+            absolute_position = page_info['start_index'] + self.controller.selected_index
+            position = f"{absolute_position}/{page_info['papers_total']}"
+        else:
+            return
+        
+        if not paper:
+            return
+
+        details = f"""
+[bold cyan]Paper Details (Detail Mode)[/bold cyan]
+[dim]{position}[/dim]
+
+[bold]Title:[/bold] {paper.title or 'N/A'}
+[bold]Authors:[/bold] {', '.join(a.full_name for a in paper.authors) if paper.authors else 'N/A'}
+[bold]Year:[/bold] {paper.year or 'N/A'}
+[bold]Journal:[/bold] {paper.journal or 'N/A'}
+[bold]Volume/Issue:[/bold] {paper.volume or 'N/A'}/{paper.number or 'N/A'}
+[bold]Pages:[/bold] {paper.pages or 'N/A'}
+[bold]DOI:[/bold] {paper.doi or 'N/A'}
+[bold]URL:[/bold] {paper.url or 'N/A'}
+
+[bold]Abstract:[/bold]
+{paper.abstract or 'N/A'}
+
+[bold]Keywords:[/bold]
+{', '.join(paper.keywords) if paper.keywords else 'N/A'}
+
+[bold cyan]APA Citation:[/bold cyan]
+{paper.apa}
+"""
+        self.console.print(details)
+        
+        # Footer with navigation options
+        footer = "[dim][cyan]↑/↓[/cyan] navigate  [cyan]b[/cyan] bibtex  [cyan]i[/cyan] doi  [cyan]c[/cyan] json  [cyan]q/ESC[/cyan] exit detail mode[/dim]"
+        self.console.print(footer)
+        
+        # Message line (for copy feedback, etc.)
+        self.console.print(self.message)
+
+    def _get_current_paper(self) -> Optional[Paper]:
+        """Get the currently displayed paper based on mode"""
+        if self.mode == "detail":
+            # In detail mode, check which mode we came from
+            if self.detail_source_mode == "filter" and self.filter_selected_index is not None and self.filtered_indices:
+                return self.controller.papers[self.filtered_indices[self.filter_selected_index]]
+            elif self.detail_source_mode == "full":
+                return self.controller.get_selected_paper()
+        elif self.mode == "filter" and self.filter_selected_index is not None and self.filtered_indices:
+            return self.controller.papers[self.filtered_indices[self.filter_selected_index]]
+        elif self.mode == "full":
+            return self.controller.get_selected_paper()
+        return None
+
+    def _copy_to_clipboard_and_message(self, text: str, success_msg: str, failure_msg: str) -> None:
+        """Copy text to clipboard and update message"""
+        if text and self._copy_to_clipboard(text):
+            self.message = f"[green]✓ {success_msg}[/green]"
+        else:
+            self.message = f"[red]✗ {failure_msg}[/red]"
+        self.render_page()
+
+>>>>>>> Stashed changes
     def _get_key(self) -> str:
         """Get a single key press from terminal"""
         fd = sys.stdin.fileno()
@@ -115,6 +191,7 @@ class ConsoleViewer:
     def run(self, on_exit: Optional[Callable] = None) -> None:
         """Start interactive viewer loop"""
         self.running = True
+        self.console.show_cursor(False)  # Hide cursor
         self.render_page()
 
         try:
@@ -122,7 +199,79 @@ class ConsoleViewer:
                 try:
                     key = self._get_key()
 
+<<<<<<< Updated upstream
                     if self.mode == "search":
+=======
+                    if self.mode == "detail":
+                        # In detail mode, navigate through papers with up/down
+                        if key in ('q', 'Q', '\x1b'):  # q, Q, or ESC - exit detail mode
+                            self.mode = self.detail_source_mode
+                            self.detail_source_mode = None
+                            self.render_page()
+                        elif key == 'down':
+                            # Move to next paper
+                            if self.detail_source_mode == "filter" and self.filter_selected_index is not None:
+                                if self.filter_selected_index < len(self.filtered_indices) - 1:
+                                    self.filter_selected_index += 1
+                            elif self.detail_source_mode == "full":
+                                page_info = self.controller.get_page_info()
+                                current_page_papers = self.controller.get_current_page_papers()
+                                
+                                # Check if at last paper on current page
+                                is_last_on_page = (self.controller.selected_index >= len(current_page_papers) - 1)
+                                has_next_page = (page_info['current_page'] < page_info['total_pages'])
+                                
+                                if is_last_on_page and has_next_page:
+                                    # At end of page and there are more pages - go to next page
+                                    self.controller.next_page()
+                                    self.controller.selected_index = 0
+                                elif not is_last_on_page:
+                                    # Not at end of page - move down within page
+                                    self.controller.select_down()
+                                # else: at last paper of last page, do nothing
+                            self.render_page()
+                        elif key == 'up':
+                            # Move to previous paper
+                            if self.detail_source_mode == "filter" and self.filter_selected_index is not None:
+                                if self.filter_selected_index > 0:
+                                    self.filter_selected_index -= 1
+                            elif self.detail_source_mode == "full":
+                                page_info = self.controller.get_page_info()
+                                
+                                # Check if at first paper on current page
+                                is_first_on_page = (self.controller.selected_index <= 0)
+                                has_prev_page = (page_info['current_page'] > 1)
+                                
+                                if is_first_on_page and has_prev_page:
+                                    # At start of page and there are previous pages - go to previous page
+                                    self.controller.prev_page()
+                                    prev_page_papers = self.controller.get_current_page_papers()
+                                    self.controller.selected_index = len(prev_page_papers) - 1
+                                elif not is_first_on_page:
+                                    # Not at start of page - move up within page
+                                    self.controller.select_up()
+                                # else: at first paper of first page, do nothing
+                            self.render_page()
+                        elif key == 'b':
+                            # Copy bibtex
+                            paper = self._get_current_paper()
+                            if paper:
+                                bibtex = self.controller._paper_to_bibtex(paper)
+                                self._copy_to_clipboard_and_message(bibtex, f"BibTeX copied to clipboard: {paper.doi}", "Failed to copy to clipboard")
+                        elif key == 'i':
+                            # Copy DOI
+                            paper = self._get_current_paper()
+                            if paper:
+                                self._copy_to_clipboard_and_message(paper.doi, f"DOI copied to clipboard: {paper.doi}", "No DOI or failed to copy")
+                        elif key == 'c':
+                            # Copy JSON
+                            paper = self._get_current_paper()
+                            if paper:
+                                json_str = self.controller._paper_to_json(paper) if self.detail_source_mode == "filter" else self.controller.get_selected_as_json()
+                                self._copy_to_clipboard_and_message(json_str, f"JSON copied to clipboard: {paper.doi}", "Failed to copy to clipboard")
+
+                    elif self.mode == "search":
+>>>>>>> Stashed changes
                         # In search mode, handle text input
                         if key in ('\x1b',):  # ESC - cancel search, return to full
                             self.mode = "full"
@@ -180,17 +329,27 @@ class ConsoleViewer:
                         elif key == '?' and self.filter_selected_index is not None:
                             self._show_details_filtered()
                             self.render_page()
+<<<<<<< Updated upstream
                         elif key == 'd' and self.filter_selected_index is not None:
                             self._show_details_filtered()
+=======
+                        elif key in ('d', '\r') and self.filter_selected_index is not None:
+                            self.detail_source_mode = "filter"
+                            self.mode = "detail"
+>>>>>>> Stashed changes
                             self.render_page()
                         elif key == 'b' and self.filter_selected_index is not None:
                             paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
                             bibtex = self.controller._paper_to_bibtex(paper)
+<<<<<<< Updated upstream
                             if bibtex and self._copy_to_clipboard(bibtex):
                                 self.message = "[green]✓ BibTeX copied to clipboard[/green]"
                             else:
                                 self.message = "[red]✗ Failed to copy to clipboard[/red]"
                             self.render_page()
+=======
+                            self._copy_to_clipboard_and_message(bibtex, f"BibTeX copied to clipboard: {paper.doi}", "Failed to copy to clipboard")
+>>>>>>> Stashed changes
                         elif key == 'i' and self.filter_selected_index is not None:
                             paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
                             doi = paper.doi
@@ -202,11 +361,15 @@ class ConsoleViewer:
                         elif key == 'c' and self.filter_selected_index is not None:
                             paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
                             json_str = self.controller._paper_to_json(paper)
+<<<<<<< Updated upstream
                             if json_str and self._copy_to_clipboard(json_str):
                                 self.message = "[green]✓ JSON copied to clipboard[/green]"
                             else:
                                 self.message = "[red]✗ Failed to copy to clipboard[/red]"
                             self.render_page()
+=======
+                            self._copy_to_clipboard_and_message(json_str, f"JSON copied to clipboard: {paper.doi}", "Failed to copy to clipboard")
+>>>>>>> Stashed changes
                     
                     else:  # Full mode
                         if key in ('q', 'Q', '\x1b'):  # q, Q, or ESC - quit
@@ -236,11 +399,15 @@ class ConsoleViewer:
                             self.render_page()
                         elif key == 'b' and self.controller.get_selected_paper():
                             bibtex = self.controller.get_selected_as_bibtex()
+<<<<<<< Updated upstream
                             if bibtex and self._copy_to_clipboard(bibtex):
                                 self.message = "[green]✓ BibTeX copied to clipboard[/green]"
                             else:
                                 self.message = "[red]✗ Failed to copy to clipboard[/red]"
                             self.render_page()
+=======
+                            self._copy_to_clipboard_and_message(bibtex, f"BibTeX copied to clipboard: {self.controller.get_selected_paper().doi}", "Failed to copy to clipboard")
+>>>>>>> Stashed changes
                         elif key == 'i' and self.controller.get_selected_paper():
                             doi = self.controller.get_selected_doi()
                             if doi and self._copy_to_clipboard(doi):
@@ -251,11 +418,15 @@ class ConsoleViewer:
 
                         elif key == 'c' and self.controller.get_selected_paper():
                             json_str = self.controller.get_selected_as_json()
+<<<<<<< Updated upstream
                             if json_str and self._copy_to_clipboard(json_str):
                                 self.message = "[green]✓ JSON copied to clipboard[/green]"
                             else:
                                 self.message = "[red]✗ Failed to copy to clipboard[/red]"
                             self.render_page()
+=======
+                            self._copy_to_clipboard_and_message(json_str, f"JSON copied to clipboard: {self.controller.get_selected_paper().doi}", "Failed to copy to clipboard")
+>>>>>>> Stashed changes
                         elif key == ':':
                             self.mode = "filter"
                             self.filter_query = ""
@@ -264,6 +435,7 @@ class ConsoleViewer:
                 except EOFError:
                     self.running = False
         finally:
+            self.console.show_cursor(True)  # Restore cursor
             if on_exit:
                 on_exit()
 

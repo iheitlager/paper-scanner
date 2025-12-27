@@ -294,7 +294,8 @@ class TestManualHandler:
         """Test extraction methods handle missing fields gracefully."""
         api_data = {}
 
-        assert handler_with_cache._extract_title(api_data) is None
+        # Base handler returns empty string for missing title (not None)
+        assert handler_with_cache._extract_title(api_data) == ""
         assert handler_with_cache._extract_abstract(api_data) is None
         assert handler_with_cache._extract_authors(api_data) == []
         assert handler_with_cache._extract_keywords(api_data) == []

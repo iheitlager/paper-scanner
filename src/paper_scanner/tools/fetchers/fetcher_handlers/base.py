@@ -66,7 +66,9 @@ class BaseFetcherHandler(ABC):
 
     def _extract_title(self, api_data: Dict[str, Any]) -> Optional[str]:
         """Extract abstract from API response"""
-        return api_data.get("title", "")
+        title = api_data.get("title", "")
+        title = title.title() if isinstance(title, str) else title
+        return title
 
     @abstractmethod
     def _extract_abstract(self, api_data: Dict[str, Any]) -> Optional[str]:

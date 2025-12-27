@@ -6,6 +6,7 @@ with custom citation fields (cites, citedby, studytype, lastchecked) are
 cached and served via the standard handler interface.
 """
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from paper_scanner.core.models import Author, Citation
@@ -39,9 +40,9 @@ class ManualHandler(BaseFetcherHandler):
         """
         return None
 
-    def _extract_title(self, api_data: Dict[str, Any]) -> Optional[str]:
-        """Extract title from cached data."""
-        return api_data.get("title")
+    # def _extract_title(self, api_data: Dict[str, Any]) -> Optional[str]:
+    #     """Extract title from cached data."""
+    #     return api_data.get("title")
 
     def _extract_abstract(self, api_data: Dict[str, Any]) -> Optional[str]:
         """Extract abstract from cached data."""
