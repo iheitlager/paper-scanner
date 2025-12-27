@@ -16,21 +16,16 @@ import textwrap
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
-from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.styles import Style
-from prompt_toolkit.validation import ValidationError, Validator
 from pygments.lexers.python import PythonLexer
-
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
 
 from paper_scanner.core.controller import AbstractController, macro_step
 from paper_scanner.core.step_result import StepResult, StepStatus
 from paper_scanner.core.reporter import AbstractStepReporter, AbstractControllerReporter, ConsoleLoggingMixin
+from paper_scanner.viewer import ConsoleViewer
 
 TABSTOP = 2
 
@@ -527,81 +522,16 @@ class ReplController(AbstractController):
 
         # Get all papers
         all_papers = list(papers)
-        page_size = 10
-        total_pages = (len(all_papers) + page_size - 1) // page_size
-        current_page = 0
+        total_papers = len(all_papers)
 
-        # Rich console for rendering
-        console = Console()
-
-        def render_page(page_num: int) -> None:
-            """Render a single page"""
-            start_idx = page_num * page_size
-            end_idx = min(start_idx + page_size, len(all_papers))
-
-            # Clear console and render header
-            console.clear()
-
-            # Render papers on this page
-            for i, paper in enumerate(all_papers[start_idx:end_idx], 1):
-                idx = start_idx + i
-                console.print(f"[cyan]{idx}.[/cyan] {paper.apa}")
-                console.print()
-
-            # Footer instructions
-            console.print(f"[dim]Page {page_num + 1}/{total_pages} ({start_idx+1}/{len(all_papers)} papers)[/dim]") 
-            console.print("[dim]Commands: [cyan]→[/cyan] next page  [cyan]←[/cyan] previous page  [cyan]q[/cyan] or [cyan]ESC[/cyan] quit[/dim]")
-
-        # Interactive loop with key handling
-        render_page(current_page)
-
-        # Simple input loop for navigation
         try:
-            import sys
-            import termios
-            import tty
-
-            def get_key() -> str:
-                """Get a single key press"""
-                fd = sys.stdin.fileno()
-                old_settings = termios.tcgetattr(fd)
-                try:
-                    tty.setraw(fd)
-                    ch = sys.stdin.read(1)
-                    # Check for escape sequences (arrow keys)
-                    if ch == '\x1b':  # ESC sequence
-                        next_ch = sys.stdin.read(1)
-                        if next_ch == '[':
-                            arrow = sys.stdin.read(1)
-                            if arrow == 'C':  # Right arrow
-                                return 'right'
-                            elif arrow == 'D':  # Left arrow
-                                return 'left'
-                    return ch
-                finally:
-                    termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-
-            while True:
-                try:
-                    key = get_key()
-
-                    if key in ('q', 'Q', '\x1b'):  # q, Q, or ESC
-                        break
-                    elif key == 'right':
-                        if current_page < total_pages - 1:
-                            current_page += 1
-                            render_page(current_page)
-                    elif key == 'left':
-                        if current_page > 0:
-                            current_page -= 1
-                            render_page(current_page)
-                except EOFError:
-                    break
+            # Create and run viewer
+            viewer = ConsoleViewer(all_papers, page_size=10)
+            viewer.run()
+            return StepResult(status=StepStatus.SUCCESS, message=f"Viewed {total_papers} papers")
         except Exception as e:
             self.controller_reporter.log_error(f"Error in viewer: {e}")
             return StepResult(status=StepStatus.ERROR, error=str(e))
-
-        return StepResult(status=StepStatus.SUCCESS, message=f"Showed {len(all_papers)} papers in {total_pages} pages")
 
     @macro_step("help", "?")
     def help_cmd(self, args: list[str]) -> StepResult:
