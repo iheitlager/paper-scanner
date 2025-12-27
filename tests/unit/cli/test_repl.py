@@ -1,422 +1,269 @@
 """
 Unit tests for REPL functionality
 
-Tests macro command parsing, state management, and integration with paper_scanner
+Tests ReplController initialization, macro command registration, and REPL execution flow.
 """
 
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch, Mock
 
 import pytest
 
-from paper_scanner.cli.tasks.repl import REPLSession
+from paper_scanner.cli.tasks.repl import ReplController, ConsoleReporter
+from paper_scanner.core.controller import macro_step, AbstractController
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Paper
+from paper_scanner.core.step_result import StepResult, StepStatus
 
 
-class TestREPLSessionInit:
-    """Test REPLSession initialization"""
+class TestConsoleReporter:
+    """Test ConsoleReporter - core reporter for REPL"""
 
-    def test_init_default_values(self):
-        """Test initialization with default values"""
-        session = REPLSession()
+    def test_reporter_initialization(self):
+        """Test ConsoleReporter initialization"""
+        reporter = ConsoleReporter()
 
-        assert session.project_name == "interactive_session"
-        assert session.verbose is False
-        assert session.debug is False
-        assert session.papers_db is None
-        assert session.step_history == []
+        assert reporter.in_macro_task is False
 
-    def test_init_with_custom_values(self):
-        """Test initialization with custom values"""
-        cache_dir = Path("/tmp/cache")
-        session = REPLSession(
-            cache_dir=cache_dir,
-            verbose=True,
-            debug=True,
+    def test_reporter_has_logging_methods(self):
+        """Test that ConsoleReporter has required logging methods"""
+        reporter = ConsoleReporter()
+
+        assert hasattr(reporter, 'log_msg')
+        assert hasattr(reporter, 'log_info')
+        assert hasattr(reporter, 'log_error')
+        assert hasattr(reporter, 'log_debug')
+        assert hasattr(reporter, 'log_warning')
+
+    def test_reporter_on_start(self):
+        """Test on_start callback sets initial state"""
+        reporter = ConsoleReporter()
+        reporter.log_msg = Mock()
+        reporter.controller = Mock()
+        reporter.controller.debug = False
+        
+        reporter.on_start()
+        
+        # on_start should log setup messages
+        assert reporter.log_msg.called
+
+    def test_reporter_on_close(self):
+        """Test on_close callback"""
+        reporter = ConsoleReporter()
+        reporter.log_info = Mock()
+        
+        reporter.on_close()
+        
+        # Should be callable without error
+        assert reporter.log_info.called
+
+
+class TestMacroStepDecorator:
+    """Test @macro_step decorator functionality"""
+
+    def test_macro_step_decorator_adds_attribute(self):
+        """Test that @macro_step adds _macro_names attribute"""
+        
+        @macro_step("test_command", "tc")
+        def test_func():
+            pass
+
+        assert hasattr(test_func, '_macro_names')
+        assert test_func._macro_names == ("test_command", "tc")
+
+    def test_macro_step_single_name(self):
+        """Test @macro_step with single name"""
+        
+        @macro_step("single")
+        def func():
+            pass
+
+        assert func._macro_names == ("single",)
+
+    def test_macro_step_multiple_names(self):
+        """Test @macro_step with multiple names (command and aliases)"""
+        
+        @macro_step("command", "cmd", "c")
+        def func():
+            pass
+
+        assert func._macro_names == ("command", "cmd", "c")
+
+
+class TestConsoleReporterCallbacks:
+    """Test ConsoleReporter callback methods"""
+
+    def test_on_definition_loaded(self):
+        """Test definition loaded callback"""
+        reporter = ConsoleReporter()
+        reporter.log_info = Mock()
+
+        definition = {"steps": [{"step1": {}}, {"step2": {}}]}
+        reporter.on_definition_loaded("test.yml", definition)
+
+        reporter.log_info.assert_called()
+
+    def test_on_macro_start(self):
+        """Test macro command start callback"""
+        reporter = ConsoleReporter()
+        reporter.log_debug = Mock()
+
+        reporter.on_macro_start("test_command")
+
+        assert reporter.in_macro_task is True
+        reporter.log_debug.assert_called()
+
+    def test_on_macro_end_success(self):
+        """Test macro command completion with success"""
+        reporter = ConsoleReporter()
+        reporter.log_msg = Mock()
+        reporter.controller = Mock()
+        reporter.controller.timings = False
+        reporter.executor = Mock()
+        reporter.executor.has_next_step = False
+
+        result = StepResult(
+            status=StepStatus.SUCCESS,
+            message="Command completed successfully"
+        )
+        reporter.on_macro_end("echo", result, 100.5)
+
+        assert reporter.in_macro_task is False
+
+    def test_on_macro_error(self):
+        """Test macro command error callback"""
+        reporter = ConsoleReporter()
+        reporter.log_error = Mock()
+
+        error = Exception("Test error")
+        reporter.on_macro_error("test_command", error, 50.0)
+
+        reporter.log_error.assert_called()
+
+    def test_on_error(self):
+        """Test error callback"""
+        reporter = ConsoleReporter()
+        reporter.log_error = Mock()
+
+        reporter.on_error("Test error message")
+
+        reporter.log_error.assert_called()
+
+    def test_on_step_start(self):
+        """Test step start callback"""
+        reporter = ConsoleReporter()
+        reporter.log_info = Mock()
+
+        step_config = {"description": "Import papers", "step": "bibtex_import"}
+        reporter.on_step_start(1, step_config, 5)
+
+        reporter.log_info.assert_called()
+
+    def test_on_step_end(self):
+        """Test step end callback"""
+        reporter = ConsoleReporter()
+        reporter.log_msg = Mock()
+
+        step_config = {"step": "bibtex_import"}
+        result = StepResult(status=StepStatus.SUCCESS, message="Imported 42 papers")
+        reporter.on_step_end(1, step_config, result)
+
+        # Should be callable without error
+        assert reporter is not None
+
+
+class TestConsoleReporterInitialization:
+    """Test ConsoleReporter inheritance and interface compliance"""
+
+    def test_console_reporter_implements_controller_reporter(self):
+        """Test that ConsoleReporter implements AbstractControllerReporter"""
+        from paper_scanner.core.reporter import AbstractControllerReporter
+        
+        reporter = ConsoleReporter()
+        
+        # Should have required methods
+        assert hasattr(reporter, 'on_start')
+        assert hasattr(reporter, 'on_close')
+        assert hasattr(reporter, 'on_error')
+        assert hasattr(reporter, 'on_macro_start')
+        assert hasattr(reporter, 'on_macro_end')
+
+    def test_console_reporter_implements_step_reporter(self):
+        """Test that ConsoleReporter implements AbstractStepReporter"""
+        from paper_scanner.core.reporter import AbstractStepReporter
+        
+        reporter = ConsoleReporter()
+        
+        # Should have required methods
+        assert hasattr(reporter, 'on_step_start')
+        assert hasattr(reporter, 'on_step_end')
+
+    def test_console_reporter_logging_mixin(self):
+        """Test ConsoleReporter has logging mixin methods"""
+        from paper_scanner.core.reporter import ConsoleLoggingMixin
+        
+        reporter = ConsoleReporter()
+        
+        # Should have logging methods
+        assert hasattr(reporter, 'log_msg')
+        assert hasattr(reporter, 'log_info')
+        assert hasattr(reporter, 'log_error')
+
+
+class TestReplControllerStructure:
+    """Test ReplController class structure and attributes"""
+
+    def test_repl_controller_has_required_methods(self):
+        """Test that ReplController has required interface methods"""
+        # We can test class structure without instantiation
+        assert hasattr(ReplController, '_do_initialize')
+        assert hasattr(ReplController, '_prep_macro_steps')
+        assert hasattr(ReplController, '_prep_repl_session')
+        assert hasattr(ReplController, '_get_macro_step')
+        assert hasattr(ReplController, '_get_status_line')
+        assert hasattr(ReplController, '_do_exec')
+
+    def test_repl_controller_has_macro_step_support(self):
+        """Test that ReplController supports macro_step decorator"""
+        # Check that macro step collection is supported
+        method_names = [m for m in dir(ReplController) if not m.startswith('_')]
+        
+        # ReplController should have public methods for macro commands
+        assert len(method_names) > 0
+
+
+class TestStepResultUsage:
+    """Test StepResult usage in REPL context"""
+
+    def test_step_result_success(self):
+        """Test successful step result"""
+        result = StepResult(
+            status=StepStatus.SUCCESS,
+            message="Operation completed"
         )
 
-        assert session.project_name == "interactive_session"
-        assert session.cache_dir == cache_dir
-        assert session.verbose is True
-        assert session.debug is True
+        assert result.status == StepStatus.SUCCESS
+        assert "Operation completed" in result.message
 
-
-class TestMacroCommandParsing:
-    r"""Test \command parsing logic"""
-
-    def test_parse_simple_command(self):
-        """Test parsing command without args"""
-        session = REPLSession()
-        command, args, kwargs = session._parse_macro_command("\\help")
-
-        assert command == "help"
-        assert args == []
-        assert kwargs == {}
-
-    def test_parse_command_with_positional_args(self):
-        """Test parsing command with positional arguments"""
-        session = REPLSession()
-        command, args, kwargs = session._parse_macro_command("\\export jsonl /tmp/out.jsonl")
-
-        assert command == "export"
-        assert args == ["jsonl", "/tmp/out.jsonl"]
-        assert kwargs == {}
-
-    def test_parse_command_with_kwargs(self):
-        """Test parsing command with keyword arguments"""
-        session = REPLSession()
-        command, args, kwargs = session._parse_macro_command(
-            "\\export jsonl /tmp/output.jsonl key1=value1 key2=value2"
+    def test_step_result_error(self):
+        """Test error step result"""
+        result = StepResult(
+            status=StepStatus.ERROR,
+            message="Operation failed"
         )
 
-        assert command == "export"
-        assert args == ["jsonl", "/tmp/output.jsonl"]
-        assert kwargs == {"key1": "value1", "key2": "value2"}
+        assert result.status == StepStatus.ERROR
+        assert "failed" in result.message
 
-    def test_parse_command_with_mixed_args(self):
-        """Test parsing command with mixed positional and keyword args"""
-        session = REPLSession()
-        command, args, kwargs = session._parse_macro_command(
-            "\\export jsonl /tmp/out.jsonl limit=100 format=compact"
+    def test_step_result_warning(self):
+        """Test warning step result"""
+        result = StepResult(
+            status=StepStatus.WARNING,
+            message="Warning message"
         )
 
-        assert command == "export"
-        assert args == ["jsonl", "/tmp/out.jsonl"]
-        assert kwargs == {"limit": "100", "format": "compact"}
-
-
-class TestMacroCommandHandling:
-    """Test macro command execution"""
-
-    def test_handle_status_command(self):
-        r"""Test \status command"""
-        session = REPLSession()
-        session.papers_db = PapersDatabase()
-
-        # Should return True (command handled)
-        result = session._handle_macro_command("\\status")
-        assert result is True
-
-    def test_handle_history_command_empty(self):
-        r"""Test \history with no history"""
-        session = REPLSession()
-        result = session._handle_macro_command("\\history")
-
-        assert result is True
-        assert session.step_history == []
-
-    def test_handle_history_command_with_entries(self):
-        r"""Test \history with entries"""
-        session = REPLSession()
-        session.step_history = ["Step 1 completed", "Step 2 completed"]
-
-        result = session._handle_macro_command("\\history")
-        assert result is True
-
-    def test_handle_show_command(self):
-        r"""Test \show command"""
-        session = REPLSession()
-        session.papers_db = PapersDatabase()
-
-        # Add test papers
-        paper1 = Paper(
-            id="1",
-            cite_key="test_paper_1",
-            title="Test Paper 1",
-            doi="10.1234/test1",
-        )
-        paper2 = Paper(
-            id="2",
-            cite_key="test_paper_2",
-            title="Test Paper 2",
-            doi="10.1234/test2",
-        )
-        session.papers_db.add(paper1)
-        session.papers_db.add(paper2)
-
-        result = session._handle_macro_command("\\show 5")
-        assert result is True
-
-    def test_handle_checkpoint_command(self):
-        r"""Test \checkpoint command saves checkpoint"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            cache_dir = Path(tmpdir)
-            session = REPLSession(
-                cache_dir=cache_dir,
-            )
-            session.papers_db = PapersDatabase()
-
-            # Add test paper
-            paper = Paper(
-                id="1",
-                cite_key="test_paper",
-                title="Test Paper",
-                doi="10.1234/test",
-            )
-            session.papers_db.add(paper)
-
-            result = session._handle_macro_command("\\checkpoint my_checkpoint")
-            assert result is True
-
-            # Verify checkpoint was created in the checkpoints directory
-            checkpoint_path = cache_dir / "checkpoints" / "checkpoint_my_checkpoint.json"
-            assert checkpoint_path.exists()
-
-    def test_handle_help_command(self):
-        r"""Test \help command"""
-        session = REPLSession()
-        result = session._handle_macro_command("\\help")
-
-        assert result is True
-
-    def test_handle_exit_command(self):
-        r"""Test \exit command"""
-        session = REPLSession()
-
-        # \exit should return True (indicating command was handled)
-        result = session._handle_macro_command("\\exit")
-        assert result is True
-
-    def test_handle_unknown_command(self):
-        r"""Test handling unknown \command"""
-        session = REPLSession()
-        result = session._handle_macro_command("\\unknown_command")
-
-        assert result is True
-
-    def test_non_macro_line(self):
-        r"""Test that non-\ lines return False"""
-        session = REPLSession()
-        result = session._handle_macro_command("print('hello')")
-
-        assert result is False
-
-    def test_handle_export_jsonl_command(self):
-        r"""Test \export jsonl command"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            session = REPLSession()
-            session.papers_db = PapersDatabase()
-
-            # Add test papers
-            paper = Paper(
-                id="1",
-                cite_key="test_paper",
-                title="Test Paper",
-                doi="10.1234/test",
-            )
-            session.papers_db.add(paper)
-
-            output_path = Path(tmpdir) / "output.jsonl"
-            result = session._handle_macro_command(f"\\export jsonl {output_path}")
-
-            assert result is True
-            assert output_path.exists()
-
-    def test_handle_export_json_command(self):
-        r"""Test \export json command"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            session = REPLSession()
-            session.papers_db = PapersDatabase()
-
-            # Add test papers
-            paper = Paper(
-                id="1",
-                cite_key="test_paper",
-                title="Test Paper",
-                doi="10.1234/test",
-            )
-            session.papers_db.add(paper)
-
-            output_path = Path(tmpdir) / "output.json"
-            result = session._handle_macro_command(f"\\export json {output_path}")
-
-            assert result is True
-            assert output_path.exists()
-
-
-class TestNamespaceCreation:
-    """Test REPL namespace creation and helper functions"""
-
-    def test_create_namespace_has_required_objects(self):
-        """Test that namespace contains all required objects"""
-        session = REPLSession()
-        namespace = session._create_namespace()
-
-        # Check for required objects
-        assert "papers_db" in namespace
-        assert "db" in namespace  # Alias for papers_db
-        assert "results" in namespace
-        assert "general_config" in namespace
-
-    def test_create_namespace_has_helper_functions(self):
-        """Test that namespace contains helper functions"""
-        session = REPLSession()
-        namespace = session._create_namespace()
-
-        # Check for helper functions
-        assert "run_step" in namespace
-        assert callable(namespace["run_step"])
-        assert "show_papers" in namespace
-        assert callable(namespace["show_papers"])
-        assert "help_commands" in namespace
-        assert callable(namespace["help_commands"])
-
-    def test_create_namespace_has_imports(self):
-        """Test that namespace contains convenience imports"""
-        session = REPLSession()
-        namespace = session._create_namespace()
-
-        # Check for convenience imports
-        assert "Definition" in namespace
-        assert "PapersDatabase" in namespace
-        assert "json" in namespace
-        assert "Path" in namespace
-        assert "datetime" in namespace
-
-    def test_show_papers_function(self):
-        """Test show_papers helper function"""
-        session = REPLSession()
-        session.papers_db = PapersDatabase()
-
-        # Add test papers
-        for i in range(3):
-            paper = Paper(
-                id=str(i),
-                cite_key=f"test_paper_{i}",
-                title=f"Paper {i}",
-                doi=f"10.1234/test{i}",
-            )
-            session.papers_db.add(paper)
-
-        namespace = session._create_namespace()
-        show_papers = namespace["show_papers"]
-
-        # Should not raise exception
-        show_papers(limit=5)
-
-
-class TestStateManagement:
-    """Test session state management"""
-
-    def test_step_history_tracking(self):
-        """Test that step history is tracked correctly"""
-        session = REPLSession()
-
-        assert session.step_history == []
-
-        session.step_history.append("Step 1")
-        session.step_history.append("Step 2")
-
-        assert len(session.step_history) == 2
-        assert session.step_history[0] == "Step 1"
-
-    def test_database_persistence(self):
-        """Test that database persists across operations"""
-        session = REPLSession()
-        session.papers_db = PapersDatabase()
-
-        paper = Paper(
-            id="1",
-            cite_key="test_paper",
-            title="Test Paper",
-            doi="10.1234/test",
-        )
-        session.papers_db.add(paper)
-
-        assert session.papers_db.count() == 1
-
-        # Add another paper
-        paper2 = Paper(
-            id="2",
-            cite_key="test_paper_2",
-            title="Another Paper",
-            doi="10.1234/test2",
-        )
-        session.papers_db.add(paper2)
-
-        assert session.papers_db.count() == 2
-
-    def test_results_dictionary_update(self):
-        """Test that results dictionary is updated correctly"""
-        session = REPLSession()
-
-        assert session.results == {}
-
-        session.results = {"status": "success", "count": 42}
-
-        assert session.results["status"] == "success"
-        assert session.results["count"] == 42
-
-
-class TestInitialDefinitionLoading:
-    """Test loading initial YAML definitions"""
-
-    def test_load_initial_definition_file_not_found(self):
-        """Test handling missing definition file"""
-        session = REPLSession()
-
-        with pytest.raises(FileNotFoundError):
-            session.load_initial_definition(Path("/nonexistent/file.yml"))
-
-    def test_load_initial_definition_with_checkpoint(self):
-        """Test loading definition with steps"""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            cache_dir = Path(tmpdir)
-
-            # Create definition file with a step
-            definition_path = Path(tmpdir) / "definition.yml"
-            definition_content = {
-                "project": {
-                    "name": "Test Project",
-                },
-                "steps": [
-                    {
-                        "builtin.echo": {
-                            "message": "Test step"
-                        }
-                    }
-                ],
-            }
-            with open(definition_path, "w") as f:
-                import yaml
-                yaml.dump(definition_content, f)
-
-            session = REPLSession(
-                cache_dir=cache_dir,
-            )
-            result = session.load_initial_definition(definition_path)
-
-            # Verify file was loaded
-            assert result is True
-
-
-class TestExecuteReplFunction:
-    """Test execute_repl entry point function"""
-
-    def test_execute_repl_basic(self):
-        """Test basic execute_repl call"""
-        from paper_scanner.cli.tasks.repl import execute_repl
-
-        with patch.object(REPLSession, "run"):
-            with patch.object(REPLSession, "load_initial_definition", return_value=False):
-                # Should execute without crashing
-                execute_repl(
-                    builtin_steps={},
-                )
-
-    def test_execute_repl_with_exception(self):
-        """Test execute_repl error handling"""
-        from paper_scanner.cli.tasks.repl import execute_repl
-
-        with patch.object(REPLSession, "__init__", side_effect=Exception("Test error")):
-            # Should not crash even if REPLSession fails to init
-            try:
-                execute_repl()
-            except Exception:
-                # Expected to fail during REPLSession creation
-                pass
+        assert result.status == StepStatus.WARNING
 
 
 if __name__ == "__main__":

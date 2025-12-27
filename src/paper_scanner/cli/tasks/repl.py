@@ -268,7 +268,10 @@ class ReplController(AbstractController):
                     break
 
                 # Check if it's a macro command (starts with \)
-                if user_input.startswith("\\"):
+                if user_input[0] == ":":
+                    # Alias ':' to 'steps' command
+                    self._execute_settings_command(user_input)
+                elif user_input.startswith("\\"):
                     self._execute_macro_command(user_input)
                 else:
                     self._execute_python_code(user_input, namespace, len(prompt))
@@ -278,6 +281,30 @@ class ReplController(AbstractController):
             except EOFError:
                 break
 
+        return 0
+
+    def _execute_settings_command(self, user_input: str) -> int:
+        """toggles settings like verbosity, dry-run, timings"""
+        command_line = user_input[1:].strip().lower().split(" ")
+        command = command_line[0]
+        if command == "settings":
+            self.controller_reporter.log("\n[bold]⚙ Current Settings:[/bold]")
+            self.controller_reporter.log(f"  • [cyan]Verbose:[/cyan] {'On' if self.verbose else 'Off'}")
+            self.controller_reporter.log(f"  • [cyan]Dry-run:[/cyan] {'On' if self.dry_run else 'Off'}")
+            self.controller_reporter.log(f"  • [cyan]Timings:[/cyan] {'On' if self.timings else 'Off'}")
+            self.controller_reporter.log(f"  • [cyan]Debug:[/cyan] {'On' if self.debug else 'Off'}\n")
+            return 0
+        if command not in ("verbose", "dryrun", "timings", "debug"):
+            self.controller_reporter.on_error(f"Unknown settings command: [dim]{command}[/dim]")
+            return 1
+        if command_line[1] in ("off", "0", "false"):
+            value = False
+        elif command_line[1] in ("on", "1", "true"):
+            value = True
+        else:
+            self.controller_reporter.on_error(f"Invalid value for setting {command}: [dim]{command_line[1]}[/dim]")
+            return 1
+        setattr(self, command , value)
         return 0
 
     def _execute_macro_command(self, user_input: str) -> int:
