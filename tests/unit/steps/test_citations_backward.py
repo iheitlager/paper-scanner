@@ -379,7 +379,7 @@ class TestResolveCitationsAndFetchPapers:
         step.db.get_by_doi.return_value = []
 
         mock_fetcher = MagicMock()
-        mock_fetcher.fetch_paper.return_value = (new_paper, False)
+        mock_fetcher.fetch_paper.return_value = (new_paper, False, "crossref")
 
         results = {
             "citations_resolved": 0,

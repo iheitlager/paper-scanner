@@ -74,7 +74,7 @@ class TestFetcherFallbackLogic:
             "fetch_paper",
             side_effect=Exception("Fail"),
         ):
-            result, cache_hit = fetcher.fetch_paper("10.9999/all_fail")
+            result, cache_hit, handler = fetcher.fetch_paper("10.9999/all_fail")
             assert result is None
 
     def test_fetch_with_empty_methods_raises_error(self, tmp_path):
@@ -97,7 +97,7 @@ class TestFetcherCaching:
             "fetch_paper",
             return_value=(mock_paper, False),
         ):
-            result, cache_hit = fetcher.fetch_paper("10.1234/test")
+            result, cache_hit, handler = fetcher.fetch_paper("10.1234/test")
             assert cache_hit is False
 
         # Second call: cache hit
@@ -106,7 +106,7 @@ class TestFetcherCaching:
             "fetch_paper",
             return_value=(mock_paper, True),
         ):
-            result, cache_hit = fetcher.fetch_paper("10.1234/test")
+            result, cache_hit, handler = fetcher.fetch_paper("10.1234/test")
             assert cache_hit is True
 
     def test_fetcher_with_real_crossref_handler(self, tmp_path):
@@ -129,7 +129,7 @@ class TestFetcherErrorHandling:
             "fetch_paper",
             side_effect=RuntimeError("Connection error"),
         ):
-            result, cache_hit = fetcher.fetch_paper("10.1234/test")
+            result, cache_hit, handler = fetcher.fetch_paper("10.1234/test")
             assert result is None
 
     def test_fetcher_initialization_with_non_existent_cache_dir(self):
@@ -153,7 +153,7 @@ class TestFetcherDOINormalization:
         ):
             # Test various DOI formats
             for doi in ("10.1234/test", "https://doi.org/10.1234/test", "doi.org/10.1234/test"):
-                result, _ = fetcher.fetch_paper(doi)
+                result, _, _ = fetcher.fetch_paper(doi)
                 assert result is not None
 
 

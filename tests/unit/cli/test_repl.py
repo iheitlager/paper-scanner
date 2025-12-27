@@ -155,7 +155,7 @@ class TestConsoleReporterCallbacks:
         reporter = ConsoleReporter()
         reporter.log_info = Mock()
 
-        step_config = {"description": "Import papers", "step": "bibtex_import"}
+        step_config = {"description": "Import papers", "step": "import bibtex", "command": "builtin.bibtex_import" }
         reporter.on_step_start(1, step_config, 5)
 
         reporter.log_info.assert_called()
@@ -165,7 +165,7 @@ class TestConsoleReporterCallbacks:
         reporter = ConsoleReporter()
         reporter.log_msg = Mock()
 
-        step_config = {"step": "bibtex_import"}
+        step_config = {"step": "import bibtex", "command": "builtin.bibtex_import" }
         result = StepResult(status=StepStatus.SUCCESS, message="Imported 42 papers")
         reporter.on_step_end(1, step_config, result)
 

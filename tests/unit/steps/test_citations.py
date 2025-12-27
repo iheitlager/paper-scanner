@@ -317,6 +317,152 @@ class TestExecuteWithForwardConfig:
         assert len(result["errors"]) == 2
 
 
+class TestResolveCitationFetcherIntegration:
+    """Test _resolve_citation method fetcher integration with 3-tuple unpacking"""
+
+    @pytest.fixture
+    def setup(self, tmp_path):
+        """Setup test database and step"""
+        from paper_scanner.core.models import Paper, Citation, CitationDirection
+        
+        db = PapersDatabase()
+        step = CitationsStep(general_config={}, db=db, cache_dir=tmp_path)
+        # Initialize attributes that are normally set in execute()
+        step.debug = False
+        step.verbose = False
+        step.dry_run = False
+        return step, db
+
+    def test_resolve_citation_unpacks_3_tuple_from_fetcher(self, setup):
+        """Test that _resolve_citation correctly unpacks 3-tuple from fetcher.fetch_paper()"""
+        from paper_scanner.core.models import Paper, Citation
+        from paper_scanner.core.enum import CitationDirection
+        
+        step, db = setup
+
+        # Create citation for paper not in database
+        citation = Citation(
+            doi="10.1234/new",
+            title="New Paper",
+            direction=CitationDirection.BACKWARD,
+            extraction_method="grobid"
+        )
+        citing_paper = Paper(cite_key="citing2024", title="Citing", doi="10.5678/citing")
+
+        # Mock fetcher to return 3-tuple (paper, cache_hit, handler)
+        mock_fetcher = MagicMock()
+        enriched_paper = Paper(cite_key="new2024", title="New Paper", doi="10.1234/new")
+        mock_fetcher.fetch_paper.return_value = (enriched_paper, False, "crossref")
+
+        # This should not raise ValueError about unpacking
+        resolved_paper, created_new = step._resolve_citation(
+            citation=citation,
+            citing_paper=citing_paper,
+            fetcher=mock_fetcher,
+            continue_on_not_found=True
+        )
+
+        assert resolved_paper is not None
+        assert resolved_paper.doi == "10.1234/new"
+        assert created_new is True
+
+    def test_resolve_citation_unpacks_3_tuple_cache_hit(self, setup):
+        """Test that cache_hit is correctly handled when unpacking 3-tuple"""
+        from paper_scanner.core.models import Paper, Citation
+        from paper_scanner.core.enum import CitationDirection
+        
+        step, db = setup
+
+        citation = Citation(
+            doi="10.1234/cached",
+            title="Cached",
+            direction=CitationDirection.BACKWARD,
+            extraction_method="grobid"
+        )
+        citing_paper = Paper(cite_key="citing2024", title="Citing", doi="10.5678/citing")
+
+        mock_fetcher = MagicMock()
+        enriched_paper = Paper(cite_key="cached2024", title="Cached", doi="10.1234/cached")
+        # Return with cache_hit=True
+        mock_fetcher.fetch_paper.return_value = (enriched_paper, True, "crossref")
+
+        results = {}
+        resolved_paper, created_new = step._resolve_citation(
+            citation=citation,
+            citing_paper=citing_paper,
+            fetcher=mock_fetcher,
+            continue_on_not_found=True,
+            results=results
+        )
+
+        # Verify cache hit was tracked
+        assert results.get("cache_hits", 0) == 1
+        assert results.get("cache_misses", 0) == 0
+
+    def test_resolve_citation_unpacks_3_tuple_cache_miss(self, setup):
+        """Test that cache_miss is correctly handled when unpacking 3-tuple"""
+        from paper_scanner.core.models import Paper, Citation
+        from paper_scanner.core.enum import CitationDirection
+        
+        step, db = setup
+
+        citation = Citation(
+            doi="10.1234/nocache",
+            title="No Cache",
+            direction=CitationDirection.BACKWARD,
+            extraction_method="grobid"
+        )
+        citing_paper = Paper(cite_key="citing2024", title="Citing", doi="10.5678/citing")
+
+        mock_fetcher = MagicMock()
+        enriched_paper = Paper(cite_key="nocache2024", title="No Cache", doi="10.1234/nocache")
+        # Return with cache_hit=False
+        mock_fetcher.fetch_paper.return_value = (enriched_paper, False, "openalex")
+
+        results = {}
+        resolved_paper, created_new = step._resolve_citation(
+            citation=citation,
+            citing_paper=citing_paper,
+            fetcher=mock_fetcher,
+            continue_on_not_found=True,
+            results=results
+        )
+
+        # Verify cache miss was tracked
+        assert results.get("cache_hits", 0) == 0
+        assert results.get("cache_misses", 0) == 1
+
+    def test_resolve_citation_handler_name_captured(self, setup):
+        """Test that handler name from 3-tuple is captured but not causing errors"""
+        from paper_scanner.core.models import Paper, Citation
+        from paper_scanner.core.enum import CitationDirection
+        
+        step, db = setup
+
+        citation = Citation(
+            doi="10.1234/test",
+            title="Test",
+            direction=CitationDirection.BACKWARD,
+            extraction_method="grobid"
+        )
+        citing_paper = Paper(cite_key="citing2024", title="Citing", doi="10.5678/citing")
+
+        mock_fetcher = MagicMock()
+        enriched_paper = Paper(cite_key="test2024", title="Test", doi="10.1234/test")
+        # Return with different handler names
+        for handler_name in ["crossref", "openalex", "semanticscholar"]:
+            mock_fetcher.fetch_paper.return_value = (enriched_paper, False, handler_name)
+            
+            resolved_paper, created_new = step._resolve_citation(
+                citation=citation,
+                citing_paper=citing_paper,
+                fetcher=mock_fetcher,
+                continue_on_not_found=True
+            )
+
+            # Should work with any handler name
+            assert resolved_paper is not None
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

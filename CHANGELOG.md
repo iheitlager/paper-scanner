@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **REPL Show Command** (`show`, `v`): Interactive paginated viewer for database papers
   - Displays up to 10 papers per page with APA-formatted citations
   - allow copy of paper to `json`, `bibtex`, `apa` or only `doi`
+- **JSON Viewer Feature**: Interactive JSON viewer for detailed paper analysis in console viewer
+  - Search functionality with bracket escaping for special characters
+  - Copy to clipboard support (macOS via pbcopy)
+
+### Fixed
+
+- **Fetcher Return Value Unpacking**: Fixed 3-tuple unpacking in `citations.py` and `retrieve_metadata.py`
+  - `fetcher.fetch_paper()` now correctly unpacks `(paper, cache_hit, handler)` instead of 2-tuple
+  - Updated all test mocks to use correct 3-tuple return format
 
 
 ## [3.3.0] - 2025-12-24

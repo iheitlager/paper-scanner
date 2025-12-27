@@ -717,7 +717,7 @@ class CitationsStep(BaseStep):
                     console.print(f"  [green]Paper already in database: {normalized_doi}[/green]")
                 return paper, False
             else:
-                enriched_paper, cache_hit = fetcher.fetch_paper(normalized_doi)
+                enriched_paper, cache_hit, handler = fetcher.fetch_paper(normalized_doi)
                 cache = "💾" if cache_hit else "🌐"
                 # enriched_paper.discovery.iteration = self.iteration
 

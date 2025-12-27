@@ -22,7 +22,7 @@ class TestFetcherMetadataFetching:
             "fetch_paper",
             return_value=(mock_paper, False),
         ):
-            result, cache_hit = fetcher.fetch_paper("10.1234/test")
+            result, cache_hit, handler = fetcher.fetch_paper("10.1234/test")
             assert result is not None
             assert result.title == "Test"
             assert cache_hit is False
@@ -36,7 +36,7 @@ class TestFetcherMetadataFetching:
             "fetch_paper",
             return_value=(mock_paper, True),
         ):
-            result, cache_hit = fetcher.fetch_paper("10.1234/test")
+            result, cache_hit, handler = fetcher.fetch_paper("10.1234/test")
             assert result is not None
             assert cache_hit is True
 
@@ -48,7 +48,7 @@ class TestFetcherMetadataFetching:
             "fetch_paper",
             return_value=(None, False),
         ):
-            result, cache_hit = fetcher.fetch_paper("10.9999/nonexistent")
+            result, cache_hit, handler = fetcher.fetch_paper("10.9999/nonexistent")
             assert result is None
             assert cache_hit is False
 
@@ -60,6 +60,6 @@ class TestFetcherMetadataFetching:
             "fetch_paper",
             side_effect=Exception("Test error"),
         ):
-            result, cache_hit = fetcher.fetch_paper("10.1234/test")
+            result, cache_hit, handler = fetcher.fetch_paper("10.1234/test")
             assert result is None
             assert cache_hit is False

@@ -95,7 +95,7 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
     # AbstractStepReporter
     def on_step_start(self, idx: int, step_config: Dict, total: int) -> None:
         description = step_config.get("description", step_config.get("step", "Unknown"))
-        self.log_info(f"Executing step: {description}... ([dim]('{step_config['command']}')[/dim])")
+        self.log_info(f"[cyan]Executing step:[/cyan] {description}... [dim]('{step_config['command']}')[/dim]")
 
     def on_step_end(self, idx: int, step_config: Dict, result: StepResult) -> None:
         if result.details:

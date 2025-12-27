@@ -113,7 +113,7 @@ class RetrieveMetadataStep(BaseStep):
                 continue
 
             # Fetch metadata
-            enriched_paper, cache_hit = fetcher.fetch_paper(paper.doi)
+            enriched_paper, cache_hit, handler = fetcher.fetch_paper(paper.doi)
             if cache_hit:
                 cache = "💾"
                 stats["cache_hits"] += 1
@@ -130,7 +130,7 @@ class RetrieveMetadataStep(BaseStep):
                     errors.append(f"{paper.doi}: Not found in any source")
                 continue
             else:
-                self.callback(f" [dim]Fetched metadata: {enriched_paper}[/dim]", debug=True)
+                self.callback(f" [dim]Fetched metadata: {enriched_paper} from[/dim] '{handler}'", debug=True)
 
             # Merge enriched metadata into existing paper
             _merge_paper_metadata(paper, enriched_paper, overwrite=overwrite)

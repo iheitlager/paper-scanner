@@ -11,6 +11,7 @@ from rich.panel import Panel
 
 from paper_scanner.core.models import Paper
 from paper_scanner.viewer.console_controller import PaperListController
+from paper_scanner.viewer.json_viewer import JSONViewer
 
 
 class ConsoleViewer:
@@ -22,10 +23,11 @@ class ConsoleViewer:
         self.controller = PaperListController(papers, page_size)
         self.running = False
         self.message = ""  # For displaying copy/search feedback
-        self.mode = "full"  # "full", "filter", or "search"
+        self.mode = "full"  # "full", "filter", "search", or "json_detail"
         self.filter_query = ""  # Current filter input
         self.filtered_indices = None  # Cached filtered results
         self.filter_selected_index = None  # Selection within filtered results
+        self.detail_source_mode = None  # Track which mode to return to from detail
 
     def render_page(self) -> None:
         """Render current page of papers"""
@@ -66,7 +68,7 @@ class ConsoleViewer:
         self.console.print(line1)
 
         if self.controller.get_selected_paper():
-            line2 = "[dim]Selected: [cyan]d[/cyan] details  [cyan]b[/cyan] bibtex  [cyan]i[/cyan] doi  [cyan]a[/cyan] apa  [cyan]c[/cyan] json  [cyan]:[/cyan] search  [cyan]?[/cyan] help  [cyan]q[/cyan] quit[/dim]"
+            line2 = "[dim]Selected: [cyan]d[/cyan] details  [cyan]j[/cyan] json details [cyan]b[/cyan] bibtex  [cyan]i[/cyan] doi  [cyan]a[/cyan] apa  [cyan]c[/cyan] json  [cyan]/[/cyan] search  [cyan]?[/cyan] help  [cyan]q[/cyan] quit[/dim]"
             self.console.print(line2)
         else:
             line2 = "[dim]Selected: (none)  [cyan]q[/cyan] quit[/dim]"
@@ -80,7 +82,7 @@ class ConsoleViewer:
             )
         elif self.mode == "filter":
             match_count = len(self.filtered_indices) if self.filtered_indices else 0
-            line3 = f"[yellow][Filter mode] Showing {match_count} filtered papers — Press : to search again, Q/ESC to exit[/yellow]"
+            line3 = f"[yellow][Filter mode] Showing {match_count} filtered papers — Press / to search again, Q/ESC to exit[/yellow]"
         else:
             page_info = self.controller.get_page_info()
             line3 = f"[dim]Page {page_info['current_page']}/{page_info['total_pages']} — {page_info['end_index']}/{page_info['papers_total']} papers[/dim]"
@@ -88,7 +90,7 @@ class ConsoleViewer:
 
         # Line 4: Messages or search input
         if self.mode == "search":
-            self.console.print(f"[cyan]:[/cyan] {self.filter_query}[dim]_[/dim]")
+            self.console.print(f"[cyan]/[/cyan] {self.filter_query}[dim]_[/dim]")
         else:
             self.console.print(self.message)
 
@@ -333,7 +335,7 @@ class ConsoleViewer:
                             self.filter_selected_index = None
                             self.message = ""  # Clear message on mode change
                             self.render_page()
-                        elif key == ":":
+                        elif key == "/":
                             self.message = ""  # Clear message when entering search
                             self.mode = "search"
                             self.filter_query = ""
@@ -371,6 +373,10 @@ class ConsoleViewer:
                             self.mode = "detail"
                             self.message = ""  # Clear message when entering detail mode
                             self._render_detail_page()
+                        elif key == "j" and self.filter_selected_index is not None:
+                            paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
+                            self._show_json_viewer(paper)
+                            self.render_page()
                         elif key == "b" and self.filter_selected_index is not None:
                             paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
                             bibtex = self.controller._paper_to_bibtex(paper)
@@ -405,7 +411,7 @@ class ConsoleViewer:
                     else:  # Full mode
                         if key in ("q", "Q", "\x1b"):  # q, Q, or ESC - quit
                             self.running = False
-                        elif key == ":":
+                        elif key == "/":
                             # Enter search mode
                             self.message = ""  # Clear message when entering search
                             self.mode = "search"
@@ -438,6 +444,11 @@ class ConsoleViewer:
                             self.mode = "detail"
                             self.message = ""  # Clear message when entering detail mode
                             self._render_detail_page()
+                        elif key == "j" and self.controller.get_selected_paper():
+                            # Enter JSON viewer mode
+                            paper = self.controller.get_selected_paper()
+                            self._show_json_viewer(paper)
+                            self.render_page()
                         elif key == "b" and self.controller.get_selected_paper():
                             bibtex = self.controller.get_selected_as_bibtex()
                             self._copy_to_clipboard_and_message(
@@ -512,7 +523,7 @@ class ConsoleViewer:
   [cyan]c[/cyan]        Copy full JSON to clipboard
 
 [bold]Search & Quit:[/bold]
-  [cyan]:[/cyan]        Enter filter mode (type to filter, [cyan]\\[/cyan] to exit)
+  [cyan]/[/cyan]        Enter filter mode (type to filter, [cyan]\\[/cyan] to exit)
   [cyan]?[/cyan]        Show this help
   [cyan]q/ESC[/cyan]    Quit viewer
 """
@@ -552,6 +563,15 @@ class ConsoleViewer:
         self.console.print(details)
         self.console.print("\n[dim]Press any key to return...[/dim]")
         self._get_key()
+
+    def _show_json_viewer(self, paper: Paper) -> None:
+        """Display interactive JSON viewer for a paper."""
+        # Convert paper to JSON (model_dump)
+        paper_dict = paper.model_dump(mode='json')
+        
+        # Create and run JSON viewer
+        json_viewer = JSONViewer(paper_dict, title=f"Paper JSON: {paper.doi or 'Unknown'}")
+        json_viewer.run()
 
     def _show_details_filtered(self) -> None:
         """Display details of selected paper in filter mode"""
