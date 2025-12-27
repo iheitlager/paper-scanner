@@ -5,13 +5,14 @@ Outputs database statistics and relevant facts
 """
 import sys
 from collections import Counter
-from typing import Any, List
+from typing import Any, List, Dict
 
 from rich.console import Console
 from rich.table import Table
 
 from paper_scanner.core.enum import StepStatus
-
+from paper_scanner.core.step_result import StepResult
+from paper_scanner.core.database import PapersDatabase
 from ..core.enum import ScreeningDecision
 from ..core.models import Paper
 from .base import BaseStep
@@ -23,6 +24,17 @@ console = Console(file=sys.stderr)
 # Class-based step interface (new architecture)
 class SummarizeStep(BaseStep):
     """Wrapper for summarize step (legacy function-based)."""
+    _report_types = {
+        "summary": None,
+        "screening": None,
+        "citations": None,
+        "bibliography": None,
+        # "tabulate": None,
+    }
+
+    @classmethod
+    def report_types(cls) -> List[str]:
+        return list(cls._report_types.keys())
 
     @staticmethod
     def validate(config):
@@ -84,7 +96,7 @@ class SummarizeStep(BaseStep):
     def execute(self, config, verbose=False, dry_run=False, debug=False):
         """
         Execute database summary step
-        
+
         Args:
             config: Step configuration with options:
                 - summary: bool (default: True) - Show summary statistics
@@ -94,13 +106,19 @@ class SummarizeStep(BaseStep):
                 - tabulate: dict or list of dicts with options:
                     - field: str - Field to tabulate (e.g., 'paper_type', 'journal', 'booktitle')
                     - duplicates: bool/str (default: False) - Include duplicates (False, True, or 'only')
-            papers_db: Current papers database
             verbose: Enable verbose output
             dry_run: Don't actually process, just show what would happen
-        
+            debug: Enable debug output
+
         Returns:
             Dictionary with database statistics
         """
+        if self.db.count(primary_only=False) == 0:
+            self.callback("[yellow]No papers in database yet[/yellow]")
+            return StepResult(
+                status=StepStatus.SUCCESS
+            )
+
 
         # Get configuration options
         show_summary = config.get("summary", False)
@@ -123,130 +141,35 @@ class SummarizeStep(BaseStep):
         if not tabulate_configs and config.get("table_by_paper_type", False):
             tabulate_configs = [{"field": "paper_type", "duplicates": False}]
 
-        results = {
-            "step": "database_summary",
-            "timestamp": None,
-            "statistics": {},
-            "tables": {}
-        }
-
-        if self.db.count(primary_only=False) == 0:
-            results["statistics"] = {
-                "total_papers": 0,
-                "message": "No papers in database"
-            }
-            if verbose:
-                console.print("\n  [yellow]Database Summary:[/yellow]")
-                console.print("    [red]No papers in database yet[/red]")
-            return results
-
-        # Basic statistics
-        total = self.db.count(primary_only=False)
-
-        # Authors statistics
-        all_authors = []
-        for paper in self.db.to_list(primary_only=False):
-            all_authors.extend(paper.authors)
-
-        unique_authors = len(set(a.full_name for a in all_authors))
-
-        # Years
-        years_with_papers = [p.year for p in self.db.to_list(primary_only=False) if p.year]
-        year_range = f"{min(years_with_papers)}-{max(years_with_papers)}" if years_with_papers else "N/A"
-
-        # Identifiers
-        with_doi = sum(1 for p in self.db.to_list(primary_only=False) if p.doi)
-        with_abstract = sum(1 for p in self.db.to_list(primary_only=False) if p.abstract)
-
-        # Keywords
-        all_keywords = []
-        for paper in self.db.to_list(primary_only=False):
-            all_keywords.extend(paper.keywords)
-        unique_keywords = len(set(all_keywords))
-
-        # Sources
-        sources = Counter()
-        for paper in self.db.to_list(primary_only=False):
-            if paper.discovery and paper.discovery.source_database:
-                sources[paper.discovery.source_database] += 1
-
-        # Screening status
-        screening_status = Counter()
-        for paper in self.db.to_list(primary_only=False):
-            screening_status[paper.screening.final_decision.value] += 1
-
-        # Duplicates
-        unique_papers = sum(1 for p in self.db.to_list(primary_only=False) if p.duplicate_of is None)
-        duplicate_papers = sum(1 for p in self.db.to_list(primary_only=False) if p.duplicate_of is not None)
-
-        # Paper types (from paper.paper_type field, not screening)
-        paper_types = Counter()
-        for paper in self.db.to_list(primary_only=False):
-            if paper.paper_type:
-                paper_types[paper.paper_type] += 1
-
-        results["statistics"] = {
-            "total_papers": total,
-            "unique_papers": unique_papers,
-            "duplicate_papers": duplicate_papers,
-            "total_authors": len(all_authors),
-            "unique_authors": unique_authors,
-            "year_range": year_range,
-            "papers_with_doi": with_doi,
-            "papers_with_abstract": with_abstract,
-            "papers_with_keywords": sum(1 for p in self.db.to_list(primary_only=False) if p.keywords),
-            "unique_keywords": unique_keywords,
-            "sources": dict(sources),
-            "screening_status": dict((k, v) for k, v in screening_status.items()),
-            "paper_types": dict(paper_types) if paper_types else None,
-        }
-
+        reports = []
+        # Display summary statistics if requested
         if verbose and show_summary:
-            console.print("\n  [bold yellow]Database Summary:[/bold yellow]")
-            console.print(f"    Total papers: [cyan]{total}[/cyan]")
-            console.print(f"    Unique papers: [green]{unique_papers}[/green]")
-            console.print(f"    Duplicate papers: [red]{duplicate_papers}[/red]")
-            console.print(f"    Total authors: [cyan]{len(all_authors)}[/cyan]")
-            console.print(f"    Unique authors: [green]{unique_authors}[/green]")
-            console.print(f"    Year range: [cyan]{year_range}[/cyan]")
-            console.print(f"    Papers with DOI: [cyan]{with_doi}[/cyan]")
-            console.print(f"    Papers with abstract: [cyan]{with_abstract}[/cyan]")
-            console.print(f"    Unique keywords: [cyan]{unique_keywords}[/cyan]")
-
-        # Generate tables if requested
-        if verbose and tabulate_configs:
-            for tab_config in tabulate_configs:
-                field = tab_config.get("field")
-                duplicates = tab_config.get("duplicates", False)
-
-                if not field:
-                    continue
-
-                # Filter papers based on duplicates setting
-                all_papers = self.db.to_list(primary_only=False)
-                papers_to_tabulate = _filter_by_duplicates(all_papers, duplicates)
-
-                # Generate table for this field
-                table_data = _generate_field_table(papers_to_tabulate, field, self.db.count(primary_only=False))
-                if table_data:
-                    console.print(f"\n  [bold yellow]Papers by {field.title()}:[/bold yellow]")
-                    console.print(table_data)
-                    results["tables"][field] = "generated"
+            reports.append("summary")
+            _display_summary_results(self.db)
 
         # Display screening results if requested
         if verbose and show_screening:
-            _display_screening_results(self.db.to_list(primary_only=False))
+            reports.append("screening")
+            _display_screening_results(self.db)
 
         # Display citations histogram if requested
         if verbose and show_citations:
-            _display_citations_histogram(self.db.to_list(primary_only=False))
+            reports.append("citations")
+            _display_citations_histogram(self.db)
 
         if verbose and show_bibliography:
-            _display_bibliography(self.db.to_list(primary_only=False))
+            reports.append("bibliography")
+            _display_bibliography(self.db)
+
+        if verbose and tabulate_configs:
+            reports.append("tabulate")
+            _display_tabulate_results(self.db, tabulate_configs)
 
 
-        results["status"] = StepStatus.SUCCESS
-        return results
+        return StepResult(
+            status=StepStatus.SUCCESS,
+            message=f"Database summary completed. Reports generated: {', '.join(reports)}",
+        )
 
 
 def _filter_by_duplicates(papers: List[Paper], duplicates: Any) -> List[Paper]:
@@ -351,21 +274,109 @@ def _generate_field_table(papers_db: List[Paper], field: str, total_papers: int)
 
     return table
 
-
-def _display_screening_results(papers_db: List[Paper]) -> None:
+def _display_summary_results(db: PapersDatabase) -> None:
     """
-    Display screening results breakdown by paper_type with stage progression
+    Display summary statistics of the papers database
     
     Args:
         papers_db: List of papers to analyze
     """
-    if not papers_db:
-        console.print("\n  [red]No papers to display screening results[/red]")
-        return
+    # Basic statistics
+    total = len(db)
+
+    # Authors statistics
+    all_authors = []
+    for paper in db.to_list(primary_only=False):
+        all_authors.extend(paper.authors)
+
+    unique_authors = len(set(a.full_name for a in all_authors))
+
+    # Years
+    years_with_papers = [p.year for p in db.to_list(primary_only=False) if p.year]
+    year_range = f"{min(years_with_papers)}-{max(years_with_papers)}" if years_with_papers else "N/A"
+
+    # Identifiers
+    with_doi = sum(1 for p in db.to_list(primary_only=False) if p.doi)
+    with_abstract = sum(1 for p in db.to_list(primary_only=False) if p.abstract)
+
+    # Keywords
+    all_keywords = []
+    for paper in db.to_list(primary_only=False):
+        all_keywords.extend(paper.keywords)
+    unique_keywords = len(set(all_keywords))
+
+    # Sources
+    sources = Counter()
+    for paper in db.to_list(primary_only=False):
+        if paper.discovery and paper.discovery.source_database:
+            sources[paper.discovery.source_database] += 1
+
+    # Screening status
+    screening_status = Counter()
+    for paper in db.to_list(primary_only=False):
+        screening_status[paper.screening.final_decision.value] += 1
+
+    # Duplicates
+    unique_papers = sum(1 for p in db.to_list(primary_only=False) if p.duplicate_of is None)
+    duplicate_papers = sum(1 for p in db.to_list(primary_only=False) if p.duplicate_of is not None)
+
+    # Paper types (from paper.paper_type field, not screening)
+    paper_types = Counter()
+    for paper in db.to_list(primary_only=False):
+        if paper.paper_type:
+            paper_types[paper.paper_type] += 1
+
+    console.print("\n[bold yellow]Database Summary:[/bold yellow]")
+    console.print(f"    Total papers: [cyan]{total}[/cyan]")
+    console.print(f"    Unique papers: [green]{unique_papers}[/green]")
+    console.print(f"    Duplicate papers: [red]{duplicate_papers}[/red]")
+    console.print(f"    Total authors: [cyan]{len(all_authors)}[/cyan]")
+    console.print(f"    Unique authors: [green]{unique_authors}[/green]")
+    console.print(f"    Year range: [cyan]{year_range}[/cyan]")
+    console.print(f"    Papers with DOI: [cyan]{with_doi}[/cyan]")
+    console.print(f"    Papers with abstract: [cyan]{with_abstract}[/cyan]")
+    console.print(f"    Unique keywords: [cyan]{unique_keywords}[/cyan]")
+
+def _display_tabulate_results(db: PapersDatabase, config: Dict[str, Any]) -> None:
+    """
+    Display tabulated results based on configuration
+    Args:
+        papers_db: List of papers to analyze
+        config: Tabulate configuration dictionary
+    
+    Returns:
+
+    """
+
+    # Generate tables if requested
+    for tab_config in config:
+        field = tab_config.get("field")
+        duplicates = tab_config.get("duplicates", False)
+
+        if not field:
+            continue
+
+        # Filter papers based on duplicates setting
+        papers_to_tabulate = _filter_by_duplicates(db, duplicates)
+
+        # Generate table for this field
+        table_data = _generate_field_table(papers_to_tabulate, field, db)
+        if table_data:
+            console.print(f"\n  [bold yellow]Papers by {field.title()}:[/bold yellow]")
+            console.print(table_data)
+
+
+def _display_screening_results(db: PapersDatabase) -> None:
+    """
+    Display screening results breakdown by paper_type with stage progression
+    
+    Args:
+        db: PapersDatabase instance to analyze
+    """
 
     # Separate primary papers from duplicates
-    primary_papers = [p for p in papers_db if p.duplicate_of is None]
-    duplicate_papers = [p for p in papers_db if p.duplicate_of is not None]
+    primary_papers = [p for p in db.to_list(primary_only=False) if p.duplicate_of is None]
+    duplicate_papers = [p for p in db.to_list(primary_only=False) if p.duplicate_of is not None]
 
     # Group primary papers by paper_type and track through screening stages
     papers_by_type = {}
@@ -479,7 +490,7 @@ def _display_screening_results(papers_db: List[Paper]) -> None:
         console.print(f"  [dim]Duplicate records: {len(duplicate_papers)}[/dim]")
 
 
-def _display_citations_histogram(papers_db: List[Paper]) -> None:
+def _display_citations_histogram(db: PapersDatabase) -> None:
     """
     Display a histogram of citation counts ordered by number of citations (descending)
     
@@ -488,16 +499,8 @@ def _display_citations_histogram(papers_db: List[Paper]) -> None:
     Args:
         papers_db: List of papers to analyze
     """
-    if not papers_db:
-        console.print("\n  [red]No papers to display citation statistics[/red]")
-        return
-
     # Filter to primary papers only
-    primary_papers = [p for p in papers_db if p.duplicate_of is None]
-
-    if not primary_papers:
-        console.print("\n  [red]No primary papers to analyze[/red]")
-        return
+    primary_papers = db.to_list(primary_only=True)
 
     # Count papers by citation count
     citation_counts = {}
@@ -546,7 +549,7 @@ def _display_citations_histogram(papers_db: List[Paper]) -> None:
     console.print(f"  [dim]Maximum citations: {max_citations}[/dim]")
 
 
-def _display_bibliography(papers_db: List[Paper]) -> None:
+def _display_bibliography(db: PapersDatabase) -> None:
     """
     Display a histogram of citation counts ordered by number of citations (descending)
     
@@ -555,16 +558,9 @@ def _display_bibliography(papers_db: List[Paper]) -> None:
     Args:
         papers_db: List of papers to analyze
     """
-    if not papers_db:
-        console.print("\n  [red]No papers to display citation statistics[/red]")
-        return
-
     # Filter to primary papers only
-    primary_papers = [p for p in papers_db if p.duplicate_of is None]
+    primary_papers = db.to_list(primary_only=False)
 
-    if not primary_papers:
-        console.print("\n  [red]No primary papers to analyze[/red]")
-        return
 
     # Count papers by citation count
     keywords = 0

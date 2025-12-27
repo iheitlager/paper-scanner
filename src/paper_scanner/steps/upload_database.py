@@ -109,7 +109,7 @@ class UploadDatabaseStep(BaseStep):
 
     def execute(
         self,
-        step_config: Dict[str, Any],
+        config: Dict[str, Any],
         verbose: bool = False,
         dry_run: bool = False,
         debug: bool = False,

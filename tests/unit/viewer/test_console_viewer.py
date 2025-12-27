@@ -188,8 +188,8 @@ class TestConsoleViewer:
                 printed_calls = [str(call_obj) for call_obj in mock_print.call_args_list]
                 printed_text = " ".join(printed_calls)
                 
-                # Check for indexed papers
-                assert "[cyan]1.[/cyan]" in printed_text or "1." in printed_text
+                # Check for indexed papers (red or cyan depending on keywords/abstract)
+                assert ("[red]1[/red]" in printed_text or "[cyan]1.[/cyan]" in printed_text) and ("2021" in printed_text or "2022" in printed_text)
 
     def test_page_size_parameter(self):
         """Test different page sizes"""

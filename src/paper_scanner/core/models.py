@@ -735,6 +735,11 @@ class Paper(BaseModel):
         return self.screening.final_decision == ScreeningDecision.INCLUDED
 
     @property
+    def is_excluded(self) -> bool:
+        """Check if paper was excluded"""
+        return self.screening.final_decision in (ScreeningDecision.EXCLUDED, ScreeningDecision.EXCLUDED_DUPLICATE, ScreeningDecision.EXCLUDED_MANUAL)
+
+    @property
     def calculated_quality_score(self) -> float:
         """Calculated bibliographic quality"""
         base = 0.20

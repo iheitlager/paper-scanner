@@ -64,6 +64,8 @@ class ScreeningDecision(str, Enum):
     PENDING = "pending"
     MANUAL_REVIEW = "manual_review"
     UNCERTAIN = "uncertain"
+    EXCLUDED_DUPLICATE = "excluded_duplicate"
+    EXCLUDED_MANUAL = "excluded_manual"
 
 
 class CitationDirection(str, Enum):

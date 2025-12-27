@@ -208,7 +208,8 @@ class CitationsStep(BaseStep):
             raise ValueError("CitationsStep requires 'backward' or 'forward' configuration.")
 
         return_details = StepResult(
-            message=f"Papers: ({results['papers_with_citations']}/{results['papers_with_cited_by']}) Citations fetched: {results['citations_fetched']}, resolved: {results['citations_resolved']}, new papers: {results['citations_created_new_paper']}, unresolved: {results['citations_unresolved']}",
+            message=f"Papers: ({results['papers_with_citations']}/{results['papers_with_cited_by']}) Citations fetched: {results['citations_fetched']}, resolved: {results['citations_resolved']}, new papers: {results['citations_created_new_paper']}, unresolved: {results['citations_unresolved']}\n"
+            f"Cache hits: {results['cache_hits']}, misses: {results['cache_misses']}",
             status=StepStatus.SUCCESS if len(results['errors']) == 0 else StepStatus.ERROR,
         )
         if 'details' in results:
@@ -399,7 +400,7 @@ class CitationsStep(BaseStep):
                 results["citations_fetched"] += len(citations)
 
                 self.callback(
-                    f"[cyan][{i}/{len(target_papers)}]{cache}Fetched {len(citations)} "
+                    f"[cyan][{i}/{len(target_papers)}]{cache}Found {len(citations)} "
                     f"citations for {paper.doi}[/cyan]", debug=True
                 )
 
@@ -495,8 +496,6 @@ class CitationsStep(BaseStep):
             if not paper.citations:
                 continue
 
-            self.callback(f"[cyan]Resolving {len(paper.citations)} citations for {paper.doi}[/cyan]", debug=True)
-
             # Resolve each citation
             for citation in paper.citations:
                 if citation.resolved:
@@ -519,15 +518,14 @@ class CitationsStep(BaseStep):
                 else:
                     if self.output_errors:
                         citation_dict = citation.model_dump(exclude_none=True)
-                        missed_citations.setdefault(paper.id, []).append(citation_dict)
+                        missed_citations.setdefault(paper.doi, []).append(citation_dict)
                     results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
-                    self.callback(f"[red]Unresolved citation {citation.doi} in paper {paper.doi}[/red]")
-                    self.callback(f"[blue]{citation}[/blue]", debug=True)
+                    self.callback(f"[red]Unresolved citation[/red] [white]'{citation.title:40}'[/white][red] in paper {paper.doi}[/red]")
         if self.output_errors and missed_citations:
             with open(self.output_errors, "a", encoding="utf-8") as f:
-                for paper_id, citation in missed_citations.items():
-                    f.write(json.dumps({"paper_id": paper_id, "citation": citation}) + "\n")
-                self.callback(f"[yellow]Wrote {len(missed_citations)} unresolved citations to {self.output_errors}[/yellow]", debug=True)
+                for doi, citations in missed_citations.items():
+                    f.write(json.dumps({"doi": doi, "citation": citations}) + "\n")
+                self.callback(f"[yellow]Wrote {len(citations)} missed citations for {len(missed_citations)} papers to[/yellow]: {self.output_errors}", debug=False)
 
 
     def _resolve_cited_by_and_fetch_papers(
@@ -585,15 +583,13 @@ class CitationsStep(BaseStep):
                         citation_dict = citation.model_dump(exclude_none=True)
                         missed_citations.setdefault(paper.doi, []).append(citation_dict)
                     results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
-                    
-                    self.callback(f"[red]Unresolved citation {citation.doi} in paper {paper.doi}[/red]")
-                    self.callback(f"[blue]{citation}[/blue]", debug=True)
+
+                    self.callback(f"[red]Unresolved citation[/red] [white]'{citation.title:40}'[/white][red] in paper {paper.doi}[/red]")
         if self.output_errors and missed_citations:
             with open(self.output_errors, "a", encoding="utf-8") as f:
                 for paper_id, citation in missed_citations.items():
                     f.write(json.dumps({"paper_id": paper_id, "citation": citation}) + "\n")
             self.callback(f"[yellow]Wrote {len(missed_citations)} paper with unresolved citations to {self.output_errors}[/yellow]")
-        results['details'] = missed_citations
 
     def _resolve_citation(
         self,
@@ -624,8 +620,6 @@ class CitationsStep(BaseStep):
         """
         if results is None:
             results = {}
-        results["cache_hits"] = 0
-        results["cache_misses"] = 0
 
         # Try to resolve by DOI first
         if citation.doi:
@@ -641,10 +635,10 @@ class CitationsStep(BaseStep):
 
                 # Track cache statistics
                 if cache_hit:
-                    results["cache_hits"] += 1
+                    results["cache_hits"] = results.get("cache_hits", 0) + 1
                     cache = "💾"
                 else:
-                    results["cache_misses"] += 1
+                    results["cache_misses"] = results.get("cache_misses", 0) + 1
                     cache = "🌐"
                 # Only add if fetcher successfully returned a paper
                 if enriched_paper:

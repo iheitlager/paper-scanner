@@ -4,12 +4,15 @@ import sys
 import termios
 import tty
 import subprocess
-from typing import List, Callable, Optional
+from datetime import datetime, timezone
+from typing import List, Callable, Optional, Dict, Any
 
 from rich.console import Console
 from rich.panel import Panel
 
 from paper_scanner.core.models import Paper
+from paper_scanner.core.enum import ScreeningDecision
+from paper_scanner.core.database import PapersDatabase
 from paper_scanner.viewer.console_controller import PaperListController
 from paper_scanner.viewer.json_viewer import JSONViewer
 
@@ -17,10 +20,12 @@ from paper_scanner.viewer.json_viewer import JSONViewer
 class ConsoleViewer:
     """View layer for displaying papers in paginated console format"""
 
-    def __init__(self, papers: List[Paper], page_size: int = 10):
+    def __init__(self, papers: List[Paper], page_size: int = 10, general_config: Optional[Dict[str, Any]] = None, db: Optional[PapersDatabase] = None):
         """Initialize viewer with papers"""
         self.console = Console()
         self.controller = PaperListController(papers, page_size)
+        self.general_config = general_config or {}
+        self.db = db
         self.running = False
         self.message = ""  # For displaying copy/search feedback
         self.mode = "full"  # "full", "filter", "search", or "json_detail"
@@ -53,14 +58,18 @@ class ConsoleViewer:
             else:
                 is_selected = self.controller.selected_index == i
 
+
+            apa_idx_color = "red" if (not paper.keywords or not paper.abstract) else "cyan"
+            citations_count = len(paper.citations) if paper.citations else 0
+            cited_by_count = len(paper.cited_by_papers) if paper.cited_by_papers else 0
+            apa = paper.apa if not paper.is_excluded else f"[dim][strike]{paper.apa}[/strike][/dim]"
             if is_selected:
                 # Highlight selected paper with background color
                 self.console.print(
-                    f"[cyan bold on blue]{idx}.[/cyan bold on blue][bold on blue] {paper.apa}[/bold on blue]"
+                    f"[{apa_idx_color} bold on blue]{idx}[/{apa_idx_color} bold on blue].[bold on blue] {apa} [dim]{citations_count}/{cited_by_count}[/dim][/bold on blue]"
                 )
             else:
-                self.console.print(f"[cyan]{idx}.[/cyan] {paper.apa}")
-
+                self.console.print(f"[{apa_idx_color}]{idx}[/{apa_idx_color}]. {apa} [dim]{citations_count}/{cited_by_count}[/dim]")
             self.console.print()
 
         # Footer - 4 lines
@@ -481,6 +490,21 @@ class ConsoleViewer:
                                 "Failed to copy to clipboard",
                             )
                             self.render_page()
+                        elif key in ("x", "X") and self.controller.get_selected_paper():
+                            # Mark paper as manually excluded
+                            paper = self.controller.get_selected_paper()
+                            email = self.general_config.get("project", {}).get("email", "unknown@example.com")
+                            
+                            paper.screening.final_decision = ScreeningDecision.EXCLUDED_MANUAL
+                            paper.screening.final_decision_at = datetime.now(timezone.utc)
+                            paper.screening.final_decision_by = f"manual:{email}"
+                            
+                            # Update database if available
+                            if self.db:
+                                self.db.update(paper)
+                            
+                            self.message = f"[yellow]✓ Marked as manually excluded: {paper.doi}[/yellow]"
+                            self.render_page()
                         elif key == ":":
                             self.mode = "filter"
                             self.filter_query = ""
@@ -521,6 +545,7 @@ class ConsoleViewer:
   [cyan]i[/cyan]        Copy DOI to clipboard
   [cyan]a[/cyan]        Copy APA citation to clipboard
   [cyan]c[/cyan]        Copy full JSON to clipboard
+  [cyan]x[/cyan]        Mark as manually excluded
 
 [bold]Search & Quit:[/bold]
   [cyan]/[/cyan]        Enter filter mode (type to filter, [cyan]\\[/cyan] to exit)

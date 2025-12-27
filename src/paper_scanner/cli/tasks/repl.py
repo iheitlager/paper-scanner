@@ -309,6 +309,7 @@ class ReplController(AbstractController):
             self.controller_reporter.on_error(f"Invalid value for setting {command}: [dim]{command_line[1]}[/dim]")
             return 1
         setattr(self, command , value)
+        self.controller_reporter.log(f"[cyan]{command}[/cyan] = {'on' if value else 'off'}")   
         return 0
 
     def _execute_macro_command(self, user_input: str) -> int:
@@ -330,8 +331,7 @@ class ReplController(AbstractController):
 
             result = macro_func(args)
             duration_ms = (time.time() - start) * 1000
-            ic(result)
-            ic(self.controller_reporter.on_macro_end(command, result, duration_ms))
+            self.controller_reporter.on_macro_end(command, result, duration_ms)
             return 0
 
         except Exception as e:
@@ -414,6 +414,21 @@ class ReplController(AbstractController):
             on_step_start=self.step_reporter.on_step_start,
             on_step_end=self.step_reporter.on_step_end,
         )
+
+    @macro_step("report", "p")
+    def report_cmd(self, args: list[str]) -> StepResult:
+        """Show current report summary"""
+        report = self.executor.get_step("summarize")
+        if len(args) == 0:
+            args = ["summary"]
+        for report_type in args:
+            if report_type not in report.report_types():
+                raise ValueError(f"Unknown report type: {report_type}")
+            step_params = {report_type: True}
+            result = report.execute(config=step_params, verbose=self.verbose)
+            if result.status != StepStatus.SUCCESS:
+                return result
+        return StepResult(status=StepStatus.SUCCESS)
 
     @macro_step("steps", "ls")
     def list_steps_cmd(self, args: list[str]) -> StepResult:
@@ -557,7 +572,7 @@ class ReplController(AbstractController):
 
         try:
             # Create and run viewer
-            viewer = ConsoleViewer(all_papers, page_size=10)
+            viewer = ConsoleViewer(all_papers, page_size=10, general_config=self.executor.general_config, db=self.executor.papers_db)
             viewer.run()
             return StepResult(status=StepStatus.SUCCESS, message=f"Viewed {total_papers} papers")
         except Exception as e:
