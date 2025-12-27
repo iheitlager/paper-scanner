@@ -394,7 +394,7 @@ class TestExecute:
             config["imports"][0]["file_path"] = tmp.name
             result = step.execute(config, verbose=False, dry_run=True)
 
-        assert result.stats["papers_imported"] == 0  # Dry run doesn't import
+        assert result.stats["processed"] == 0  # Dry run doesn't import
         assert result.stats["files_processed"] == 1
 
     @patch("paper_scanner.steps.bibtex_import.bibtex_file_to_papers")
@@ -435,7 +435,7 @@ class TestExecute:
             config["imports"][0]["file_path"] = tmp.name
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result.stats["papers_imported"] == 2
+        assert result.stats["processed"] == 2
         assert result.stats["files_processed"] == 1
 
         # Verify papers in database have unique cite_keys
@@ -476,8 +476,8 @@ class TestExecute:
         # With same seed, should get same papers (though order may differ due to sorting)
         assert titles1 == titles2, "Same seed should produce same set of papers"
         assert len(papers1) == 2, "Should have limited to 2 papers"
-        assert result1.stats["papers_imported"] == 2
-        assert result2.stats["papers_imported"] == 2
+        assert result1.stats["processed"] == 2
+        assert result2.stats["processed"] == 2
 
     def test_execute_randomize_different_seeds(self, temp_cache_dir):
         """Test that different seeds produce different orders"""
@@ -511,8 +511,8 @@ class TestExecute:
 
         # Both should import 5 papers
         assert len(titles1) == 5 and len(titles2) == 5
-        assert result1.stats["papers_imported"] == 5
-        assert result2.stats["papers_imported"] == 5
+        assert result1.stats["processed"] == 5
+        assert result2.stats["processed"] == 5
         # Orders should be different due to different seeds
         # (probabilistically true for most seeds)
         assert titles1 != titles2 or len(set(titles1)) < 5
@@ -611,7 +611,7 @@ class TestExecute:
 
         # Both files succeeded - should be SUCCESS
         assert result.status.value == "ok"
-        assert result.stats["papers_imported"] == 2
+        assert result.stats["processed"] == 2
         assert result.stats["files_processed"] == 2
         assert result.stats["total_files"] == 2
 

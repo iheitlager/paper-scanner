@@ -117,9 +117,9 @@ class TestExecute:
         with patch('paper_scanner.steps.retrieve_metadata.Fetcher'):
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["total_papers"] == 0
-        assert result["updated_papers"] == 0
-        assert result["skipped_no_doi"] == 0
+        assert result.stats["total_papers"] == 0
+        assert result.stats["updated_papers"] == 0
+        assert result.stats["skipped_no_doi"] == 0
 
     def test_execute_papers_without_doi(self, tmp_path):
         """Test execute skips papers without DOI"""
@@ -145,9 +145,9 @@ class TestExecute:
         with patch('paper_scanner.steps.retrieve_metadata.Fetcher'):
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["total_papers"] == 1
-        assert result["skipped_no_doi"] == 1
-        assert result["updated_papers"] == 0
+        assert result.stats["total_papers"] == 1
+        assert result.stats["updated_papers"] == 0
+        assert result.stats["skipped_no_doi"] == 1
 
     def test_execute_with_valid_doi(self, tmp_path):
         """Test execute fetches metadata for paper with DOI"""
@@ -188,10 +188,10 @@ class TestExecute:
 
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["total_papers"] == 1
-        assert result["updated_papers"] == 1
-        assert result["cache_hits"] == 1
-        assert result["cache_misses"] == 0
+        assert result.stats["total_papers"] == 1
+        assert result.stats["updated_papers"] == 1
+        assert result.stats["cache_hits"] == 1
+        assert result.stats["api_calls"] == 0
 
     def test_execute_cache_miss(self, tmp_path):
         """Test execute handles cache misses"""
@@ -227,8 +227,8 @@ class TestExecute:
 
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["cache_hits"] == 0
-        assert result["cache_misses"] == 1
+        assert result.stats["cache_hits"] == 0
+        assert result.stats["api_calls"] == 1
 
     def test_execute_metadata_not_found(self, tmp_path):
         """Test execute handles metadata not found"""
@@ -260,9 +260,9 @@ class TestExecute:
 
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["not_found"] == 1
-        assert result["updated_papers"] == 0
-        assert len(result["errors"]) == 0  # continue_on_not_found=True
+        assert result.stats["not_found"] == 1
+        assert result.stats["updated_papers"] == 0
+        assert len(result.stats.get("errors", [])) == 0  # continue_on_not_found=True
 
     def test_execute_not_found_stops_on_error(self, tmp_path):
         """Test execute stops on not found when continue_on_not_found is False"""
@@ -293,9 +293,10 @@ class TestExecute:
 
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["not_found"] == 1
-        assert len(result["errors"]) == 1
-        assert "Not found" in result["errors"][0]
+        assert result.stats["not_found"] == 1
+        # Errors should be in details since continue_on_not_found=False
+        assert result.details is not None
+        assert "Not found in any source" in result.details
 
     def test_execute_dry_run_doesnt_update_db(self, tmp_path):
         """Test execute with dry_run doesn't write to database"""
@@ -334,7 +335,7 @@ class TestExecute:
 
         # Database shouldn't be modified in dry_run mode
         # The update method should not be called
-        assert result["updated_papers"] == 1
+        assert result.stats["updated_papers"] == 1
         # Check that db.update was not called by verifying record count unchanged
         final_count = len(db.all(primary_only=False))
         assert initial_count == final_count
@@ -377,8 +378,8 @@ class TestExecute:
 
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["total_papers"] == 3
-        assert result["updated_papers"] == 3
+        assert result.stats["total_papers"] == 3
+        assert result.stats["updated_papers"] == 3
 
     def test_execute_with_custom_methods(self, tmp_path):
         """Test execute uses specified fetcher methods"""

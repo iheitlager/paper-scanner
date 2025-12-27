@@ -335,7 +335,8 @@ class StepExecutor:
         step_class = builtin_steps[step_name]
         try:
             # Instantiate the step with required dependencies
-            return step_class(general_config=self.general_config, db=self.papers_db, cache_dir=self.cache_dir, on_event=self.step_reporter.on_step_event)
+            on_event_callback = self.step_reporter.on_step_event if self.step_reporter else None
+            return step_class(general_config=self.general_config, db=self.papers_db, cache_dir=self.cache_dir, on_event=on_event_callback)
         except Exception as e:
             raise StepError(f"Failed to instantiate step '{step_name}': {e}") from e
 
@@ -440,7 +441,8 @@ class StepExecutor:
         checkpoints_dir = self.cache_dir / CHECKPOINT_DIR
         checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
-        self.step_reporter.on_definition_loaded(definition_file, self.definition)
+        if self.step_reporter:
+            self.step_reporter.on_definition_loaded(definition_file, self.definition)
 
         return True
 
@@ -599,7 +601,8 @@ class StepExecutor:
             # ConfigurationError propagates for invalid config
             step_name, step_params, description = self.parse_step_config(step_config)
 
-            self.step_reporter.on_step_start(self.current_step_index, step_config, total=len(self.steps))
+            if self.step_reporter:
+                self.step_reporter.on_step_start(self.current_step_index, step_config, total=len(self.steps))
 
             # Handle run-template: recursively execute template steps
             if step_name == "run-template":
@@ -624,7 +627,8 @@ class StepExecutor:
             result.stats["db_records"] = self.papers_db.count()
             self.results = result
             self.current_step_index = step_index + 1
-            self.step_reporter.on_step_end(self.current_step_index - 1, step_params, result)
+            if self.step_reporter:
+                self.step_reporter.on_step_end(self.current_step_index - 1, step_params, result)
             return result
 
         except HaltException as e:
