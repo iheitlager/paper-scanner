@@ -4,6 +4,10 @@ build:
   tools:
     python: "3.11"
 
+# MkDocs configuration
+mkdocs:
+  configuration: mkdocs.yml
+
 # Build documentation in the docs directory
 docs_dir: docs
 

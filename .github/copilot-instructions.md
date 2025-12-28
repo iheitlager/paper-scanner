@@ -50,9 +50,9 @@ pipeline = Definition("Review").bibtex_import(...).export(...).run()
 ### Adding a New Pipeline Step
 1. Create `src/paper_scanner/steps/my_step.py` extending `BaseStep`
 2. Implement `validate(config)` → returns (bool, List[str] errors)
-3. Implement `execute(config, verbose, dry_run, debug)` → returns Dict with "status", "count", "errors"
+3. Implement `execute(config, verbose, dry_run, debug)` → returns StepResult with status, message, stats dict
 4. Register in `src/paper_scanner/cli/tasks/run.py` StepExecutor.BUILTIN_STEPS
-5. Document in `docs/steps/my_step.md`
+5. Document in `docs/steps/my_step.md` (automatically included in MkDocs)
 
 ## Project-Specific Patterns
 
@@ -80,16 +80,25 @@ with open("file.jsonl", "w") as f:
 Located in `src/paper_scanner/core/models.py` - Paper dataclass with fields: id, title, authors, year, doi, batch_id, file_path, tags, and analysis metadata. Database uses indexed lookups by DOI, title, year for deduplication.
 
 ### Error Handling Pattern
-Return structured result dict:
+Return structured StepResult:
 ```python
-return {
-    "status": "error|success",
-    "error": "message if failed",
-    "papers_count": db.count(),
-    "count": 42,  # processed count
-    "skipped": 5
-}
+from paper_scanner.core.step_result import StepResult
+from paper_scanner.core.enum import StepStatus
+
+return StepResult(
+    status=StepStatus.SUCCESS,  # or ERROR, HALTED, WARNING
+    message="Summary message",
+    stats={
+        "count": 42,           # Processed count
+        "skipped": 5,
+        "papers_count": 100,   # DB total
+    },
+    error="Error message if status is ERROR",
+    details="Detailed markdown-formatted result"
+)
 ```
+
+Backward compatibility: `StepResult` supports dict-like access via `__getitem__` for legacy code.
 
 ### Markdown Format Parsing
 The parser in `src/paper_scanner/core/advanced_section_parser.py` handles multiple markdown variations:
@@ -111,16 +120,20 @@ When adding new analysis fields, support all three formats.
 
 ## Key Files Reference
 - Database schema: `src/paper_scanner/core/models.py` (Paper dataclass)
+- Step result class: `src/paper_scanner/core/step_result.py` (StepResult dataclass)
 - Step base class: `src/paper_scanner/steps/base.py` with documentation in `docs/steps/base_step.md`
-- Pipeline executor: `src/paper_scanner/cli/tasks/run.py` (StepExecutor)
+- Pipeline executor: `src/paper_scanner/core/executor.py` (StepExecutor)
 - Step examples: `src/paper_scanner/steps/{export,deduplication,bibtex_import}.py`
 - Tests: `tests/unit/` (run with `make test` or `uv run pytest`)
-- Step docs: `docs/steps/` (reference when implementing)
+- Documentation: `docs/` directory (MkDocs with Material theme, deployed to ReadTheDocs)
+- Documentation config: `mkdocs.yml` at project root, deployed to https://paper-scanner.readthedocs.io
+- Step docs: `docs/steps/` (reference when implementing, automatically included in sidebar)
 
 ## Important: Pre-Alpha Status
 - Breaking changes may occur between minor versions
 - Limited to Claude API (Anthropic integration in `src/paper_scanner/core/llm.py`)
 - Test coverage critical before merging (`pytest` with coverage tracking)
 - Always update CHANGELOG.md with changes
-- Alwas use `uv` when testing
-- Do no write any extra markdown documentation unless asked
+- Always use `uv` when testing/running commands
+- Documentation is built with MkDocs and deployed to ReadTheDocs
+- Do not write extra markdown documentation unless asked (docs are auto-generated in MkDocs)
