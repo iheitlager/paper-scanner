@@ -5,6 +5,7 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
 [![Test](https://github.com/iheitlager/paper-scanner/actions/workflows/validate.yml/badge.svg)](https://github.com/iheitlager/paper-scanner/actions/workflows/validate.yml)
+
 AI-powered literature review tool for analyzing academic research papers using LLM assistance.
 
 ## Overview

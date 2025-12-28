@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Citation Iteration Feature**: Enhanced citations step to support iterative paper discovery
+  - Automatically fetches citations from discovered papers to build expanded bibliography
+  - Configurable iteration depth and limits to prevent exponential growth
+  - Backward and forward citation fetching with duplicate detection
+- **Documentation Infrastructure**: MkDocs and ReadTheDocs integration
+  - Documentation now built with MkDocs (Material theme) and deployed to ReadTheDocs
+  - Configuration in `mkdocs.yml` at project root, deployed to https://paper-scanner.readthedocs.io
+  - `.readthedocs.yml` updated with explicit MkDocs configuration for compliance with ReadTheDocs deprecation policy
+  - Auto-generated sidebar includes all step documentation from `docs/steps/`
 - **Controller Feature**: New controller system for managing pipeline workflows
   - interactive switch setting for `verbose`, `debug`, `timings`, `dry-run`
   - `reset` option to start new in the interactive session
