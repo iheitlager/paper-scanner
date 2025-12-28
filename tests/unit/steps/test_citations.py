@@ -287,6 +287,7 @@ class TestResolveCitationFetcherIntegration:
         step.debug = False
         step.verbose = False
         step.dry_run = False
+        step.iteration = 0
         return step, db
 
     def test_resolve_citation_unpacks_3_tuple_from_fetcher(self, setup):

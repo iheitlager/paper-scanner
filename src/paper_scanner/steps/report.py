@@ -558,31 +558,42 @@ def _display_citations_histogram(db: PapersDatabase) -> None:
     console.print(f"  [dim]Maximum citations: {max_citations}[/dim]")
 
     # Print citation resolution statistics
-    total_papers = 0
-    total_citations = 0
-    total_doi = 0
-    total_resolved = 0
+    total_papers = {}
+    total_citations = {}
+    total_doi = {}
+    total_resolved = {}
 
     for paper in db.to_list(primary_only=False):
-        total_papers += 1
+        iteration = paper.discovery.iteration
+        total_papers[iteration] = total_papers.get(iteration, 0) + 1
         for citation in paper.citations:
-            total_citations += 1
+            total_citations[iteration] = total_citations.get(iteration, 0) + 1
             if citation.doi:
-                total_doi += 1
+                total_doi[iteration] = total_doi.get(iteration, 0) +  1
             if citation.resolved_paper is not None:
-                total_resolved += 1
+                total_resolved[iteration] = total_resolved.get(iteration, 0) + 1
 
     table = Table(show_header=True, header_style="bold", title="Citation stats")
+    table.add_column("Iteration", style="bold")
     table.add_column("Papers", style="cyan", no_wrap=True)
     table.add_column("Citations", style="blue", justify="center")
     table.add_column("With doi", style="red", justify="center", no_wrap=True)
     table.add_column("Resolved", style="green", justify="center", no_wrap=True)
 
+    for i in range(max(total_papers.keys()) + 1):
+        table.add_row(
+            str(i),
+            str(total_papers.get(i, 0)),
+            str(total_citations.get(i, 0)),
+            str(total_doi.get(i, 0)),
+            str(total_resolved.get(i, 0)),
+        )
     table.add_row(
-        str(total_papers),
-        str(total_citations),
-        str(total_doi),
-        str(total_resolved),
+        "Total",
+        str(sum(total_papers.values())),
+        str(sum(total_citations.values())),
+        str(sum(total_doi.values())),
+        str(sum(total_resolved.values())),
     )
 
     console.print(table)

@@ -496,7 +496,6 @@ class PDFInfo(BaseModel):
     # Download info
     download_source: Optional[str] = None  # "unpaywall", "openalex", etc.
     download_url: Optional[str] = None
-    downloaded_at: Optional[datetime] = None
 
 # ============================================================================
 # MAIN PAPER MODEL

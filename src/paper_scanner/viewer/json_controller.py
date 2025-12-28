@@ -19,7 +19,7 @@ class JSONNode:
         self.value = value
         self.parent = parent
         self.depth = depth
-        self.expanded = True if depth < 2 else False  # Auto-expand first 2 levels
+        self.expanded = True if depth < 1 else False  # Auto-expand first level
         self.children: List[JSONNode] = []
         self.is_leaf = not isinstance(value, (dict, list))
 

@@ -70,6 +70,14 @@ class BaseFetcherHandler(ABC):
         title = title.title() if isinstance(title, str) else title
         return title
 
+    def _extract_volume(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """Extract volume from API response"""
+        return api_data.get("volume")
+
+    def _extract_issue(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """Extract issue from API response"""
+        return api_data.get("issue")
+
     @abstractmethod
     def _extract_abstract(self, api_data: Dict[str, Any]) -> Optional[str]:
         """Extract abstract from API response"""
@@ -412,14 +420,15 @@ class BaseFetcherHandler(ABC):
         issn = self._extract_issn(api_data)
         pmid = self._extract_pmid(api_data)
         publisher = self._extract_publisher(api_data)
-        volume = api_data.get("volume")
-        number = api_data.get("issue")
+        volume = self._extract_volume(api_data)
+        number = self._extract_issue(api_data)
         pages = api_data.get("pages")
         language = api_data.get("language", "en")
         publication_date = api_data.get("publication_date")
 
         # Extract citations
-        citations = self._extract_citations(api_data)
+        # citations = self._extract_citations(api_data)
+        citations = []
 
         # Generate cite key from author + year
         cite_key = self._generate_cite_key(authors, year, doi)

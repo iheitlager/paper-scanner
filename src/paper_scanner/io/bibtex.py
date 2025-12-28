@@ -284,7 +284,7 @@ def bibtex_entry_to_paper(
     """
     if not discovery:
         discovery = Discovery(method=DiscoveryMethod.MANUAL)
-        
+
     # Get cite_key (required)
     cite_key = entry.get('ID')
     if not cite_key:

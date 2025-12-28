@@ -261,15 +261,15 @@ class OpenAlexHandler(BaseFetcherHandler):
         OpenAlex provides journal in 'primary_location.source.display_name'.
         """
         primary_location = api_data.get("primary_location")
-        if not primary_location:
+        if not primary_location or not isinstance(primary_location, dict):
             return None
 
         source = primary_location.get("source")
-        if not source:
+        if not source or not isinstance(source, dict):
             return None
 
-        display_name = source.get("display_name")
-        if display_name and isinstance(display_name, str):
+        display_name = source.get("display_name", "")
+        if display_name:
             return display_name.strip()
 
         return None
@@ -284,20 +284,20 @@ class OpenAlexHandler(BaseFetcherHandler):
         """
         # Try primary_location landing page
         primary_location = api_data.get("primary_location")
-        if primary_location:
-            landing_page = primary_location.get("landing_page_url")
-            if landing_page and isinstance(landing_page, str):
+        if primary_location and isinstance(primary_location, dict):
+            landing_page = primary_location.get("landing_page_url", "")
+            if landing_page:
                 return landing_page.strip()
 
         # Try best_oa_location as fallback
         best_oa = api_data.get("best_oa_location")
-        if best_oa:
-            landing_page = best_oa.get("landing_page_url")
-            if landing_page and isinstance(landing_page, str):
+        if best_oa and isinstance(best_oa, dict):
+            landing_page = best_oa.get("landing_page_url", "")
+            if landing_page:
                 return landing_page.strip()
 
         # Fallback to DOI URL
-        doi = api_data.get("doi")
+        doi = api_data.get("doi", "")
         if doi:
             return f"https://doi.org/{DOI(doi).stem}"
 
@@ -320,19 +320,19 @@ class OpenAlexHandler(BaseFetcherHandler):
         OpenAlex provides ISSN in primary_location.source.issn field.
         """
         primary_location = api_data.get("primary_location")
-        if not primary_location:
+        if not primary_location or not isinstance(primary_location, dict):
             return None
 
         source = primary_location.get("source")
-        if not source:
+        if not source or not isinstance(source, dict):
             return None
 
         # ISSN can be a list or single string
-        issn = source.get("issn")
+        issn = source.get("issn", "")
         if issn:
             if isinstance(issn, list) and len(issn) > 0:
                 return issn[0]
-            elif isinstance(issn, str):
+            else:
                 return issn.strip()
 
         return None
@@ -378,18 +378,40 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_publisher(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract publisher from OpenAlex.
-        
+
         OpenAlex provides publisher in 'publisher' field.
         """
-        publisher = api_data.get("primary_location", {}).get("source", {}).get("host_organization_name")
-        if publisher and isinstance(publisher, str):
-            return publisher.strip()
+        primary_location = api_data.get("primary_location")
+        if primary_location and isinstance(primary_location, dict):
+            source = primary_location.get("source")
+            if source and isinstance(source, dict):
+                publisher = source.get("host_organization_name", "")
+                if publisher:
+                    return publisher.strip()
 
-        publisher = api_data.get("best_oa_location", {}).get("source", {}).get("host_organization_name")
-        if publisher and isinstance(publisher, str):
-            return publisher.strip()
+        best_oa = api_data.get("best_oa_location")
+        if best_oa and isinstance(best_oa, dict):
+            source = best_oa.get("source")
+            if source and isinstance(source, dict):
+                publisher = source.get("host_organization_name", "")
+                if publisher:
+                    return publisher.strip()
 
         return None
+
+    def _extract_volume(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """Extract volume from API response"""
+        volume = api_data.get("volume")
+        if not volume:
+            volume = api_data.get("biblio", {}).get("volume")
+        return volume
+
+    def _extract_issue(self, api_data: Dict[str, Any]) -> Optional[str]:
+        """Extract issue from API response"""
+        issue = api_data.get("issue")
+        if not issue:
+            issue = api_data.get("biblio", {}).get("issue")
+        return issue
 
     def _extract_source_key(self, api_data: Dict[str, Any]) -> Optional[str]:
         """

@@ -740,9 +740,9 @@ class StepExecutor:
                 result = self._execute_builtin_step(step_name, step_params, step_desc, dry_run)
 
             template_results.append(result)
-            total_count += result.get("count", 0)
+            total_count += result.stats.get("paper_count", 0) if result.stats else 0
 
-            if result.get("status") == StepStatus.ERROR:
+            if result.status == StepStatus.ERROR:
                 error_msg = f"Template '{template_name}' failed at step {step_name}: {result.get('error')}"
                 raise PipelineExecutionError(error_msg)
 
@@ -751,11 +751,11 @@ class StepExecutor:
             message=f"Template '{template_name}' executed successfully",
             description=description,
             status=StepStatus.SUCCESS,
-            stats = {"count": total_count},
-            details = {
-                "template": template_name,
-                "template_results": template_results,
-            }
+            stats = {"paper_count": total_count},
+            details = [
+                f"template: {template_name}",
+                f"template_results: {template_results}",
+            ]
         )
 
     def run_all(
@@ -763,7 +763,7 @@ class StepExecutor:
         dry_run: bool = False,
         on_step_start: Optional[callable] = None,
         on_step_end: Optional[callable] = None,
-    ) -> Dict[str, Any]:
+    ) -> StepResult:
         """
         Execute all remaining steps sequentially.
 
@@ -777,7 +777,7 @@ class StepExecutor:
                 Signature: (step_index: int, step_config: Dict, result: Dict) -> None
 
         Returns:
-            Aggregated results dictionary
+            StepResult summary of execution
 
         Raises:
             ConfigurationError: If step config is invalid
@@ -786,45 +786,37 @@ class StepExecutor:
             Any other exception: Propagates for caller to handle
         """
         self.start_time = time.time()
-        results_summary = {
-            "status": "ok",
-            "steps_executed": 0,
-            "steps_failed": 0,
-            "total_duration_seconds": 0,
-            "step_results": [],
-        }
+        results_summary = StepResult(
+            status=StepStatus.SUCCESS,
+            step="run_all",
+            step_results=[],
+            stats={
+                "steps_executed": 0,
+                "steps_failed": 0,
+            },
+        )
 
         total_steps = len(self.steps)
 
         for i in range(self.current_step_index, total_steps):
-            step_config = self.steps[i]
-
-            # Call start callback if provided
-            if on_step_start:
-                on_step_start(i, step_config, total_steps)
-
             # Execute step - exceptions propagate to caller
             result = self.execute_step(i, dry_run=dry_run)
 
-            # Call end callback if provided
-            if on_step_end:
-                on_step_end(i, step_config, result)
+            results_summary.details.append(result)
 
-            results_summary["step_results"].append(result)
-
-            if result.get("status") == "error":
-                results_summary["status"] = StepStatus.ERROR
-                results_summary["steps_failed"] += 1
+            if result.status == StepStatus.ERROR:
+                results_summary.status = StepStatus.ERROR
+                results_summary.stats["steps_failed"] += 1
                 break
-            elif result.get("status") == "halted":
-                results_summary["status"] = "halted"
+            elif result.status == StepStatus.HALTED:
+                results_summary.status = StepStatus.HALTED
                 break
             else:
-                results_summary["steps_executed"] += 1
+                results_summary.stats["steps_executed"] += 1
 
         # Add timing information
         if self.start_time:
-            results_summary["total_duration_seconds"] = round(time.time() - self.start_time, 2)
+            results_summary.timings = {"total_duration_seconds": round(time.time() - self.start_time, 2)}
 
         return results_summary
 

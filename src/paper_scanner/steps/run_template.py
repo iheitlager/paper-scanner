@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Tuple
 
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.steps.base import BaseStep
+from paper_scanner.steps.result import StepResult
 
 
 class RunTemplateStep(BaseStep):
@@ -55,7 +56,7 @@ class RunTemplateStep(BaseStep):
         verbose: bool = False,
         dry_run: bool = False,
         debug: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> StepResult:
         """
         Execute template (handled by StepExecutor).
 
@@ -74,25 +75,24 @@ class RunTemplateStep(BaseStep):
         """
         is_valid, errors = self.validate(step_config)
         if not is_valid:
-            return {
-                "status": StepStatus.ERROR,
-                "error": f"Invalid template config: {', '.join(errors)}",
-                "count": 0,
-            }
+            return StepResult(
+                status=StepStatus.ERROR,
+                error=f"Invalid template config: {', '.join(errors)}",
+            )
 
         template_name = step_config.get("template")
 
         if dry_run:
-            return {
-                "status": StepStatus.SUCCESS,
-                "message": f"Would execute template: {template_name}",
-                "count": 0,
-            }
+            return StepResult(
+                status=StepStatus.SUCCESS,
+                message=f"Would execute template: {template_name}",
+                stats = {"paper_count": 0},
+            )
 
         # Template execution is handled by StepExecutor._execute_template
         # This step just validates the configuration
-        return {
-            "status": StepStatus.SUCCESS,
-            "message": f"Template '{template_name}' expanded (see template_results)",
-            "count": 0,
-        }
+        return StepResult(
+            status=StepStatus.SUCCESS,
+            message=f"Template '{template_name}' expanded (see template_results)",
+            stats={"paper_count": 0},
+        )

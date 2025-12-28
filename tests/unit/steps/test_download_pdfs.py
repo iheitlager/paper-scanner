@@ -12,10 +12,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Paper, PDFInfo
-from paper_scanner.core.step_result import StepResult
+from paper_scanner.core.models import Paper, PDFInfo, Discovery
 from paper_scanner.steps.download_pdfs import DownloadPDFsStep
-from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.enum import StepStatus, DiscoveryMethod
 
 
 class TestDownloadPDFsValidation:
@@ -208,7 +207,7 @@ class TestDownloadPDFsExecution:
         paper.doi = "10.1234/test"
         paper.cite_key = "TestPaper2024"
         paper.pdf_info = None
-        paper.file_path = None
+        paper.discovery = Discovery(method=DiscoveryMethod.MANUAL)
 
         mock_db.find.return_value = [paper]
 

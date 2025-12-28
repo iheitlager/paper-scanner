@@ -29,8 +29,6 @@ from paper_scanner.viewer import ConsoleViewer
 
 TABSTOP = 2
 
-from icecream import ic
-
 class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleLoggingMixin):
     """Single console reporter implementing both interfaces"""
 
@@ -71,8 +69,6 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
             if result.status == StepStatus.SUCCESS:
                 self.log_info(f"{result.message} {timings}\n")
                 # self.log_msg(f"[green]ok: {result.stats.get('processed', 0)}[/green] {timings} ")
-                if result.details:
-                    self.log_debug(f"{'\n'.join(result.details)}")
             elif result.status == StepStatus.WARNING:
                 self.log_warning(result.message)
         else:
@@ -90,8 +86,8 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
         self.log_info(f"[blue]Definition [white]{definition_file}[/white] with {num_steps} steps loaded[/blue]\n")
 
     def on_initialized(self) -> None:
-        if self.controller.autorun and self.definition:
-            self.log_debug("Auto-running all steps...")
+        if self.controller.autorun:
+            self.log_debug("Auto-running enabled")
         self.log_debug(f"History file: {str(self.controller.history_file)}")
         if self.controller.history_file.exists():
             self.log_debug(f"History file size: {self.controller.history_file.stat().st_size} bytes")

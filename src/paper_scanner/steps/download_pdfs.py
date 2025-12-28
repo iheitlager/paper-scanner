@@ -170,7 +170,6 @@ class DownloadPDFsStep(BaseStep):
                             file_size_bytes=dest_path.stat().st_size,
                             download_source=pdf_info.download_source,
                             download_url=pdf_info.download_url,
-                            downloaded_at=pdf_info.downloaded_at,
                         )
 
                     downloaded += 1

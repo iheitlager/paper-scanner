@@ -31,6 +31,9 @@ from paper_scanner.cli.tasks import (
 )
 from paper_scanner.steps.base import BaseStep
 
+from icecream import install
+install()
+
 # Load environment variables from .env file
 load_dotenv()
 # Handle broken pipe gracefully (when piping to head, wc, etc.)

@@ -98,8 +98,11 @@ class CitationsStep(BaseStep):
                     if "output_errors" in backward:
                         if not isinstance(backward["output_errors"], str) or not Path(backward["output_errors"]).exists():
                             errors.append("'backward.output_errors' must be a valid file path")
+                    if "iterations" in backward:
+                        if not isinstance(backward["iterations"], int) or backward["iterations"] < 1:
+                            errors.append("'backward.iterations' must be a positive integer")
                     for key in backward.keys():
-                        if key not in ("citations", "details", "output_errors"):
+                        if key not in ("citations", "details", "output_errors", "iterations"):
                             errors.append(f"Unknown backward configuration key: '{key}'")
 
             # Validate forward config
@@ -169,28 +172,10 @@ class CitationsStep(BaseStep):
 
         self.iteration = 0
 
-            # Get papers to process (filter by paper_type)
-        if paper_types:
-            target_papers = self.db.find(
-                lambda p: p.paper_type and p.paper_type.value in paper_types and p.discovery.iteration == self.iteration,
-                primary_only=True
-            )
-        else:
-            target_papers = self.db.find(
-                lambda p: p.discovery.iteration == self.iteration,
 
-                primary_only=True)
-            target_papers = [p for p in target_papers if p.discovery.iteration == self.iteration]
-
-        if limit:
-            target_papers = target_papers[:limit]
-
-        self.callback(f"Total papers in DB: {self.db.count(primary_only=True)}\n"
-                      f" Target papers to process: {len(target_papers)}", debug=True)
 
         results = {
             "total_papers": self.db.count(primary_only=True),
-            "target_papers": len(target_papers),
             "papers_with_citations": 0,
             "papers_with_cited_by": 0,
             "citations_fetched": 0,
@@ -199,16 +184,17 @@ class CitationsStep(BaseStep):
             "citations_unresolved": 0,
             "forward_links_created": 0,
             "reverse_links_created": 0,
+            "iteration": self.iteration,
             "errors": [],
             "cache_hits": 0,
             "cache_misses": 0,
         }
 
         if backward_config:
-            self.backward_execute(config, target_papers, results)
-        elif forward_config:
-            self.forward_execute(config, target_papers, results)
-        else:
+            self.backward_execute(config, results)
+        if forward_config:
+            self.forward_execute(config, results)
+        if not backward_config and not forward_config:
             raise ValueError("CitationsStep requires 'backward' or 'forward' configuration.")
 
         return_details = StepResult(
@@ -222,7 +208,7 @@ class CitationsStep(BaseStep):
         return_details.stats = results
         return return_details
 
-    def backward_execute(self, config: Dict[str, Any], target_papers: List[Paper], results: Dict[str, Any]) -> None:
+    def backward_execute(self, config: Dict[str, Any], results: Dict[str, Any]) -> None:
         """
         Execute backward citations extraction for papers in three passes.
 
@@ -244,6 +230,7 @@ class CitationsStep(BaseStep):
         backward_config = config.get("backward", {})
         citations = backward_config.get("citations", ["crossref"])
         details = backward_config.get("details", ["crossref"])
+        iterations = backward_config.get("iterations", 1)
         self.output_errors = backward_config.get("output_errors", None)
         if self.output_errors:
             # Clear existing error file
@@ -256,37 +243,59 @@ class CitationsStep(BaseStep):
                       f"Continue on not found: {continue_on_not_found}\n"
                       + (f"Limit papers to process: {limit}" if limit else ""))
 
-        # PASS 1: Fetch citations from external sourcess
-        # Initialize fetcher
-        fetcher = Fetcher(
-            cache_dir=self.cache_dir,
-            methods=citations,
-        )
-        self._fetch_citations_for_papers(
-            target_papers=target_papers,
-            fetcher=fetcher,
-            results=results,
-            limit=limit,
-        )
+        while self.iteration < iterations:
+            # Get papers to process (filter by paper_type)
+            if paper_types:
+                target_papers = self.db.find(
+                    lambda p: p.paper_type and p.paper_type.value in paper_types and p.discovery.iteration == self.iteration,
+                    primary_only=True
+                )
+            else:
+                target_papers = self.db.find(
+                    lambda p: p.discovery.iteration == self.iteration,
+                    primary_only=True
+                )
 
-        # PASS 2: Resolve citations and expand database
-        # Initialize fetcher
-        fetcher = Fetcher(
-            cache_dir=self.cache_dir,
-            methods=details
-        )
-        self._resolve_citations_and_fetch_papers(
-            papers=target_papers,
-            fetcher=fetcher,
-            continue_on_not_found=continue_on_not_found,
-            results=results,
-        )
-        # PASS 3: Build citation graph in memory
-        all_papers = self.db.all(primary_only=False)
-        self._link_citations(
-            papers=all_papers,
-            results=results,
-        )
+            if limit:
+                target_papers = target_papers[:limit]
+
+            results['target_papers'] = results.get("target_papers", 0) + len(target_papers)
+            self.callback(f"Total papers in DB: {self.db.count(primary_only=True)}\n"
+                        f" Target papers to process: {len(target_papers)}", debug=True)
+            self.iteration += 1
+
+
+            # PASS 1: Fetch citations from external sourcess
+            # Initialize fetcher
+            fetcher = Fetcher(
+                cache_dir=self.cache_dir,
+                methods=citations,
+            )
+            self._fetch_citations_for_papers(
+                target_papers=target_papers,
+                fetcher=fetcher,
+                results=results,
+                limit=limit,
+            )
+
+            # PASS 2: Resolve citations and expand database
+            # Initialize fetcher
+            fetcher = Fetcher(
+                cache_dir=self.cache_dir,
+                methods=details
+            )
+            self._resolve_citations_and_fetch_papers(
+                papers=target_papers,
+                fetcher=fetcher,
+                continue_on_not_found=continue_on_not_found,
+                results=results,
+            )
+            # PASS 3: Build citation graph in memory
+            all_papers = self.db.all(primary_only=False)
+            self._link_citations(
+                papers=all_papers,
+                results=results,
+            )
 
         return None
 
@@ -324,6 +333,23 @@ class CitationsStep(BaseStep):
                       f"Details sources: {details}\n"
                       f"Continue on not found: {continue_on_not_found}\n"
                       + (f"Limit papers to process: {limit}" if limit else ""))
+
+        if paper_types:
+            target_papers = self.db.find(
+                lambda p: p.paper_type and p.paper_type.value in paper_types and p.discovery.iteration == 0,
+                primary_only=True
+            )
+        else:
+            target_papers = self.db.find(
+                lambda p: p.discovery.iteration == 0,
+                primary_only=True)
+
+        if limit:
+            target_papers = target_papers[:limit]
+
+        results['target_papers'] = results.get("target_papers", 0) + len(target_papers)
+        self.callback(f"Total papers in DB: {self.db.count(primary_only=True)}\n"
+                    f" Target papers to process: {len(target_papers)}", debug=True)
 
         # PASS 1: Fetch citations from external sourcess
         # Initialize fetcher
@@ -400,6 +426,7 @@ class CitationsStep(BaseStep):
 
                 if limit:
                     citations = citations[:limit]
+
                 results["papers_with_citations"] += 1
                 results["citations_fetched"] += len(citations)
 
@@ -496,8 +523,9 @@ class CitationsStep(BaseStep):
             results = {}
 
         missed_citations = {}
-        for paper in papers:
+        for i, paper in enumerate(papers, 1):
             if not paper.citations:
+                missed_citations[paper.doi] = []
                 continue
 
             # Resolve each citation
@@ -520,11 +548,11 @@ class CitationsStep(BaseStep):
                     if created_new:
                         results["citations_created_new_paper"] = results.get("citations_created_new_paper", 0) + 1
                 else:
-                    if self.output_errors:
-                        citation_dict = citation.model_dump(exclude_none=True)
-                        missed_citations.setdefault(paper.doi, []).append(citation_dict)
+                    citation_dict = citation.model_dump(exclude_none=True)
+                    missed_citations.setdefault(paper.doi, []).append(citation_dict)
                     results["citations_unresolved"] = results.get("citations_unresolved", 0) + 1
                     self.callback(f"[red]Unresolved citation[/red] [white]'{citation.title:40}'[/white][red] in paper {paper.doi}[/red]")
+
         if self.output_errors and missed_citations:
             with open(self.output_errors, "a", encoding="utf-8") as f:
                 for doi, citations in missed_citations.items():
@@ -635,7 +663,6 @@ class CitationsStep(BaseStep):
                 return paper, False
             else:
                 enriched_paper, cache_hit, handler = fetcher.fetch_paper(normalized_doi)
-                # enriched_paper.discovery.iteration = self.iteration
 
                 # Track cache statistics
                 if cache_hit:
@@ -646,6 +673,7 @@ class CitationsStep(BaseStep):
                     cache = "🌐"
                 # Only add if fetcher successfully returned a paper
                 if enriched_paper:
+                    enriched_paper.discovery.iteration = self.iteration
                     self.db.add(enriched_paper)
                     self.callback(f"[green]{cache}Retrieved metadata for citation DOI {normalized_doi}[/green] with '{handler}'", debug=True)
                     return enriched_paper, True
