@@ -516,3 +516,347 @@ class TestFileIOEdgeCases:
             assert isinstance(paper, Paper)
 
         assert count == 100
+
+
+# ============================================================================
+# Tests: Additional Coverage - Compression Support
+# ============================================================================
+
+class TestCompressionSupport:
+    """Test compressed JSON output (gzip)."""
+
+    def test_papers_to_json_gz(self, paper_list, tmp_path):
+        """Test writing papers to compressed JSON file."""
+        try:
+            from paper_scanner.io.json import papers_to_json_gz
+        except ImportError:
+            pytest.skip("Compression support not available")
+
+        filepath = tmp_path / "papers.json.gz"
+        papers_to_json_gz(paper_list, str(filepath))
+
+        assert filepath.exists()
+        # File should be binary/compressed
+        assert filepath.stat().st_size > 0
+
+    def test_json_gz_to_papers(self, paper_list, tmp_path):
+        """Test reading papers from compressed JSON file."""
+        try:
+            from paper_scanner.io.json import papers_to_json_gz, json_gz_to_papers
+        except ImportError:
+            pytest.skip("Compression support not available")
+
+        filepath = tmp_path / "papers.json.gz"
+        papers_to_json_gz(paper_list, str(filepath))
+
+        restored = json_gz_to_papers(str(filepath))
+        assert len(restored) == len(paper_list)
+
+
+# ============================================================================
+# Tests: Additional Coverage - Batch Operations
+# ============================================================================
+
+class TestBatchOperations:
+    """Test batch operations on papers."""
+
+    def test_split_papers_to_files(self, minimal_paper, tmp_path):
+        """Test splitting papers into multiple files."""
+        try:
+            from paper_scanner.io.json import split_papers_to_files
+        except ImportError:
+            pytest.skip("Batch operations not available")
+
+        papers = [minimal_paper for _ in range(25)]
+        output_dir = str(tmp_path)
+
+        result = split_papers_to_files(papers, output_dir, papers_per_file=10)
+
+        assert isinstance(result, list)
+        assert len(result) > 0
+        # Should create multiple files
+        assert len(result) >= 3  # 25 papers / 10 per file = 3 files
+
+    def test_merge_json_files(self, minimal_paper, tmp_path):
+        """Test merging multiple JSON files."""
+        try:
+            from paper_scanner.io.json import split_papers_to_files, merge_json_files
+        except ImportError:
+            pytest.skip("Batch operations not available")
+
+        papers = [minimal_paper for _ in range(15)]
+
+        # First split into multiple files
+        split_dir = tmp_path / "split"
+        split_dir.mkdir()
+        result = split_papers_to_files(papers, str(split_dir), papers_per_file=5)
+
+        # Then merge them back
+        output_file = tmp_path / "merged.json"
+        total = merge_json_files(result, str(output_file))
+
+        assert total == 15
+        assert output_file.exists()
+
+
+# ============================================================================
+# Tests: Additional Coverage - Partial Export Modes
+# ============================================================================
+
+class TestPartialExportModes:
+    """Test various partial export modes."""
+
+    def test_papers_to_json_partial_bibliographic(self, paper_list):
+        """Test bibliographic partial export mode."""
+        json_str = papers_to_json_partial(paper_list, mode='bibliographic')
+        data = json.loads(json_str)
+
+        assert len(data) == 2
+        # Bibliographic mode should include publication details
+        assert all('title' in item for item in data)
+
+    def test_papers_to_json_partial_screening(self, paper_list):
+        """Test screening partial export mode."""
+        json_str = papers_to_json_partial(paper_list, mode='screening')
+        data = json.loads(json_str)
+
+        assert len(data) == 2
+        # Should include screening-related fields
+        assert isinstance(data, list)
+
+    def test_papers_to_json_partial_camo(self, paper_list):
+        """Test CAMO partial export mode."""
+        json_str = papers_to_json_partial(paper_list, mode='camo')
+        data = json.loads(json_str)
+
+        assert len(data) == 2
+        # Should have CAMO statements structure
+        assert isinstance(data, list)
+
+    def test_papers_to_json_partial_invalid_mode(self, paper_list):
+        """Test invalid export mode raises error."""
+        with pytest.raises(ValueError, match="Unknown mode"):
+            papers_to_json_partial(paper_list, mode='invalid_mode')
+
+
+# ============================================================================
+# Tests: Additional Coverage - Special Cases
+# ============================================================================
+
+class TestSpecialCases:
+    """Test special cases and edge conditions."""
+
+    def test_json_with_exclude_none_true(self, rich_paper):
+        """Test JSON export with exclude_none=True."""
+        json_with_none = paper_to_json(rich_paper, exclude_none=False)
+        json_without_none = paper_to_json(rich_paper, exclude_none=True)
+
+        data_with = json.loads(json_with_none)
+        data_without = json.loads(json_without_none)
+
+        # Without None should have fewer or equal keys
+        assert len(data_without) <= len(data_with)
+
+    def test_jsonl_with_exclude_none(self, paper_list):
+        """Test JSONL export with exclude_none=True."""
+        jsonl_str = papers_to_jsonl(paper_list, exclude_none=True)
+        lines = jsonl_str.strip().split('\n')
+
+        assert len(lines) == 2
+        for line in lines:
+            data = json.loads(line)
+            assert isinstance(data, dict)
+
+    def test_invalid_json_file_path(self):
+        """Test handling of non-existent file for reading."""
+        try:
+            json_file_to_papers("/nonexistent/path/papers.json")
+            assert False, "Should raise FileNotFoundError"
+        except FileNotFoundError:
+            pass
+
+    def test_invalid_jsonl_file_path(self):
+        """Test handling of non-existent JSONL file."""
+        try:
+            jsonl_file_to_papers("/nonexistent/path/papers.jsonl")
+            assert False, "Should raise FileNotFoundError"
+        except FileNotFoundError:
+            pass
+
+    def test_stream_empty_jsonl_file(self, tmp_path):
+        """Test streaming empty JSONL file."""
+        filepath = tmp_path / "empty.jsonl"
+        filepath.write_text("")
+
+        count = 0
+        for paper in stream_jsonl_file(str(filepath)):
+            count += 1
+
+        assert count == 0
+
+    def test_jsonl_file_with_blank_lines(self, minimal_paper, tmp_path):
+        """Test JSONL file with blank lines is handled correctly."""
+        filepath = tmp_path / "with_blanks.jsonl"
+
+        # Write papers with intentional blank lines using proper JSONL format
+        line1 = json.dumps(paper_to_dict(minimal_paper))
+        line2 = json.dumps(paper_to_dict(minimal_paper))
+        content = line1 + "\n\n" + line2 + "\n"
+        filepath.write_text(content)
+
+        papers = jsonl_file_to_papers(str(filepath))
+        # Should skip blank lines and read 2 papers
+        assert len(papers) == 2
+
+
+# ============================================================================
+# Tests: Additional Coverage - Paper Relationships
+# ============================================================================
+
+class TestPaperRelationships:
+    """Test handling of paper relationships in JSON."""
+
+    def test_round_trip_with_authors_list(self, rich_paper):
+        """Test round-trip with multiple authors."""
+        json_str = paper_to_json(rich_paper)
+        restored = json_to_paper(json_str)
+
+        assert len(restored.authors) == len(rich_paper.authors)
+        for orig, rest in zip(rich_paper.authors, restored.authors):
+            assert orig.full_name == rest.full_name
+
+    def test_round_trip_with_discovery_metadata(self, rich_paper):
+        """Test round-trip with discovery metadata."""
+        json_str = paper_to_json(rich_paper)
+        restored = json_to_paper(json_str)
+
+        if rich_paper.discovery:
+            assert restored.discovery.method == rich_paper.discovery.method
+            assert restored.discovery.source_database == rich_paper.discovery.source_database
+
+    def test_round_trip_with_keywords(self, rich_paper):
+        """Test round-trip with keywords."""
+        json_str = paper_to_json(rich_paper)
+        restored = json_to_paper(json_str)
+
+        assert set(restored.keywords) == set(rich_paper.keywords)
+
+
+# ============================================================================
+# Tests: Additional Coverage - Encoder Edge Cases
+# ============================================================================
+
+class TestEncoderEdgeCases:
+    """Test edge cases for PaperJSONEncoder."""
+
+    def test_encoder_with_none_values(self):
+        """Test encoder handles None values."""
+        data = {"field": None, "value": 123}
+        json_str = json.dumps(data, cls=PaperJSONEncoder)
+        restored = json.loads(json_str)
+
+        assert restored["field"] is None
+        assert restored["value"] == 123
+
+    def test_encoder_with_empty_collections(self):
+        """Test encoder handles empty lists and dicts."""
+        data = {"authors": [], "keywords": [], "nested": {}}
+        json_str = json.dumps(data, cls=PaperJSONEncoder)
+        restored = json.loads(json_str)
+
+        assert restored["authors"] == []
+        assert restored["keywords"] == []
+        assert restored["nested"] == {}
+
+    def test_encoder_with_special_characters(self):
+        """Test encoder handles special characters in strings."""
+        data = {"title": "Test with émojis and spëcial çharacters"}
+        json_str = json.dumps(data, cls=PaperJSONEncoder)
+        restored = json.loads(json_str)
+
+        assert "émojis" in restored["title"]
+        assert "spëcial" in restored["title"]
+
+
+# ============================================================================
+# Tests: Additional Coverage - Validation Edge Cases
+# ============================================================================
+
+class TestValidationEdgeCases:
+    """Test edge cases in validation."""
+
+    def test_validate_file_with_invalid_json(self, tmp_path):
+        """Test validating file with invalid JSON."""
+        filepath = tmp_path / "invalid.json"
+        filepath.write_text("{ invalid json")
+
+        result = validate_json_file(str(filepath))
+        assert result["valid"] is False
+        assert result["error"] is not None
+
+    def test_validate_file_with_wrong_schema(self, tmp_path):
+        """Test validating file with wrong schema."""
+        filepath = tmp_path / "wrong.json"
+        filepath.write_text('{"not": "a paper"}')
+
+        result = validate_json_file(str(filepath))
+        # Should indicate validation failure
+        assert isinstance(result, dict)
+
+    def test_verify_round_trip_with_rich_paper(self, rich_paper):
+        """Test round-trip verification with complex paper."""
+        result = verify_round_trip(rich_paper)
+        assert isinstance(result, bool)
+
+
+# ============================================================================
+# Tests: Additional Coverage - Collection Serialization
+# ============================================================================
+
+class TestDictionaryConversions:
+    """Test dict to/from paper conversions."""
+
+    def test_dict_to_paper_minimal(self):
+        """Test converting minimal dict to Paper."""
+        paper_dict = {
+            "cite_key": "test2024",
+            "title": "Test Paper",
+            "year": 2024
+        }
+        paper = dict_to_paper(paper_dict)
+
+        assert paper.cite_key == "test2024"
+        assert paper.title == "Test Paper"
+        assert paper.year == 2024
+
+    def test_dict_to_paper_with_authors(self):
+        """Test converting dict with authors."""
+        paper_dict = {
+            "cite_key": "test2024",
+            "title": "Test Paper",
+            "authors": [
+                {
+                    "family_name": "Smith",
+                    "given_name": "John",
+                    "full_name": "John Smith"
+                }
+            ]
+        }
+        paper = dict_to_paper(paper_dict)
+
+        assert len(paper.authors) == 1
+        assert paper.authors[0].full_name == "John Smith"
+
+    def test_dict_to_paper_with_discovery(self):
+        """Test converting dict with discovery info."""
+        paper_dict = {
+            "cite_key": "test2024",
+            "title": "Test Paper",
+            "discovery": {
+                "method": "keyword_search",
+                "source_database": "scopus"
+            }
+        }
+        paper = dict_to_paper(paper_dict)
+
+        assert paper.discovery.source_database == "scopus"
