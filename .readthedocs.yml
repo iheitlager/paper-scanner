@@ -9,9 +9,6 @@ build:
 mkdocs:
   configuration: mkdocs.yml
 
-# Build documentation in the docs directory
-docs_dir: docs
-
 # Fail on warnings
 fail_on_warning: false
 

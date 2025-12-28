@@ -4,7 +4,7 @@ site_author: paper-scanner contributors
 site_url: https://paper-scanner.readthedocs.io
 
 # Repository
-repo_url: https://github.com/your-org/paper-scanner
+repo_url: https://github.com/iheitlager/paper-scanner
 repo_name: paper-scanner
 edit_uri: edit/main/docs/
 
