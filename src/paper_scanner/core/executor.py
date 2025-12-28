@@ -331,7 +331,7 @@ class StepExecutor:
         try:
             # Instantiate the step with required dependencies
             on_event_callback = self.step_reporter.on_step_event if self.step_reporter else None
-            return step_class(general_config=self.general_config, db=self.papers_db, cache_dir=self.cache_dir, on_event=on_event_callback)
+            return step_class(general_config=self.general_config, executor=self, db=self.papers_db, cache_dir=self.cache_dir, on_event=on_event_callback)
         except Exception as e:
             raise StepError(f"Failed to instantiate step '{step_name}': {e}") from e
 

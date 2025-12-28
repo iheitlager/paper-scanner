@@ -7,10 +7,13 @@ a standard interface for step discovery, configuration validation, and execution
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Callable
+from typing import Any, Dict, List, Tuple, Callable, TYPE_CHECKING
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.reporter import NOOP
+
+if TYPE_CHECKING:
+    from paper_scanner.core.step_executor import StepExecutor
 
 
 
@@ -54,6 +57,7 @@ class BaseStep(ABC):
         general_config: Dict[str, Any],
         db: PapersDatabase,
         cache_dir: Path,
+        executor: "StepExecutor" = None,
         on_event: Callable = NOOP,
     ):
         """
@@ -64,12 +68,14 @@ class BaseStep(ABC):
                           settings that may be needed by multiple steps
             db: PapersDatabase instance for reading/writing papers
             cache_dir: Directory for caching fetched data and intermediate results
+            executor: StepExecutor instance managing the workflow execution (if needed)
             on_event: Callback function for reporting step events
         """
         self.general_config = general_config
         self.db = db
         self.cache_dir = cache_dir
         self.callback = on_event
+        self.executor = executor
 
     @property
     def name(self) -> str:

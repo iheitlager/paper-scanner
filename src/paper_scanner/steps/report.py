@@ -5,7 +5,7 @@ Outputs database statistics and relevant facts
 """
 import sys
 from collections import Counter
-from typing import Any, List, Dict
+from typing import Any, List, Dict, TYPE_CHECKING
 
 from rich.console import Console
 from rich.table import Table
@@ -17,13 +17,17 @@ from ..core.enum import ScreeningDecision
 from ..core.models import Paper
 from .base import BaseStep
 
+if TYPE_CHECKING:
+    from paper_scanner.core.step_executor import StepExecutor
+
+
 # Initialize rich console
 console = Console(file=sys.stderr)
 
 
 # Class-based step interface (new architecture)
-class SummarizeStep(BaseStep):
-    """Wrapper for summarize step (legacy function-based)."""
+class ReportStep(BaseStep):
+    """Wrapper for report step (legacy function-based)."""
     _report_types = {
         "summary": None,
         "screening": None,
@@ -42,60 +46,49 @@ class SummarizeStep(BaseStep):
 
         errors = []
 
-        # Check summary flag
-        if "summary" in config and not isinstance(config["summary"], bool):
-            errors.append("'summary' must be a boolean")
+        for key in config:
+            if key in ReportStep._report_types:
+                if not isinstance(config[key], bool):
+                    errors.append(f"'{key}' must be a boolean")
+            elif key == "tabulate":
+                tabulate = config["tabulate"]
+                if isinstance(tabulate, dict):
+                    # Single tabulate config
+                    if "field" not in tabulate:
+                        errors.append("'tabulate' dictionary must have 'field' key")
+                    elif not isinstance(tabulate["field"], str):
+                        errors.append("'tabulate.field' must be a string")
 
-        # Check screening flag
-        if "screening" in config and not isinstance(config["screening"], bool):
-            errors.append("'screening' must be a boolean")
-
-        # Check citations flag
-        if "citations" in config and not isinstance(config["citations"], bool):
-            errors.append("'citations' must be a boolean")
-
-        # Check citations flag
-        if "bibliography" in config and not isinstance(config["bibliography"], bool):
-            errors.append("'bibliography' must be a boolean")
-
-        # Check tabulate configuration
-        if "tabulate" in config:
-            tabulate = config["tabulate"]
-            if isinstance(tabulate, dict):
-                # Single tabulate config
-                if "field" not in tabulate:
-                    errors.append("'tabulate' dictionary must have 'field' key")
-                elif not isinstance(tabulate["field"], str):
-                    errors.append("'tabulate.field' must be a string")
-
-                if "duplicates" in tabulate:
-                    dup = tabulate["duplicates"]
-                    if dup not in {False, True, "only"}:
-                        errors.append(f"'tabulate.duplicates' must be False, True, or 'only', got {dup}")
-            elif isinstance(tabulate, list):
-                # Multiple tabulate configs
-                for i, tab in enumerate(tabulate):
-                    if not isinstance(tab, dict):
-                        errors.append(f"'tabulate' list item {i} must be a dictionary")
-                        continue
-
-                    if "field" not in tab:
-                        errors.append(f"'tabulate' list item {i} must have 'field' key")
-                    elif not isinstance(tab["field"], str):
-                        errors.append(f"'tabulate' list item {i} 'field' must be a string")
-
-                    if "duplicates" in tab:
-                        dup = tab["duplicates"]
+                    if "duplicates" in tabulate:
+                        dup = tabulate["duplicates"]
                         if dup not in {False, True, "only"}:
-                            errors.append(f"'tabulate' list item {i} 'duplicates' must be False, True, or 'only'")
+                            errors.append(f"'tabulate.duplicates' must be False, True, or 'only', got {dup}")
+                elif isinstance(tabulate, list):
+                    # Multiple tabulate configs
+                    for i, tab in enumerate(tabulate):
+                        if not isinstance(tab, dict):
+                            errors.append(f"'tabulate' list item {i} must be a dictionary")
+                            continue
+
+                        if "field" not in tab:
+                            errors.append(f"'tabulate' list item {i} must have 'field' key")
+                        elif not isinstance(tab["field"], str):
+                            errors.append(f"'tabulate' list item {i} 'field' must be a string")
+
+                        if "duplicates" in tab:
+                            dup = tab["duplicates"]
+                            if dup not in {False, True, "only"}:
+                                errors.append(f"'tabulate' list item {i} 'duplicates' must be False, True, or 'only'")
+                else:
+                    errors.append("'tabulate' must be a dictionary or list of dictionaries")
             else:
-                errors.append("'tabulate' must be a dictionary or list of dictionaries")
+                errors.append(f"Unknown report key: '{key}'")
 
         return len(errors) == 0, errors
 
     def execute(self, config, verbose=False, dry_run=False, debug=False):
         """
-        Execute database summary step
+        Execute database report step
 
         Args:
             config: Step configuration with options:
@@ -125,6 +118,7 @@ class SummarizeStep(BaseStep):
         show_screening = config.get("screening", False)
         show_citations = config.get("citations", False)
         show_bibliography = config.get("bibliography", False)
+        show_bibliography = config.get("statistics", False)
 
         # Support both old and new configuration format
         tabulate_configs = []
@@ -599,3 +593,4 @@ def _display_bibliography(db: PapersDatabase) -> None:
         str(doi)
     )
     console.print(table)
+

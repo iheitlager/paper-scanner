@@ -299,16 +299,22 @@ class ReplController(AbstractController):
             self.controller_reporter.log(f"  • [cyan]Debug:[/cyan] {'On' if self.debug else 'Off'}\n")
             return 0
         if command not in ("verbose", "dryrun", "timings", "debug"):
-            self.controller_reporter.on_error(f"Unknown settings command: [dim]{command}[/dim]")
+            self.controller_reporter.on_error(f"Unknown settings command: '{command}'")
             return 1
-        if command_line[1] in ("off", "0", "false"):
+        if len(command_line) < 2:
+            value = not getattr(self, command)
+        elif command_line[1] in ("off", "0", "false"):
             value = False
         elif command_line[1] in ("on", "1", "true"):
             value = True
         else:
-            self.controller_reporter.on_error(f"Invalid value for setting {command}: [dim]{command_line[1]}[/dim]")
+            self.controller_reporter.on_error(f"Invalid value for setting {command}: '{command_line[1]}'")
             return 1
+        # bit ugly but propagate to all relevant components
         setattr(self, command , value)
+        setattr(self.controller_reporter, command , value)
+        setattr(self.step_reporter, command , value)
+
         self.controller_reporter.log(f"[cyan]{command}[/cyan] = {'on' if value else 'off'}")   
         return 0
 
@@ -418,7 +424,7 @@ class ReplController(AbstractController):
     @macro_step("report", "p")
     def report_cmd(self, args: list[str]) -> StepResult:
         """Show current report summary"""
-        report = self.executor.get_step("summarize")
+        report = self.executor.get_step("report")
         if len(args) == 0:
             args = ["summary"]
         for report_type in args:
@@ -457,70 +463,40 @@ class ReplController(AbstractController):
     def stats_cmd(self, args: list[str]) -> StepResult:
         """Show database stats"""
         stats = self.executor.get_stats()
+        state = self.executor.get_session_state()
         self.controller_reporter.log("  [bold]📊 Statistics:[/bold]\n")
 
         project_name = stats.get('project_name', 'N/A')
         papers_total = stats.get('papers_total', 0)
         papers_unique = stats.get('papers_unique', 0)
         papers_duplicates = stats.get('papers_duplicates', 0)
-        current_step = stats.get('current_step_index', 0)
         total_steps = stats.get('total_steps', 0)
         steps_executed = stats.get('steps_executed', 0)
         total_duration = stats.get('total_duration_seconds', 0)
         step_history = stats.get('step_history', [])
 
-        self.controller_reporter.log(f"  [cyan]Project:[/cyan] [white]{project_name}[/white]")
-        self.controller_reporter.log(f"  [cyan]Papers:[/cyan] [white]{papers_total}[/white] total [dim]([green]{papers_unique}[/green] unique, [yellow]{papers_duplicates}[/yellow] duplicates)[/dim]")
-        self.controller_reporter.log(f"  [cyan]Progress:[/cyan] [white]{current_step}/{total_steps}[/white] steps")
-        self.controller_reporter.log(f"  [cyan]Executed:[/cyan] [white]{steps_executed}[/white] steps")
-        self.controller_reporter.log(f"  [cyan]Total duration:[/cyan] [white]{total_duration:.2f}s[/white]")
 
-        if step_history:
-            self.controller_reporter.log("\n  [bold cyan]Step Timings:[/bold cyan]")
-            for i, entry in enumerate(step_history):
-                step_name = entry.get('step', 'Unknown')
-                duration_ms = entry.get('duration_ms', 0)
-                percentage = (duration_ms / (total_duration * 1000) * 100) if total_duration > 0 else 0
-                color = "white" if i % 2 == 0 else "magenta"
-                self.controller_reporter.log(f"    • [{color}]{step_name:<25}[/{color}] [dim]{duration_ms:>7d}ms ({percentage:>5.1f}%)[/dim]")
-        self.controller_reporter.log()
-        return StepResult(status=StepStatus.SUCCESS)
-
-
-    @macro_step("state", "s")
-    def state_cmd(self, args: list[str]) -> StepResult:
-        """Show current execution state with progress and context"""
-        state = self.executor.get_session_state()
-        
-        # Extract relevant data
         project_name = state.get('general_config', {}).get('project_name', 'Untitled')
-        papers_db = state.get('papers_db')
         current_idx = state.get('current_step_index', 0)
         total_steps = state.get('total_steps', 0)
         step_history = state.get('step_history', [])
         last_step = state.get('last_step', {})
         current_step = state.get('current_step', {})
         results = state.get('results')
-        
-        # Format output
-        self.controller_reporter.log("\n  [bold cyan]═══ EXECUTION STATE ═══[/bold cyan]")
-        
-        # Project & Database
-        self.controller_reporter.log(f"\n  [bold]Project:[/bold] [white]{project_name}[/white]")
-        if papers_db:
-            count = len(papers_db)
-            unique = papers_db.count(primary_only=True)
-            duplicates = count - unique
-            self.controller_reporter.log(f"  [bold]Database:[/bold] [white]{count}[/white] papers [dim]({unique} primary, {duplicates} duplicates)[/dim]")
-        
+
+        self.controller_reporter.log(f"  [cyan]Project:[/cyan] [white]{project_name}[/white]")
+        self.controller_reporter.log(f"  [cyan]Papers:[/cyan] [white]{papers_total}[/white] total [dim]([green]{papers_unique}[/green] unique, [yellow]{papers_duplicates}[/yellow] duplicates)[/dim]")
+        self.controller_reporter.log(f"  [cyan]Executed:[/cyan] [white]{steps_executed}[/white] steps")
+        self.controller_reporter.log(f"  [cyan]Total duration:[/cyan] [white]{total_duration:.2f}s[/white]")
+
         # Progress bar
         completed = len(step_history)
         progress_pct = (completed / total_steps * 100) if total_steps > 0 else 0
         bar_width = 30
         filled = int(bar_width * completed / total_steps) if total_steps > 0 else 0
         bar = "█" * filled + "░" * (bar_width - filled)
-        self.controller_reporter.log(f"\n  [bold]Progress:[/bold] [{bar}] {completed}/{total_steps} steps ({progress_pct:.0f}%)")
-        
+        self.controller_reporter.log(f"\n  [cyan]Progress:[/cyan] [{bar}] {completed}/{total_steps} steps ({progress_pct:.0f}%)")
+
         # Last executed step result
         if last_step and results:
             self.controller_reporter.log(f"\n  [bold cyan]Last Step: {last_step.get('name', 'N/A')}[/bold cyan]")
@@ -531,27 +507,35 @@ class ReplController(AbstractController):
             duration = results.timings.get('duration_ms', 0) if results.timings else 0
             if duration:
                 self.controller_reporter.log(f"    [cyan]Duration:[/cyan] [dim]{duration:.0f}ms[/dim]")
-        
+
         # Current step info
         if current_step and current_idx < total_steps:
             self.controller_reporter.log(f"\n  [bold cyan]Current Step: {current_step.get('name', 'N/A')}[/bold cyan]")
             self.controller_reporter.log(f"    [cyan]Description:[/cyan] {current_step.get('description', 'N/A')}")
-        
-        self.controller_reporter.log("\n  [bold cyan]═══════════════════════[/bold cyan]\n")
+
+        # Step timings
+        if step_history:
+            self.controller_reporter.log("\n  [bold cyan]Step Timings:[/bold cyan]")
+            for i, entry in enumerate(step_history):
+                step_name = entry.get('step', 'Unknown')
+                duration_ms = entry.get('duration_ms', 0)
+                percentage = (duration_ms / (total_duration * 1000) * 100) if total_duration > 0 else 0
+                color = "white" if i % 2 == 0 else "magenta"
+                self.controller_reporter.log(f"    • [{color}]{step_name:<25}[/{color}] [dim]{duration_ms:>7d}ms ({percentage:>5.1f}%)[/dim]")
+        self.controller_reporter.log()
+
         return StepResult(status=StepStatus.SUCCESS)
+
 
     @macro_step("reset", "rst")
     def reset_cmd(self, args: list[str]) -> StepResult:
         """Reset executor state: \\reset [execution|definition|all]"""
         scope = args[0] if args else "execution"
-        try:
-            self.executor.reset(scope)
-            scope_display = f"[green]✓ Reset {scope} state[/green]"
-            self.controller_reporter.log(f"  {scope_display}\n")
-            return StepResult(status=StepStatus.SUCCESS)
-        except ValueError as e:
-            self.controller_reporter.log_error(str(e))
-            return StepResult(status=StepStatus.ERROR, error=str(e))
+
+        self.executor.reset(scope)
+        scope_display = f"[green]✓ Reset {scope} state[/green]"
+        self.controller_reporter.log(f"  {scope_display}\n")
+        return StepResult(status=StepStatus.SUCCESS)
 
     @macro_step("checkpoint", "c")
     def checkpoint_cmd(self, args: list[str]) -> StepResult:
@@ -570,14 +554,10 @@ class ReplController(AbstractController):
         all_papers = list(papers)
         total_papers = len(all_papers)
 
-        try:
-            # Create and run viewer
-            viewer = ConsoleViewer(all_papers, page_size=10, general_config=self.executor.general_config, db=self.executor.papers_db)
-            viewer.run()
-            return StepResult(status=StepStatus.SUCCESS, message=f"Viewed {total_papers} papers")
-        except Exception as e:
-            self.controller_reporter.log_error(f"Error in viewer: {e}")
-            return StepResult(status=StepStatus.ERROR, error=str(e))
+        # Create and run viewer
+        viewer = ConsoleViewer(all_papers, page_size=10, general_config=self.executor.general_config, db=self.executor.papers_db)
+        viewer.run()
+        return StepResult(status=StepStatus.SUCCESS, message=f"Viewed {total_papers} papers")
 
     @macro_step("help", "?")
     def help_cmd(self, args: list[str]) -> StepResult:

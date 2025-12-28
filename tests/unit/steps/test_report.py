@@ -1,5 +1,5 @@
 """
-Unit tests for summarize step
+Unit tests for report step
 """
 
 import pytest
@@ -7,7 +7,7 @@ import pytest
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Author, Paper, PaperType
 from paper_scanner.core.enum import StepStatus
-from paper_scanner.steps.summarize import SummarizeStep, _filter_by_duplicates, _generate_field_table
+from paper_scanner.steps.report import ReportStep, _filter_by_duplicates, _generate_field_table
 
 
 @pytest.fixture
@@ -84,47 +84,48 @@ def sample_db():
 
 
 class TestValidate:
-    """Tests for SummarizeStep.validate method"""
+    """Tests for ReportStep.validate method"""
 
     def test_validate_empty_config(self):
         """Test validation of empty config"""
         config = {}
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
 
     def test_validate_with_summary_flag(self):
         """Test validation with summary flag"""
         config = {"summary": True}
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
+        assert errors == []
         assert is_valid is True
         assert len(errors) == 0
 
     def test_validate_with_screening_flag(self):
         """Test validation with screening flag"""
         config = {"screening": True}
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
 
     def test_validate_invalid_summary_flag(self):
         """Test validation fails with non-boolean summary"""
         config = {"summary": "yes"}
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
         assert is_valid is False
         assert any("summary" in err for err in errors)
 
     def test_validate_invalid_screening_flag(self):
         """Test validation fails with non-boolean screening"""
         config = {"screening": "maybe"}
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
         assert is_valid is False
         assert any("screening" in err for err in errors)
 
     def test_validate_tabulate_dict_valid(self):
         """Test validation with valid tabulate dict"""
         config = {"tabulate": {"field": "paper_type", "duplicates": False}}
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
 
@@ -136,28 +137,28 @@ class TestValidate:
                 {"field": "journal", "duplicates": True},
             ]
         }
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
 
     def test_validate_tabulate_missing_field(self):
         """Test validation fails when tabulate missing field"""
         config = {"tabulate": {"duplicates": False}}
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
         assert is_valid is False
         assert any("field" in err for err in errors)
 
     def test_validate_tabulate_invalid_duplicates(self):
         """Test validation fails with invalid duplicates value"""
         config = {"tabulate": {"field": "paper_type", "duplicates": "maybe"}}
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
         assert is_valid is False
         assert any("duplicates" in err for err in errors)
 
     def test_validate_tabulate_invalid_type(self):
         """Test validation fails when tabulate is invalid type"""
         config = {"tabulate": "paper_type"}
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
         assert is_valid is False
         assert any("tabulate" in err for err in errors)
 
@@ -239,12 +240,12 @@ class TestGenerateFieldTable:
 
 
 class TestExecute:
-    """Tests for SummarizeStep.execute method"""
+    """Tests for ReportStep.execute method"""
 
     def test_execute_empty_database(self, empty_db, temp_cache_dir):
         """Test execute with empty database"""
         config = {}
-        step = SummarizeStep(general_config={}, db=empty_db, cache_dir=temp_cache_dir)
+        step = ReportStep(general_config={}, db=empty_db, cache_dir=temp_cache_dir)
 
         result = step.execute(config, verbose=False, dry_run=False)
 
@@ -253,7 +254,7 @@ class TestExecute:
     def test_execute_with_sample_data(self, sample_db, temp_cache_dir):
         """Test execute with sample data"""
         config = {}
-        step = SummarizeStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
+        step = ReportStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
 
         result = step.execute(config, verbose=False, dry_run=False)
 
@@ -262,7 +263,7 @@ class TestExecute:
     def test_execute_with_summary_flag(self, sample_db, temp_cache_dir):
         """Test execute with summary flag enabled"""
         config = {"summary": True}
-        step = SummarizeStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
+        step = ReportStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
 
         result = step.execute(config, verbose=True, dry_run=False)
 
@@ -273,7 +274,7 @@ class TestExecute:
         # Note: tabulate config has a bug in summarize.py (_generate_field_table)
         # This test verifies the step at least initializes without error
         config = {}
-        step = SummarizeStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
+        step = ReportStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
 
         result = step.execute(config, verbose=True, dry_run=False)
 
@@ -282,17 +283,17 @@ class TestExecute:
     def test_execute_returns_correct_statistics(self, sample_db, temp_cache_dir):
         """Test execute returns StepResult"""
         config = {}
-        step = SummarizeStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
+        step = ReportStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
 
         result = step.execute(config, verbose=False, dry_run=False)
 
         assert result.status == StepStatus.SUCCESS
-        # stats dict is currently empty by design in SummarizeStep
+        # stats dict is currently empty by design in ReportStep
 
     def test_execute_screening_flag(self, sample_db, temp_cache_dir):
         """Test execute with screening flag"""
         config = {"screening": True}
-        step = SummarizeStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
+        step = ReportStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
 
         result = step.execute(config, verbose=True, dry_run=False)
 
@@ -301,7 +302,7 @@ class TestExecute:
     def test_execute_dry_run_ignored(self, sample_db, temp_cache_dir):
         """Test that dry_run flag doesn't affect execute output"""
         config = {}
-        step = SummarizeStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
+        step = ReportStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
 
         result_normal = step.execute(config, verbose=False, dry_run=False)
         result_dry = step.execute(config, verbose=False, dry_run=True)
@@ -317,11 +318,11 @@ class TestIntegration:
         """Test validation followed by execution"""
         config = {"summary": True}
 
-        is_valid, errors = SummarizeStep.validate(config)
+        is_valid, errors = ReportStep.validate(config)
         assert is_valid is True
         assert len(errors) == 0
 
-        step = SummarizeStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
+        step = ReportStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=False)
 
         assert result.status == StepStatus.SUCCESS
@@ -333,7 +334,7 @@ class TestIntegration:
             "screening": True,
         }
 
-        step = SummarizeStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
+        step = ReportStep(general_config={}, db=sample_db, cache_dir=temp_cache_dir)
         result = step.execute(config, verbose=True, dry_run=False)
 
         assert result.status == StepStatus.SUCCESS

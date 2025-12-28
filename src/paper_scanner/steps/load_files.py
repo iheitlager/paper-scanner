@@ -127,8 +127,8 @@ class LoadFilesStep(BaseStep):
         # Scan for PDF files
         pdf_files = sorted(file_path.glob("*.pdf"))
 
-        self.callback(f" Loading {len(pdf_files)} PDF files from: {file_path}", debug=True)
-        self.callback(f" Storing files to: {store_path}", debug=True)
+        self.callback(f"Loading {len(pdf_files)} PDF files from: {file_path}", debug=True)
+        self.callback(f"Storing files to: {store_path}", debug=True)
 
         if not pdf_files:
             return StepResult(
@@ -149,12 +149,12 @@ class LoadFilesStep(BaseStep):
                 random.seed(random_seed)
             random.shuffle(pdf_files)
             seed_display = f" (seed={random_seed})" if random_seed is not None else ""
-            self.callback(f" [cyan]✓[/cyan] Randomized files{seed_display}", debug=True)
+            self.callback(f"✓ Randomized files{seed_display}", debug=True)
 
         # Apply limit after randomization
         if limit:
             pdf_files = pdf_files[:limit]
-            self.callback(f" [dim]✓ Limited to {limit} papers[/dim]", debug=True)
+            self.callback(f"✓ Limited to {limit} papers", debug=True)
 
         pdf_cache = PDFCache(cache_dir=self.cache_dir / "pdfs")
 
@@ -185,7 +185,7 @@ class LoadFilesStep(BaseStep):
                 if not file_reader.exists():
                     file_result["error"] = "PDF file not found"
                     stats["papers_failed"] += 1
-                    self.callback(f" [yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: file not found")
+                    self.callback(f"[yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: file not found")
                     details.append(file_result)
                     continue
 
@@ -196,7 +196,7 @@ class LoadFilesStep(BaseStep):
                 if not doi:
                     file_result["error"] = "No DOI extracted"
                     stats["papers_failed"] += 1
-                    self.callback(f" [yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: no DOI")
+                    self.callback(f"[yellow]⚠️  {i}/{len(pdf_files)}[/yellow] {pdf_path.name}: no DOI")
                     details.append(file_result)
                     continue
 
@@ -258,7 +258,7 @@ class LoadFilesStep(BaseStep):
                 stats["papers_loaded"] += 1
                 stats["files_processed"] += 1
 
-                self.callback(f" [green]✓[/green] {i}/{len(pdf_files)} {pdf_path.name} → {new_filename}")
+                self.callback(f"✓ {i}/{len(pdf_files)} {pdf_path.name} → {new_filename}")
 
             except StepFatalError:
                 # Re-raise fatal errors
@@ -267,7 +267,7 @@ class LoadFilesStep(BaseStep):
                 file_result["error"] = str(e)
                 file_result["success"] = False
                 stats["papers_failed"] += 1
-                self.callback(f" [red]✗[/red] {i}/{len(pdf_files)} {pdf_path.name}: {str(e)[:50]}")
+                self.callback(f"✗ {i}/{len(pdf_files)} {pdf_path.name}: {str(e)[:50]}")
 
             details.append(file_result)
 

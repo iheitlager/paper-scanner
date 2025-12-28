@@ -22,7 +22,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "retrieve_metadata": "paper_scanner.steps.retrieve_metadata:RetrieveMetadataStep",
     "run-template": "paper_scanner.steps.run_template:RunTemplateStep",
     "semantic_screening": "paper_scanner.steps.semantic_screening:SemanticScreeningStep",
-    "summarize": "paper_scanner.steps.summarize:SummarizeStep",
+    "report": "paper_scanner.steps.report:ReportStep",
     "citations": "paper_scanner.steps.citations:CitationsStep",
     "upload_database": "paper_scanner.steps.upload_database:UploadDatabaseStep",
 }
