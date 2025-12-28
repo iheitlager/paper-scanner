@@ -13,7 +13,7 @@ Getting set up to contribute to paper-scanner.
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/your-org/paper-scanner.git
+git clone https://github.com/iheitlager/paper-scanner.git
 cd paper-scanner
 ```
 
@@ -317,7 +317,7 @@ uv run paper-processor --init --force
 - 📖 Read the [main README](../../README.md)
 - 🏗️ Check [Architecture Overview](../architecture/overview.md)
 - 🧪 Review existing [tests](../../tests/)
-- 💬 Open a [discussion](https://github.com/your-org/paper-scanner/discussions)
+- 💬 Open a [discussion](https://github.com/iheitlager/paper-scanner/discussions)
 
 ## Next Steps
 

@@ -17,7 +17,7 @@ See [Installation Guide](installation.md) for detailed setup instructions.
 
 Quick start:
 ```bash
-git clone https://github.com/your-org/paper-scanner.git
+git clone https://github.com/iheitlager/paper-scanner.git
 cd paper-scanner
 uv sync --all-groups
 ```
@@ -92,6 +92,6 @@ steps:
 ## Getting Help
 
 - 📖 [Full Documentation](https://paper-scanner.readthedocs.io)
-- 🐛 [Report Issues](https://github.com/your-org/paper-scanner/issues)
-- 💬 [Discussions](https://github.com/your-org/paper-scanner/discussions)
+- 🐛 [Report Issues](https://github.com/iheitlager/paper-scanner/issues)
+- 💬 [Discussions](https://github.com/iheitlager/paper-scanner/discussions)
 - 📝 [Architecture Decisions](../adr/index.md) - Why things are designed this way

@@ -130,13 +130,13 @@ class ConsoleViewer:
 [bold]Title:[/bold] {paper.title or "N/A"} [dim]({(paper.language or "N/A")})[/dim]
 [bold]Authors:[/bold] {", ".join(a.full_name for a in paper.authors) if paper.authors else "N/A"}
 [bold]Year:[/bold] {paper.year or "N/A"}
-[bold]Journal:[/bold] {paper.journal or "N/A"}
+[bold]Journal:[/bold] [italic]{paper.journal or "N/A"}[/italic]
 [bold]Volume/Issue:[/bold] {paper.volume or "N/A"}/{paper.number or "N/A"}
 [bold]Pages:[/bold] {paper.pages or "N/A"}
 [bold]DOI:[/bold] {paper.doi or "N/A"}
 [bold]URL:[/bold] {paper.url or "N/A"}
-[bold]Source:[/bold] {paper.discovery.source_database or "N/A"} (Iteration: {paper.discovery.iteration})
-[bold]Screening Decision:[/bold] {paper.screening.final_decision.value if paper.screening and paper.screening.final_decision else "N/A"}
+[bold]Source:[/bold] [cyan]{paper.discovery.source_database or "N/A"}[/cyan] (Iteration: {paper.discovery.iteration})
+[bold]Screening Decision:[/bold] [cyan]{paper.screening.final_decision.value if paper.screening and paper.screening.final_decision else "N/A"}[/cyan] ({paper.screening.categorization.reasoning or ""})
 
 [bold]Abstract:[/bold]
 {paper.abstract or "N/A"}

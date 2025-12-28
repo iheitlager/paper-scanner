@@ -287,7 +287,7 @@ MIT License - see LICENSE file.
 Currently community-supported. For commercial needs, please contact the maintainers.
 
 ### How do I report bugs?
-1. Check [existing issues](https://github.com/your-org/paper-scanner/issues)
+1. Check [existing issues](https://github.com/iheitlager/paper-scanner/issues)
 2. Create a new issue with:
    - Detailed reproduction steps
    - Expected vs. actual behavior
@@ -295,7 +295,7 @@ Currently community-supported. For commercial needs, please contact the maintain
    - Relevant logs/screenshots
 
 ### How do I request features?
-Open a [discussion](https://github.com/your-org/paper-scanner/discussions) or issue describing:
+Open a [discussion](https://github.com/iheitlager/paper-scanner/discussions) or issue describing:
 - The desired feature
 - Why you need it
 - How it should work
@@ -303,6 +303,6 @@ Open a [discussion](https://github.com/your-org/paper-scanner/discussions) or is
 ## Still Have Questions?
 
 - 📚 [Full Documentation](https://paper-scanner.readthedocs.io)
-- 💬 [Open a Discussion](https://github.com/your-org/paper-scanner/discussions)
-- 🐛 [Report an Issue](https://github.com/your-org/paper-scanner/issues)
+- 💬 [Open a Discussion](https://github.com/iheitlager/paper-scanner/discussions)
+- 🐛 [Report an Issue](https://github.com/iheitlager/paper-scanner/issues)
 - 📧 Contact maintainers

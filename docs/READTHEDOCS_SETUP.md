@@ -293,9 +293,9 @@ mkdocs serve
 ## 📞 Support
 
 For documentation improvements or issues:
-1. Create issue: [GitHub Issues](https://github.com/your-org/paper-scanner/issues)
+1. Create issue: [GitHub Issues](https://github.com/iheitlager/paper-scanner/issues)
 2. Submit PR with improvements
-3. Discuss in [GitHub Discussions](https://github.com/your-org/paper-scanner/discussions)
+3. Discuss in [GitHub Discussions](https://github.com/iheitlager/paper-scanner/discussions)
 
 ---
 

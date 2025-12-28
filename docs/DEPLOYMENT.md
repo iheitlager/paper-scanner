@@ -34,7 +34,7 @@ git push origin main
 
 3. **Verify Settings**
    - Name: paper-scanner
-   - Repository: https://github.com/your-org/paper-scanner
+   - Repository: https://github.com/iheitlager/paper-scanner
    - Default branch: main
    - Click "Finish"
 
@@ -99,7 +99,7 @@ Subpages:
 ### Update GitHub Links
 Edit `mkdocs.yml`:
 ```yaml
-repo_url: https://github.com/your-org/paper-scanner
+repo_url: https://github.com/iheitlager/paper-scanner
 edit_uri: edit/main/docs/
 ```
 

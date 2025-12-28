@@ -100,15 +100,6 @@ return StepResult(
 
 Backward compatibility: `StepResult` supports dict-like access via `__getitem__` for legacy code.
 
-### Markdown Format Parsing
-The parser in `src/paper_scanner/core/advanced_section_parser.py` handles multiple markdown variations:
-- `**TITLE:** value` (colon inside bold)
-- `**TITLE**: value` (colon outside bold)
-- `TITLE: value` (plain text)
-- Both `##` headers and `###` subheaders
-
-When adding new analysis fields, support all three formats.
-
 ## Versioning & Branching
 
 **Semantic Versioning**: MAJOR.MINOR.PATCH in `src/paper_scanner/__init__.py`
@@ -117,6 +108,7 @@ When adding new analysis fields, support all three formats.
 - `fix/`: Bug fixes → PATCH bump + `### Fixed` in CHANGELOG
 - `docs/`, `test/`, `refactor/`, `chore/`: No version bump
 - 'spike/': Experimental, may be discarded, no version bump, most like a new folder in tests/spikes/XXX_name
+- Always update `CHANGELOG.md`, `README.md`, `src/paper_scanner/__init__.py` and `docs/index.md` with new version
 
 ## Key Files Reference
 - Database schema: `src/paper_scanner/core/models.py` (Paper dataclass)
@@ -125,6 +117,8 @@ When adding new analysis fields, support all three formats.
 - Pipeline executor: `src/paper_scanner/core/executor.py` (StepExecutor)
 - Step examples: `src/paper_scanner/steps/{export,deduplication,bibtex_import}.py`
 - Tests: `tests/unit/` (run with `make test` or `uv run pytest`)
+- ALWAYS USE `uv` when running/testing commands
+- CLI entry point: `src/paper_scanner/cli/paper_processor.py` (main CLI)
 - Documentation: `docs/` directory (MkDocs with Material theme, deployed to ReadTheDocs)
 - Documentation config: `mkdocs.yml` at project root, deployed to https://paper-scanner.readthedocs.io
 - Step docs: `docs/steps/` (reference when implementing, automatically included in sidebar)

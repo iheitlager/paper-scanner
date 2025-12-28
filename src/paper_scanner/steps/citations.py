@@ -101,6 +101,9 @@ class CitationsStep(BaseStep):
                     if "iterations" in backward:
                         if not isinstance(backward["iterations"], int) or backward["iterations"] < 1:
                             errors.append("'backward.iterations' must be a positive integer")
+                    if "screening" in backward:
+                        if not isinstance(backward["screening"], str):
+                            errors.append("'backward.screening' must be a valid tempplate")
                     for key in backward.keys():
                         if key not in ("citations", "details", "output_errors", "iterations"):
                             errors.append(f"Unknown backward configuration key: '{key}'")
@@ -166,9 +169,7 @@ class CitationsStep(BaseStep):
 
         # Extract configuration
         backward_config = config.get("backward", {})
-        limit = config.get("limit", None)
         forward_config = config.get("forward", {})
-        paper_types = config.get("paper-types", ["journal_article"])
 
         self.iteration = 0
 
@@ -230,6 +231,7 @@ class CitationsStep(BaseStep):
         backward_config = config.get("backward", {})
         citations = backward_config.get("citations", ["crossref"])
         details = backward_config.get("details", ["crossref"])
+        screening = backward_config.get("screening", None)
         iterations = backward_config.get("iterations", 1)
         self.output_errors = backward_config.get("output_errors", None)
         if self.output_errors:
@@ -241,6 +243,8 @@ class CitationsStep(BaseStep):
                       f"Citation sources: {citations}\n"
                       f"Details sources: {details}\n"
                       f"Continue on not found: {continue_on_not_found}\n"
+                      f"Iterations: {iterations}\n"
+                      f"Applying screening template : {screening}\n" if screening else ""
                       + (f"Limit papers to process: {limit}" if limit else ""))
 
         while self.iteration < iterations:
@@ -297,6 +301,20 @@ class CitationsStep(BaseStep):
                 results=results,
             )
 
+            # PASS 4: if template is available, execute it
+            if screening:
+                self.callback(f"Executing screening template '{screening}' for iteration {self.iteration}...", debug=True)
+                step_params = {
+                    "template": screening,
+                }
+                result = self.executor._execute_template(
+                    step_params=step_params,
+                    description=f"Citation screening iteration {self.iteration}",
+                    dry_run=self.dry_run,
+                )
+                if result.status != StepStatus.SUCCESS:
+                    results['errors'].append(f"Screening iteration {self.iteration} failed: {result.message}")
+                    return None
         return None
 
     def forward_execute(self, config: Dict[str, Any], target_papers: List[Paper], results: Dict[str, Any]) -> None:

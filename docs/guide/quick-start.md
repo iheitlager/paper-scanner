@@ -11,7 +11,7 @@ Get up and running with paper-scanner in 5 minutes.
 ## Step 1: Clone and Setup (2 min)
 
 ```bash
-git clone https://github.com/your-org/paper-scanner.git
+git clone https://github.com/iheitlager/paper-scanner.git
 cd paper-scanner
 
 # Install dependencies
@@ -199,4 +199,4 @@ uv run paper-processor my-pipeline.yml
 
 - Check logs: Add `--debug` flag
 - See [Contributing Guide](../contributing/setup.md)
-- Open an [issue on GitHub](https://github.com/your-org/paper-scanner/issues)
+- Open an [issue on GitHub](https://github.com/iheitlager/paper-scanner/issues)

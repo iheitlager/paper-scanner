@@ -11,7 +11,7 @@
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-org/paper-scanner.git
+git clone https://github.com/iheitlager/paper-scanner.git
 cd paper-scanner
 ```
 
@@ -199,5 +199,5 @@ uv sync --all-groups
 
 ## Getting Help
 
-- 💬 [Open an issue](https://github.com/your-org/paper-scanner/issues)
+- 💬 [Open an issue](https://github.com/iheitlager/paper-scanner/issues)
 - 📚 [Full documentation](https://paper-scanner.readthedocs.io)
