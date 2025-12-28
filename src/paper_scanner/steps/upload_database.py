@@ -118,7 +118,7 @@ class UploadDatabaseStep(BaseStep):
         Execute database upload.
 
         Args:
-            step_config: Step configuration with database_url OR individual components
+            config: Step configuration with database_url OR individual components
             verbose: Enable verbose output
             dry_run: Validate without uploading
             debug: Enable debug logging
@@ -134,15 +134,15 @@ class UploadDatabaseStep(BaseStep):
         load_dotenv()
 
         # Parse configuration and build database_url
-        database_url = self._get_database_url(step_config)
+        database_url = self._get_database_url(config)
         if not database_url:
             raise StepFatalError(
                 "Could not construct database URL from configuration: "
                 "Missing database_url or incomplete component parameters"
             )
 
-        conflict_strategy = step_config.get("conflict_strategy", "skip")
-        batch_size = int(step_config.get("batch_size", 100))
+        conflict_strategy = config.get("conflict_strategy", "skip")
+        batch_size = int(config.get("batch_size", 100))
 
         if verbose:
             console.print("[cyan]Uploading papers to PostgreSQL[/cyan]")

@@ -226,10 +226,12 @@ class TestScreeningDecision:
             "PENDING",
             "MANUAL_REVIEW",
             "UNCERTAIN",
+            "EXCLUDED_DUPLICATE",
+            "EXCLUDED_MANUAL",
         ]
         actual_members = [member.name for member in ScreeningDecision]
         assert set(actual_members) == set(expected_members)
-        assert len(actual_members) == 5
+        assert len(actual_members) == 7
 
     def test_screening_decision_values(self):
         """Verify ScreeningDecision values are correctly defined"""
@@ -238,6 +240,8 @@ class TestScreeningDecision:
         assert ScreeningDecision.PENDING.value == "pending"
         assert ScreeningDecision.MANUAL_REVIEW.value == "manual_review"
         assert ScreeningDecision.UNCERTAIN.value == "uncertain"
+        assert ScreeningDecision.EXCLUDED_DUPLICATE.value == "excluded_duplicate"
+        assert ScreeningDecision.EXCLUDED_MANUAL.value == "excluded_manual"
 
     def test_screening_decision_from_string(self):
         """Verify ScreeningDecision can be instantiated from string values"""
