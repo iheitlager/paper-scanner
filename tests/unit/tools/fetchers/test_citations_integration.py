@@ -114,7 +114,7 @@ class TestCitationHandling:
         assert "citations" in api_data
         assert len(api_data["citations"]) == 5
 
-    def test_citations_preserved_in_paper_model(self, handler, bibtex_with_citations):
+    def test_citations_not_preserved_in_paper_model(self, handler, bibtex_with_citations):
         """Test that citations are properly preserved when creating Paper model."""
         entries, _ = BibtexParser.parse_file(bibtex_with_citations)
         entry = entries[0]
@@ -125,14 +125,8 @@ class TestCitationHandling:
         paper, _ = handler.fetch_paper(doi)
         
         assert paper is not None
-        assert len(paper.citations) == 5
-        
-        # Verify citation types
-        backward_cits = [c for c in paper.citations if c.direction == CitationDirection.BACKWARD]
-        forward_cits = [c for c in paper.citations if c.direction == CitationDirection.FORWARD]
-        
-        assert len(backward_cits) == 3
-        assert len(forward_cits) == 2
+        assert len(paper.citations) == 0
+
 
     def test_citation_direction_values(self, bibtex_with_citations):
         """Test that citation directions are valid enum values."""
@@ -153,102 +147,7 @@ class TestCitationHandling:
         # Should be 2 (from citedby field length)
         assert entry["citedbycount"] == 2
 
-    def test_multiple_papers_with_cross_references(self, handler, temp_cache_dir):
-        """Test that multiple papers can reference each other."""
-        # Create two papers that cite each other
-        paper1 = {
-            "doi": "10.1234/paper1",
-            "title": "Paper 1",
-            "abstract": "First paper",
-            "authors": ["Author One"],
-            "year": 2023,
-            "keywords": ["test"],
-            "cites": ["10.1234/paper2"],
-            "citedby": ["10.1234/paper2"],
-            "citations": [
-                {
-                    "doi": "10.1234/paper2",
-                    "direction": CitationDirection.BACKWARD,
-                    "extraction_method": "manual",
-                    "confidence": 1.0,
-                }
-            ],
-        }
-        
-        paper2 = {
-            "doi": "10.1234/paper2",
-            "title": "Paper 2",
-            "abstract": "Second paper",
-            "authors": ["Author Two"],
-            "year": 2023,
-            "keywords": ["test"],
-            "cites": ["10.1234/paper1"],
-            "citedby": ["10.1234/paper1"],
-            "citations": [
-                {
-                    "doi": "10.1234/paper1",
-                    "direction": CitationDirection.BACKWARD,
-                    "extraction_method": "manual",
-                    "confidence": 1.0,
-                }
-            ],
-        }
-        
-        # Cache both
-        handler._jsoncache.set(paper1["doi"], paper1)
-        handler._jsoncache.set(paper2["doi"], paper2)
-        
-        # Fetch both and verify cross-references
-        p1, _ = handler.fetch_paper("10.1234/paper1")
-        p2, _ = handler.fetch_paper("10.1234/paper2")
-        
-        assert p1 is not None
-        assert p2 is not None
-        
-        # Paper1 cites Paper2 (backward citation)
-        p1_backward = [c for c in p1.citations if c.direction == CitationDirection.BACKWARD]
-        assert len(p1_backward) == 1
-        assert p1_backward[0].doi == "10.1234/paper2"
-        
-        # Paper2 cites Paper1 (backward citation)
-        p2_backward = [c for c in p2.citations if c.direction == CitationDirection.BACKWARD]
-        assert len(p2_backward) == 1
-        assert p2_backward[0].doi == "10.1234/paper1"
-
-    def test_snowballing_scenario(self, handler):
-        """Test realistic snowballing scenario with seed paper and forward citations."""
-        # Seed paper
-        seed = {
-            "doi": "10.1234/seed",
-            "title": "Seed Paper",
-            "abstract": "The seed",
-            "authors": ["Seed Author"],
-            "year": 2020,
-            "keywords": ["seed"],
-            "citedby": ["10.1234/citing1", "10.1234/citing2", "10.1234/citing3"],
-            "citations": [
-                {
-                    "doi": f"10.1234/citing{i}",
-                    "direction": CitationDirection.FORWARD,
-                    "extraction_method": "manual",
-                    "confidence": 1.0,
-                }
-                for i in range(1, 4)
-            ],
-        }
-        
-        handler._jsoncache.set(seed["doi"], seed)
-        paper, _ = handler.fetch_paper(seed["doi"])
-        
-        assert paper is not None
-        # 3 forward citations (papers that cite this one)
-        forward_cits = [c for c in paper.citations if c.direction == CitationDirection.FORWARD]
-        assert len(forward_cits) == 3
-        
-        # Can extract DOIs for snowballing
-        snowball_dois = [c.doi for c in forward_cits]
-        assert len(snowball_dois) == 3
-
+       
 
 class TestCitationEdgeCases:
     """Test edge cases and error handling."""

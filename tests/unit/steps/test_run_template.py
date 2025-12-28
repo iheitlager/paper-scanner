@@ -11,6 +11,7 @@ Tests cover:
 import pytest
 
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.steps.run_template import RunTemplateStep
 
 # ============================================================================
@@ -136,9 +137,9 @@ class TestExecution:
             debug=False,
         )
 
-        assert result["status"] == "ok"
-        assert "message" in result
-        assert result["count"] == 0
+        assert result.status == StepStatus.SUCCESS
+        assert result.message
+        assert result.stats.get("count", 0) == 0
 
     def test_execute_invalid_config(self, run_template_step):
         """Test execution with invalid config"""
@@ -151,8 +152,8 @@ class TestExecution:
             debug=False,
         )
 
-        assert result["status"] == "error"
-        assert "Invalid template config" in result["error"]
+        assert result.status == StepStatus.ERROR
+        assert result.error and "Invalid template config" in result.error
 
     def test_execute_dry_run(self, run_template_step):
         """Test execution in dry_run mode"""
@@ -165,8 +166,8 @@ class TestExecution:
             debug=False,
         )
 
-        assert result["status"] == "ok"
-        assert "Would execute" in result["message"]
+        assert result.status == StepStatus.SUCCESS
+        assert "Would execute" in result.message
 
     def test_execute_verbose(self, run_template_step, capsys):
         """Test execution with verbose flag"""
@@ -179,7 +180,7 @@ class TestExecution:
             debug=False,
         )
 
-        assert result["status"] == "ok"
+        assert result.status == StepStatus.SUCCESS
 
     def test_execute_missing_template_key(self, run_template_step):
         """Test execution fails when template key is missing"""
@@ -192,7 +193,7 @@ class TestExecution:
             debug=False,
         )
 
-        assert result["status"] == "error"
+        assert result.status == StepStatus.ERROR
 
     def test_execute_with_extra_params(self, run_template_step):
         """Test execution with extra parameters (v1 ignores them)"""
@@ -210,7 +211,7 @@ class TestExecution:
         )
 
         # v1 should ignore extra parameters and succeed
-        assert result["status"] == "ok"
+        assert result.status == StepStatus.SUCCESS
 
     def test_execute_result_structure(self, run_template_step):
         """Test that execution returns proper result structure"""
@@ -223,9 +224,9 @@ class TestExecution:
             debug=False,
         )
 
-        assert "status" in result
-        assert "message" in result
-        assert "count" in result
+        assert hasattr(result, "status")
+        assert hasattr(result, "message")
+        assert result.stats is not None
 
     def test_execute_template_expanded_message(self, run_template_step):
         """Test execution message indicates template expansion"""
@@ -238,8 +239,8 @@ class TestExecution:
             debug=False,
         )
 
-        assert "screen_basics" in result["message"]
-        assert "expanded" in result["message"].lower()
+        assert "screen_basics" in result.message
+        assert "expanded" in result.message.lower()
 
     def test_execute_count_zero(self, run_template_step):
         """Test that step returns count=0 (handled by StepExecutor)"""
@@ -254,7 +255,7 @@ class TestExecution:
 
         # RunTemplateStep itself doesn't process papers
         # Actual expansion is handled by StepExecutor
-        assert result["count"] == 0
+        assert result.stats.get("count", 0) == 0
 
 
 # ============================================================================
@@ -279,7 +280,7 @@ class TestIntegration:
             cache_dir=None,
         )
         result = step.execute(config)
-        assert result["status"] == "ok"
+        assert result.status == StepStatus.SUCCESS
 
     def test_step_in_builtin_steps_registry(self):
         """Test that step can be imported from registry"""
@@ -301,7 +302,7 @@ class TestIntegration:
                 cache_dir=None,
             )
             result = step.execute(config)
-            assert result["status"] == "ok"
+            assert result.status.value == "ok"
         else:
             pytest.fail(f"Validation failed: {errors}")
 
@@ -325,7 +326,7 @@ class TestEdgeCases:
         )
 
         # Should succeed (template existence checked by StepExecutor)
-        assert result["status"] == "ok"
+        assert result.status == StepStatus.SUCCESS
 
     def test_execute_long_template_name(self, run_template_step):
         """Test with very long template name"""
@@ -339,7 +340,7 @@ class TestEdgeCases:
             debug=False,
         )
 
-        assert result["status"] == "ok"
+        assert result.status == StepStatus.SUCCESS
 
     def test_execute_special_chars_template_name(self, run_template_step):
         """Test with special characters in template name"""
@@ -352,7 +353,7 @@ class TestEdgeCases:
             debug=False,
         )
 
-        assert result["status"] == "ok"
+        assert result.status == StepStatus.SUCCESS
 
     def test_validate_config_none(self):
         """Test validate with None config"""
@@ -375,7 +376,7 @@ class TestEdgeCases:
                 dry_run=False,
                 debug=False,
             )
-            assert result["status"] == "ok"
+            assert result.status == StepStatus.SUCCESS
 
 
 if __name__ == "__main__":

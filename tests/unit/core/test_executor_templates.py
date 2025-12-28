@@ -225,8 +225,8 @@ class TestRunAll:
 
         results = executor.run_all()
 
-        assert "total_duration_seconds" in results
-        assert results["total_duration_seconds"] >= 0
+        assert "total_duration_seconds" in results.timings
+        assert results.timings["total_duration_seconds"] >= 0
 
     def test_run_all_stops_on_halt(self, general_config, temp_cache_dir, simple_definition_file):
         """Test that run_all stops execution when HaltException is raised"""

@@ -217,7 +217,6 @@ class Fetcher:
                         file_size_bytes=cached_path.stat().st_size,
                         download_source=pdf_info.download_source,  # Preserve handler name
                         download_url=pdf_info.download_url,
-                        downloaded_at=pdf_info.downloaded_at,
                     )
             except Exception as e:
                 console.print(

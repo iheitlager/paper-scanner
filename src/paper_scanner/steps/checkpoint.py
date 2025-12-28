@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Tuple
 from rich.console import Console
 
 from paper_scanner.core.models import Paper
+from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.step_result import StepResult
 from paper_scanner.io.json import paper_to_dict
 
 from .base import BaseStep
@@ -93,11 +95,14 @@ class CheckpointStep(BaseStep):
         if verbose:
             console.print(f"[cyan]Checkpoint saved[/cyan]: {checkpoint_file.name} ({self.db.count(primary_only=False)} papers)")
 
-        return {
-            "status": "ok",
-            "checkpoint_file": str(checkpoint_file),
-            "papers_count": self.db.count(primary_only=False)
-        }
+        return StepResult(
+            step="checkpoint",
+            status=StepStatus.SUCCESS,
+            message="Checkpoint saved",
+            description=f"Checkpoint at step {step_index} for project '{project_name}'",
+            stats={"papers_count": self.db.count(primary_only=False)},
+            details=f"Checkpoint file: {checkpoint_file}"
+        )
 
 def _get_checkpoint_name(project_name: str, step_index: int) -> str:
     """

@@ -180,7 +180,7 @@ def test_halt_in_run_all():
             f"Expected 'halted', got {results.get('status')}"
 
         # Steps executed should be 2 (echo, echo) before halt
-        assert results.get('steps_executed') == 2, \
+        assert results.stats.get('steps_executed') == 2, \
             f"Expected 2 steps executed, got {results.get('steps_executed')}"
 
         # Should have 3 step results (2 ok + 1 halted)

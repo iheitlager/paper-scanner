@@ -632,11 +632,11 @@ class StepExecutor:
             # HaltException is an intentional signal, not an error
             # Return a halted status but don't propagate
             duration = time.time() - step_start
-            result = {
-                "status": StepStatus.HALTED,
-                "message": str(e),
-                "count": 0,
-            }
+            result = StepResult(
+                status=StepStatus.HALTED,
+                message=str(e),
+                stats={"count": 0},
+            )
             # Don't update index on halt - stays at current step
             # But still record in history
             self.step_history.append(
@@ -676,10 +676,17 @@ class StepExecutor:
 
         # TODO: Remove this once all steps are updated to return StepResult
         if isinstance(result, dict):
+            # Convert string status to StepStatus enum if needed
+            status = result.get("status", StepStatus.SUCCESS)
+            if isinstance(status, str):
+                # Map string to StepStatus enum
+                status_map = {s.value: s for s in StepStatus}
+                status = status_map.get(status, StepStatus.SUCCESS)
+            
             result = StepResult(
-                status=result.get("status", StepStatus.SUCCESS),
+                status=status,
                 message=result.get("message", ""),
-                details = result
+                details=result
             )
 
         # Ensure standard fields
@@ -799,10 +806,18 @@ class StepExecutor:
         total_steps = len(self.steps)
 
         for i in range(self.current_step_index, total_steps):
+            # Call on_step_start callback if provided
+            if on_step_start:
+                on_step_start(i, self.steps[i], total_steps)
+
             # Execute step - exceptions propagate to caller
             result = self.execute_step(i, dry_run=dry_run)
 
-            results_summary.details.append(result)
+            # Call on_step_end callback if provided
+            if on_step_end:
+                on_step_end(i, self.steps[i], result)
+
+            results_summary.step_results.append(result)
 
             if result.status == StepStatus.ERROR:
                 results_summary.status = StepStatus.ERROR

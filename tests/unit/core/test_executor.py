@@ -486,10 +486,10 @@ class TestRunAll:
 
         results = executor.run_all()
 
-        assert results["status"] == "ok"
-        assert results["steps_executed"] == 3
-        assert results["steps_failed"] == 0
-        assert len(results["step_results"]) == 3
+        assert results.status == "ok"
+        assert results.stats["steps_executed"] == 3
+        assert results.stats["steps_failed"] == 0
+        assert len(results.step_results) == 3
 
     def test_run_all_with_error(self, executor, sample_definition_file):
         """Test run_all raises PipelineExecutionError on template step failure"""
@@ -526,7 +526,7 @@ class TestRunAll:
         results = executor.run_all()
 
         # Should only execute steps 1 and 2 (3 total - 1 skipped)
-        assert len(results["step_results"]) == 2
+        assert len(results.step_results) == 2
 
     def test_run_all_dry_run(self, executor, sample_definition_file):
         """Test run_all with dry_run flag"""
@@ -534,7 +534,7 @@ class TestRunAll:
 
         results = executor.run_all(dry_run=True)
 
-        assert results["status"] == "ok"
+        assert results.status.value == "ok"
 
     def test_run_all_timing(self, executor, sample_definition_file):
         """Test run_all records total duration"""
@@ -542,8 +542,8 @@ class TestRunAll:
 
         results = executor.run_all()
 
-        assert "total_duration_seconds" in results
-        assert results["total_duration_seconds"] >= 0
+        assert "total_duration_seconds" in results.timings
+        assert results.timings["total_duration_seconds"] >= 0
 
 
 # ============================================================================
@@ -663,9 +663,9 @@ class TestHaltException:
         with patch.object(executor, "get_step", return_value=mock_step):
             result = executor.execute_step(0)
 
-        assert result["status"] == "halted"
-        assert result["message"] == "Test halt message"
-        assert result["count"] == 0
+        assert result.status.value == "halted"
+        assert result.message == "Test halt message"
+        assert result.stats.get("count", 0) == 0
 
     def test_execute_step_halt_does_not_increment_index(self, executor, sample_definition_file):
         """Test that halt exception doesn't increment step index"""
@@ -705,9 +705,9 @@ class TestHaltException:
         with patch.object(executor, "get_step", side_effect=mock_get_step):
             results = executor.run_all()
 
-        assert results["status"] == "halted"
-        assert results["steps_executed"] == 1  # Only first step completed
-        assert results["steps_failed"] == 0  # Halt is not a failure
+        assert results.status.value == "halted"
+        assert results.stats["steps_executed"] == 1  # Only first step completed
+        assert results.stats["steps_failed"] == 0  # Halt is not a failure
 
     def test_run_all_halt_returns_step_results(self, general_config, temp_cache_dir, simple_definition_file):
         """Test that run_all includes all step results including halted step"""
@@ -733,9 +733,9 @@ class TestHaltException:
             results = executor.run_all()
 
         # Should have 2 step results: 1 ok + 1 halted
-        assert len(results["step_results"]) == 2
-        assert results["step_results"][0]["status"] == "ok"
-        assert results["step_results"][1]["status"] == "halted"
+        assert len(results.step_results) == 2
+        assert results.step_results[0].status.value == "ok"
+        assert results.step_results[1].status.value == "halted"
 
     def test_halt_preserves_custom_message(self, executor, sample_definition_file):
         """Test that halt message is preserved in result"""
@@ -748,7 +748,7 @@ class TestHaltException:
         with patch.object(executor, "get_step", return_value=mock_step):
             result = executor.execute_step(0)
 
-        assert result["message"] == custom_message
+        assert result.message == custom_message
 
     def test_halt_different_from_error(self, executor, sample_definition_file):
         """Test that halt status is distinct from error status"""
@@ -773,8 +773,8 @@ class TestHaltException:
                 executor.execute_step(0)
 
         # Verify halt returns status dict while error propagates
-        assert halt_result["status"] == "halted"
-        assert "message" in halt_result
+        assert halt_result.status.value == "halted"
+        assert halt_result.message is not None
 
 
 class TestRunAllCallbacks:
@@ -821,7 +821,7 @@ class TestRunAllCallbacks:
         assert len(end_calls) == 3
         # Each call should have the result
         for idx, config, result in end_calls:
-            assert result["status"] == "ok"
+            assert result.status.value == "ok"
 
     def test_callbacks_called_in_order(self, executor, sample_definition_file):
         """Test that callbacks are called in correct order: start, execute, end"""
@@ -863,7 +863,7 @@ class TestRunAllCallbacks:
         end_calls = []
 
         def on_end(idx, config, result):
-            end_calls.append((idx, result["status"]))
+            end_calls.append((idx, result.status.value))
 
         with patch.object(executor, "get_step", side_effect=mock_get_step):
             with pytest.raises(PipelineExecutionError):

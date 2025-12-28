@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from paper_scanner.core.enum import StepStatus
 
@@ -23,6 +23,10 @@ class StepResult:
 
     # Rich messages for operators
     details: Optional[str] = None  # Detailed result (markdown format, multi-line)
+
+    # Sub-results from compound operations (templates, run_all, etc.)
+    # List of StepResult objects when this result aggregates multiple steps
+    step_results: List['StepResult'] = field(default_factory=list)
 
     # Error details (only if status is "error")
     error: Optional[str] = None  # Error summary
@@ -110,6 +114,7 @@ class StepResult:
             "description": self.description,
             "stats": self.stats,
             "details": self.details,
+            "step_results": [r.to_dict() for r in self.step_results] if self.step_results else None,
             "error": self.error,
             "error_detail": self.error_detail,
             "metadata": self.metadata,
