@@ -1,0 +1,4 @@
+nav:
+  - Overview: architecture/overview.md
+  - Pipeline Architecture: architecture/pipeline.md
+  - Data Models: architecture/models.md

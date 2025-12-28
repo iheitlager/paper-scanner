@@ -48,6 +48,14 @@ dependencies = [
     "tqdm>=4.67.1",
 ]
 
+[project.optional-dependencies]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-awesome-pages-plugin>=2.10.0",
+    "pymdown-extensions>=10.5",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.0",
@@ -61,6 +69,13 @@ dev = [
     "refurb",
     "vulture",
     "icecream>=2.1.8",
+]
+
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-awesome-pages-plugin>=2.10.0",
+    "pymdown-extensions>=10.5",
 ]
 
 local = [

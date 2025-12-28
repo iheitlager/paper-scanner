@@ -1,0 +1,4 @@
+nav:
+  - Development Setup: contributing/setup.md
+  - Testing: contributing/testing.md
+  - Code Standards: contributing/standards.md

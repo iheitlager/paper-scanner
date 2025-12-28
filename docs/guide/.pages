@@ -1,0 +1,4 @@
+nav:
+  - Getting Started: guide/getting-started.md
+  - Installation: guide/installation.md
+  - Quick Start: guide/quick-start.md
