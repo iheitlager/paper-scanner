@@ -9,9 +9,6 @@ build:
 mkdocs:
   configuration: mkdocs.yml
 
-# Fail on warnings
-fail_on_warning: false
-
 # Install dependencies from pyproject.toml
 python:
   install:
