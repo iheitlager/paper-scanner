@@ -4,7 +4,7 @@
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Status](https://img.shields.io/badge/status-pre--alpha-orange)
-
+[![Test](https://github.com/iheitlager/paper-scanner/actions/workflows/test.yml/badge.svg)](https://github.com/iheitlager/paper-scanner/actions/workflows/test.yml)
 AI-powered literature review tool for analyzing academic research papers using LLM assistance.
 
 ## Overview
@@ -61,7 +61,7 @@ cat > definition.yml << 'EOF'
 project:
   name: "Literature Review"
 
-pipeline:
+steps:
   - step: Import papers
     builtin.bibtex_import:
       batch_id: "batch_001"

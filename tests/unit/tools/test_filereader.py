@@ -305,3 +305,238 @@ class TestDOIExtractorFromPDFStub:
         except FileNotFoundError:
             # This is acceptable - file doesn't exist
             pass
+
+
+# ============================================================================
+# FILE READER TESTS
+# ============================================================================
+
+class TestFileReaderInit:
+    """Test FileReader initialization."""
+
+    def test_filereader_init_with_path_object(self):
+        """Test initialization with Path object."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        path = Path("/tmp/test.pdf")
+        reader = FileReader(path)
+        assert reader.pdf_path == path.resolve()
+
+    def test_filereader_init_with_string_path(self):
+        """Test initialization with string path."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        reader = FileReader("/tmp/test.pdf")
+        assert reader.pdf_path == Path("/tmp/test.pdf").resolve()
+
+    def test_filereader_init_with_custom_email(self):
+        """Test initialization with custom email."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        custom_email = "test@example.com"
+        reader = FileReader("/tmp/test.pdf", email=custom_email)
+        assert reader.doi_extractor.email == custom_email
+
+
+class TestFileReaderExists:
+    """Test FileReader.exists() method."""
+
+    def test_exists_with_nonexistent_file(self):
+        """Test exists() returns False for nonexistent file."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        reader = FileReader("/nonexistent/path/file.pdf")
+        assert reader.exists() is False
+
+    def test_exists_with_directory(self, tmp_path):
+        """Test exists() returns False when path is directory."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        reader = FileReader(tmp_path)
+        assert reader.exists() is False
+
+    def test_exists_with_valid_file(self, tmp_path):
+        """Test exists() returns True for valid file."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        pdf_file = tmp_path / "test.pdf"
+        pdf_file.write_bytes(b"PDF mock content")
+        
+        reader = FileReader(pdf_file)
+        assert reader.exists() is True
+
+
+class TestFileReaderFileInfo:
+    """Test FileReader.get_file_info() method."""
+
+    def test_get_file_info_nonexistent(self):
+        """Test get_file_info() returns empty dict for nonexistent file."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        reader = FileReader("/nonexistent/file.pdf")
+        info = reader.get_file_info()
+        assert info == {}
+
+    def test_get_file_info_valid_file(self, tmp_path):
+        """Test get_file_info() returns correct metadata."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        pdf_file = tmp_path / "test.pdf"
+        test_content = b"PDF mock content"
+        pdf_file.write_bytes(test_content)
+        
+        reader = FileReader(pdf_file)
+        info = reader.get_file_info()
+        
+        assert "file_path" in info
+        assert "file_name" in info
+        assert "file_size_bytes" in info
+        assert "file_hash" in info
+        assert "created_time" in info
+        assert "modified_time" in info
+        assert "accessed_time" in info
+        assert "file_directory" in info
+        
+        assert info["file_name"] == "test.pdf"
+        assert info["file_size_bytes"] == len(test_content)
+        assert info["file_directory"] == str(tmp_path)
+
+    def test_get_file_info_hash_correct(self, tmp_path):
+        """Test get_file_info() returns correct SHA256 hash."""
+        import hashlib
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        pdf_file = tmp_path / "test.pdf"
+        test_content = b"test content for hash"
+        pdf_file.write_bytes(test_content)
+        
+        # Calculate expected hash
+        expected_hash = hashlib.sha256(test_content).hexdigest()
+        
+        reader = FileReader(pdf_file)
+        info = reader.get_file_info()
+        
+        assert info["file_hash"] == expected_hash
+
+
+class TestFileReaderDOIExtraction:
+    """Test FileReader.extract_doi() method."""
+
+    def test_extract_doi_nonexistent_file(self):
+        """Test extract_doi() returns None for nonexistent file."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        reader = FileReader("/nonexistent/file.pdf")
+        assert reader.extract_doi() is None
+
+    def test_extract_doi_caching(self, tmp_path):
+        """Test extract_doi() caches result."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        from unittest.mock import patch
+        
+        pdf_file = tmp_path / "test.pdf"
+        pdf_file.write_bytes(b"PDF mock")
+        
+        reader = FileReader(pdf_file)
+        
+        with patch.object(reader.doi_extractor, 'extract_from_pdf', return_value="10.1234/test") as mock_extract:
+            # First call
+            result1 = reader.extract_doi()
+            assert result1 == "10.1234/test"
+            assert mock_extract.call_count == 1
+            
+            # Second call should use cache
+            result2 = reader.extract_doi()
+            assert result2 == "10.1234/test"
+            assert mock_extract.call_count == 1  # Not called again
+
+
+class TestFileReaderTextExtraction:
+    """Test FileReader.extract_text() method."""
+
+    def test_extract_text_nonexistent_file(self):
+        """Test extract_text() returns None for nonexistent file."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        reader = FileReader("/nonexistent/file.pdf")
+        assert reader.extract_text() is None
+
+    def test_extract_text_caching(self, tmp_path):
+        """Test extract_text() caches result."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        from unittest.mock import patch
+        
+        pdf_file = tmp_path / "test.pdf"
+        pdf_file.write_bytes(b"PDF mock")
+        
+        reader = FileReader(pdf_file)
+        
+        with patch.object(reader, '_text', None):
+            with patch('paper_scanner.tools.documents.filereader.pdfplumber', None):
+                with patch('paper_scanner.tools.documents.filereader.HAS_PDFPLUMBER', False):
+                    with patch('paper_scanner.tools.documents.filereader.HAS_PYPDF', False):
+                        # No PDF libraries available
+                        result = reader.extract_text()
+                        assert result is None
+
+    def test_extract_text_no_libraries(self, tmp_path, caplog):
+        """Test extract_text() handles missing PDF libraries gracefully."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        from unittest.mock import patch
+        
+        pdf_file = tmp_path / "test.pdf"
+        pdf_file.write_bytes(b"PDF mock")
+        
+        reader = FileReader(pdf_file)
+        
+        with patch('paper_scanner.tools.documents.filereader.HAS_PDFPLUMBER', False):
+            with patch('paper_scanner.tools.documents.filereader.HAS_PYPDF', False):
+                result = reader.extract_text()
+                assert result is None
+
+
+class TestFileReaderPageCount:
+    """Test FileReader.get_page_count() method."""
+
+    def test_get_page_count_nonexistent_file(self):
+        """Test get_page_count() returns None for nonexistent file."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        
+        reader = FileReader("/nonexistent/file.pdf")
+        assert reader.get_page_count() is None
+
+    def test_get_page_count_with_pdfplumber_unavailable(self, tmp_path):
+        """Test get_page_count() when pdfplumber not available."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        from unittest.mock import patch
+        
+        pdf_file = tmp_path / "test.pdf"
+        pdf_file.write_bytes(b"PDF mock")
+        
+        reader = FileReader(pdf_file)
+        
+        # Both libraries unavailable
+        with patch('paper_scanner.tools.documents.filereader.HAS_PDFPLUMBER', False):
+            with patch('paper_scanner.tools.documents.filereader.HAS_PYPDF', False):
+                result = reader.get_page_count()
+                assert result is None
+
+    def test_get_page_count_exception_handling(self, tmp_path):
+        """Test get_page_count() handles exceptions gracefully."""
+        from paper_scanner.tools.documents.filereader import FileReader
+        from unittest.mock import patch, MagicMock
+        
+        pdf_file = tmp_path / "test.pdf"
+        pdf_file.write_bytes(b"PDF mock")
+        
+        reader = FileReader(pdf_file)
+        
+        # Simulate pdfplumber being available but raising exception
+        with patch('paper_scanner.tools.documents.filereader.HAS_PDFPLUMBER', True):
+            with patch('paper_scanner.tools.documents.filereader.HAS_PYPDF', False):
+                with patch('paper_scanner.tools.documents.filereader.pdfplumber') as mock_pdfplumber:
+                    mock_pdfplumber.open.side_effect = Exception("PDF error")
+                    
+                    result = reader.get_page_count()
+                    # Should return None on exception
+                    assert result is None

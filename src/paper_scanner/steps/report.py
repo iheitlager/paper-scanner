@@ -118,7 +118,7 @@ class ReportStep(BaseStep):
         show_screening = config.get("screening", False)
         show_citations = config.get("citations", False)
         show_bibliography = config.get("bibliography", False)
-        show_bibliography = config.get("statistics", False)
+        show_dump_citations = config.get("dump_citations", False)
 
         # Support both old and new configuration format
         tabulate_configs = []
@@ -136,6 +136,8 @@ class ReportStep(BaseStep):
             tabulate_configs = [{"field": "paper_type", "duplicates": False}]
 
         reports = []
+
+
         # Display summary statistics if requested
         if verbose and show_summary:
             reports.append("summary")
@@ -496,6 +498,19 @@ def _display_citations_histogram(db: PapersDatabase) -> None:
     # Filter to primary papers only
     primary_papers = db.to_list(primary_only=True)
 
+
+    # Print index statistics
+    stats_table = Table(show_header=True, header_style="bold", title="Index Statistics")
+    stats_table.add_column("Index", style="cyan")
+    stats_table.add_column("Size", style="yellow")
+
+    stats_table.add_row("papers (all records)", str(db.count()))
+    stats_table.add_row("_doi_index (unique DOIs)", str(len(db._doi_index)))
+    stats_table.add_row("_cite_key_index (unique keys)", str(len(db._cite_key_index)))
+    stats_table.add_row("_id_index (unique IDs)", str(len(db._id_index)))
+
+    console.print(stats_table)
+
     # Count papers by citation count
     citation_counts = {}
     for paper in primary_papers:
@@ -509,11 +524,11 @@ def _display_citations_histogram(db: PapersDatabase) -> None:
     sorted_counts = sorted(citation_counts.items(), key=lambda x: x[0], reverse=True)
 
     # Create table
-    table = Table(title="Citation Distribution")
+    table = Table(title="Incoming Citation Distribution")
     table.add_column("Citations", style="cyan", justify="right")
     table.add_column("Number of Papers", style="green", justify="right")
     table.add_column("Percentage", style="yellow", justify="right")
-    table.add_column("Visual", style="blue")
+    table.add_column("Histogram", style="blue")
 
     total_papers = len(primary_papers)
     max_count = max(count for _, count in sorted_counts) if sorted_counts else 1
@@ -539,8 +554,38 @@ def _display_citations_histogram(db: PapersDatabase) -> None:
     max_citations = max(cit for cit, _ in sorted_counts) if sorted_counts else 0
 
     console.print(f"\n  [dim]Total citations: {total_citations}[/dim]")
-    console.print(f"  [dim]Average citations per paper: {avg_citations:.2f}[/dim]")
+    console.print(f"  [dim]Average resolved incoming citations per paper: {avg_citations:.2f}[/dim]")
     console.print(f"  [dim]Maximum citations: {max_citations}[/dim]")
+
+    # Print citation resolution statistics
+    total_papers = 0
+    total_citations = 0
+    total_doi = 0
+    total_resolved = 0
+
+    for paper in db.to_list(primary_only=False):
+        total_papers += 1
+        for citation in paper.citations:
+            total_citations += 1
+            if citation.doi:
+                total_doi += 1
+            if citation.resolved_paper is not None:
+                total_resolved += 1
+
+    table = Table(show_header=True, header_style="bold", title="Citation stats")
+    table.add_column("Papers", style="cyan", no_wrap=True)
+    table.add_column("Citations", style="blue", justify="center")
+    table.add_column("With doi", style="red", justify="center", no_wrap=True)
+    table.add_column("Resolved", style="green", justify="center", no_wrap=True)
+
+    table.add_row(
+        str(total_papers),
+        str(total_citations),
+        str(total_doi),
+        str(total_resolved),
+    )
+
+    console.print(table)
 
 
 def _display_bibliography(db: PapersDatabase) -> None:

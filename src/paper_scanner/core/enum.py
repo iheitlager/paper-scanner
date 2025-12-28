@@ -53,7 +53,7 @@ class DiscoveryMethod(str, Enum):
     FORWARD_CITATION = "forward_citation"
     LITERATURE_REVIEW_MINING = "literature_review_mining"
     RECOMMENDATION = "recommendation"
-    MANUAL = "manual"
+    MANUAL = "manual" # Default
     API = "api"
 
 

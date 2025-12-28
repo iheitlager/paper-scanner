@@ -208,7 +208,7 @@ class LoadFilesStep(BaseStep):
                 # Step 4: Create Discovery object
                 discovery = Discovery(
                     method=DiscoveryMethod.FILE_PATH,
-                    source_database="file_path"
+                    source_database=file_info.get("file_directory", "file_path"),
                 )
 
                 paper = Paper(

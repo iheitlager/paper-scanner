@@ -142,6 +142,9 @@ class ConsoleViewer:
 [bold]Keywords:[/bold]
 {", ".join(paper.keywords) if paper.keywords else "N/A"}
 
+[bold]Citations:[/bold]
+Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by) if paper.cited_by else 0} - Resolved: {len(paper.cited_papers) if paper.cited_papers else 0} / {len(paper.cited_by_papers) if paper.cited_by_papers else 0}
+
 [bold cyan]APA Citation:[/bold cyan]
 {paper.apa}
 """
@@ -558,36 +561,9 @@ class ConsoleViewer:
         self._get_key()
 
     def _show_details(self) -> None:
-        """Display details of selected paper"""
-        paper = self.controller.get_selected_paper()
-        if not paper:
-            return
-
-        self.console.clear()
-        details = f"""
-[bold cyan]Paper Details[/bold cyan]
-
-[bold]Title:[/bold] {paper.title or "N/A"}
-[bold]Authors:[/bold] {", ".join(a.full_name for a in paper.authors) if paper.authors else "N/A"}
-[bold]Year:[/bold] {paper.year or "N/A"}
-[bold]Journal:[/bold] {paper.journal or "N/A"}
-[bold]Volume/Issue:[/bold] {paper.volume or "N/A"}/{paper.number or "N/A"}
-[bold]Pages:[/bold] {paper.pages or "N/A"}
-[bold]DOI:[/bold] {paper.doi or "N/A"}
-[bold]URL:[/bold] {paper.url or "N/A"}
-
-[bold]Abstract:[/bold]
-{paper.abstract or "N/A"}
-
-[bold]Keywords:[/bold]
-{", ".join(paper.keywords) if paper.keywords else "N/A"}
-
-[bold cyan]APA Citation:[/bold cyan]
-{paper.apa}
-"""
-        self.console.print(details)
-        self.console.print("\n[dim]Press any key to return...[/dim]")
-        self._get_key()
+        """Display details of selected paper (full mode)"""
+        self.detail_source_mode = "full"
+        self._render_detail_page()
 
     def _show_json_viewer(self, paper: Paper) -> None:
         """Display interactive JSON viewer for a paper."""
@@ -600,35 +576,8 @@ class ConsoleViewer:
 
     def _show_details_filtered(self) -> None:
         """Display details of selected paper in filter mode"""
-        if self.filter_selected_index is None or not self.filtered_indices:
-            return
-
-        paper = self.controller.papers[self.filtered_indices[self.filter_selected_index]]
-        self.console.clear()
-        details = f"""
-[bold cyan]Paper Details[/bold cyan]
-
-[bold]Title:[/bold] {paper.title or "N/A"}
-[bold]Authors:[/bold] {", ".join(a.full_name for a in paper.authors) if paper.authors else "N/A"}
-[bold]Year:[/bold] {paper.year or "N/A"}
-[bold]Journal:[/bold] {paper.journal or "N/A"}
-[bold]Volume/Issue:[/bold] {paper.volume or "N/A"}/{paper.number or "N/A"}
-[bold]Pages:[/bold] {paper.pages or "N/A"}
-[bold]DOI:[/bold] {paper.doi or "N/A"}
-[bold]URL:[/bold] {paper.url or "N/A"}
-
-[bold]Abstract:[/bold]
-{paper.abstract or "N/A"}
-
-[bold]Keywords:[/bold]
-{", ".join(paper.keywords) if paper.keywords else "N/A"}
-
-[bold cyan]APA Citation:[/bold cyan]
-{paper.apa}
-"""
-        self.console.print(details)
-        self.console.print("\n[dim]Press any key to return...[/dim]")
-        self._get_key()
+        self.detail_source_mode = "filter"
+        self._render_detail_page()
 
     def _update_filter(self) -> None:
         """Update filter results as user types"""

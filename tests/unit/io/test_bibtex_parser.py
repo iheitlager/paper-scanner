@@ -16,7 +16,6 @@ from paper_scanner.io.bibtex import (
     bibtex_to_papers,
     clean_bibtex_string,
     evaluate_paper_type,
-    export_papers_by_decision,
     export_papers_by_source,
     format_authors_bibtex,
     format_bibtex_entry,

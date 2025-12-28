@@ -167,16 +167,20 @@ class CitationsStep(BaseStep):
         forward_config = config.get("forward", {})
         paper_types = config.get("paper-types", ["journal_article"])
 
-        self.iteration = 1
+        self.iteration = 0
 
             # Get papers to process (filter by paper_type)
         if paper_types:
             target_papers = self.db.find(
-                lambda p: p.paper_type and p.paper_type.value in paper_types,
+                lambda p: p.paper_type and p.paper_type.value in paper_types and p.discovery.iteration == self.iteration,
                 primary_only=True
             )
         else:
-            target_papers = self.db.all(primary_only=True)
+            target_papers = self.db.find(
+                lambda p: p.discovery.iteration == self.iteration,
+
+                primary_only=True)
+            target_papers = [p for p in target_papers if p.discovery.iteration == self.iteration]
 
         if limit:
             target_papers = target_papers[:limit]

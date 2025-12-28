@@ -460,12 +460,8 @@ class ConceptualAnalysis(BaseModel):
 
 class Discovery(BaseModel):
     """How paper was discovered"""
-    method: DiscoveryMethod
+    method: DiscoveryMethod = DiscoveryMethod.MANUAL
     iteration: int = 0  # 0 = initial, 1+ = snowballing iterations
-    discovered_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    record_update: Optional[datetime] = None # When source record was last updated at database
-
-    # Source details
     source_database: Optional[str] = None  # "scopus", "wos", "crossref"
 
 # ============================================================================
@@ -598,7 +594,7 @@ class Paper(BaseModel):
     # DISCOVERY
     # ========================================
 
-    discovery: Optional[Discovery] = None
+    discovery: Discovery = Field(default_factory=Discovery)
 
     # ========================================
     # SCREENING

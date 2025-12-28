@@ -1,13 +1,15 @@
-name: Test
+name: Unittests Python/Node.js
 
 on:
   pull_request:
     branches:
       - main
-      - develop
   push:
     branches:
       - main
+      - 'feat/*'
+      - 'fix/*'
+      - 'chore/*'
 
 jobs:
   test:
@@ -35,9 +37,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
 
       - name: Install npm dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run tests
         run: make test

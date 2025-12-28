@@ -324,6 +324,7 @@ class FileReader:
             stat = self.pdf_path.stat()
             return {
                 "file_path": str(self.pdf_path),
+                "file_directory": str(self.pdf_path.parent),
                 "file_name": self.pdf_path.name,
                 "file_size_bytes": stat.st_size,
                 "file_hash": compute_file_sha256(self.pdf_path),
