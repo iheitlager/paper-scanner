@@ -17,6 +17,7 @@ import yaml
 
 from paper_scanner.core.exceptions import PipelineExecutionError
 from paper_scanner.core.executor import StepExecutor
+from paper_scanner.core.reporter import NoOpReporter
 
 # ============================================================================
 # Fixtures
@@ -44,6 +45,7 @@ def executor(general_config, temp_cache_dir):
     return StepExecutor(
         general_config=general_config,
         cache_dir=temp_cache_dir,
+        step_reporter=NoOpReporter(),
         verbose=False,
         debug=False,
     )
@@ -235,6 +237,7 @@ class TestRunAll:
         executor = StepExecutor(
             general_config=general_config,
             cache_dir=temp_cache_dir,
+            step_reporter=NoOpReporter(),
             verbose=False,
         )
         executor.load_definition(simple_definition_file)
@@ -264,6 +267,7 @@ class TestRunAll:
         executor = StepExecutor(
             general_config=general_config,
             cache_dir=temp_cache_dir,
+            step_reporter=NoOpReporter(),
             verbose=False,
         )
         executor.load_definition(simple_definition_file)

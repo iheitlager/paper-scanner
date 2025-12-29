@@ -247,3 +247,58 @@ class ConsoleLoggingMixin:
         """
         if self.debug and not self.quiet:
             self.console.print(f"[dim]{message}[/dim]")
+
+class NoOpReporter(AbstractStepReporter, AbstractControllerReporter):
+    """No-operation reporter that does nothing on all reporter methods.
+
+    Useful as a default reporter or for testing when no reporting is needed.
+    Implements all abstract methods from both AbstractStepReporter and AbstractControllerReporter.
+    """
+
+    def on_step_start(self, idx: int, step_config: Dict[str, Any], total: int) -> None:
+        """Called when a step starts execution."""
+        pass
+
+    def on_step_end(self, idx: int, step_config: Dict[str, Any], result: Any) -> None:
+        """Called when a step completes execution."""
+        pass
+
+    def on_step_event(self, msg: str, debug: bool = False) -> None:
+        """Called when a step completes execution."""
+        pass
+
+    def on_execution_start(self, total_steps: int) -> None:
+        """Called when pipeline execution starts."""
+        pass
+
+    def on_execution_complete(self, results: StepResult) -> None:
+        """Called when all pipeline steps have completed successfully."""
+        pass
+
+    def on_execution_error(self, error: str) -> None:
+        """Called when an error occurs during step execution."""
+        pass
+
+    def on_configuration_error(self, error: str) -> None:
+        """Called when an error occurs during pipeline configuration validation."""
+        pass
+
+    def on_start(self) -> None:
+        """Called when the application starts"""
+        pass
+
+    def on_close(self) -> None:
+        """Called when the application closes"""
+        pass
+
+    def on_macro_start(self, command: str) -> None:
+        """Called when a macro command starts execution."""
+        pass
+
+    def on_macro_end(self, command: str, result: StepResult, duration_ms: float) -> None:
+        """Called when a macro command completes execution."""
+        pass
+
+    def on_macro_error(self, command: str, error: Exception, duration_ms: float) -> None:
+        """Called when a macro command fails with an error."""
+        pass

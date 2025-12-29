@@ -22,6 +22,7 @@ from paper_scanner.core.exceptions import PipelineExecutionError, StepError
 from paper_scanner.core.executor import StepExecutor
 from paper_scanner.core.models import Paper
 from paper_scanner.steps.halt import HaltException
+from paper_scanner.core.reporter import NoOpReporter
 
 # ============================================================================
 # Fixtures
@@ -50,6 +51,7 @@ def executor(general_config, temp_cache_dir):
     return StepExecutor(
         general_config=general_config,
         cache_dir=temp_cache_dir,
+        step_reporter=NoOpReporter(),
         verbose=False,
         debug=False,
     )
@@ -358,6 +360,7 @@ class TestCheckpointManagement:
         # Create new executor and load checkpoint
         executor2 = StepExecutor(
             general_config=executor.general_config,
+            step_reporter=NoOpReporter(),
             cache_dir=temp_cache_dir,
         )
         executor2.load_definition(sample_definition_file)
@@ -686,6 +689,7 @@ class TestHaltException:
         executor = StepExecutor(
             general_config=general_config,
             cache_dir=temp_cache_dir,
+            step_reporter=NoOpReporter(),
             verbose=False,
         )
         executor.load_definition(simple_definition_file)
@@ -714,6 +718,7 @@ class TestHaltException:
         executor = StepExecutor(
             general_config=general_config,
             cache_dir=temp_cache_dir,
+            step_reporter=NoOpReporter(),
             verbose=False,
         )
         executor.load_definition(simple_definition_file)

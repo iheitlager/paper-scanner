@@ -17,6 +17,7 @@ import yaml
 
 from paper_scanner.core.executor import StepExecutor
 from paper_scanner.core.models import Paper
+from paper_scanner.core.reporter import NoOpReporter
 
 # ============================================================================
 # Fixtures
@@ -45,6 +46,7 @@ def executor(general_config, temp_cache_dir):
     return StepExecutor(
         general_config=general_config,
         cache_dir=temp_cache_dir,
+        step_reporter=NoOpReporter(),
         verbose=False,
         debug=False,
     )
@@ -159,6 +161,7 @@ class TestCheckpointManagement:
         executor2 = StepExecutor(
             general_config=executor.general_config,
             cache_dir=temp_cache_dir,
+            step_reporter=NoOpReporter(),
         )
         executor2.load_definition(sample_definition_file)
         executor2.load_checkpoint()

@@ -30,6 +30,7 @@ from paper_scanner.core.exceptions import CheckpointError, ConfigurationError, P
 from paper_scanner.core.step_result import FINAL_STEP, StepResult
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
+from paper_scanner.core.reporter import NOOP
 
 if TYPE_CHECKING:
     from paper_scanner.core.reporter import AbstractStepReporter
@@ -109,7 +110,7 @@ class StepExecutor:
     def __init__(
         self,
         general_config: Dict[str, Any],
-        step_reporter: "AbstractStepReporter" = None,
+        step_reporter: "AbstractStepReporter",
         cache_dir: Optional[Path] = None,
         verbose: bool = False,
         debug: bool = False,
@@ -772,8 +773,8 @@ class StepExecutor:
     def run_all(
         self,
         dry_run: bool = False,
-        on_step_start: Optional[callable] = None,
-        on_step_end: Optional[callable] = None,
+        on_step_start: Optional[callable] = NOOP,
+        on_step_end: Optional[callable] = NOOP,
     ) -> StepResult:
         """
         Execute all remaining steps sequentially.
