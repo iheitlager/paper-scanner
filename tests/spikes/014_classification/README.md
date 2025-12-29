@@ -1,3 +1,206 @@
+# Spike 014: Classification
+
+## Screening Pipeline: Five-Stage Process
+
+Development of a comprehensive screening model with distinct stages from attribute-based to manual review.
+
+### Overview
+
+The screening pipeline implements five sequential stages, each progressively refining paper selection:
+
+1. **Metadata Screening** (Deterministic)
+   - Attribute-based filtering on structured fields (language, paper type, quality tier, DOI, publication year, journal)
+   - Implements tri-state logic with hard INCLUDE/EXCLUDE/OMITTED rules
+   - Uses YAML configuration with `NOT: value` syntax for "exclude everything except"
+
+2. **Keyword Screening** (Content Pattern Matching)
+   - Text pattern matching on title/abstract/keywords
+   - Searches for specific terms or phrases (simple regex/string matching)
+   - Probabilistic relevance scoring, deterministic term detection
+
+3. **Semantic Screening** (ML + LLM-based)
+   - Analyzes embeddings from title/abstract/keywords
+   - Both machine learning (embedding similarity) and LLM-based relevance assessment
+   - Higher sophistication than keyword screening, probabilistic scoring
+
+4. **Full Paper Review** (LLM/Manual Inclusion)
+   - LLM-based analysis of complete paper content
+   - Manual review fallback or confirmation
+   - Deterministic inclusion decisions after comprehensive assessment
+
+5. **Knowledge Extraction** (Post-Inclusion)
+   - Begins after paper inclusion is confirmed
+   - Extracts structured information (research questions, findings, methodology)
+
+### Key Distinction: Metadata vs. Content Screening
+
+| Aspect | Metadata Screening | Content Screening (Keyword/Semantic) |
+|--------|-------------------|-------------------------------------|
+| **Input** | Structured attributes (language, type, year, journal) | Title, abstract, keywords, full text |
+| **Mechanism** | Deterministic attribute matching | Probabilistic relevance scoring |
+| **Complexity** | Simple boolean logic | Pattern matching or embedding analysis |
+| **Decision Type** | Binary include/exclude | Scoring-based inclusion threshold |
+
+**Title/Abstract/Keywords are content, not metadata.** They enable keyword-based and semantic screening—not metadata screening.
+
+### Implementation Files
+
+- **test_01_metadata_screening_parse.py** (24 tests)
+  - Metadata screening YAML configuration parsing and validation
+  - NOT operator parsing (both dict and string syntax)
+  - Exclude criteria validation for attribute-based filtering
+  - Logic extraction for metadata-only screening
+
+- **test_01_metadata_screening_parse.yml**
+  - Example pipeline configuration for metadata screening stage
+  - Demonstrates tri-state logic (Hard INCLUDE/EXCLUDE/OMITTED)
+  - Shows pipeline and steps organization with attributes only
+
+- **test_02_metadata_screening_screen_files.py** (17 tests)
+  - Metadata screening logic implementation
+  - BibTeX file integration with attribute filtering
+  - Enum value validation (PaperType, StudyType, ScreeningDecision)
+  - Combined attribute criteria testing
+
+- **test_03_keyword_screening.py** (21 tests)
+  - Wildcard keyword matching (exact, prefix*, *suffix, *both*)
+  - Implicit study type detection from content
+  - Keyword-based screening with scoring mechanism
+  - Three screening modes: inclusion_required, exclusion_only, soft
+  - KeywordScreening model population with all fields
+  - Integration with existing categorization patterns
+
+### Metadata Screening YAML Configuration
+
+Example of the first screening stage—attribute-based filtering:
+
+```yaml
+pipeline:
+  version: "1.0"
+  name: "Metadata Screening Classification Test"
+  description: "Filters papers on structured metadata attributes"
+
+steps:
+  - step: "Metadata screening - attribute-based filtering"
+    builtin.metadata_screening:
+      exclude:
+        language:
+          - NOT: "en"  # Exclude everything that is NOT English
+        paper_types:
+          - NOT: "journal_article"  # Keep only journal articles
+        study_types:
+          - "editorial"  # Hard exclude editorial papers
+          - "conceptual"
+          - "theoretical"
+```
+
+**Tri-state logic within metadata screening:**
+- **Hard INCLUDE**: Implicitly included (all papers with matching attributes)
+- **Hard EXCLUDE**: Explicitly excluded via `NOT: "value"` (exclude everything except value) or direct listing
+- **OMITTED**: No exclusion rule (no requirement on that attribute)
+
+### Keyword Screening
+
+Keyword screening is the second stage—content-based filtering with implicit study_type detection.
+
+**Key features:**
+
+1. **Wildcard Keyword Matching**
+   - Exact: `"software"` - matches word boundary
+   - Suffix: `"test*"` - matches "testing", "tests", etc.
+   - Prefix: `"*test"` - matches "contest", "pretest", etc.
+   - Both: `"*test*"` - matches anywhere
+
+2. **Implicit Study Type Detection** (automatic, no configuration needed)
+   
+   Uses sophisticated regex pattern matching to detect research type from text:
+   
+   **Priority Order (important!):**
+   1. **Editorial** (news, commentary, letters) - highest priority
+   2. **Empirical** (interviews, surveys, case studies, experiments, etc.)
+      - Uses scoring: quantitative patterns (n=123, t-tests, p<0.05) vs qualitative patterns (interviews, case studies, thematic analysis)
+      - Requires minimum 2 pattern matches for classification
+      - **Design Note**: Empirical is checked BEFORE literature review because many papers combine both.
+        When a paper is both a literature review AND empirical (e.g., "systematic review of empirical studies"),
+        the empirical nature is more important for research synthesis and screening decisions.
+   3. **Literature Review** (systematic review, meta-analysis, scoping review)
+      - Only specific review keywords to avoid false positives with survey-based empirical studies
+   4. **Conceptual/Theoretical** (frameworks, theories, opinions - no empirical indicators)
+   5. **Unknown** (default when no patterns match)
+   
+   **Quantitative Indicators**: Sample size notation (n=123), statistical tests (ANOVA, t-test, chi-square), correlation, regression, hypothesis testing (p < 0.05)
+   
+   **Qualitative Indicators**: Interviews, surveys (with participants), case studies, ethnography, grounded theory, thematic analysis, content analysis, observational studies, focus groups, phenomenological approaches
+   
+   **Method Indicators**: Data collection, experimental design, quasi-experimental, longitudinal/cross-sectional studies, methodology
+
+3. **Screening Modes**
+   - `inclusion_required` (default): Paper must pass both gates - no exclusions AND has inclusion keywords
+   - `exclusion_only`: Filter out exclusions only, include everything else
+   - `soft`: Keywords for ranking only, never exclude
+
+4. **Scoring Mechanism**
+   - Score = count of matched inclusion keywords
+   - Confidence = score / total inclusion keywords
+   - Exclusion keywords cause immediate rejection (in inclusion_required/exclusion_only modes)
+
+**YAML configuration example:**
+
+```yaml
+- step: "Keyword screening - exclude editorials, conceptual, theoretical"
+  description: "Exclude papers based on keywords and implicit study type detection"
+  builtin.keyword_screening:
+    mode: "inclusion_required"  # Both gates must pass
+    
+    exclude:
+      keywords:
+        domains:
+          - "medical"
+          - "healthcare"
+          - "patient"
+        other:
+          - "agriculture"
+          - "military"
+      study_types:
+        - "editorial"  # Hard exclude editorial papers
+    
+    include:
+      keywords:
+        practices:
+          - "agile"
+          - "scrum"
+          - "devops"
+        domains:
+          - "software"
+          - "it"
+```
+
+### Running Tests
+
+```bash
+# All classification tests
+uv run pytest tests/spikes/014_classification/ -v
+
+# YAML parsing tests only
+uv run pytest tests/spikes/014_classification/test_01_metadata_screening_parse.py -v
+
+# Metadata screening logic tests
+uv run pytest tests/spikes/014_classification/test_02_metadata_screening_screen_files.py -v
+
+# Keyword screening tests
+uv run pytest tests/spikes/014_classification/test_03_keyword_screening.py -v
+
+# Manual demos (with output)
+uv run python tests/spikes/014_classification/test_03_keyword_screening.py --manual
+# Screening logic tests only
+uv run pytest tests/spikes/014_classification/test_02_metadata_screening_screen_files.py -v
+
+# Manual test with output
+uv run python tests/spikes/014_classification/test_01_metadata_screening_parse.py --manual
+```
+
+---
+
 # Spike 014: Multi-Pass Screening with Confidence Thresholds
 
 **Status**: In Progress  

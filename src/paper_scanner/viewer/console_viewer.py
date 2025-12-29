@@ -136,7 +136,7 @@ class ConsoleViewer:
 [bold]DOI:[/bold] {paper.doi or "N/A"}
 [bold]URL:[/bold] {paper.url or "N/A"}
 [bold]Source:[/bold] [cyan]{paper.discovery.source_database or "N/A"}[/cyan] (Iteration: {paper.discovery.iteration})
-[bold]Screening Decision:[/bold] [cyan]{paper.screening.final_decision.value if paper.screening and paper.screening.final_decision else "N/A"}[/cyan] ({paper.screening.categorization.reasoning or ""})
+[bold]Screening Decision:[/bold] [cyan]{paper.screening.final_decision.value if paper.screening and paper.screening.final_decision else "N/A"}[/cyan] ({paper.screening.categorization.reasoning if paper.screening and paper.screening.categorization else ""})
 
 [bold]Abstract:[/bold]
 {paper.abstract or "N/A"}
@@ -571,7 +571,7 @@ Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by
         """Display interactive JSON viewer for a paper."""
         # Convert paper to JSON (model_dump)
         paper_dict = paper.model_dump(mode='json')
-        
+
         # Create and run JSON viewer
         json_viewer = JSONViewer(paper_dict, title=f"Paper JSON: {paper.doi or 'Unknown'}")
         json_viewer.run()

@@ -1,0 +1,105 @@
+# Metadata Screening - Parse and Enum Conversion Test
+# Tests the tri-state logic: hard INCLUDE, hard EXCLUDE, leave aside
+
+pipeline:
+  version: "1.0"
+  name: "Metadata Screening Classification Test"
+  description: "Tests parsing of screening criteria with NOT operators and enum evaluation"
+
+steps:
+  - step: "Load sample papers"
+    builtin.bibtex_import:
+      file: "tests/data/eight_cases.bib"
+      create_if_not_exists: true
+
+  - step: "Metadata screening - test tri-state logic"
+    description: |
+      Screening logic: 
+      - Listed values: hard EXCLUDE (must NOT have)
+      - NOT: prefix hard EXCLUDE (must NOT have - exclude everything except this)
+      - Omitted: no requirement (leave aside)
+    enabled: true
+    builtin.metadata_screening:
+      # Hard excludes using NOT operator and direct exclusions
+      exclude:
+        language:
+          # Exclude everything that is NOT English (hard exclude non-English)
+          - NOT: "en"
+        paper_types:
+          # Exclude everything that is NOT journal_article
+          - NOT: "journal_article"
+        quality_tier:
+          # Exclude low quality papers
+          - NOT: "peer_reviewed_journal"
+          - NOT: "non_peer_reviewed_article" # like arxiv"low"
+
+  - step: "Keyword screening - exclude editorials, conceptual, theoretical"
+    description: "Exclude papers based on keywords"
+    builtin.keyword_screening:
+      mode: "inclusion_required"  # Both gates must pass
+
+      # Alternative modes:
+      # mode: "exclusion_only"    # Just filter out off-topic domains
+      # mode: "soft"              # Keywords for ranking, no filtering      
+      exclude:
+        keywords: # these are hard rejects
+          domains:
+            - "medical"
+            - "healthcare"
+            - "patient"
+            - "disease"
+            - "clinical"
+            - "pharmaceutical"
+            - "drug"
+          other:
+            - "agriculture"
+            - "farming"
+            - "crop"
+            - "education"
+            - "classroom"
+            - "student"
+            - "military"
+            - "weapon"
+            - "consumer behavior"
+            - "retail customer"
+        study_types: # this is implicitly defined
+          # Direct exclusions (hard exclude these study types)
+          - "editorial"
+          - "conceptual"
+          - "theoretical"
+      include:
+        thresholds: 
+          auto_accept: 0.65      # Strong keyword match (need at least two categories)
+          manual_review: 0.40    # Weak match → semantic screening
+          auto_reject: null      # Never auto-reject by keywords alone
+          # score will be normalized over categories
+        keywords:
+          innovation:
+            - "digital*" # all variations
+            - "digital innovation" # capture combined words
+            - "digitiz*"
+            - "digital transformation"
+            - "technology adoption"
+            - "platform"
+            - "ecosystem"
+          organization:
+            - "firm"
+            - "company"
+            - "organization"
+            - "enterprise"
+            - "incumbent"
+            - "business"
+          collaboration:
+            - "supplier"
+            - "vendor"
+            - "partner"
+            - "service provider"
+            - "provider"
+            - "collaboration"
+            - "co-creat*"
+
+  - step: "Export screening results"
+    builtin.export:
+      format: "jsonl"
+      output_file: "tests/spikes/014_classification/screening_results.jsonl"
+      include_metadata: true

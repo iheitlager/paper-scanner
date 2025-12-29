@@ -264,7 +264,9 @@ class DeduplicationResult(BaseModel):
     similarity_score: Optional[float] = Field(ge=0, le=1, default=None)
     method: str  # "doi_exact", "title_author", "fuzzy_title", etc.
     confidence: float = Field(ge=0, le=1)
-    metadata: ProcessingMetadata
+
+    # Metadata
+    metadata: Optional[ProcessingMetadata] = None
 
     @field_validator('duplicate_of', mode='before')
     @classmethod
@@ -285,31 +287,23 @@ class DeduplicationResult(BaseModel):
 
 
 # ============================================================================
-# looZATION MODEL
+# METADATA SCREENING MODEL
 # ============================================================================
 
-class Categorization(BaseModel):
-    """Paper categorization results"""
+class MetadataScreening(BaseModel):
+    """Metadata screening results"""
 
-    paper_type: PaperType
-    study_type: StudyType
-    quality_tier: QualityTier
+    paper_type: PaperType # Mandatory, importers should know
+    language: Optional[str] = "en"  # ISO language code
+    quality_tier: Optional[QualityTier] = QualityTier.UNKNOWN
 
-    # Confidence scores
-    paper_type_confidence: float = Field(ge=0, le=1)
-    study_type_confidence: float = Field(ge=0, le=1)
-
-    # Classification details
-    is_empirical: bool
     is_peer_reviewed: bool
-    is_open_access: bool = False
 
-    # Reasoning (if LLM-based)
-    reasoning: Optional[str] = None
+    # Reasoning
+    exclusion_reason: Optional[str] = None
 
     # Metadata
-    metadata: ProcessingMetadata
-
+    metadata: Optional[ProcessingMetadata] = None
 
 # ============================================================================
 # KEYWORD SCREENING MODEL
@@ -318,24 +312,27 @@ class Categorization(BaseModel):
 class KeywordScreening(BaseModel):
     """Keyword-based screening results"""
 
-    passed: bool
-    score: int
+    study_type: Optional[StudyType] = StudyType.UNKNOWN
 
     # Matched keywords
     inclusion_keywords: List[str] = Field(default_factory=list)
+    inclusion_threshold: Optional[int] = None  # Number of keywords that had to match
     exclusion_keywords: List[str] = Field(default_factory=list)
 
-    # Breakdown
-    title_matches: int = 0
-    abstract_matches: int = 0
-    keywords_matches: int = 0
+    # Classification details
+    is_empirical: bool
+    is_conceptual: bool
+    is_literature_review: bool
+
+    # Confidence scores
+    keyword_screening_confidence: float = Field(ge=0, le=1)
 
     # Exclusion reason
     exclusion_reason: Optional[str] = None
+    inclusion_reason: Optional[str] = None
 
     # Metadata
-    metadata: ProcessingMetadata
-
+    metadata: Optional[ProcessingMetadata] = None
 
 # ============================================================================
 # SEMANTIC SCREENING MODEL
@@ -344,18 +341,38 @@ class KeywordScreening(BaseModel):
 class SemanticScreening(BaseModel):
     """Semantic similarity screening results"""
 
-    passed: bool
     similarity_score: float = Field(ge=0, le=1)
     threshold: float = Field(ge=0, le=1)
 
-    # LLM decision (if borderline)
+    # LLM decision (if applied)
     llm_decision: Optional[ScreeningDecision] = None
     llm_confidence: Optional[float] = Field(ge=0, le=1, default=None)
-    llm_reasoning: Optional[str] = None
+
+    exclusion_reason: Optional[str] = None
 
     # Metadata
-    metadata: ProcessingMetadata
+    metadata: Optional[ProcessingMetadata] = None
 
+# ============================================================================
+# FULL PAPER  SCREENING MODEL
+# ============================================================================
+
+class FullPaperScreening(BaseModel):
+    """Full paper screening results"""
+
+    similarity_score: float = Field(ge=0, le=1)
+    threshold: float = Field(ge=0, le=1)
+
+    manual_decision: Optional[ScreeningDecision] = None
+    # LLM decision
+    llm_decision: Optional[ScreeningDecision] = None
+    llm_confidence: Optional[float] = Field(ge=0, le=1, default=None)
+
+    inclusion_reason: Optional[str] = None
+    exclusion_reason: Optional[str] = None
+
+    # Metadata
+    metadata: Optional[ProcessingMetadata] = None
 
 # ============================================================================
 # SCREENING MODEL (aggregates all screening steps)
@@ -367,8 +384,8 @@ class Screening(BaseModel):
     # Stage 0: Deduplication
     deduplication: Optional[DeduplicationResult] = None
 
-    # Stage 1: Categorization
-    categorization: Optional[Categorization] = None
+    # Stage 1: Metadata screening
+    metadata_screening: Optional[MetadataScreening] = None
 
     # Stage 2: Keyword screening
     keyword_screening: Optional[KeywordScreening] = None
@@ -376,9 +393,11 @@ class Screening(BaseModel):
     # Stage 3: Semantic screening
     semantic_screening: Optional[SemanticScreening] = None
 
-    # Final decision
+    # Stage 4: Full paper screening (not excluded stages 0-3 means full paper review)
+    full_paper_screening: Optional[FullPaperScreening] = None
+
+    # Final decision (for further processing)
     final_decision: ScreeningDecision = ScreeningDecision.PENDING
-    final_decision_at: Optional[datetime] = None
     final_decision_by: Optional[str] = None  # "automated", "manual:user_name"
 
     # Overall metadata
@@ -420,7 +439,7 @@ class CAMOStatement(BaseModel):
 
     # Extraction metadata
     confidence: float = Field(ge=0, le=1)
-    metadata: ProcessingMetadata
+    metadata: Optional[ProcessingMetadata] = None
 
 
 # ============================================================================
@@ -451,7 +470,7 @@ class ConceptualAnalysis(BaseModel):
     contribution_type: Optional[str] = None
 
     # Metadata
-    metadata: ProcessingMetadata
+    metadata: Optional[ProcessingMetadata] = None
 
 
 # ============================================================================

@@ -26,10 +26,11 @@ class StudyType(str, Enum):
     EMPIRICAL_QUANTITATIVE = "empirical_quantitative"
     EMPIRICAL_MIXED = "empirical_mixed"
     LITERATURE_REVIEW = "literature_review"
-    SYSTEMATIC_REVIEW = "systematic_review"
     META_ANALYSIS = "meta_analysis"
     CONCEPTUAL = "conceptual"
+    EDITORIAL = "editorial"
     THEORETICAL = "theoretical"
+    BOOK_REVIEW = "book_review"
     CASE_STUDY = "case_study"
     UNKNOWN = "unknown"
 
@@ -37,6 +38,7 @@ class StudyType(str, Enum):
 class QualityTier(str, Enum):
     """Publication quality indicators"""
     PEER_REVIEWED_JOURNAL = "peer_reviewed_journal"
+    NON_PEER_REVIEWED_ARTICLE = "non_peer_reviewed_article" # like arxiv
     PEER_REVIEWED_CONFERENCE = "peer_reviewed_conference"
     BOOK_CHAPTER = "book_chapter"
     WORKING_PAPER = "working_paper"
@@ -60,12 +62,13 @@ class DiscoveryMethod(str, Enum):
 class ScreeningDecision(str, Enum):
     """Screening decisions"""
     INCLUDED = "included"
+    INCLUDED_MANUAL = "included_manual"
     EXCLUDED = "excluded"
+    EXCLUDED_DUPLICATE = "excluded_duplicate"
+    EXCLUDED_MANUAL = "excluded_manual"
     PENDING = "pending"
     MANUAL_REVIEW = "manual_review"
     UNCERTAIN = "uncertain"
-    EXCLUDED_DUPLICATE = "excluded_duplicate"
-    EXCLUDED_MANUAL = "excluded_manual"
 
 
 class CitationDirection(str, Enum):

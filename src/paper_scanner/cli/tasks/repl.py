@@ -522,15 +522,13 @@ class ReplController(AbstractController):
 
         return StepResult(status=StepStatus.SUCCESS)
 
-
     @macro_step("reset", "rst")
     def reset_cmd(self, args: list[str]) -> StepResult:
         """Reset executor state: \\reset [execution|definition|all]"""
         scope = args[0] if args else "execution"
 
         self.executor.reset(scope)
-        scope_display = f"[green]✓ Reset {scope} state[/green]"
-        self.controller_reporter.log(f"  {scope_display}\n")
+        self.controller_reporter.log(f"[green]✓ Reset {scope} state[/green]\n")
         return StepResult(status=StepStatus.SUCCESS)
 
     @macro_step("checkpoint", "c")
@@ -543,7 +541,7 @@ class ReplController(AbstractController):
         """Show database records in paginated APA format"""
         papers = self.executor.papers_db
         if not papers:
-            self.controller_reporter.log("[yellow]No papers in database[/yellow]")
+            self.controller_reporter.log_warning("No papers in database")
             return StepResult(status=StepStatus.SUCCESS)
 
         # Get all papers
@@ -560,7 +558,7 @@ class ReplController(AbstractController):
         """Show help"""
         for line in self._help_text:
             if type(line) is str:
-                self.controller_reporter.log(f"[yellow]{line}[/yellow]")
+                self.controller_reporter.log(f"[cyan]{line}[/cyan]")
             else:
                 name, aliases, description = line
                 alias_str = ", ".join(aliases)

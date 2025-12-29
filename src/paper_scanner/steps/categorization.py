@@ -7,7 +7,7 @@ Performs Stage 1 screening:
 3. Assigns quality tier based on publication venue
 4. Makes include/exclude decision for downstream processing
 
-Outputs comprehensive categorization results to screening.categorization with:
+Outputs comprehensive categorization stats to screening.categorization with:
 - paper_type: JOURNAL_ARTICLE, CONFERENCE_PAPER, BOOK, etc.
 - study_type: EMPIRICAL, REVIEW, CONCEPTUAL
 - quality_tier: TIER_1, TIER_2, TIER_3
@@ -27,10 +27,8 @@ from rich.console import Console
 
 from ..core.enum import PaperType, QualityTier, ScreeningDecision, StepStatus, StudyType
 from ..core.models import Categorization, Paper, ProcessingMetadata
+from ..core.step_result import StepResult
 from .base import BaseStep
-
-# Initialize rich console for colored output
-console = Console(file=sys.stderr)
 
 
 # ============================================================================
@@ -143,7 +141,7 @@ def _normalize_paper_type(paper_type: Optional[str]) -> str:
 def _check_paper_type(paper_type: Optional[str]) -> Tuple[PaperType, bool, Optional[str]]:
     """
     Check paper type and determine if it's acceptable.
-    
+
     Returns:
         (paper_type_enum, is_peer_reviewed, rejection_reason)
     """
@@ -428,16 +426,16 @@ class CategorizationStep(BaseStep):
             debug: Enable debug output
 
         Returns:
-            Dictionary with execution results
+            Dictionary with execution stats
         """
         # Get configuration options
         exclude_types = config.get("exclude_types", True)
         exclude_reviews = config.get("exclude_reviews", True)
 
-        results = {
-            "step": "categorization",
+        stats = {
             "total_papers": self.db.count(primary_only=False),
             "categorized": 0,
+            "skipped": 0, # of papers already categorized
             "included": 0,
             "excluded": 0,
             "exclusions": {
@@ -449,20 +447,18 @@ class CategorizationStep(BaseStep):
             "quality_tiers": {},
         }
 
-        if verbose:
-            console.print(f"\n  [bold cyan]Categorizing {self.db.count(primary_only=False)} papers[/bold cyan]")
-
         # Process each paper
         all_papers = self.db.to_list(primary_only=False)
         for i, paper in enumerate(all_papers):
+            # make it idempotent
+            if paper.screening.categorization is not None:
+                stats["skipped"] += 1
+                continue
             # Show progress every 100 papers
-            if verbose and (i + 1) % 100 == 0:
-                console.print(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}")
+            # if verbose and (i + 1) % 100 == 0:
+            #     console.print(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {stats['included']}, Excluded: {stats['excluded']}")
 
-            categorization, should_include, exclusion_reason = _categorize_paper(
-                paper,
-                verbose=verbose
-            )
+            categorization, should_include, exclusion_reason = _categorize_paper(paper)
 
             if not dry_run:
                 # Set categorization in screening model
@@ -483,34 +479,36 @@ class CategorizationStep(BaseStep):
                 # Update paper in database
                 self.db.update(paper)
 
-            results["categorized"] += 1
+            stats["categorized"] += 1
 
             # Track statistics
             study_type_key = categorization.study_type.value
-            if study_type_key not in results["study_types"]:
-                results["study_types"][study_type_key] = 0
-            results["study_types"][study_type_key] += 1
+            if study_type_key not in stats["study_types"]:
+                stats["study_types"][study_type_key] = 0
+            stats["study_types"][study_type_key] += 1
 
             tier_key = categorization.quality_tier.value
-            if tier_key not in results["quality_tiers"]:
-                results["quality_tiers"][tier_key] = 0
-            results["quality_tiers"][tier_key] += 1
+            if tier_key not in stats["quality_tiers"]:
+                stats["quality_tiers"][tier_key] = 0
+            stats["quality_tiers"][tier_key] += 1
 
             if should_include:
-                results["included"] += 1
+                stats["included"] += 1
             else:
-                results["excluded"] += 1
+                stats["excluded"] += 1
                 if exclusion_reason:
                     if "Type" in exclusion_reason or "type" in exclusion_reason:
-                        results["exclusions"]["wrong_type"] += 1
+                        stats["exclusions"]["wrong_type"] += 1
                     elif "review" in exclusion_reason.lower():
-                        results["exclusions"]["review_paper"] += 1
+                        stats["exclusions"]["review_paper"] += 1
                     elif "conceptual" in exclusion_reason.lower():
-                        results["exclusions"]["conceptual_paper"] += 1
+                        stats["exclusions"]["conceptual_paper"] += 1
 
-        if verbose:
-            # Clear the progress line and print final result
-            console.print(f"    [green]✓ Categorization complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan]")
-
-        results["status"] = StepStatus.SUCCESS
-        return results
+        ic(stats)
+        result = StepResult(
+            status=StepStatus.SUCCESS,
+            step=self.name,
+            message=f"Categorization complete[/green] - Included: [cyan]{stats['included']}[/cyan], Excluded: [cyan]{stats['excluded']}",
+            stats=stats,
+        )
+        return result

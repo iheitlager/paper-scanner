@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.4.1] - TBD
 
+### Added
+
+- **Metadata Screening Step**: New screening step for attribute-based paper filtering
+  - Implements tri-state logic: hard INCLUDE, hard EXCLUDE, OMITTED
+  - Configurable via YAML with support for multiple filter fields (language, paper_type, quality_tier)
+  - Supports NOT operator in both string format (`"NOT: en"`) and dict format (`{"NOT": "en"}`)
+  - Outputs MetadataScreening model with language, paper_type, quality_tier, peer review status
+  - Automatically updates paper.screening.final_decision when papers are excluded
+  - Full test coverage with 28 unit tests covering validation, execution, and logic
+
 ### Fixed
 
 _(Bugfixes for 3.4.0 release will be documented here)_

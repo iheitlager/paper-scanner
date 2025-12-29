@@ -21,6 +21,8 @@ Click on each step to see detailed documentation:
 | [citations](overview.md) | Extract forward and backward citations | ✅ Stable |
 | [deduplication](overview.md) | Find and remove duplicate papers | ✅ Stable |
 | [export](overview.md) | Export papers to various formats | ✅ Stable |
+| [metadata_screening](metadata_screening.md) | Filter papers by language, type, quality | ✅ Stable |
+| [keyword_screening](keyword_screening.md) | Keyword-based paper filtering | ✅ Stable |
 | [patch](overview.md) | Update paper metadata | ✅ Stable |
 | [retrieve_metadata](overview.md) | Fetch missing metadata | ✅ Stable |
 | [run_template](overview.md) | Run analysis templates (LLM-based) | ✅ Stable |

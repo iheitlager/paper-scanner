@@ -18,6 +18,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "input": "paper_scanner.steps.input:InputStep",
     "keyword_screening": "paper_scanner.steps.keyword_screening:KeywordScreeningStep",
     "load_files": "paper_scanner.steps.load_files:LoadFilesStep",
+    "metadata_screening": "paper_scanner.steps.metadata_screening:MetadataScreeningStep",
     "patch": "paper_scanner.steps.patch:PatchStep",
     "retrieve_metadata": "paper_scanner.steps.retrieve_metadata:RetrieveMetadataStep",
     "run-template": "paper_scanner.steps.run_template:RunTemplateStep",
