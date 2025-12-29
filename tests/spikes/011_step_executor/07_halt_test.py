@@ -23,6 +23,7 @@ import yaml
 
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.executor import StepExecutor
+from paper_scanner.core.reporter import NoOpReporter
 
 
 def test_halt_stops_execution():
@@ -62,6 +63,7 @@ def test_halt_stops_execution():
             general_config=general_config,
             cache_dir=cache_dir,
             verbose=True,
+            step_reporter=NoOpReporter(),
             debug=False,
         )
 
@@ -159,6 +161,7 @@ def test_halt_in_run_all():
             general_config=general_config,
             cache_dir=cache_dir,
             verbose=True,
+            step_reporter=NoOpReporter(),
             debug=False,
         )
 
@@ -226,6 +229,7 @@ def test_halt_with_custom_message():
         executor = StepExecutor(
             general_config=general_config,
             cache_dir=cache_dir,
+            step_reporter=NoOpReporter(),
             verbose=False,
         )
 
@@ -274,6 +278,7 @@ def test_halt_default_message():
         executor = StepExecutor(
             general_config=general_config,
             cache_dir=cache_dir,
+            step_reporter=NoOpReporter(),
             verbose=False,
         )
 

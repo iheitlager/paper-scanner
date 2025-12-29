@@ -479,42 +479,6 @@ class TestPaperClass:
         )
         assert paper.author_string == "Unknown"
 
-    def test_paper_citation_key_apa_with_author(self):
-        """Verify citation_key_apa property with author"""
-        author = Author(given_name="John", family_name="Smith", full_name="John Smith")
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
-        paper = Paper(
-            cite_key="smith2020",
-            title="Test Paper",
-            authors=[author],
-            year=2020,
-            discovery=discovery
-        )
-        assert paper.citation_key_apa == "Smith, 2020"
-
-    def test_paper_citation_key_apa_no_author(self):
-        """Verify citation_key_apa property without author"""
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
-        paper = Paper(
-            cite_key="unknown",
-            title="Test Paper",
-            year=2020,
-            discovery=discovery
-        )
-        assert paper.citation_key_apa == "Unknown, 2020"
-
-    def test_paper_citation_key_apa_no_year(self):
-        """Verify citation_key_apa property without year"""
-        author = Author(given_name="John", family_name="Smith", full_name="John Smith")
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
-        paper = Paper(
-            cite_key="smith",
-            title="Test Paper",
-            authors=[author],
-            discovery=discovery
-        )
-        assert paper.citation_key_apa == "Smith, n.d."
-
     def test_paper_is_included_property(self):
         """Verify is_included property reflects screening decision"""
         discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)

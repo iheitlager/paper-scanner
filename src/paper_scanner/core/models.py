@@ -28,7 +28,6 @@ class ProcessingMetadata(BaseModel):
 
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     duration_seconds: Optional[float] = None
-    model_version: Optional[str] = None
     model_name: Optional[str] = None  # e.g., "claude-sonnet-4-20250514"
     api_cost: Optional[float] = None
     tokens_used: Optional[int] = None
@@ -293,6 +292,8 @@ class DeduplicationResult(BaseModel):
 class MetadataScreening(BaseModel):
     """Metadata screening results"""
 
+    passed: bool
+
     paper_type: PaperType # Mandatory, importers should know
     language: Optional[str] = "en"  # ISO language code
     quality_tier: Optional[QualityTier] = QualityTier.UNKNOWN
@@ -311,6 +312,8 @@ class MetadataScreening(BaseModel):
 
 class KeywordScreening(BaseModel):
     """Keyword-based screening results"""
+
+    passed: bool
 
     study_type: Optional[StudyType] = StudyType.UNKNOWN
 
@@ -340,6 +343,8 @@ class KeywordScreening(BaseModel):
 
 class SemanticScreening(BaseModel):
     """Semantic similarity screening results"""
+
+    passed: bool
 
     similarity_score: float = Field(ge=0, le=1)
     threshold: float = Field(ge=0, le=1)
@@ -729,24 +734,17 @@ class Paper(BaseModel):
             return f"{self.authors[0].family_name} et al."
 
     @property
-    def citation_key_apa(self) -> str:
-        """Generate APA-style citation key"""
-        author_part = self.authors[0].family_name if self.authors else "Unknown"
-        year_part = self.year or "n.d."
-        return f"{author_part}, {year_part}"
-
-    @property
     def is_processed(self) -> bool:
         """Check if paper completed all processing"""
         return (
             self.screening.final_decision != ScreeningDecision.PENDING and
-            (self.pdf_info is not None if self.screening.final_decision == ScreeningDecision.INCLUDED else True)
+            (self.pdf_info is not None if self.is_included else True)
         )
 
     @property
     def is_included(self) -> bool:
         """Check if paper passed screening"""
-        return self.screening.final_decision == ScreeningDecision.INCLUDED
+        return self.screening.final_decision in (ScreeningDecision.INCLUDED, ScreeningDecision.INCLUDED_MANUAL)
 
     @property
     def is_excluded(self) -> bool:
@@ -768,8 +766,6 @@ class Paper(BaseModel):
     @property
     def apa(self) -> str:
         """Format paper as APA citation"""
-        import json
-        
         # Format authors
         if self.authors:
             author_names = [author.full_name for author in self.authors]
@@ -799,7 +795,7 @@ class Paper(BaseModel):
 
         return citation
 
-    
+
     # =============
     # Magic Methods
     # =============

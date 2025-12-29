@@ -15,7 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports NOT operator in both string format (`"NOT: en"`) and dict format (`{"NOT": "en"}`)
   - Outputs MetadataScreening model with language, paper_type, quality_tier, peer review status
   - Automatically updates paper.screening.final_decision when papers are excluded
-  - Full test coverage with 28 unit tests covering validation, execution, and logic
+
+### Changed
+
+- **Keyword Screening Step**: Completely redesigned with new functionality
+  - Added **implicit study type detection** with regex patterns (editorial, empirical, literature review, conceptual)
+  - Implemented sophisticated pattern matching for:
+    - Quantitative empirical research (14 patterns: sample size, ANOVA, p-values, etc.)
+    - Qualitative empirical research (15 patterns: interviews, case studies, surveys, etc.)
+    - Research methods (8 patterns: experimental design, longitudinal studies, etc.)
+  - Added **wildcard keyword matching** (exact, prefix*, *suffix, *both*)
+  - Changed configuration structure to support nested inclusion/exclusion keywords with study type filtering
+  - Implemented three screening modes:
+    - `inclusion_required`: Must pass both inclusion gate and avoid exclusions
+    - `exclusion_only`: Filter exclusions only, include everything else
+    - `soft`: Keywords for ranking only, never exclude
+  - Empirical-first priority order: when papers mix empirical + literature review, classified as empirical
+  - Minimum 2 pattern threshold for empirical classification (prevents false positives)
+  - Comprehensive unit test suite (43 tests) covering KeywordMatcher, StudyTypeDetector, KeywordScreener, and step execution
 
 ### Fixed
 

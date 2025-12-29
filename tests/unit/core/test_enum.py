@@ -85,16 +85,17 @@ class TestStudyType:
             "EMPIRICAL_QUANTITATIVE",
             "EMPIRICAL_MIXED",
             "LITERATURE_REVIEW",
-            "SYSTEMATIC_REVIEW",
             "META_ANALYSIS",
             "CONCEPTUAL",
+            "EDITORIAL",
             "THEORETICAL",
+            "BOOK_REVIEW",
             "CASE_STUDY",
             "UNKNOWN",
         ]
         actual_members = [member.name for member in StudyType]
         assert set(actual_members) == set(expected_members)
-        assert len(actual_members) == 10
+        assert len(actual_members) == 11
 
     def test_study_type_values(self):
         """Verify StudyType values are correctly defined"""
@@ -102,10 +103,11 @@ class TestStudyType:
         assert StudyType.EMPIRICAL_QUANTITATIVE.value == "empirical_quantitative"
         assert StudyType.EMPIRICAL_MIXED.value == "empirical_mixed"
         assert StudyType.LITERATURE_REVIEW.value == "literature_review"
-        assert StudyType.SYSTEMATIC_REVIEW.value == "systematic_review"
         assert StudyType.META_ANALYSIS.value == "meta_analysis"
         assert StudyType.CONCEPTUAL.value == "conceptual"
+        assert StudyType.EDITORIAL.value == "editorial"
         assert StudyType.THEORETICAL.value == "theoretical"
+        assert StudyType.BOOK_REVIEW.value == "book_review"
         assert StudyType.CASE_STUDY.value == "case_study"
         assert StudyType.UNKNOWN.value == "unknown"
 
@@ -130,6 +132,7 @@ class TestQualityTier:
         """Verify all expected QualityTier members exist"""
         expected_members = [
             "PEER_REVIEWED_JOURNAL",
+            "NON_PEER_REVIEWED_ARTICLE",
             "PEER_REVIEWED_CONFERENCE",
             "BOOK_CHAPTER",
             "WORKING_PAPER",
@@ -139,11 +142,12 @@ class TestQualityTier:
         ]
         actual_members = [member.name for member in QualityTier]
         assert set(actual_members) == set(expected_members)
-        assert len(actual_members) == 7
+        assert len(actual_members) == 8
 
     def test_quality_tier_values(self):
         """Verify QualityTier values are correctly defined"""
         assert QualityTier.PEER_REVIEWED_JOURNAL.value == "peer_reviewed_journal"
+        assert QualityTier.NON_PEER_REVIEWED_ARTICLE.value == "non_peer_reviewed_article"
         assert (
             QualityTier.PEER_REVIEWED_CONFERENCE.value == "peer_reviewed_conference"
         )
@@ -222,26 +226,28 @@ class TestScreeningDecision:
         """Verify all expected ScreeningDecision members exist"""
         expected_members = [
             "INCLUDED",
+            "INCLUDED_MANUAL",
             "EXCLUDED",
+            "EXCLUDED_DUPLICATE",
+            "EXCLUDED_MANUAL",
             "PENDING",
             "MANUAL_REVIEW",
             "UNCERTAIN",
-            "EXCLUDED_DUPLICATE",
-            "EXCLUDED_MANUAL",
         ]
         actual_members = [member.name for member in ScreeningDecision]
         assert set(actual_members) == set(expected_members)
-        assert len(actual_members) == 7
+        assert len(actual_members) == 8
 
     def test_screening_decision_values(self):
         """Verify ScreeningDecision values are correctly defined"""
         assert ScreeningDecision.INCLUDED.value == "included"
+        assert ScreeningDecision.INCLUDED_MANUAL.value == "included_manual"
         assert ScreeningDecision.EXCLUDED.value == "excluded"
+        assert ScreeningDecision.EXCLUDED_DUPLICATE.value == "excluded_duplicate"
+        assert ScreeningDecision.EXCLUDED_MANUAL.value == "excluded_manual"
         assert ScreeningDecision.PENDING.value == "pending"
         assert ScreeningDecision.MANUAL_REVIEW.value == "manual_review"
         assert ScreeningDecision.UNCERTAIN.value == "uncertain"
-        assert ScreeningDecision.EXCLUDED_DUPLICATE.value == "excluded_duplicate"
-        assert ScreeningDecision.EXCLUDED_MANUAL.value == "excluded_manual"
 
     def test_screening_decision_from_string(self):
         """Verify ScreeningDecision can be instantiated from string values"""

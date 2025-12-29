@@ -154,20 +154,13 @@ class TestMetadataScreeningExecution:
 
     def test_execute_empty_database(self, metadata_screening_step):
         """Should handle empty database gracefully"""
-        config = {"enabled": True}
+        config = {}
         result = metadata_screening_step.execute(config)
         
         assert result.status == StepStatus.SUCCESS
         assert result.stats["total_papers"] == 0
         assert result.stats["screened"] == 0
 
-    def test_execute_disabled_step(self, metadata_screening_step):
-        """Should skip execution when disabled"""
-        config = {"enabled": False}
-        result = metadata_screening_step.execute(config)
-        
-        assert result.status == StepStatus.SKIPPED
-        assert result.stats.get("reason") == "disabled"
 
     def test_execute_with_papers(self, papers_db, metadata_screening_step):
         """Should process papers in database"""
@@ -177,7 +170,7 @@ class TestMetadataScreeningExecution:
         papers_db.add(paper1)
         papers_db.add(paper2)
         
-        config = {"enabled": True, "exclude": {"language": ["NOT: en"]}}
+        config = {"exclude": {"language": ["NOT: en"]}}
         result = metadata_screening_step.execute(config)
         
         assert result.status == StepStatus.SUCCESS
@@ -192,7 +185,7 @@ class TestMetadataScreeningExecution:
         papers_db.add(paper1)
         papers_db.add(paper2)
         
-        config = {"enabled": True}
+        config = {}
         result = metadata_screening_step.execute(config)
         
         assert result.status == StepStatus.SUCCESS
@@ -209,7 +202,6 @@ class TestMetadataScreeningExecution:
         
         # Exclude conference papers
         config = {
-            "enabled": True,
             "exclude": {
                 "paper_types": ["conference_paper"]
             }
@@ -228,7 +220,6 @@ class TestMetadataScreeningExecution:
         
         # Use string format: "NOT: en"
         config = {
-            "enabled": True,
             "exclude": {
                 "language": ["NOT: en"]
             }
@@ -247,7 +238,6 @@ class TestMetadataScreeningExecution:
         
         # Use dict format: {"NOT": "en"}
         config = {
-            "enabled": True,
             "exclude": {
                 "language": [{"NOT": "en"}]
             }
@@ -268,7 +258,6 @@ class TestMetadataScreeningExecution:
         
         # Exclude conference papers AND only allow journal articles
         config = {
-            "enabled": True,
             "exclude": {
                 "paper_types": ["conference_paper", "NOT: journal_article"]
             }
@@ -284,7 +273,7 @@ class TestMetadataScreeningExecution:
         paper = Paper(cite_key="paper1", title="Test", language="en")
         papers_db.add(paper)
         
-        config = {"enabled": True, "exclude": {"language": ["NOT: en"]}}
+        config = {"exclude": {"language": ["NOT: en"]}}
         result = metadata_screening_step.execute(config)
         
         # Retrieve paper from database
@@ -297,7 +286,7 @@ class TestMetadataScreeningExecution:
         paper = Paper(cite_key="paper1", title="Test", language="fr")
         papers_db.add(paper)
         
-        config = {"enabled": True, "exclude": {"language": ["NOT: en"]}}
+        config = {"exclude": {"language": ["NOT: en"]}}
         result = metadata_screening_step.execute(config)
         
         updated_paper = papers_db.to_list()[0]
@@ -310,7 +299,7 @@ class TestMetadataScreeningExecution:
         papers_db.add(paper)
         original_screening = paper.screening.metadata_screening
         
-        config = {"enabled": True, "exclude": {"language": ["NOT: en"]}}
+        config = {"exclude": {"language": ["NOT: en"]}}
         result = metadata_screening_step.execute(config, dry_run=True)
         
         # Paper in database should not be updated

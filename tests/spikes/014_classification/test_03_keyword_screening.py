@@ -250,12 +250,7 @@ class StudyTypeDetector:
         # 2. Check empirical BEFORE literature review (check scored patterns)
         empirical_info = cls._detect_empirical_research(text)
         if empirical_info['is_empirical']:
-            if empirical_info['type'] == 'quantitative':
-                return StudyType.EMPIRICAL_QUANTITATIVE
-            elif empirical_info['type'] == 'qualitative':
-                return StudyType.EMPIRICAL_QUALITATIVE
-            else:
-                return StudyType.EMPIRICAL_QUALITATIVE  # Default to qualitative if unclear
+            return empirical_info['type']  # Return the StudyType enum directly
         
         # 3. Check literature review (after empirical check)
         if any(cls._has_indicator(text_lower, ind) for ind in cls.LITERATURE_REVIEW_INDICATORS):
@@ -300,18 +295,18 @@ class StudyTypeDetector:
         # Determine empirical status (need at least 2 matching patterns)
         is_empirical = total_score >= 2
         
-        # Determine type based on ratio
-        if quant_score > qual_score:
-            study_type = 'quantitative'
-        elif qual_score > quant_score:
-            study_type = 'qualitative'
-        elif quant_score > 0 and qual_score > 0:
-            study_type = 'mixed'
-        else:
-            study_type = 'unknown'
-        
         # Calculate confidence
         confidence = min(total_score / 10.0, 1.0)
+        
+        # Determine type based on ratio
+        if quant_score > qual_score:
+            study_type = StudyType.EMPIRICAL_QUANTITATIVE
+        elif qual_score > quant_score:
+            study_type = StudyType.EMPIRICAL_QUALITATIVE
+        elif quant_score > 0 and qual_score > 0:
+            study_type = StudyType.EMPIRICAL_QUANTITATIVE  # Default to quantitative for mixed
+        else:
+            study_type = StudyType.UNKNOWN
         
         return {
             'is_empirical': is_empirical,
@@ -472,6 +467,7 @@ class KeywordScreener:
         duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
         
         keyword_screening = KeywordScreening(
+            passed=should_include,
             study_type=detected_study_type,
             inclusion_keywords=matched_inclusion_keywords,
             inclusion_threshold=len(self.inclusion_keywords) if self.inclusion_keywords else None,
@@ -484,7 +480,6 @@ class KeywordScreener:
             inclusion_reason=f"matched {inclusion_score} inclusion keywords" if inclusion_score > 0 else None,
             metadata=ProcessingMetadata(
                 duration_seconds=duration_seconds,
-                model_version="1.0",
                 success=True
             )
         )
@@ -601,7 +596,7 @@ class TestStudyTypeDetector:
         text1 = "Survey of n = 500. Regression analysis. Hypothesis testing. p < 0.05"
         info1 = StudyTypeDetector._detect_empirical_research(text1)
         assert info1['is_empirical'] is True
-        assert info1['type'] == 'quantitative'
+        assert info1['type'] == StudyType.EMPIRICAL_QUANTITATIVE
         assert info1['quant_score'] >= 3
         assert info1['confidence'] > 0.3
         
@@ -609,14 +604,14 @@ class TestStudyTypeDetector:
         text2 = "Interviews with 20 experts. Thematic analysis. Phenomenological approach."
         info2 = StudyTypeDetector._detect_empirical_research(text2)
         assert info2['is_empirical'] is True
-        assert info2['type'] == 'qualitative'
+        assert info2['type'] == StudyType.EMPIRICAL_QUALITATIVE
         assert info2['qual_score'] >= 3
         
         # Mixed methods
         text3 = "Survey (n=100) with interviews. Both statistical analysis and thematic analysis."
         info3 = StudyTypeDetector._detect_empirical_research(text3)
         assert info3['is_empirical'] is True
-        # Type depends on which has more patterns
+        # Type is StudyType enum now
     
     def test_empirical_requires_minimum_threshold(self):
         """Should require at least 2 matching patterns for empirical classification"""

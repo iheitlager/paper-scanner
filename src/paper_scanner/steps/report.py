@@ -383,7 +383,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
         if paper_type not in papers_by_type:
             papers_by_type[paper_type] = {
                 "total": 0,
-                "categorization_excluded": 0,
+                "metadata_excluded": 0,
                 "keyword_excluded": 0,
                 "semantic_excluded": 0,
                 "manual_review": 0,
@@ -395,9 +395,9 @@ def _display_screening_results(db: PapersDatabase) -> None:
         # Track through screening stages
         final_decision = paper.screening.final_decision.value
 
-        # Check categorization exclusion
-        if paper.screening.categorization and not paper.screening.categorization.is_peer_reviewed:
-            papers_by_type[paper_type]["categorization_excluded"] += 1
+        # Check metadata exclusion
+        if paper.screening.metadata_screening and not paper.screening.metadata_screening.passed:
+            papers_by_type[paper_type]["metadata_excluded"] += 1
         # Check keyword screening exclusion
         elif paper.screening.keyword_screening and not paper.screening.keyword_screening.passed:
             papers_by_type[paper_type]["keyword_excluded"] += 1
@@ -415,7 +415,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
     table = Table(title="Screening Results Progression")
     table.add_column("Paper Type", style="cyan", width=18)
     table.add_column("Total", justify="right", style="bold")
-    table.add_column("Categorization\nExcluded", justify="right", style="yellow")
+    table.add_column("Metadata\nExcluded", justify="right", style="yellow")
     table.add_column("Keyword\nExcluded", justify="right", style="yellow")
     table.add_column("Semantic\nExcluded", justify="right", style="yellow")
     table.add_column("Manual\nReview", justify="right", style="blue")
@@ -423,7 +423,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
 
     # Totals tracking
     total_primary = 0
-    total_cat_excl = 0
+    total_metadata_excl = 0
     total_kw_excl = 0
     total_sem_excl = 0
     total_manual = 0
@@ -434,7 +434,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
         counts = papers_by_type[paper_type]
 
         total_primary += counts["total"]
-        total_cat_excl += counts["categorization_excluded"]
+        total_metadata_excl += counts["metadata_excluded"]
         total_kw_excl += counts["keyword_excluded"]
         total_sem_excl += counts["semantic_excluded"]
         total_manual += counts["manual_review"]
@@ -443,7 +443,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
         table.add_row(
             paper_type,
             str(counts["total"]),
-            str(counts["categorization_excluded"]),
+            str(counts["metadata_excluded"]),
             str(counts["keyword_excluded"]),
             str(counts["semantic_excluded"]),
             str(counts["manual_review"]),
@@ -467,7 +467,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
     table.add_row(
         "[bold]Total[/bold]",
         f"[bold]{total_all}[/bold]",
-        f"[bold yellow]{total_cat_excl}[/bold yellow]",
+        f"[bold yellow]{total_metadata_excl}[/bold yellow]",
         f"[bold yellow]{total_kw_excl}[/bold yellow]",
         f"[bold yellow]{total_sem_excl}[/bold yellow]",
         f"[bold blue]{total_manual}[/bold blue]",
@@ -477,7 +477,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
     console.print(table)
 
     # Print summary statistics
-    total_excluded = total_cat_excl + total_kw_excl + total_sem_excl
+    total_excluded = total_metadata_excl + total_kw_excl + total_sem_excl
     inclusion_rate = (total_included / total_primary * 100) if total_primary > 0 else 0
 
     console.print(f"\n  [dim]Total excluded: {total_excluded} ({total_excluded/total_primary*100:.1f}%)[/dim]" if total_primary > 0 else f"\n  [dim]Total excluded: {total_excluded}[/dim]")

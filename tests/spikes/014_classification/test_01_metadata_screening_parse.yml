@@ -69,7 +69,7 @@ steps:
           - "theoretical"
       include:
         thresholds: 
-          auto_accept: 0.65      # Strong keyword match (need at least two categories)
+          auto_accept: 0.65      # Strong keyword match (need at least two categories
           manual_review: 0.40    # Weak match → semantic screening
           auto_reject: null      # Never auto-reject by keywords alone
           # score will be normalized over categories

@@ -537,9 +537,9 @@ def infer_bibtex_type(paper: Paper) -> str:
     if paper.paper_type:
         return type_mapping.get(paper.paper_type, 'misc')
 
-    # Try to get from screening categorization
-    if paper.screening.categorization and paper.screening.categorization.paper_type:
-        paper_type = paper.screening.categorization.paper_type
+    # Try to get from screening metadata_screening
+    if paper.screening.metadata_screening and paper.screening.metadata_screening.paper_type:
+        paper_type = paper.screening.metadata_screening.paper_type
         return type_mapping.get(paper_type, 'misc')
 
     # Infer from fields

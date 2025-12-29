@@ -105,56 +105,41 @@ class MetadataScreeningStep(BaseStep):
         Returns:
             StepResult with execution statistics
         """
-        step_start_time = time.time()
-
-        # Check if step is enabled
-        if not config.get("enabled", True):
-            return StepResult(
-                status=StepStatus.SKIPPED,
-                message="Metadata screening disabled in configuration",
-                stats={"reason": "disabled"},
-            )
-
         # Parse configuration
         exclude_logic = self._extract_exclude_logic(config.get("exclude", {}))
 
-        if verbose:
-            console.print("  [bold cyan]Metadata Screening[/bold cyan]")
-            console.print(f"    [dim]Fields being screened: {len(exclude_logic)}[/dim]")
-            console.print(
-                f"    [dim]Processing {self.db.count(primary_only=False)} papers...[/dim]"
-            )
+        self.callback(
+            "Metadata Screening"
+            f" * Fields being screened: {len(exclude_logic)}"
+            f" * Processing {self.db.count(primary_only=False)} papers...", debug=True
+        )
 
         # Initialize results
         results = {
-            "total_papers": self.db.count(primary_only=False),
+            "total_papers": self.db.count(primary_only=True),
             "screened": 0,
             "passed": 0,
             "failed": 0,
             "exclusion_reasons": {},
         }
 
-        # Process each paper
-        all_papers = self.db.to_list(primary_only=False)
-        for i, paper in enumerate(all_papers):
-            # Show progress every 100 papers
-            if verbose and (i + 1) % 100 == 0:
-                sys.stdout.write(
-                    f"\r    Processed {i + 1}/{len(all_papers)} papers... "
-                    f"Passed: {results['passed']}, Failed: {results['failed']}"
-                )
-                sys.stdout.flush()
+        # Process each non duplicate paper, this is idempotent
+        all_papers = self.db.find(
+            predicate=lambda p: not p.is_excluded and not p.is_processed and not p.screening.metadata_screening,
+            primary_only=True
+        )
 
-            # Screen the paper
+        for i, paper in enumerate(all_papers):
             screening, passed, exclusion_reason = self._screen_paper(
-                paper, exclude_logic, verbose=verbose
+                paper, exclude_logic
             )
 
             if not dry_run:
                 paper.screening.metadata_screening = screening
+                paper.screening.current_stage="metadata_screening passed"
 
                 # Update screening decision if appropriate
-                if not passed and paper.screening.final_decision == ScreeningDecision.PENDING:
+                if not passed:
                     paper.screening.final_decision = ScreeningDecision.EXCLUDED
                     paper.screening.final_decision_by = "automated:metadata_screening"
 
@@ -172,15 +157,6 @@ class MetadataScreeningStep(BaseStep):
                     results["exclusion_reasons"][exclusion_reason] = (
                         results["exclusion_reasons"].get(exclusion_reason, 0) + 1
                     )
-
-        duration = time.time() - step_start_time
-
-        if verbose:
-            console.print(
-                f"    [green]✓ Metadata screening complete[/green] - "
-                f"Passed: [cyan]{results['passed']}[/cyan], "
-                f"Failed: [cyan]{results['failed']}[/cyan]"
-            )
 
         return StepResult(
             status=StepStatus.SUCCESS,
@@ -250,6 +226,7 @@ class MetadataScreeningStep(BaseStep):
         duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         metadata_screening = MetadataScreening(
+            passed=exclusion_reason is None,
             paper_type=paper_type,
             language=paper.language or "en",
             quality_tier=quality_tier,
@@ -257,7 +234,6 @@ class MetadataScreeningStep(BaseStep):
             exclusion_reason=exclusion_reason,
             metadata=ProcessingMetadata(
                 duration_seconds=duration_seconds,
-                model_version="1.0",
                 success=True,
             ),
         )

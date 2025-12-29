@@ -123,6 +123,12 @@ class ConsoleViewer:
         if not paper:
             return
 
+        screening_reasons = [
+            paper.screening.metadata_screening.exclusion_reason if paper.screening and paper.screening.metadata_screening else "",
+            paper.screening.keyword_screening.exclusion_reason if paper.screening and paper.screening.keyword_screening else "",
+            paper.screening.keyword_screening.inclusion_reason if paper.screening and paper.screening.keyword_screening else "",
+            paper.screening.semantic_screening.exclusion_reason if paper.screening and paper.screening.semantic_screening else "",
+        ]
         details = f"""
 [bold cyan]Paper Details (Detail Mode)[/bold cyan]
 [dim]{position}[/dim]
@@ -136,7 +142,8 @@ class ConsoleViewer:
 [bold]DOI:[/bold] {paper.doi or "N/A"}
 [bold]URL:[/bold] {paper.url or "N/A"}
 [bold]Source:[/bold] [cyan]{paper.discovery.source_database or "N/A"}[/cyan] (Iteration: {paper.discovery.iteration})
-[bold]Screening Decision:[/bold] [cyan]{paper.screening.final_decision.value if paper.screening and paper.screening.final_decision else "N/A"}[/cyan] ({paper.screening.categorization.reasoning if paper.screening and paper.screening.categorization else ""})
+[bold]Screening Decision:[/bold] [cyan]{paper.screening.current_stage} - {paper.screening.final_decision.value if paper.screening and paper.screening.final_decision else "N/A"}[/cyan]
+{"[bold]Screening:[/bold]\n * " + "\n * ".join([r for r in screening_reasons if r])}
 
 [bold]Abstract:[/bold]
 {paper.abstract or "N/A"}

@@ -563,22 +563,22 @@ def paper_to_dict_screening(paper: Paper) -> Dict[str, Any]:
         'final_decision': screening.final_decision.value
     }
 
-    # Categorization
-    if screening.categorization:
-        result['categorization'] = {
-            'paper_type': screening.categorization.paper_type.value,
-            'study_type': screening.categorization.study_type.value,
-            'quality_tier': screening.categorization.quality_tier.value,
-            'is_empirical': screening.categorization.is_empirical
+    # Metadata Screening
+    if screening.metadata_screening:
+        result['metadata_screening'] = {
+            'paper_type': screening.metadata_screening.paper_type.value,
+            'quality_tier': screening.metadata_screening.quality_tier.value,
+            'is_peer_reviewed': screening.metadata_screening.is_peer_reviewed,
+            'passed': screening.metadata_screening.passed
         }
 
-    # Keyword screening
+    # Keyword Screening (includes study_type and is_empirical)
     if screening.keyword_screening:
         result['keyword_screening'] = {
-            'passed': screening.keyword_screening.passed,
-            'score': screening.keyword_screening.score,
-            'inclusion_keywords': screening.keyword_screening.inclusion_keywords,
-            'exclusion_keywords': screening.keyword_screening.exclusion_keywords
+            'study_type': screening.keyword_screening.study_type.value,
+            'is_empirical': screening.keyword_screening.is_empirical,
+            'is_conceptual': screening.keyword_screening.is_conceptual,
+            'is_literature_review': screening.keyword_screening.is_literature_review,
         }
 
     # Semantic screening
