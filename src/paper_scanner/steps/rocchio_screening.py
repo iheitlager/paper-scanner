@@ -7,7 +7,31 @@ that evolve across iterations, enabling adaptive decision boundaries.
 
 State is stored in executor.step_state to persist between steps within a session.
 
-For more details, see: https://nlp.stanford.edu/IR-book/html/htmledition/rocchio-classification-1.html
+EMBEDDING MODELS
+================
+The model parameter specifies which sentence transformer to use for encoding papers:
+
+Domain-Specific Models (Recommended for academic papers):
+- "specter2" (default): Specialized for academic paper titles/abstracts. Optimized for scholarly
+  content with understanding of research methodology and domain concepts. Best for systematic reviews.
+  Dimension: 768
+  
+- "sciBERT": Domain-aware BERT trained on scientific papers. Good balance of academic understanding
+  and general language capability. Dimension: 768
+
+General-Purpose Models (For broader content):
+- "all-mpnet-base-v2": Multilingual, general-purpose model. Fast, high-quality embeddings for
+  diverse text. Good for papers with varied writing styles or non-academic content. Dimension: 768
+  
+- "all-MiniLM-L6-v2": Lightweight model, much faster inference, lower memory footprint. Suitable
+  when processing large collections or resource-constrained environments. Quality slightly lower
+  than all-mpnet-base-v2. Dimension: 384
+
+For best results with academic papers, use "specter2" (domain-specialized).
+For speed with acceptable quality, use "all-mpnet-base-v2" or "all-MiniLM-L6-v2".
+
+For more details on Rocchio algorithm: 
+https://nlp.stanford.edu/IR-book/html/htmledition/rocchio-classification-1.html
 """
 
 import logging
@@ -54,10 +78,26 @@ class RocchioScreeningStep(BaseStep):
 
         Args:
             config: Step configuration with optional keys:
-                - model: str - Sentence transformer model ID (e.g., 'specter2')
+                
+                - model: str - Sentence transformer model ID (default: 'specter2')
+                  Options:
+                    * "specter2" - Domain-specific for academic papers (recommended)
+                    * "sciBERT" - Scientific BERT, domain-aware
+                    * "all-mpnet-base-v2" - General-purpose, multilingual, fast
+                    * "all-MiniLM-L6-v2" - Lightweight, fastest inference
+                  
                 - rocchio_weights: dict with keys 'alpha', 'beta', 'gamma'
+                  * alpha (default 1.0): Weight for research question centroid
+                  * beta (default 0.75): Weight for relevant papers centroid
+                  * gamma (default 0.15): Weight for irrelevant papers centroid
+                  
                 - thresholds: dict with keys 'accept', 'reject'
-                - initialize_from_keyword_screening: bool - Bootstrap from keyword labels
+                  * accept (default 0.7): Similarity score threshold to accept paper
+                  * reject (default 0.3): Similarity score threshold to reject paper
+                  * Papers with scores between reject and accept thresholds: uncertain
+                  
+                - initialize_from_keyword_screening: bool - Bootstrap centroids from
+                  keyword_screening results (default: True). Accelerates convergence.
 
         Returns:
             Tuple of (is_valid, error_messages)
@@ -119,24 +159,27 @@ class RocchioScreeningStep(BaseStep):
         """
         Execute semantic classification using Adaptive Rocchio.
 
-        Flow:
+        Algorithm Flow:
         1. Load or create ScreeningState from executor.step_state
-        2. Initialize embedder model
-        3. Embed research question (if not already done)
+        2. Initialize embedder model (specter2, all-mpnet-base-v2, etc.)
+        3. Embed research question to establish query centroid
         4. Optionally bootstrap centroids from keyword_screening results
-        5. Classify papers iteratively, updating centroids
-        6. Store updated state back to executor.step_state
+        5. Classify papers iteratively:
+           - Embed paper (title + abstract + keywords)
+           - Compute similarity to query and centroids
+           - Rocchio formula: score = alpha*query + beta*relevant - gamma*irrelevant
+           - Decide: Accept (score > accept_threshold), Reject (score < reject_threshold), 
+             or Uncertain (in between)
+        6. Update centroids based on classifications
+        7. Store updated state back to executor.step_state for persistence
 
-        Args:
-            config: Step configuration
-            verbose: Enable verbose output
-            dry_run: Don't modify papers
-            debug: Enable debug output
-
-        Returns:
-            StepResult with status, message, and stats
+        Model Selection:
+        - "specter2" (recommended): Domain-specialized for academic papers
+        - "all-mpnet-base-v2": General-purpose, fast, multilingual
+        - "all-MiniLM-L6-v2": Lightweight, fastest inference
+        - "sciBERT": Scientific domain-aware BERT
         """
-
+        
         research_question = self.general_config.get("research_question", "")
         if not research_question:
             raise ConfigurationError(
