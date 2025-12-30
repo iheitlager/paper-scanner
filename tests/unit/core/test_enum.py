@@ -229,6 +229,7 @@ class TestScreeningDecision:
             "INCLUDED_MANUAL",
             "EXCLUDED",
             "EXCLUDED_DUPLICATE",
+            "EXCLUDED_INCOMPLETE",
             "EXCLUDED_MANUAL",
             "PENDING",
             "MANUAL_REVIEW",
@@ -236,7 +237,7 @@ class TestScreeningDecision:
         ]
         actual_members = [member.name for member in ScreeningDecision]
         assert set(actual_members) == set(expected_members)
-        assert len(actual_members) == 8
+        assert len(actual_members) == 9
 
     def test_screening_decision_values(self):
         """Verify ScreeningDecision values are correctly defined"""
@@ -244,6 +245,7 @@ class TestScreeningDecision:
         assert ScreeningDecision.INCLUDED_MANUAL.value == "included_manual"
         assert ScreeningDecision.EXCLUDED.value == "excluded"
         assert ScreeningDecision.EXCLUDED_DUPLICATE.value == "excluded_duplicate"
+        assert ScreeningDecision.EXCLUDED_INCOMPLETE.value == "excluded_incomplete"
         assert ScreeningDecision.EXCLUDED_MANUAL.value == "excluded_manual"
         assert ScreeningDecision.PENDING.value == "pending"
         assert ScreeningDecision.MANUAL_REVIEW.value == "manual_review"

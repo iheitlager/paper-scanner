@@ -33,7 +33,8 @@ def sample_paper_software():
         year=2024,
         authors=[Author(family_name="Doe", full_name="John Doe")],
         paper_type=PaperType.JOURNAL_ARTICLE,
-        url="https://example.com/paper.pdf"
+        url="https://example.com/paper.pdf",
+        keywords=["software", "agile", "digital transformation"]
     )
 
 
@@ -48,6 +49,7 @@ def sample_paper_medical():
         year=2024,
         authors=[Author(family_name="Smith", full_name="Jane Smith")],
         paper_type=PaperType.JOURNAL_ARTICLE,
+        keywords=["medical", "clinical", "healthcare"],
         url="https://example.com/paper2.pdf"
     )
 
@@ -63,6 +65,7 @@ def sample_paper_qualitative():
         year=2024,
         authors=[Author(family_name="Research", full_name="Dr. Research")],
         paper_type=PaperType.JOURNAL_ARTICLE,
+        keywords=["agile", "qualitative", "adoption"],
         url="https://example.com/paper3.pdf"
     )
 
@@ -78,6 +81,7 @@ def sample_paper_quantitative():
         year=2024,
         authors=[Author(family_name="Stats", full_name="Prof. Stats")],
         paper_type=PaperType.JOURNAL_ARTICLE,
+        keywords=["quantitative", "agile", "metrics"],
         url="https://example.com/paper4.pdf"
     )
 
@@ -93,6 +97,7 @@ def sample_paper_editorial():
         year=2024,
         authors=[Author(family_name="Editor", full_name="Dr. Editor")],
         paper_type=PaperType.JOURNAL_ARTICLE,
+        keywords=["editorial", "future", "trends"],
         url="https://example.com/paper5.pdf"
     )
 
@@ -291,7 +296,8 @@ class TestKeywordScreener:
         screener = KeywordScreener(config)
         screening, should_include, reason = screener.screen_paper(
             title="Agile Development Methods",
-            abstract="This paper discusses agile software development"
+            abstract="This paper discusses agile software development",
+            keywords=["agile", "software", "development"]
         )
         assert should_include is True
         assert reason is None
@@ -306,7 +312,8 @@ class TestKeywordScreener:
         screener = KeywordScreener(config)
         screening, should_include, reason = screener.screen_paper(
             title="Medical Software",
-            abstract="Healthcare medical applications"
+            abstract="Healthcare medical applications",
+            keywords=["medical", "healthcare"]
         )
         assert should_include is False
         assert "excluded keywords" in reason
@@ -321,7 +328,8 @@ class TestKeywordScreener:
         screener = KeywordScreener(config)
         screening, should_include, reason = screener.screen_paper(
             title="Network Infrastructure",
-            abstract="This paper is about networking"
+            abstract="This paper describes network infrastructure",
+            keywords=["network", "infrastructure"]
         )
         assert should_include is False
         assert "no inclusion keywords" in reason
@@ -336,7 +344,8 @@ class TestKeywordScreener:
         screener = KeywordScreener(config)
         screening, should_include, reason = screener.screen_paper(
             title="Software Development",
-            abstract="A paper about software"
+            abstract="A paper about software",
+            keywords=["software", "development"]
         )
         assert should_include is True
         assert reason is None
@@ -351,7 +360,8 @@ class TestKeywordScreener:
         screener = KeywordScreener(config)
         screening, should_include, reason = screener.screen_paper(
             title="Medical Research",
-            abstract="A medical research paper"
+            abstract="A medical research paper",
+            keywords=["medical", "research"]
         )
         assert should_include is False
         assert "excluded keywords" in reason
@@ -368,7 +378,8 @@ class TestKeywordScreener:
         # Even with exclusion keywords matched
         screening, should_include, reason = screener.screen_paper(
             title="Medical Software",
-            abstract="Healthcare application"
+            abstract="Healthcare application",
+            keywords=["medical", "healthcare"]
         )
         assert should_include is True
     
@@ -382,7 +393,8 @@ class TestKeywordScreener:
         screener = KeywordScreener(config)
         screening, should_include, reason = screener.screen_paper(
             title="Editorial: The Future",
-            abstract="This editorial discusses the future"
+            abstract="This editorial discusses the future",
+            keywords=["editorial", "future"]
         )
         assert should_include is False
         assert "study_type" in reason
@@ -399,7 +411,8 @@ class TestKeywordScreener:
         # Should match "software"
         screening, should_include, reason = screener.screen_paper(
             title="Software Development",
-            abstract="Test"
+            abstract="Test",
+            keywords=["software", "development"]
         )
         assert should_include is True
     
@@ -413,7 +426,8 @@ class TestKeywordScreener:
         screener = KeywordScreener(config)
         screening, should_include, reason = screener.screen_paper(
             title="Agile Software Development",
-            abstract="This paper discusses agile"
+            abstract="This paper discusses agile",
+            keywords=["agile", "software"]
         )
         
         assert isinstance(screening, KeywordScreening)
@@ -562,6 +576,7 @@ class TestKeywordScreeningIntegration:
                 year=2024,
                 authors=[Author(family_name="A", full_name="Author A")],
                 paper_type=PaperType.JOURNAL_ARTICLE,
+                keywords=["agile", "software", "development"],
                 url="http://example.com/p1"
             ),
             Paper(
@@ -571,6 +586,7 @@ class TestKeywordScreeningIntegration:
                 year=2024,
                 authors=[Author(family_name="B", full_name="Author B")],
                 paper_type=PaperType.JOURNAL_ARTICLE,
+                keywords=["medical", "healthcare", "research"],
                 url="http://example.com/p2"
             ),
             Paper(
@@ -580,6 +596,7 @@ class TestKeywordScreeningIntegration:
                 year=2024,
                 authors=[Author(family_name="C", full_name="Author C")],
                 paper_type=PaperType.JOURNAL_ARTICLE,
+                keywords=["devops", "editorial", "trends"],
                 url="http://example.com/p3"
             ),
         ]

@@ -6,6 +6,8 @@ Unlike static semantic screening, this step maintains centroids of accepted/reje
 that evolve across iterations, enabling adaptive decision boundaries.
 
 State is stored in executor.step_state to persist between steps within a session.
+
+For more details, see: https://nlp.stanford.edu/IR-book/html/htmledition/rocchio-classification-1.html
 """
 
 import logging
@@ -153,7 +155,6 @@ class RocchioScreeningStep(BaseStep):
         reject_threshold = thresholds.get("reject", 0.3)
 
         results = {
-            "step": "rocchio_screening",
             "total_papers": self.db.count(primary_only=False),
             "classified": 0,
             "accepted": 0,
@@ -229,13 +230,13 @@ class RocchioScreeningStep(BaseStep):
                     if paper.keywords:
                         keywords_str = " ".join(paper.keywords)
                         text_parts.append(keywords_str)
-                    
+
                     text = " ".join(text_parts)
                     if not text:
                         continue
-                    
+
                     emb = embedder.encode(text, convert_to_numpy=True)
-                    
+
                     if paper.screening.keyword_screening.passed:
                         # This paper passed keyword screening (accepted)
                         accepted_embeddings.append(emb)
@@ -258,13 +259,13 @@ class RocchioScreeningStep(BaseStep):
                     debug=True
                 )
 
-        # Classify papers
+        # Screen papers not semantically screened and labeled yet
         all_papers = self.db.find(
-            predicate=lambda p: not p.screening.semantic_screening,
+            predicate=lambda p: not p.screening.semantic_screening and not p.is_excluded and not p.is_included,
             primary_only=True
         )
 
-        self.callback(f"Classifying {len(all_papers)} papers...", debug=True)
+        self.callback(f"Rocchio screening {len(all_papers)} papers...", debug=True)
 
         for i, paper in enumerate(all_papers):
             try:
@@ -277,7 +278,7 @@ class RocchioScreeningStep(BaseStep):
                 if paper.keywords:
                     keywords_str = " ".join(paper.keywords)
                     text_parts.append(keywords_str)
-                
+
                 text = " ".join(text_parts)
                 if not text:
                     self.callback(f"Skipping {paper.cite_key}: no text content", debug=True)

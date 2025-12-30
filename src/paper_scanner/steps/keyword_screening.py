@@ -381,6 +381,36 @@ class KeywordScreener:
         """
         start_time = datetime.now(timezone.utc)
 
+        # 0. CHECK COMPLETENESS: Exclude if title, abstract, or keywords missing
+        has_title = title and title.strip()
+        has_abstract = abstract and abstract.strip() and abstract.strip().upper() != "N/A"
+        has_keywords = keywords and len(keywords) > 0 and any(k.strip() for k in keywords)
+        
+        if not (has_title and has_abstract and has_keywords):
+            # Return EXCLUDED_INCOMPLETE decision
+            missing_parts = []
+            if not has_title:
+                missing_parts.append("title")
+            if not has_abstract:
+                missing_parts.append("abstract")
+            if not has_keywords:
+                missing_parts.append("keywords")
+            
+            reason = f"incomplete metadata: missing {', '.join(missing_parts)}"
+            excluded_incomplete = KeywordScreening(
+                passed=False,
+                is_empirical=False,
+                is_conceptual=False,
+                is_literature_review=False,
+                keyword_screening_confidence=1.0,
+                exclusion_reason=reason,
+                metadata=ProcessingMetadata(
+                    timestamp=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                    duration=0,
+                ),
+            )
+            return (excluded_incomplete, False, reason)
+
         combined_text = " ".join(filter(None, [title, abstract, " ".join(keywords or [])]))
 
         # 0. CHECK FOR SYSTEMATIC/LITERATURE REVIEW (priority over all other screening)
@@ -394,10 +424,7 @@ class KeywordScreener:
                 "literature review" in title_lower):
                 is_systematic_review = True
 
-        # 1. CHECK FOR MISSING ABSTRACT
-        has_abstract = abstract and abstract.strip() and abstract.strip().upper() != "N/A"
-        
-        # 1. DETECT STUDY TYPE (implicit)
+        # DETECT STUDY TYPE (implicit)
         # If abstract is missing, force UNKNOWN study type
         if not has_abstract:
             detected_study_type = StudyType.UNKNOWN

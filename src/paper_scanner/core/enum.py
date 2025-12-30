@@ -65,6 +65,7 @@ class ScreeningDecision(str, Enum):
     INCLUDED_MANUAL = "included_manual"
     EXCLUDED = "excluded"
     EXCLUDED_DUPLICATE = "excluded_duplicate"
+    EXCLUDED_INCOMPLETE = "excluded_incomplete"
     EXCLUDED_MANUAL = "excluded_manual"
     PENDING = "pending"
     MANUAL_REVIEW = "manual_review"

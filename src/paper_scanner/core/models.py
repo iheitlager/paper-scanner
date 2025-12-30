@@ -757,7 +757,7 @@ class Paper(BaseModel):
     @property
     def is_excluded(self) -> bool:
         """Check if paper was excluded"""
-        return self.screening.final_decision in (ScreeningDecision.EXCLUDED, ScreeningDecision.EXCLUDED_DUPLICATE, ScreeningDecision.EXCLUDED_MANUAL) \
+        return self.screening.final_decision in (ScreeningDecision.EXCLUDED, ScreeningDecision.EXCLUDED_DUPLICATE, ScreeningDecision.EXCLUDED_INCOMPLETE, ScreeningDecision.EXCLUDED_MANUAL) \
                or self.duplicate_of is not None
 
     @property
