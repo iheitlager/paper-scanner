@@ -98,6 +98,9 @@ class CitationsStep(BaseStep):
                     if "output_errors" in backward:
                         if not isinstance(backward["output_errors"], str) or not Path(backward["output_errors"]).exists():
                             errors.append("'backward.output_errors' must be a valid file path")
+                    if "included_only" in backward:
+                        if not isinstance(backward["included_only"], bool):
+                            errors.append("'backward.included_only' must be a boolean")
                     if "iterations" in backward:
                         if not isinstance(backward["iterations"], int) or backward["iterations"] < 1:
                             errors.append("'backward.iterations' must be a positive integer")
@@ -130,6 +133,9 @@ class CitationsStep(BaseStep):
                             for src in details:
                                 if not isinstance(src, str):
                                     errors.append(f"'forward.details' items must be strings, got {type(src).__name__}")
+                    if "included_only" in forward:
+                        if not isinstance(forward["included_only"], bool):
+                            errors.append("'forward.included_only' must be a boolean")
                     if "output_errors" in forward:
                         if not isinstance(forward["output_errors"], str) or not Path(forward["output_errors"]).exists():
                             errors.append("'forward.output_errors' must be a valid file path")
@@ -227,6 +233,7 @@ class CitationsStep(BaseStep):
 
         continue_on_not_found = config.get("continue_on_not_found", True)
         limit = config.get("limit", None)
+        included_only = config.get("included_only", True)
         paper_types = config.get("paper-types", ["journal_article"])
         backward_config = config.get("backward", {})
         citations = backward_config.get("citations", ["crossref"])
@@ -242,23 +249,25 @@ class CitationsStep(BaseStep):
                       f"Paper types to process: {paper_types}\n"
                       f"Citation sources: {citations}\n"
                       f"Details sources: {details}\n"
+                      f"Included only: {included_only}\n"
                       f"Continue on not found: {continue_on_not_found}\n"
                       f"Iterations: {iterations}\n"
                       f"Applying screening template : {screening}\n" if screening else ""
                       + (f"Limit papers to process: {limit}" if limit else ""))
 
         while self.iteration < iterations:
-            # Get papers to process (filter by paper_type)
-            if paper_types:
-                target_papers = self.db.find(
-                    lambda p: p.paper_type and p.paper_type.value in paper_types and p.discovery.iteration == self.iteration and p.is_included,
-                    primary_only=True
-                )
-            else:
-                target_papers = self.db.find(
-                    lambda p: p.discovery.iteration == self.iteration,
-                    primary_only=True
-                )
+            # Get papers to process (in simple readable format)
+            def predicate(p):
+                if included_only and not p.is_included:
+                    return False
+                if paper_types and p.paper_type.value not in paper_types:
+                    return False
+                return p.discovery.iteration == self.iteration
+
+            target_papers = self.db.find(
+                predicate=predicate,
+                primary_only=True
+            )
 
             if limit:
                 target_papers = target_papers[:limit]
@@ -317,7 +326,7 @@ class CitationsStep(BaseStep):
                     return None
         return None
 
-    def forward_execute(self, config: Dict[str, Any], target_papers: List[Paper], results: Dict[str, Any]) -> None:
+    def forward_execute(self, config: Dict[str, Any], results: Dict[str, Any]) -> None:
         """
         Execute forward citations extraction for papers in three passes.
 
@@ -326,8 +335,7 @@ class CitationsStep(BaseStep):
         Pass 3: Build citation graph in memory
 
         Args:
-            forward_config: Forward citations configuration
-            target_papers: List of papers to process
+            config: Forward citations configuration
             results: Results dict to update with statistics
         Returns:
             None
@@ -337,7 +345,7 @@ class CitationsStep(BaseStep):
         continue_on_not_found = config.get("continue_on_not_found", True)
         paper_types = config.get("paper-types", ["journal_article"])
         limit = config.get("limit", None)
-        paper_types = config.get("paper-types", ["journal_article"])
+        included_only = config.get("included_only", True)
         citations = forward_config.get("citations", ["crossref"])
         details = forward_config.get("details", ["crossref"])
         self.output_errors = forward_config.get("output_errors", None)
@@ -347,20 +355,24 @@ class CitationsStep(BaseStep):
 
         self.callback(f"Citations forward processing\n"
                       f"Paper types to process: {paper_types}\n"
+                      f"Included only: {included_only}\n"
                       f"Citation sources: {citations}\n"
                       f"Details sources: {details}\n"
                       f"Continue on not found: {continue_on_not_found}\n"
                       + (f"Limit papers to process: {limit}" if limit else ""))
 
-        if paper_types:
-            target_papers = self.db.find(
-                lambda p: p.paper_type and p.paper_type.value in paper_types and p.discovery.iteration == 0,
-                primary_only=True
-            )
-        else:
-            target_papers = self.db.find(
-                lambda p: p.discovery.iteration == 0,
-                primary_only=True)
+        # Get papers to process (in simple readable format)
+        def predicate(p):
+            if included_only and not p.is_included:
+                return False
+            if paper_types and p.paper_type.value not in paper_types:
+                return False
+            return p.discovery.iteration == self.iteration
+
+        target_papers = self.db.find(
+            predicate=predicate,
+            primary_only=True
+        )
 
         if limit:
             target_papers = target_papers[:limit]

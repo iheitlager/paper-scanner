@@ -6,7 +6,7 @@ API docs: https://docs.openalex.org/
 """
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 from rich.console import Console
@@ -21,6 +21,7 @@ console = Console(file=sys.stderr)
 
 # OpenAlex API configuration
 OPENALEX_API_URL = "https://api.openalex.org"
+# Fix the mail thingy for later
 OPENALEX_USER_AGENT = "paper-scanner/1.0 (mailto:i.heitlager@tue.nl)"
 
 # Timeout for API requests (seconds)
@@ -506,7 +507,7 @@ class OpenAlexHandler(BaseFetcherHandler):
         # Placeholder implementation
         return None
 
-    def _fetch_cited_by_from_api(self, doi: str, limit: int = 100) -> Dict[str, Any]:
+    def _fetch_cited_by_from_api(self, doi: str, limit: int = 100) -> Tuple[list, bool]:
         """
         Fetch and parse forward citations for a given DOI.
 
@@ -521,6 +522,9 @@ class OpenAlexHandler(BaseFetcherHandler):
             return []
 
         source_key = self._extract_source_key(metadata)
+        if not source_key:
+            # Cannot fetch cited_by without source key
+            return []
 
         # Call API
         try:

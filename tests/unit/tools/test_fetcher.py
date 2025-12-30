@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
+from paper_scanner.core.exceptions import ConfigurationError
 from paper_scanner.core.models import Paper
 from paper_scanner.tools.fetchers.fetcher import Fetcher, handler_classes
 
@@ -42,12 +43,12 @@ class TestFetcherInitialization:
 
     def test_fetcher_initialization_with_unknown_method(self, tmp_path):
         """Test fetcher raises error for unknown methods."""
-        with pytest.raises(ValueError, match="No valid handlers registered"):
+        with pytest.raises(ConfigurationError, match="Unknown fetcher method"):
             Fetcher(cache_dir=tmp_path, methods=["unknown"])
 
     def test_fetcher_initialization_no_valid_handlers(self, tmp_path):
-        """Test that ValueError is raised when no valid handlers are registered."""
-        with pytest.raises(ValueError, match="No valid handlers registered"):
+        """Test that ConfigurationError is raised when an invalid method is specified."""
+        with pytest.raises(ConfigurationError, match="Unknown fetcher method"):
             Fetcher(cache_dir=tmp_path, methods=["unknown_method"])
 
     def test_fetcher_initialization_with_multiple_methods_fallback(self, tmp_path):

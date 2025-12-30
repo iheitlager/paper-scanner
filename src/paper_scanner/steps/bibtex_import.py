@@ -198,32 +198,30 @@ class BibtexImportStep(BaseStep):
                 if random_seed is not None:
                     random.seed(random_seed)
                 random.shuffle(papers)
-                seed_display = f" (seed={random_seed})" if random_seed is not None else ""
-                self.callback(f" [cyan]✓[/cyan] Randomized papers{seed_display}")
+                seed_display = f"(seed={random_seed})" if random_seed is not None else ""
+                self.callback(f"Randomized papers {seed_display}", debug=True)
 
             # Apply limit after randomization
             if limit:
                 papers = papers[:limit]
-                self.callback(f" Limited to {limit} papers", debug=True)
+                self.callback(f"Limited to {limit} papers", debug=True)
 
             # Fix cite_key collisions if requested
             if fix_cite_key:
                 fixed_count = _fix_cite_key_collisions(papers, self.db)
-                self.callback(f" [cyan]✓ Fixed {fixed_count} cite_key collisions[/cyan]", debug=True)
+                self.callback(f"Fixed {fixed_count} cite_key collisions", debug=True)
 
             count = len(papers)
             if dry_run:
-                self.callback(f" [yellow][DRY RUN][/yellow] Would import {count} papers")
+                self.callback(f"[yellow][DRY RUN][/yellow] Would import {count} papers", debug=True)
             else:
                 # Add to database - fatal if write fails
                 self.db.add_many(papers)
                 papers_imported += count
 
-                self.callback(f" [green]✓[/green] Imported {count} papers for '{name}'")
+                self.callback(f"Imported {count} papers for '{name}'", debug=True)
             if expected_count:
-                match = "✓" if count == expected_count else "!"
-                style = "green" if count == expected_count else "yellow"
-                self.callback(f" [{style}]{match} Expected: {expected_count}, Would get: {count}[/{style}]")
+                self.callback(f"Expected: {expected_count}, Would get: {count}", debug=True)
             files_processed += 1
 
         # All files processed successfully

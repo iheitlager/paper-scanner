@@ -8,6 +8,9 @@ DOI information from PDF metadata and content.
 import hashlib
 import logging
 import re
+import sys
+import os
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -18,6 +21,16 @@ logger = logging.getLogger(__name__)
 try:
     from pypdf import PdfReader
     HAS_PYPDF = True
+    # Suppress pypdf debug output aggressively after successful import
+    pypdf_logger = logging.getLogger("pypdf")
+    pypdf_logger.setLevel(logging.WARNING)
+    pypdf_logger.propagate = False
+    pypdf_logger.handlers = []
+    
+    pypdf_reader_logger = logging.getLogger("pypdf._reader")
+    pypdf_reader_logger.setLevel(logging.WARNING)
+    pypdf_reader_logger.propagate = False
+    pypdf_reader_logger.handlers = []
 except ImportError:
     HAS_PYPDF = False
 
@@ -28,6 +41,18 @@ except ImportError:
     HAS_PDFPLUMBER = False
 
 import requests
+
+
+@contextmanager
+def suppress_pypdf_output():
+    """Context manager to suppress pypdf debug output to stderr."""
+    # Redirect stderr to devnull
+    old_stderr = sys.stderr
+    sys.stderr = open(os.devnull, 'w')
+    try:
+        yield
+    finally:
+        sys.stderr = old_stderr
 
 
 def compute_file_sha256(file_path: Path, chunk_size: int = 8192) -> str:
@@ -130,20 +155,21 @@ class DOIExtractor:
             return None
 
         try:
-            with open(pdf_path, 'rb') as f:
-                reader = PdfReader(f)
-                metadata = reader.metadata
+            with suppress_pypdf_output():
+                with open(pdf_path, 'rb') as f:
+                    reader = PdfReader(f)
+                    metadata = reader.metadata
 
-                if metadata:
-                    # Check common metadata fields
-                    for field in ('/Subject', '/Keywords', '/Producer', '/Title'):
-                        value = metadata.get(field, '')
-                        if isinstance(value, bytes):
-                            value = value.decode('utf-8', errors='ignore')
-                        if isinstance(value, str):
-                            doi = self._extract_doi_from_text(value)
-                            if doi:
-                                return doi
+                    if metadata:
+                        # Check common metadata fields
+                        for field in ('/Subject', '/Keywords', '/Producer', '/Title'):
+                            value = metadata.get(field, '')
+                            if isinstance(value, bytes):
+                                value = value.decode('utf-8', errors='ignore')
+                            if isinstance(value, str):
+                                doi = self._extract_doi_from_text(value)
+                                if doi:
+                                    return doi
 
         except Exception as e:
             logger.debug(f"Metadata extraction failed: {e}")
@@ -170,16 +196,17 @@ class DOIExtractor:
         # Fallback: try pypdf
         if HAS_PYPDF:
             try:
-                with open(pdf_path, 'rb') as f:
-                    reader = PdfReader(f)
-                    # Search first 3 pages
-                    for page_num in range(min(3, len(reader.pages))):
-                        page = reader.pages[page_num]
-                        text = page.extract_text()
-                        if text:
-                            doi = self._extract_doi_from_text(text)
-                            if doi:
-                                return doi
+                with suppress_pypdf_output():
+                    with open(pdf_path, 'rb') as f:
+                        reader = PdfReader(f)
+                        # Search first 3 pages
+                        for page_num in range(min(3, len(reader.pages))):
+                            page = reader.pages[page_num]
+                            text = page.extract_text()
+                            if text:
+                                doi = self._extract_doi_from_text(text)
+                                if doi:
+                                    return doi
 
             except Exception as e:
                 logger.debug(f"pypdf extraction failed: {e}")
@@ -387,11 +414,12 @@ class FileReader:
             # Fallback to pypdf
             if HAS_PYPDF:
                 try:
-                    with open(self.pdf_path, 'rb') as f:
-                        reader = PdfReader(f)
-                        text = "\n".join(page.extract_text() or "" for page in reader.pages)
-                        self._text = text
-                        return text
+                    with suppress_pypdf_output():
+                        with open(self.pdf_path, 'rb') as f:
+                            reader = PdfReader(f)
+                            text = "\n".join(page.extract_text() or "" for page in reader.pages)
+                            self._text = text
+                            return text
                 except Exception as e:
                     logger.debug(f"pypdf extraction failed: {e}")
 

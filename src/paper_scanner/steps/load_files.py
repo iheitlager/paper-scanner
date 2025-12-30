@@ -15,8 +15,6 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from rich.console import Console
-
 from paper_scanner.core.cache import PDFCache
 
 from ..core.enum import DiscoveryMethod, StepStatus
@@ -26,8 +24,6 @@ from ..core.models import Discovery, Paper, PDFInfo
 from ..core.step_result import StepResult
 from ..tools.documents import FileReader
 from .base import BaseStep
-
-console = Console(file=sys.stderr)
 
 
 

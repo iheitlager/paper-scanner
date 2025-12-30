@@ -17,7 +17,7 @@ import hashlib
 import importlib
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
@@ -109,7 +109,7 @@ class StepExecutor:
     _general_config = {
         "project_name": "name",
         "description": "description",
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "researcher": "researcher",
         "research_question": "research_question",
         "email": "email",
@@ -424,8 +424,8 @@ class StepExecutor:
         # Update general config from definition
         project_config = self.definition.get("project", {})
         for key, def_key in self._general_config.items():
-            if key in project_config:
-                self.general_config[key] = project_config[key]
+            if def_key in project_config:
+                self.general_config[key] = project_config[def_key]
 
         # Load templates section (optional, v1: static sequences only)
         self.templates = {}

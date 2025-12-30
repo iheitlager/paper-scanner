@@ -9,18 +9,15 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from rich.console import Console
-
 from paper_scanner.core.models import Citation, Paper, PDFInfo
 from paper_scanner.core.cache import PDFCache
+from paper_scanner.core.exceptions import ConfigurationError
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.manual_handler import ManualHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.openalex_handler import OpenAlexHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.publisher_handler import PublisherHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.semantic_scholar_handler import SemanticScholarHandler
-
-console = Console(file=sys.stderr)
 
 # Mapping of method names to handler classes
 handler_classes = {
@@ -39,7 +36,7 @@ class Fetcher:
     Manages handler registration, caching, and fallback logic.
     """
 
-    def __init__(self, cache_dir: Path, methods: list, verbose: bool = False, debug: bool = False):
+    def __init__(self, cache_dir: Path, methods: list):
         """
         Initialize fetcher with specified methods.
 
@@ -49,8 +46,6 @@ class Fetcher:
         """
         self.cache_dir = Path(cache_dir).expanduser()
         self.handlers: Dict[str, BaseFetcherHandler] = {}
-        self.verbose = verbose
-        self.debug = debug
         # NB: PDF caching is handled here in the Fetcher, not in individual handlers
         self.pdf_cache = PDFCache(cache_dir=self.cache_dir / "pdfs")
 
@@ -62,18 +57,12 @@ class Fetcher:
 
     def _register_handlers(self, methods: list) -> None:
         """Register handler instances for specified methods."""
-        if self.debug:
-            console.print(" Registering fetcher handlers:")
-
         for method in methods:
             if method not in handler_classes:
-                console.print(f" [yellow]Unknown fetcher method: {method}[/yellow]")
-                continue
+                raise ConfigurationError(f"Unknown fetcher method: {method}")
 
             handler_class = handler_classes[method]
-            self.handlers[method] = handler_class(cache_dir=self.cache_dir, debug=self.debug, verbose=self.verbose)
-            if self.debug:
-                console.print(f" [dim]{method} - {self.cache_dir}/{method}[/dim]")
+            self.handlers[method] = handler_class(cache_dir=self.cache_dir)
 
     def fetch_paper(self, doi: str) -> Tuple[Optional[Paper], bool, str]:
         """
@@ -100,10 +89,8 @@ class Fetcher:
                     cache_hit = cache_hit and new_cache_hit
                 if paper and paper.calculated_quality_score >= 0.9:
                     return paper, cache_hit, handler_name
-            except Exception as e:
-                console.print(
-                    f"[yellow]Handler {handler_name} failed for {doi}: {e}[/yellow]"
-                )
+            except Exception:
+                # Handler failed, try next one
                 continue
         if paper:
             return paper, cache_hit, handler_name
@@ -122,19 +109,9 @@ class Fetcher:
             Tuple of (citations list, cache_hit: bool)
         """
         for handler_name, handler in self.handlers.items():
-            try:
-                citations, cache_hit = handler.fetch_citations(doi)
-                if citations:
-                    if self.debug:
-                        console.print(
-                            f" [green]✓[/green] Fetched {len(citations)} backward citations for {doi} from {handler_name}"
-                        )
-                    return citations, cache_hit
-            except Exception as e:
-                console.print(
-                    f" [yellow]⚠️  Handler {handler_name} failed for {doi}: {e}[/yellow]"
-                )
-                continue
+            citations, cache_hit = handler.fetch_citations(doi)
+            if citations:
+                return citations, cache_hit
 
         return [], False
 
@@ -152,19 +129,9 @@ class Fetcher:
             Tuple of (citations list, cache_hit: bool)
         """
         for handler_name, handler in self.handlers.items():
-            try:
-                citations, cache_hit = handler.fetch_cited_by(doi, limit=limit)
-                if citations:
-                    if self.debug:
-                        console.print(
-                            f" [green]✓[/green] Fetched {len(citations)} forward citations for {doi} from {handler_name}"
-                        )
-                    return citations, cache_hit
-            except Exception as e:
-                console.print(
-                    f" [yellow]⚠️  Handler {handler_name} failed for {doi}: {e}[/yellow]"
-                )
-                continue
+            citations, cache_hit = handler.fetch_cited_by(doi, limit=limit)
+            if citations:
+                return citations, cache_hit
 
         return [], False
 
@@ -185,8 +152,6 @@ class Fetcher:
         # Check cache first
         cached_path = self.pdf_cache.get(doi)
         if cached_path:
-            if self.debug:
-                console.print(f" [green]✓[/green] PDF cache hit for {doi}")
             # Return PDFInfo from cached path (we'll reconstruct metadata)
             if cached_path.exists():
                 return PDFInfo(
@@ -199,17 +164,12 @@ class Fetcher:
         # Try to fetch from handlers
         for handler_name, handler in self.handlers.items():
             try:
-                if self.debug:
-                    console.print(f"  Trying to fetch PDF from {handler_name} for DOI {doi}")
-
                 # Handler now returns PDFInfo with handler name as source
                 pdf_info = handler.fetch_pdf(doi, timeout=timeout)
                 if pdf_info and pdf_info.file_path:
                     tmp_pdf_path = Path(pdf_info.file_path)
                     # Cache the PDF
                     cached_path = self.pdf_cache.set(doi, tmp_pdf_path)
-                    if self.debug:
-                        console.print(f" [green]✓[/green] PDF cached for {doi} from {handler_name}")
 
                     # Return PDFInfo with updated file path (now in cache) but preserve handler name
                     return PDFInfo(
@@ -218,10 +178,8 @@ class Fetcher:
                         download_source=pdf_info.download_source,  # Preserve handler name
                         download_url=pdf_info.download_url,
                     )
-            except Exception as e:
-                console.print(
-                    f" [yellow]⚠️  Handler {handler_name} failed to fetch PDF for {doi}: {e}[/yellow]"
-                )
+            except Exception:
+                # Handler failed, try next one
                 continue
 
         return None

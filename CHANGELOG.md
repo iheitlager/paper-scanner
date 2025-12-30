@@ -34,8 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Minimum 2 pattern threshold for empirical classification (prevents false positives)
   - Comprehensive unit test suite (43 tests) covering KeywordMatcher, StudyTypeDetector, KeywordScreener, and step execution
 
-### Changed
-
 - **Screening Pipeline Architecture**: Refactored for better evaluation and snowballing support
   - Enhanced `Deduplication` step with improved duplicate detection and resolution
   - Refactored `Semantic Screening` step for consistency with metadata/keyword screening outputs
@@ -56,6 +54,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Suppressed pypdf debug output ("Overwriting cache for..." messages) by wrapping PDF operations with stderr context manager
+- Fixed Citations step `forward_execute()` method signature mismatch causing missing positional argument error
+- Fixed OpenAlex handler NoneType comparison error by adding null check for `_extract_source_key()` when extracting cited_by citations
+- Fixed `datetime.utcnow()` deprecation warning by using timezone-aware `datetime.now(timezone.utc)` instead
+- Removed `debug` and `verbose` parameters from Fetcher class for cleaner error handling
+  - Fetcher now gracefully handles handler exceptions by trying fallback handlers instead of propagating errors
+  - Updated error handling in `fetch_paper()` and `fetch_pdf()` methods to continue on handler failures
 - Fixed unit test coverage for deduplication, keyword screening, and semantic screening steps
 - Corrected duplicate paper filtering logic in console viewer
 - Fixed empty database handling in REPL show command
