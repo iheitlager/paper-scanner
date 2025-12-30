@@ -36,6 +36,47 @@ from .base import BaseStep
 console = Console(file=sys.stderr)
 
 
+def is_substantive_abstract(abstract: str) -> bool:
+    """
+    Check if abstract is substantive enough for analysis.
+    
+    Filters out:
+    - Very short abstracts (< 20 characters)
+    - Pure boilerplate statements (conflicts of interest, author declarations, etc.)
+    
+    Args:
+        abstract: Abstract text to validate
+        
+    Returns:
+        True if abstract is substantive, False otherwise
+    """
+    if not abstract or len(abstract.strip()) < 20:
+        return False
+    
+    # only check the beginning (first 25 words) of the abstract for boilerplate
+    abstract_lower = " ".join(abstract.lower().split()[:25])
+    
+    # Check for conflict of interest / competing interests boilerplate
+    conflict_phrases = [
+        "authors declare no",
+        "no conflicts of interest",
+        "conflict of interest",
+        "no competing interests",
+        "competing interests",
+        "authors would like to thank"
+    ]
+    
+    if any(phrase in abstract_lower for phrase in conflict_phrases):
+        return False
+    
+    # For acknowledgements - only reject if combined with funding/thanks keywords
+    if any(word in abstract_lower for word in ("acknowledge", "acknowledgements", "acknowledgments")):
+        if any(keyword in abstract_lower for keyword in ("funding", "thank", "support", "gratitude")):
+            return False
+    
+    return True
+
+
 class KeywordMatcher:
     """
     Keyword matching with wildcard support.
@@ -382,8 +423,9 @@ class KeywordScreener:
         start_time = datetime.now(timezone.utc)
 
         # 1. CHECK COMPLETENESS: Exclude if title, abstract, or keywords missing
+        # Also validate that abstract is substantive (not just boilerplate)
         has_title = title and title.strip()
-        has_abstract = abstract and abstract.strip() and abstract.strip().upper() != "N/A"
+        has_abstract = abstract and abstract.strip() and abstract.strip().upper() != "N/A" and is_substantive_abstract(abstract)
         has_keywords = keywords and len(keywords) > 0 and any(k.strip() for k in keywords)
         
         if not (has_title and has_abstract and has_keywords):
@@ -391,8 +433,10 @@ class KeywordScreener:
             missing_parts = []
             if not has_title:
                 missing_parts.append("title")
-            if not has_abstract:
+            if not abstract or not abstract.strip() or abstract.strip().upper() == "N/A":
                 missing_parts.append("abstract")
+            elif not is_substantive_abstract(abstract):
+                missing_parts.append("abstract (boilerplate)")
             if not has_keywords:
                 missing_parts.append("keywords")
             

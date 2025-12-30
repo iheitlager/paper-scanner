@@ -21,14 +21,14 @@ class TestIsSubstantiveAbstract:
         assert is_substantive_abstract(abstract) is True
 
     def test_substantive_abstract_minimum_length(self):
-        """Verify abstract must be at least 50 characters"""
-        abstract_short = "This is a short abstract about innovation."
+        """Verify abstract must be at least 20 characters"""
+        abstract_short = "Short abstract here"
         assert is_substantive_abstract(abstract_short) is False
 
     def test_substantive_abstract_just_above_minimum(self):
         """Verify abstract just above minimum length is accepted"""
-        abstract = "This is an abstract about digital innovation and business models."
-        assert len(abstract) >= 50
+        abstract = "This is an abstract about innovation"
+        assert len(abstract) >= 20
         assert is_substantive_abstract(abstract) is True
 
     def test_boilerplate_conflict_of_interest(self):
@@ -104,11 +104,11 @@ class TestIsSubstantiveAbstract:
         assert is_substantive_abstract(abstract) is True
 
     def test_valid_abstract_exactly_50_characters(self):
-        """Verify abstract exactly at 50 character minimum is accepted"""
-        abstract = "A" * 50  # Exactly 50 characters
+        """Verify abstract exactly at 20 character minimum is accepted"""
+        abstract = "A" * 20  # Exactly 20 characters
         assert is_substantive_abstract(abstract) is True
 
     def test_abstract_49_characters_rejected(self):
-        """Verify abstract below 50 character minimum is rejected"""
-        abstract = "A" * 49  # 49 characters
+        """Verify abstract below 20 character minimum is rejected"""
+        abstract = "A" * 19  # 19 characters
         assert is_substantive_abstract(abstract) is False

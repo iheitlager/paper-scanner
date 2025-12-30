@@ -21,6 +21,7 @@ from paper_scanner.core.models import ProcessingMetadata, SemanticScreening
 from paper_scanner.tools.documents.rocchio import AdaptiveRocchioScreener, ScreeningState
 from paper_scanner.core.step_result import StepResult
 from .base import BaseStep
+from .keyword_screening import is_substantive_abstract
 
 # Suppress verbose logging from transformers/sentence-transformers
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -33,47 +34,6 @@ try:
     from sentence_transformers import SentenceTransformer
 except ImportError:
     SentenceTransformer = None
-
-
-def is_substantive_abstract(abstract: str) -> bool:
-    """
-    Check if abstract is substantive enough for semantic embedding.
-    
-    Filters out:
-    - Very short abstracts (< 50 characters)
-    - Boilerplate statements (conflicts of interest, author declarations, etc.)
-    
-    Args:
-        abstract: Abstract text to validate
-        
-    Returns:
-        True if abstract is substantive, False otherwise
-    """
-    if not abstract or len(abstract.strip()) < 50:
-        return False
-    
-    # only check the beginning (first 25 words) of the abstract for boilerplate
-    abstract_lower = " ".join(abstract.lower().split()[:25])
-    
-    # Check for conflict of interest / competing interests boilerplate
-    conflict_phrases = [
-        "authors declare no",
-        "no conflicts of interest",
-        "conflict of interest",
-        "no competing interests",
-        "competing interests",
-        "authors would like to thank"
-    ]
-    
-    if any(phrase in abstract_lower for phrase in conflict_phrases):
-        return False
-    
-    # For acknowledgements - only reject if combined with funding/thanks keywords
-    if any(word in abstract_lower for word in ("acknowledge", "acknowledgements", "acknowledgments")):
-        if any(keyword in abstract_lower for keyword in ("funding", "thank", "support", "gratitude")):
-            return False
-    
-    return True
 
 
 class RocchioScreeningStep(BaseStep):

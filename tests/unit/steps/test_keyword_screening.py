@@ -411,7 +411,7 @@ class TestKeywordScreener:
         # Should match "software"
         screening, should_include, reason = screener.screen_paper(
             title="Software Development",
-            abstract="Test",
+            abstract="This is a test abstract about software",
             keywords=["software", "development"]
         )
         assert should_include is True
