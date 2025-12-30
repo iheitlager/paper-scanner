@@ -153,12 +153,12 @@ class TestConsoleReporterCallbacks:
     def test_on_step_start(self):
         """Test step start callback"""
         reporter = ConsoleReporter()
-        reporter.log_info = Mock()
+        reporter.log_msg = Mock()
 
         step_config = {"description": "Import papers", "step": "import bibtex", "command": "builtin.bibtex_import" }
         reporter.on_step_start(1, step_config, 5)
 
-        reporter.log_info.assert_called()
+        reporter.log_msg.assert_called()
 
     def test_on_step_end(self):
         """Test step end callback"""
