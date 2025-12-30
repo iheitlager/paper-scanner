@@ -174,12 +174,12 @@ class RocchioScreeningStep(BaseStep):
         7. Store updated state back to executor.step_state for persistence
 
         Model Selection:
-        - "specter2" (recommended): Domain-specialized for academic papers
+        - "sentence-transformers/allenai-specter" (recommended): Domain-specialized for academic papers
         - "all-mpnet-base-v2": General-purpose, fast, multilingual
         - "all-MiniLM-L6-v2": Lightweight, fastest inference
         - "sciBERT": Scientific domain-aware BERT
         """
-        
+
         research_question = self.general_config.get("research_question", "")
         if not research_question:
             raise ConfigurationError(
@@ -187,7 +187,7 @@ class RocchioScreeningStep(BaseStep):
             )
 
         # Get configuration
-        model_name = config.get("model", "specter2")
+        model_name = config.get("model", "sentence-transformers/allenai-specter")
         rocchio_weights = config.get("rocchio_weights", {})
         thresholds = config.get("thresholds", {})
         initialize_from_keyword = config.get("initialize_from_keyword_screening", True)

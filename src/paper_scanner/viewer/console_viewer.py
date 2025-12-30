@@ -244,6 +244,8 @@ Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by
                         return "up"
                     elif arrow == "B":  # Down arrow
                         return "down"
+                # If ESC not followed by arrow sequence, return ESC
+                return "\x1b"
             return ch
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
