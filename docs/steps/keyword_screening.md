@@ -14,6 +14,7 @@ Papers are classified by study type, matched against inclusion/exclusion keyword
 
 ### Features
 
+- ✅ **Metadata Completeness Validation**: First-pass validation excludes papers with missing title, abstract, or keywords (EXCLUDED_INCOMPLETE decision)
 - ✅ **Implicit Study Type Detection**: Automatically detects empirical (qualitative/quantitative), literature review, case study, conceptual, editorial, and unknown types
 - ✅ **Sophisticated Pattern Matching**: Uses 60+ regex patterns across 8 categories (quantitative methods, qualitative methods, case studies, methodology indicators, etc.)
 - ✅ **Wildcard Keyword Matching**: Support for exact (`keyword`), prefix (`*keyword`), suffix (`keyword*`), and full (`*keyword*`) wildcards
@@ -45,11 +46,21 @@ Keywords support flexible wildcard patterns:
 | Prefix | `*agile` | "agile", "be-agile", "more-agile" |
 | Both | `*agile*` | "agile" anywhere in text |
 
-#### Screening Modes
+### Screening Modes
 
 - **`inclusion_required`** (default): Paper must match inclusion keywords AND not match exclusion keywords AND not be excluded study type
 - **`exclusion_only`**: Exclude based on exclusion keywords and study types; no inclusion requirement
 - **`soft`**: Permissive mode; performs matching but doesn't enforce exclusion
+
+#### Metadata Completeness Check
+
+Before any keyword matching occurs, the step validates that papers have complete metadata:
+
+- **title**: Must be non-empty string
+- **abstract**: Must be non-empty and not "N/A"
+- **keywords**: Must be non-empty list with at least one non-empty keyword
+
+Papers failing this validation are marked with **EXCLUDED_INCOMPLETE** decision and reason `"incomplete metadata: missing {title|abstract|keywords}"`. This ensures downstream analysis only processes papers with sufficient information for meaningful screening.
 
 #### YAML Definition
 
@@ -83,17 +94,21 @@ Keywords support flexible wildcard patterns:
 
 #### Output
 - **Format**: Papers with keyword screening results and study type classification
+- **Screening Decisions**: Papers can receive one of several decision types:
+  - **PASSED**: Paper passes keyword screening and study type validation
+  - **EXCLUDED**: Paper fails keyword screening (doesn't match inclusion keywords or matches exclusion keywords or fails study type exclusion)
+  - **EXCLUDED_INCOMPLETE**: Paper has incomplete metadata (missing title, abstract, or keywords) - first-pass validation
 - **Database Updates**:
   - `screening.keyword_screening.study_type`: Detected study type enum
   - `screening.keyword_screening.passed`: Boolean inclusion/exclusion decision
   - `screening.keyword_screening.inclusion_keywords`: Matched inclusion keywords (list)
   - `screening.keyword_screening.exclusion_keywords`: Matched exclusion keywords (list)
   - `screening.keyword_screening.keyword_screening_confidence`: Keyword match confidence (0-1)
-  - `screening.keyword_screening.exclusion_reason`: Explanation if excluded
+  - `screening.keyword_screening.exclusion_reason`: Explanation if excluded (e.g., "incomplete metadata: missing keywords")
   - `screening.keyword_screening.is_empirical`: Whether detected as empirical research
   - `screening.keyword_screening.is_conceptual`: Whether detected as conceptual
   - `screening.keyword_screening.is_literature_review`: Whether detected as literature review
-  - `screening.final_decision`: Set to EXCLUDED if failed screening
+  - `screening.final_decision`: Set to EXCLUDED or EXCLUDED_INCOMPLETE if failed screening
   - `screening.final_decision_by`: Set to "automated:keyword_screening"
 - **Metrics**: 
   - `total_papers`: Papers processed
@@ -178,6 +193,7 @@ The step handles:
 
 ### Notes
 
+- **Metadata completeness is validated first**: Papers missing title, abstract, or keywords are immediately excluded with EXCLUDED_INCOMPLETE decision before any keyword matching
 - **Keyword matching is case-insensitive** for flexibility
 - **Partial word matching** is supported (e.g., "transform" matches "transformation")
 - **Scoring mechanism**: Counts keyword occurrences in title (2x weight) and abstract/keywords (1x weight)
