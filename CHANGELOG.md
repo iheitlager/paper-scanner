@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - TBD
+
+### Added
+
+- **Semantic Classification Step**: New Rocchio-based adaptive semantic classification
+  - Implements Adaptive Rocchio Algorithm with persistent centroid-based decision boundaries
+  - Centroids evolve as papers are labeled, enabling adaptive learning across iterations
+  - State persists in executor.step_state between steps within a session
+  - Bootstraps from keyword_screening results for initial seed labels
+  - Configurable Rocchio weights (α, β, γ) and accept/reject thresholds
+  - Embeddings support via sentence-transformers (default: specter2 for scientific papers)
+  - Routes papers to ACCEPT, REJECT, or UNCERTAIN based on Rocchio scores
+
+- **Executor Step State Management**: New step_state field for persistent step-specific data
+  - step_state Dict[str, Any] persists between step executions within a session
+  - Cleared on explicit reset() call, enabling ephemeral state for multi-step iterations
+  - Enables stateful steps like Rocchio that need to maintain centroids across steps
+  - Supports checkpoint-style patterns without full serialization
+
+- **Rocchio Core Module**: Core implementation of Adaptive Rocchio Algorithm
+  - AdaptiveRocchioScreener class with ScreeningState dataclass
+  - Incremental centroid updates (O(embedding_dim) per paper)
+  - Dynamic query vector with weighted combination of research question and centroids
+  - Configurable thresholds and Rocchio weights for decision making
+  - State serialization/deserialization for executor integration
+
+### Changed
+
+### Fixed
+
+### Removed
+
 ## [3.4.1] - TBD
 
 ### Added
@@ -51,6 +83,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `is_duplicate` property to Paper model for cleaner duplicate checking
   - Split APA citation formatting: `apa_formatted` (rich text) vs `apa` (plain text)
   - Enhanced screening reason tracking across metadata, keyword, and semantic phases
+
+- **Histogram report**
+  - Simple histogram showing the iteration / year distribution of papers
 
 ### Fixed
 

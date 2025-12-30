@@ -145,6 +145,7 @@ class StepExecutor:
         self.definition: Dict[str, Any] = {}
         self.templates: Dict[str, List[Dict[str, Any]]] = {}
         self.steps: List[Dict[str, Any]] = []
+        self.step_state: Dict[str, Any] = {}  # Ephemeral state persisting between steps within a session
 
         # Execution tracking
         self.results: Dict[str, Any] = {}
@@ -285,6 +286,7 @@ class StepExecutor:
             self.step_history = []
             self.current_step_index = 0
             self.start_time = None
+            self.step_state = {}  # Clear step state on execution reset
             self.papers_db = PapersDatabase()
 
         if scope in ("definition", "all"):
