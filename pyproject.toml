@@ -69,6 +69,7 @@ dev = [
     "refurb",
     "vulture",
     "icecream>=2.1.8",
+    "bibtexparser>=1.4.3",
 ]
 
 docs = [

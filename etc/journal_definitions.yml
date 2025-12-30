@@ -1,0 +1,266 @@
+# Journal Definitions - Extracted from test data
+# Auto-generated from tests/data/*.bib files
+# Extended with ISO4 abbreviations and journal acronyms
+
+# Curated journal list extracted from BibTeX test data
+# Ordered by frequency of appearance in test corpus
+journals:
+  "Multidisciplinary Reviews":
+    acronym: "MR"
+    iso4: "Multidiscip. Rev."
+
+  "Journal of Business Research":
+    acronym: "JBR"
+    iso4: "J. Bus. Res."
+
+  "Technology in Society":
+    acronym: "TIS"
+    iso4: "Technol. Soc."
+
+  "Lecture Notes in Mechanical Engineering":
+    acronym: "LNME"
+    iso4: "Lect. Notes Mech. Eng."
+
+  "Lecture Notes in Networks and Systems":
+    acronym: "LNNS"
+    iso4: "Lect. Notes Netw. Syst."
+
+  "IEEE Transactions on Engineering Management":
+    acronym: "TEM"
+    iso4: "IEEE Trans. Eng. Manag."
+
+  "Frontiers in Psychology":
+    acronym: "FIP"
+    iso4: "Front. Psychol."
+
+  "Multidisciplinary Science Journal":
+    acronym: "MSJ"
+    iso4: "Multidiscip. Sci. J."
+
+  "Technological Forecasting and Social Change":
+    acronym: "TFSC"
+    iso4: "Technol. Forecast. Soc. Change"
+
+  "Technovation":
+    acronym: "TECH"
+    iso4: "Technovation"
+
+  "International Journal of Production Economics":
+    acronym: "IJPE"
+    iso4: "Int. J. Prod. Econ."
+
+  "Renewable and Sustainable Energy Reviews":
+    acronym: "RSER"
+    iso4: "Renew. Sustain. Energy Rev."
+
+  "Studies in Computational Intelligence":
+    acronym: "SCI"
+    iso4: "Stud. Comput. Intell."
+
+  "Journal of Construction Engineering and Management":
+    acronym: "JCEM"
+    iso4: "J. Constr. Eng. Manag."
+
+  "Studies in Big Data":
+    acronym: "SBD"
+    iso4: "Stud. Big Data"
+
+  "Communications in Computer and Information Science":
+    acronym: "CCIS"
+    iso4: "Commun. Comput. Inf. Sci."
+
+  "Supply Chain Management - An International Journal":
+    acronym: "SCM"
+    iso4: "Supply Chain Manag."
+
+  "Journal of Supercomputing":
+    acronym: "JS"
+    iso4: "J. Supercomput."
+
+  "Journal of the Knowledge Economy":
+    acronym: "JKE"
+    iso4: "J. Knowl. Econ."
+
+  "Information Systems Journal":
+    acronym: "ISJ"
+    iso4: "Inf. Syst. J."
+
+  "International Journal of Logistics Management":
+    acronym: "IJLM"
+    iso4: "Int. J. Logist. Manag."
+
+  "Innovation - Organization & Management":
+    acronym: "IOM"
+    iso4: "Innov. Organ. Manag."
+
+  "Information & Management":
+    acronym: "IM"
+    iso4: "Inf. Manag."
+
+  "Pacific-Basin Finance Journal":
+    acronym: "PBFJ"
+    iso4: "Pac. Basin Finance J."
+
+  "International Review of Financial Analysis":
+    acronym: "IRFA"
+    iso4: "Int. Rev. Financ. Anal."
+
+  "Journal of Strategic Information Systems":
+    acronym: "JSIS"
+    iso4: "J. Strateg. Inf. Syst."
+
+  "International Journal of Operations & Production Management":
+    acronym: "IJOPM"
+    iso4: "Int. J. Oper. Prod. Manag."
+
+  "Sustainability":
+    acronym: "SUS"
+    iso4: "Sustain."
+
+  "European Journal of Innovation Management":
+    acronym: "EJIM"
+    iso4: "Eur. J. Innov. Manag."
+
+  "International Journal of Electronic Commerce":
+    acronym: "IJEC"
+    iso4: "Int. J. Electron. Commer."
+
+  "California Management Review":
+    acronym: "CMR"
+    iso4: "Calif. Manag. Rev."
+
+  "Industry and Innovation":
+    acronym: "II"
+    iso4: "Ind. Innov."
+
+  "Journal of Innovation and Entrepreneurship":
+    acronym: "JIE"
+    iso4: "J. Innov. Entrep."
+
+  "Strategic Entrepreneurship Journal":
+    acronym: "SEJ"
+    iso4: "Strateg. Entrep. J."
+
+  "Entrepreneurship Theory and Practice":
+    acronym: "ETP"
+    iso4: "Entrep. Theory Pract."
+
+  "Small Business Economics":
+    acronym: "SBE"
+    iso4: "Small Bus. Econ."
+
+  "Research Policy":
+    acronym: "RP"
+    iso4: "Res. Policy"
+
+  "Journal of Product Innovation Management":
+    acronym: "JPIM"
+    iso4: "J. Prod. Innov. Manag."
+
+  "Academy of Management Journal":
+    acronym: "AMJ"
+    iso4: "Acad. Manag. J."
+
+  "Academy of Management Review":
+    acronym: "AMR"
+    iso4: "Acad. Manag. Rev."
+
+  "Academy of Management Discoveries":
+    acronym: "AMD"
+    iso4: "Acad. Manag. Discov."
+
+  "Academy of Management Learning & Education":
+    acronym: "AMLE"
+    iso4: "Acad. Manag. Learn. Educ."
+
+  "MIS Quarterly":
+    acronym: "MISQ"
+    iso4: "MIS Q."
+
+  "Journal of Management Information Systems":
+    acronym: "JMIS"
+    iso4: "J. Manag. Inf. Syst."
+
+  "Information Systems Research":
+    acronym: "ISR"
+    iso4: "Inf. Syst. Res."
+
+  "Journal of the Association for Information Systems":
+    acronym: "JAIS"
+    iso4: "J. Assoc. Inf. Syst."
+
+  "European Journal of Information Systems":
+    acronym: "EJIS"
+    iso4: "Eur. J. Inf. Syst."
+
+  "Journal of Information Technology":
+    acronym: "JIT"
+    iso4: "J. Inf. Technol."
+
+  "Information and Organization":
+    acronym: "IO"
+    iso4: "Inf. Organ."
+
+  "Database for Advances in Information Systems":
+    acronym: "DAIS"
+    iso4: "Database Adv. Inf. Syst."
+
+# Curated views - groupings by field or publisher
+views:
+  academy_journals:
+    label: "Academy of Management Journals"
+    description: "Journals published by Academy of Management"
+    last_updated: "2024-06-01"
+    journals:
+      - "Academy of Management Journal"
+      - "Academy of Management Review"
+      - "Academy of Management Discoveries"
+      - "Academy of Management Learning & Education"
+
+  basket_of_eight:
+    label: "AIS Basket of Eight"
+    description: "Senior scholarly journals in Information Systems - Association for Information Systems"
+    last_updated: "2024-06-01"
+    journals:
+      - "MIS Quarterly"
+      - "Journal of Management Information Systems"
+      - "Information Systems Research"
+      - "Journal of the Association for Information Systems"
+      - "European Journal of Information Systems"
+      - "Journal of Information Technology"
+      - "Information and Organization"
+      - "Database for Advances in Information Systems"
+
+  vhb_ranking:
+    label: "VHB-JOURQUAL Ranking"
+    description: "German academic journal ranking by VHB (Verband der Hochschullehrer für Betriebswirtschaft)"
+    sub_views:
+      A_plus:
+        label: "A+ (Top Tier)"
+        last_updated: "2024-06-01"
+        journals:
+          - "MIS Quarterly"
+      A:
+        label: "A (First Tier)"
+        last_updated: "2024-06-01"
+        journals:
+          - "Journal of Management Information Systems"
+          - "Information Systems Research"
+          - "Journal of the Association for Information Systems"
+          - "European Journal of Information Systems"
+          - "Journal of Information Technology"
+
+  innovation_journals:
+    label: "Innovation & Entrepreneurship Journals"
+    description: "Journals focused on innovation, entrepreneurship, and technology-driven business"
+    journals:
+      - "Technovation"
+      - "Strategic Entrepreneurship Journal"
+      - "Entrepreneurship Theory and Practice"
+      - "European Journal of Innovation Management"
+      - "Journal of Innovation and Entrepreneurship"
+      - "Journal of Product Innovation Management"
+      - "Research Policy"
+      - "Small Business Economics"
+      - "Industry and Innovation"
+      - "Innovation - Organization & Management"

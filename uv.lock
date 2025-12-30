@@ -1755,6 +1755,7 @@ docs = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "bibtexparser" },
     { name = "gunicorn" },
     { name = "icecream" },
     { name = "isort" },
@@ -1814,6 +1815,7 @@ provides-extras = ["docs"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "bibtexparser", specifier = ">=1.4.3" },
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "icecream", specifier = ">=2.1.8" },
     { name = "isort" },
