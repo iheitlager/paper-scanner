@@ -33,9 +33,9 @@ except ImportError:
     SentenceTransformer = None
 
 
-class SemanticClassificationStep(BaseStep):
+class RocchioScreeningStep(BaseStep):
     """
-    Semantic classification step using Adaptive Rocchio Algorithm.
+    Rocchio-based semantic screening step with adaptive classification.
 
     Maintains persistent centroid vectors for accepted/rejected papers that evolve
     as more papers are labeled. Enables adaptive decision boundaries across iterations.
@@ -47,7 +47,7 @@ class SemanticClassificationStep(BaseStep):
     @staticmethod
     def validate(config: Dict[str, Any]) -> Tuple[bool, list]:
         """
-        Validate semantic_classification step configuration.
+        Validate rocchio_screening step configuration.
 
         Args:
             config: Step configuration with optional keys:
@@ -153,7 +153,7 @@ class SemanticClassificationStep(BaseStep):
         reject_threshold = thresholds.get("reject", 0.3)
 
         results = {
-            "step": "semantic_classification",
+            "step": "rocchio_screening",
             "total_papers": self.db.count(primary_only=False),
             "classified": 0,
             "accepted": 0,
@@ -302,9 +302,9 @@ class SemanticClassificationStep(BaseStep):
                     # Update final decision if not already decided
                     if paper.screening.final_decision == ScreeningDecision.PENDING:
                         paper.screening.final_decision = semantic_screening.decision
-                        paper.screening.final_decision_by = "automated:semantic_classification"
+                        paper.screening.final_decision_by = "automated:rocchio_screening"
 
-                    paper.screening.current_stage = "semantic_classification_complete"
+                    paper.screening.current_stage = "rocchio_screening_complete"
                     self.db.update(paper)
 
                 # Update centroid if paper has been manually labeled
@@ -343,6 +343,6 @@ class SemanticClassificationStep(BaseStep):
                 f"Rejected {results['rejected']}, "
                 f"Uncertain {results['uncertain']}"
             ),
-            step="semantic_classification",
+            step="rocchio_screening",
             stats=results
         )

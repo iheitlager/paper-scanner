@@ -21,7 +21,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "patch": "paper_scanner.steps.patch:PatchStep",
     "retrieve_metadata": "paper_scanner.steps.retrieve_metadata:RetrieveMetadataStep",
     "run-template": "paper_scanner.steps.run_template:RunTemplateStep",
-    "semantic_classification": "paper_scanner.steps.semantic_classification:SemanticClassificationStep",
+    "rocchio_screening": "paper_scanner.steps.rocchio_screening:RocchioScreeningStep",
     "semantic_screening": "paper_scanner.steps.semantic_screening:SemanticScreeningStep",
     "report": "paper_scanner.steps.report:ReportStep",
     "citations": "paper_scanner.steps.citations:CitationsStep",

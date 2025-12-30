@@ -128,8 +128,8 @@ def test_rocchio_prototype_1_zero_seed(executor, bib_file):
                 }
             },
             {
-                "step": "semantic_classification",
-                "builtin.semantic_classification": {
+                "step": "rocchio_screening",
+                "builtin.rocchio_screening": {
                     "model": "all-mpnet-base-v2",  # Lighter model for testing
                     "rocchio_weights": {
                         "alpha": 1.0,
