@@ -215,6 +215,10 @@ class StudyTypeDetector:
         r'sample[\s\S]*?(?:\d+|firms?|companies?|organizations?|pairs?)',
         r'empirical data|empirical (?:evidence|findings)',
         r'results (?:imply|show|indicate|suggest|reveal)',
+        r'analyze[\s\S]{0,100}?(?:data|firms?|companies?|organizations?)',
+        r'(?:\d+)\s+(?:firms?|companies?|organizations?|respondents?|participants?|subjects?)',
+        r'affects?[\s\S]{0,100}?(?:volume|quality|performance|outcome)',
+        r'configuration.*affects?|affects?.*configuration',
     ]
 
     QUALITATIVE_PATTERNS = [

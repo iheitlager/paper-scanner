@@ -21,7 +21,6 @@ from paper_scanner.core.models import ProcessingMetadata, SemanticScreening
 from paper_scanner.tools.documents.rocchio import AdaptiveRocchioScreener, ScreeningState
 from paper_scanner.core.step_result import StepResult
 from .base import BaseStep
-from .keyword_screening import is_substantive_abstract
 
 # Suppress verbose logging from transformers/sentence-transformers
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -44,7 +43,8 @@ class RocchioScreeningStep(BaseStep):
     as more papers are labeled. Enables adaptive decision boundaries across iterations.
 
     State is stored in executor.step_state, persisting between steps within a session
-    but clearing on explicit reset().
+    but clearing on explicit reset(). It is assumed that papers are complete or excluded
+    in previous steps before this step is run.
     """
 
     @staticmethod
@@ -226,7 +226,7 @@ class RocchioScreeningStep(BaseStep):
                     text_parts = []
                     if paper.title:
                         text_parts.append(paper.title)
-                    if paper.abstract and is_substantive_abstract(paper.abstract):
+                    if paper.abstract:
                         text_parts.append(paper.abstract)
                     if paper.keywords:
                         keywords_str = " ".join(paper.keywords)
@@ -274,7 +274,7 @@ class RocchioScreeningStep(BaseStep):
                 text_parts = []
                 if paper.title:
                     text_parts.append(paper.title)
-                if paper.abstract and is_substantive_abstract(paper.abstract):
+                if paper.abstract:
                     text_parts.append(paper.abstract)
                 if paper.keywords:
                     keywords_str = " ".join(paper.keywords)

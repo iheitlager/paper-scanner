@@ -392,6 +392,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
                 "metadata_excluded": 0,
                 "keyword_excluded": 0,
                 "semantic_excluded": 0,
+                "uncertain": 0,
                 "manual_review": 0,
                 "included": 0,
             }
@@ -410,11 +411,13 @@ def _display_screening_results(db: PapersDatabase) -> None:
         # Check semantic screening exclusion
         elif paper.screening.semantic_screening and not paper.screening.semantic_screening.passed:
             papers_by_type[paper_type]["semantic_excluded"] += 1
+        elif final_decision == ScreeningDecision.UNCERTAIN:
+            papers_by_type[paper_type]["uncertain"] += 1
         # Check manual review flag
         elif final_decision == ScreeningDecision.MANUAL_REVIEW:
             papers_by_type[paper_type]["manual_review"] += 1
         # Included
-        elif final_decision in (ScreeningDecision.INCLUDED, ScreeningDecision.INCLUDED_MANUAL):
+        elif paper.is_included:
             papers_by_type[paper_type]["included"] += 1
 
     # Create comprehensive table
@@ -424,6 +427,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
     table.add_column("Metadata\nExcluded", justify="right", style="yellow")
     table.add_column("Keyword\nExcluded", justify="right", style="yellow")
     table.add_column("Semantic\nExcluded", justify="right", style="yellow")
+    table.add_column("Uncertain", justify="right", style="yellow")
     table.add_column("Manual\nReview", justify="right", style="blue")
     table.add_column("Included", justify="right", style="green")
 
@@ -432,6 +436,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
     total_metadata_excl = 0
     total_kw_excl = 0
     total_sem_excl = 0
+    total_uncertain = 0
     total_manual = 0
     total_included = 0
 
@@ -443,6 +448,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
         total_metadata_excl += counts["metadata_excluded"]
         total_kw_excl += counts["keyword_excluded"]
         total_sem_excl += counts["semantic_excluded"]
+        total_uncertain += counts["uncertain"]
         total_manual += counts["manual_review"]
         total_included += counts["included"]
 
@@ -452,6 +458,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
             str(counts["metadata_excluded"]),
             str(counts["keyword_excluded"]),
             str(counts["semantic_excluded"]),
+            str(counts["uncertain"]),
             str(counts["manual_review"]),
             str(counts["included"]),
         )
@@ -476,6 +483,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
         f"[bold yellow]{total_metadata_excl}[/bold yellow]",
         f"[bold yellow]{total_kw_excl}[/bold yellow]",
         f"[bold yellow]{total_sem_excl}[/bold yellow]",
+        f"[bold yellow]{total_uncertain}[/bold yellow]",
         f"[bold blue]{total_manual}[/bold blue]",
         f"[bold green]{total_included}[/bold green]",
     )

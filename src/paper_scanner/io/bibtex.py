@@ -375,9 +375,9 @@ def bibtex_entry_to_paper(
     issn = entry.get('issn', '').strip() or None
 
     # Publication venue
-    journal = entry.get('journal', '').strip().title() or None
-    booktitle = entry.get('booktitle', '').strip().title() or None
-    publisher = entry.get('publisher', '').strip().title() or None
+    journal = titlecase.titlecase(entry.get('journal', '').strip()) or None
+    booktitle = titlecase.titlecase(entry.get('booktitle', '').strip()) or None
+    publisher = titlecase.titlecase(entry.get('publisher', '').strip()) or None
     
     # Normalize ampersands in venue fields
     journal = normalize_ampersands(journal)

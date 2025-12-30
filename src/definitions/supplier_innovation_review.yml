@@ -119,6 +119,17 @@ templates:
               - "provider"
               - "collaboration"
               - "co-creation"
+            methodology:
+              - "quantitative*"
+              - "empirical"
+              - "survey"
+              - "statistical*"
+              - "analysis"
+              - "measurement*"
+              - "hypothesis"
+              - "regression"
+              - "data*"
+              - "study"
 
       - step: "Semantic screening based on research question"
         builtin.semantic_screening:
