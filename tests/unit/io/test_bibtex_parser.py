@@ -16,6 +16,7 @@ from paper_scanner.io.bibtex import (
     bibtex_to_papers,
     clean_bibtex_string,
     evaluate_paper_type,
+    escape_ampersands_for_bibtex,
     export_papers_by_source,
     format_authors_bibtex,
     format_bibtex_entry,
@@ -23,6 +24,7 @@ from paper_scanner.io.bibtex import (
     infer_bibtex_type,
     infer_paper_type,
     load_type_mapping_config,
+    normalize_ampersands,
     paper_to_bibtex_entry,
     papers_to_bibtex,
     papers_to_bibtex_file,
@@ -387,6 +389,115 @@ class TestBibtexEntryToPaper:
         }
         paper = bibtex_entry_to_paper(entry)
         assert paper.raw_bibtex is not None
+
+    def test_bibtex_entry_journal_title_case_normalization(self):
+        """Verify journal name is normalized to title case"""
+        entry = {
+            "ID": "smith2020",
+            "ENTRYTYPE": "article",
+            "title": "Test Article",
+            "journal": "nature machine intelligence",
+        }
+        paper = bibtex_entry_to_paper(entry)
+        # journal field uses .title() which capitalizes first letter of each word
+        assert paper.journal == "Nature Machine Intelligence"
+
+    def test_bibtex_entry_abstract_whitespace_normalization(self):
+        """Verify abstract whitespace (newlines, tabs, multiple spaces) is normalized"""
+        entry = {
+            "ID": "smith2020",
+            "ENTRYTYPE": "article",
+            "title": "Test Article",
+            "abstract": """Industrial manufacturers are innovating their business models by
+   shifting from selling products to selling outcome-based services, where
+   the provider (manufacturer) guarantees to deliver the performance
+   outcomes of the products and services.""",
+        }
+        paper = bibtex_entry_to_paper(entry)
+        # Should be single line with single spaces between words
+        assert "\n" not in paper.abstract
+        assert "  " not in paper.abstract
+        assert paper.abstract.startswith("Industrial manufacturers are")
+        assert paper.abstract.count(" ") == paper.abstract.split().__len__() - 1
+
+    def test_bibtex_entry_abstract_escaped_ampersands(self):
+        """Verify escaped ampersands \\& are normalized to &"""
+        entry = {
+            "ID": "smith2020",
+            "ENTRYTYPE": "article",
+            "title": "Test Article",
+            "abstract": r"This study of A \& B shows that supply \& demand are important.",
+        }
+        paper = bibtex_entry_to_paper(entry)
+        assert r"\&" not in paper.abstract
+        assert " & " in paper.abstract
+        assert paper.abstract.count("&") == 2
+
+    def test_bibtex_entry_abstract_html_ampersands(self):
+        """Verify HTML-encoded ampersands &amp; are normalized to &"""
+        entry = {
+            "ID": "smith2020",
+            "ENTRYTYPE": "article",
+            "title": "Test Article",
+            "abstract": "This studies A &amp; B and their relationship &amp; outcomes.",
+        }
+        paper = bibtex_entry_to_paper(entry)
+        assert "&amp;" not in paper.abstract
+        assert " & " in paper.abstract
+        assert paper.abstract.count("&") == 2
+
+    def test_bibtex_entry_title_ampersands_normalization(self):
+        """Verify ampersands in title are normalized"""
+        entry = {
+            "ID": "smith2020",
+            "ENTRYTYPE": "article",
+            "title": r"Machine Learning \& Deep Learning Trends",
+        }
+        paper = bibtex_entry_to_paper(entry)
+        assert r"\&" not in paper.title
+        assert " & " in paper.title
+
+    def test_bibtex_entry_journal_ampersands_normalization(self):
+        """Verify ampersands in journal name are normalized"""
+        entry = {
+            "ID": "smith2020",
+            "ENTRYTYPE": "article",
+            "title": "Test Article",
+            "journal": r"IEEE Transactions on Software \& Engineering",
+        }
+        paper = bibtex_entry_to_paper(entry)
+        assert r"\&" not in paper.journal
+        assert " & " in paper.journal
+
+    def test_paper_to_bibtex_entry_ampersands_escaped(self):
+        """Verify ampersands are escaped when exporting to BibTeX"""
+        paper = Paper(
+            cite_key="smith2020",
+            title="Machine Learning & Deep Learning",
+            abstract="This paper studies A & B",
+            authors=[],
+            journal="IEEE Transactions on Software & Engineering",
+        )
+        entry = paper_to_bibtex_entry(paper)
+        # When exporting, & should be escaped as \&
+        assert entry["title"] == r"Machine Learning \& Deep Learning"
+        assert entry["abstract"] == r"This paper studies A \& B"
+        assert entry["journal"] == r"IEEE Transactions on Software \& Engineering"
+
+    def test_paper_to_bibtex_entry_already_escaped_ampersands(self):
+        """Verify already escaped ampersands are not double-escaped"""
+        paper = Paper(
+            cite_key="smith2020",
+            title=r"Machine Learning \& Deep Learning",
+            abstract=r"This paper studies A \& B",
+            authors=[],
+            journal=r"IEEE Transactions on Software \& Engineering",
+        )
+        entry = paper_to_bibtex_entry(paper)
+        # Should not have double backslashes
+        assert entry["title"].count(r"\&") == 1
+        assert entry["abstract"].count(r"\&") == 1
+        assert entry["journal"].count(r"\&") == 1
 
 
 class TestBibtexToPapers:
