@@ -24,6 +24,7 @@ class ConsoleViewer:
         """Initialize viewer with papers"""
         self.console = Console()
         self.controller = PaperListController(papers, page_size)
+        self.page_size = page_size  # Store page_size for use in render_page
         self.general_config = general_config or {}
         self.db = db
         self.running = False
@@ -40,17 +41,22 @@ class ConsoleViewer:
 
         page_info = self.controller.get_page_info()
 
-        # In filter or search mode, show only filtered papers
+        # In filter or search mode, show paginated filtered papers
         if (self.mode in ("filter", "search")) and self.filtered_indices:
-            papers_to_show = [self.controller.papers[i] for i in self.filtered_indices]
-            start_idx = 1  # Start numbering from 1
+            filtered_papers = [self.controller.papers[i] for i in self.filtered_indices]
+            # Paginate filtered results
+            current_page = getattr(self, "_filter_current_page", 0)
+            start_idx = current_page * self.page_size
+            end_idx = start_idx + self.page_size
+            papers_to_show = filtered_papers[start_idx:end_idx]
+            start_idx_num = start_idx + 1
         else:
             papers_to_show = self.controller.get_current_page_papers()
-            start_idx = page_info["start_index"]
+            start_idx_num = page_info["start_index"]
 
         # Papers
         for i, paper in enumerate(papers_to_show):
-            idx = start_idx + i
+            idx = start_idx_num + i
 
             # Check if this paper is selected
             if self.mode in ("filter", "search"):
@@ -91,7 +97,10 @@ class ConsoleViewer:
             )
         elif self.mode == "filter":
             match_count = len(self.filtered_indices) if self.filtered_indices else 0
-            line3 = f"[yellow][Filter mode] Showing {match_count} filtered papers — Press / to search again, Q/ESC to exit[/yellow]"
+            filter_page = getattr(self, "_filter_current_page", 0)
+            total_filter_pages = (match_count + self.page_size - 1) // self.page_size if match_count > 0 else 1
+            current_filter_page = filter_page + 1
+            line3 = f"[yellow][Filter mode] Page {current_filter_page}/{total_filter_pages} — {match_count} total filtered papers — Press / to search again, Q/ESC to exit[/yellow]"
         else:
             page_info = self.controller.get_page_info()
             line3 = f"[dim]Page {page_info['current_page']}/{page_info['total_pages']} — {page_info['end_index']}/{page_info['papers_total']} papers[/dim]"
@@ -158,6 +167,7 @@ class ConsoleViewer:
 [bold]Volume/Issue:[/bold] {paper.volume or "N/A"}/{paper.number or "N/A"}
 [bold]Pages:[/bold] {paper.pages or "N/A"}
 [bold]DOI:[/bold] {paper.doi or "N/A"}
+[bold]Cite key:[/bold] {paper.cite_key or "N/A"}
 [bold]URL:[/bold] {paper.url or "N/A"}
 [bold]Source:[/bold] [cyan]{paper.discovery.source_database or "N/A"}[/cyan] {iteration}
 [bold]Screening Decision:[/bold] [{excl_color}]{screening_decision}[/{excl_color}] - {screening_stage}
@@ -357,6 +367,7 @@ Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by
                             self.render_page()
                         elif key == "\r":  # Enter - apply search, keep filter mode
                             self.mode = "filter"
+                            self._filter_current_page = 0  # Reset to first page
                             self.filter_selected_index = None  # Reset selection in filtered results
                             self.render_page()
                         elif key == "\x08" or key == "\x7f":  # Backspace (^H or DEL)
@@ -381,26 +392,47 @@ Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by
                             self.filter_query = ""
                             self.render_page()
                         elif key == "right":
-                            # Pagination in filtered results
+                            # Next page in filtered results
                             self.message = ""  # Clear message on navigation
+                            match_count = len(self.filtered_indices) if self.filtered_indices else 0
+                            total_filter_pages = (match_count + self.page_size - 1) // self.page_size if match_count > 0 else 1
+                            filter_page = getattr(self, "_filter_current_page", 0)
+                            if filter_page < total_filter_pages - 1:
+                                self._filter_current_page = filter_page + 1
+                                self.filter_selected_index = None  # Reset selection on page change
                             self.render_page()
                         elif key == "left":
-                            # Pagination in filtered results
+                            # Previous page in filtered results
                             self.message = ""  # Clear message on navigation
+                            filter_page = getattr(self, "_filter_current_page", 0)
+                            if filter_page > 0:
+                                self._filter_current_page = filter_page - 1
+                                self.filter_selected_index = None  # Reset selection on page change
                             self.render_page()
                         elif key == "down":
-                            # Selection in filtered results
+                            # Selection in filtered results (within current page)
                             self.message = ""  # Clear message on navigation
+                            filter_page = getattr(self, "_filter_current_page", 0)
+                            start_idx = filter_page * self.page_size
+                            match_count = len(self.filtered_indices) if self.filtered_indices else 0
+                            end_idx = min(start_idx + self.page_size, match_count)
+                            papers_on_page = end_idx - start_idx
+                            
                             if self.filter_selected_index is None:
                                 self.filter_selected_index = 0
-                            elif self.filter_selected_index < len(self.filtered_indices) - 1:
+                            elif self.filter_selected_index < papers_on_page - 1:
                                 self.filter_selected_index += 1
                             self.render_page()
                         elif key == "up":
-                            # Selection in filtered results
+                            # Selection in filtered results (within current page)
                             self.message = ""  # Clear message on navigation
                             if self.filter_selected_index is None:
-                                self.filter_selected_index = len(self.filtered_indices) - 1
+                                filter_page = getattr(self, "_filter_current_page", 0)
+                                start_idx = filter_page * self.page_size
+                                match_count = len(self.filtered_indices) if self.filtered_indices else 0
+                                end_idx = min(start_idx + self.page_size, match_count)
+                                papers_on_page = end_idx - start_idx
+                                self.filter_selected_index = papers_on_page - 1
                             elif self.filter_selected_index > 0:
                                 self.filter_selected_index -= 1
                             self.render_page()
@@ -451,7 +483,7 @@ Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by
                     else:  # Full mode
                         if key in ("q", "Q", "\x1b"):  # q, Q, or ESC - quit
                             self.running = False
-                        elif key == "/":
+                        elif key in ("/",":"):
                             # Enter search mode
                             self.message = ""  # Clear message when entering search
                             self.mode = "search"
@@ -540,6 +572,7 @@ Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by
                             self.mode = "filter"
                             self.filter_query = ""
                             self.filtered_indices = None
+                            self._filter_current_page = 0  # Reset to first page
                             self.render_page()
                 except EOFError:
                     self.running = False

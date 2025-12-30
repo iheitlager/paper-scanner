@@ -97,13 +97,68 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
     def on_step_start(self, idx: int, step_config: Dict, total: int) -> None:
         description = step_config.get("description", step_config.get("step", "Unknown"))
         self.log_info(f"[cyan]Executing step:[/cyan] {description}... [dim]('{step_config['command']}')[/dim]")
+        for section_key, section_values in step_config.items():
+            if section_key in ("command", "description", "step", "enabled"):
+                continue
+            self.log_debug(f"[cyan]{section_key}[/cyan]:")
+            if isinstance(section_values, dict):
+                for key, value in section_values.items():
+                    self._log_config_value(key, value, indent=2)
+            elif isinstance(section_values, list):
+                for i, item in enumerate(section_values):
+                    self._log_config_value(f"[{i}]", item, indent=2)
+
+    def _log_config_value(self, key: str, value: any, indent: int = 0) -> None:
+        """Recursively log configuration values with proper indentation"""
+        prefix = " " * indent
+        if isinstance(value, (str, int, float, bool)):
+            self.log_debug(f"{prefix}• {key}: {value}")
+        elif isinstance(value, list):
+            self.log_debug(f"{prefix}• {key}:")
+            for i, item in enumerate(value):
+                self._log_list_item(f"[{i}]", item, indent + 2)
+        elif isinstance(value, dict):
+            self.log_debug(f"{prefix}• {key}:")
+            for sub_key, sub_value in value.items():
+                self._log_config_value(sub_key, sub_value, indent + 2)
+        else:
+            self.log_debug(f"{prefix}• {key}: {type(value).__name__}")
+
+    def _log_list_item(self, index: str, item: any, indent: int = 0) -> None:
+        """Log a list item, handling dicts specially by putting first item on same line"""
+        prefix = " " * indent
+        if isinstance(item, dict):
+            # Put first item on same line as index, rest indented below
+            items = list(item.items())
+            if items:
+                first_key, first_value = items[0]
+                if isinstance(first_value, (str, int, float, bool)):
+                    self.log_debug(f"{prefix}{index}: {first_key}: {first_value}")
+                    # Log remaining items
+                    for sub_key, sub_value in items[1:]:
+                        self._log_config_value(sub_key, sub_value, indent + 3)
+                else:
+                    # First value is complex, log normally
+                    self.log_debug(f"{prefix}{index}:")
+                    for sub_key, sub_value in items:
+                        self._log_config_value(sub_key, sub_value, indent + 2)
+            else:
+                self.log_debug(f"{prefix}{index}: {{}}")
+        elif isinstance(item, list):
+            self.log_debug(f"{prefix}{index}:")
+            for i, sub_item in enumerate(item):
+                self._log_list_item(f"[{i}]", sub_item, indent + 2)
+        elif isinstance(item, (str, int, float, bool)):
+            self.log_debug(f"{prefix}{index}: {item}")
+        else:
+            self.log_debug(f"{prefix}{index}: {type(item).__name__}")
 
     def on_step_end(self, idx: int, step_config: Dict, result: StepResult) -> None:
         # TODO: fix if this makes sense or propagates correctly
         if result.details:
             self.log_debug(f"{'\n'.join(result.details)}")
         if result.status == StepStatus.SUCCESS and not self.in_macro_task:
-            count = result.stats.get("processed", 0)
+            count = result.stats.get("count", result.stats.get("processed", 0))
             self.log_success(f" ✓ ({count} items)")
         elif result.status == StepStatus.ERROR:
             self.log_error(f" ✗ {result.error}")
@@ -279,7 +334,14 @@ class ReplController(AbstractController):
                 elif user_input.startswith("\\"):
                     self._execute_macro_command(user_input)
                 else:
-                    self._execute_python_code(user_input, namespace, len(prompt))
+                    # Try to execute as Python code
+                    try:
+                        self._execute_python_code(user_input, namespace, len(prompt))
+                    except NameError as e:
+                        self.controller_reporter.log_error(f"Invalid command '{user_input}' not understood: {e}")
+                    except SyntaxError:
+                        # Already handled in _execute_python_code, just silently fail
+                        pass
 
             except KeyboardInterrupt:
                 self.controller_reporter.on_error("\nInterrupted")

@@ -87,42 +87,30 @@ class BibtexImportStep(BaseStep):
                 seed = config["random_seed"]
                 if not isinstance(seed, int):
                     errors.append("'random_seed' must be an integer")
-            elif key == "imports":
-                imports = config.get("imports", [])
-                if not isinstance(imports, list):
-                    errors.append("'imports' must be a list")
-                else:
-                    for i, imp in enumerate(imports):
-                        if not isinstance(imp, dict):
-                            errors.append(f"Import {i} must be a dictionary")
-                            continue
-
-                        # Check required fields
-                        if "file_path" not in imp:
-                            errors.append(f"Import {i} missing required field 'file_path'")
-                        elif not isinstance(imp["file_path"], str):
-                            errors.append(f"Import {i} 'file_path' must be a string")
-
-                        if "source_type" in imp:
-                            source_type = imp["source_type"]
-                            if source_type not in VALID_SOURCE_TYPES:
-                                errors.append(f"Import {i} 'source_type' must be one of {VALID_SOURCE_TYPES}, got '{source_type}'")
-
-                        if "expected_count" in imp:
-                            expected = imp["expected_count"]
-                            if not isinstance(expected, int) or expected < 0:
-                                errors.append(f"Import {i} 'expected_count' must be a non-negative integer")
-
-                        if "fix_cite_key" in imp:
-                            fix_cite_key = imp["fix_cite_key"]
-                            if not isinstance(fix_cite_key, bool):
-                                errors.append(f"Import {i} 'fix_cite_key' must be a boolean")
+            elif key == "file_path":
+                file_path = config["file_path"]
+                if not isinstance(file_path, str):
+                    errors.append("'file_path' must be a string")
+            elif key == "source_type":
+                source_type = config["source_type"]
+                if source_type not in VALID_SOURCE_TYPES:
+                    errors.append(f"'source_type' must be one of {VALID_SOURCE_TYPES}, got '{source_type}'")
+            elif key == "expected_count":
+                expected = config["expected_count"]
+                if not isinstance(expected, int) or expected < 0:
+                    errors.append("'expected_count' must be a non-negative integer")
+            elif key == "fix_cite_key":
+                fix_cite_key = config["fix_cite_key"]
+                if not isinstance(fix_cite_key, bool):
+                    errors.append("'fix_cite_key' must be a boolean")
             elif key == "type_mapping_config_path":
                 if not isinstance(config["type_mapping_config_path"], str):
                     errors.append("'type_mapping_config_path' must be a string")
             else:
                 errors.append(f"Unknown configuration key: '{key}'")
 
+        if 'file_path' not in config:
+            errors.append("missing required 'file_path' in configuration")
         return len(errors) == 0, errors
 
 
@@ -151,14 +139,15 @@ class BibtexImportStep(BaseStep):
         randomize = config.get("randomize", False)
         random_seed = config.get("random_seed", None)
         limit = config.get("limit", None)
-        imports = config.get("imports", [])
         type_mapping_config_path = config.get("type_mapping_config_path")
+        file_path = config.get("file_path")
+        source_type = config.get("source_type", "manual")
+        expected_count = config.get("expected_count")
+        fix_cite_key = config.get("fix_cite_key", False)
 
         # Track statistics
-        total_files = len(imports)
-        files_processed = 0
-        papers_imported = 0
         details = []
+        fixed_count = 0
 
         # Load type mapping configuration (fatal if fails)
         type_mapping_config = None
@@ -171,70 +160,54 @@ class BibtexImportStep(BaseStep):
             type_mapping_config = load_type_mapping_config()
 
         # Process each import
-        for import_spec in imports:
-            name = import_spec.get("name", "Unknown")
-            file_path = import_spec.get("file_path")
-            source_type = import_spec.get("source_type", "manual")
-            expected_count = import_spec.get("expected_count")
-            fix_cite_key = import_spec.get("fix_cite_key", False)
 
-            # Validate file exists and is readable
-            path = Path(file_path)
-            if not path.exists() or not path.is_file():
-                raise ConfigurationError(f"File not found or not a file: {file_path}")
+        # Validate file exists and is readable
+        path = Path(file_path)
+        if not path.exists() or not path.is_file():
+            raise ConfigurationError(f"File not found or not a file: {file_path}")
 
-            self.callback(f"Processing import '{name}'\n from file: {file_path}\n Source: {source_type}", debug=True)
+        # Parse BibTeX file - fatal if parsing fails
+        papers = bibtex_file_to_papers(
+            str(path),
+            source_type=source_type,
+            discovery_method=DiscoveryMethod.KEYWORD_SEARCH,
+            type_mapping_config=type_mapping_config
+        )
 
-            # Parse BibTeX file - fatal if parsing fails
-            papers = bibtex_file_to_papers(
-                str(path),
-                source_type=source_type,
-                discovery_method=DiscoveryMethod.KEYWORD_SEARCH,
-                type_mapping_config=type_mapping_config
-            )
-
-            # Randomize papers if limit is set
-            if limit and randomize:
+        # Apply limit after randomization
+        if limit:
+            if randomize:
                 if random_seed is not None:
                     random.seed(random_seed)
                 random.shuffle(papers)
-                seed_display = f"(seed={random_seed})" if random_seed is not None else ""
-                self.callback(f"Randomized papers {seed_display}", debug=True)
+                details.append(f"Randomized papers (seed={random_seed})" if random_seed is not None else "Randomized papers")
+            papers = papers[:limit]
 
-            # Apply limit after randomization
-            if limit:
-                papers = papers[:limit]
-                self.callback(f"Limited to {limit} papers", debug=True)
+        # Fix cite_key collisions if requested
+        if fix_cite_key:
+            fixed_count = _fix_cite_key_collisions(papers, self.db)
 
-            # Fix cite_key collisions if requested
-            if fix_cite_key:
-                fixed_count = _fix_cite_key_collisions(papers, self.db)
-                self.callback(f"Fixed {fixed_count} cite_key collisions", debug=True)
+        count = len(papers)
+        if dry_run:
+            self.callback(f"[yellow][DRY RUN][/yellow] Would import {count} papers", debug=True)
+        else:
+            # Add to database - fatal if write fails
+            self.db.add_many(papers)
 
-            count = len(papers)
-            if dry_run:
-                self.callback(f"[yellow][DRY RUN][/yellow] Would import {count} papers", debug=True)
-            else:
-                # Add to database - fatal if write fails
-                self.db.add_many(papers)
-                papers_imported += count
-
-                self.callback(f"Imported {count} papers for '{name}'", debug=True)
-            if expected_count:
-                self.callback(f"Expected: {expected_count}, Would get: {count}", debug=True)
-            files_processed += 1
+        if expected_count:
+            self.callback(f"Expected: {expected_count}, Would get: {count}", debug=True)
 
         # All files processed successfully
         status = StepStatus.SUCCESS
-        message = f"Imported {papers_imported} papers from {files_processed}/{total_files} files"
+        message = f"Imported {count} papers from {file_path}"
+        if fixed_count > 0:
+            message += f" ({fixed_count} cite_key collisions fixed)"
 
         return StepResult(
             status=status,
             message=message,
             stats={
-                "total_files": total_files,
-                "files_processed": files_processed,
-                "processed": papers_imported,
+                "count": count,
             },
             details=details
         )

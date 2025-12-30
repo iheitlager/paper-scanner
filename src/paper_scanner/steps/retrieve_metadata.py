@@ -87,10 +87,8 @@ class RetrieveMetadataStep(BaseStep):
         continue_on_not_found = config.get("continue_on_not_found", True)
         overwrite = config.get("overwrite", True)
 
-        self.callback(f"Using methods: {methods}", debug=True)
-
         # Initialize fetcher with specified methods
-        fetcher = Fetcher(cache_dir=self.cache_dir, methods=methods, verbose=verbose, debug=debug)
+        fetcher = Fetcher(cache_dir=self.cache_dir, methods=methods)
 
         # Get all papers
         papers = self.db.all(primary_only=True)

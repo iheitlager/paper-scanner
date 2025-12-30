@@ -124,7 +124,6 @@ class LoadFilesStep(BaseStep):
         pdf_files = sorted(file_path.glob("*.pdf"))
 
         self.callback(f"Loading {len(pdf_files)} PDF files from: {file_path}", debug=True)
-        self.callback(f"Storing files to: {store_path}", debug=True)
 
         if not pdf_files:
             return StepResult(
@@ -144,13 +143,10 @@ class LoadFilesStep(BaseStep):
             if random_seed is not None:
                 random.seed(random_seed)
             random.shuffle(pdf_files)
-            seed_display = f" (seed={random_seed})" if random_seed is not None else ""
-            self.callback(f"✓ Randomized files{seed_display}", debug=True)
 
         # Apply limit after randomization
         if limit:
             pdf_files = pdf_files[:limit]
-            self.callback(f"✓ Limited to {limit} papers", debug=True)
 
         pdf_cache = PDFCache(cache_dir=self.cache_dir / "pdfs")
 
@@ -254,7 +250,7 @@ class LoadFilesStep(BaseStep):
                 stats["papers_loaded"] += 1
                 stats["files_processed"] += 1
 
-                self.callback(f"✓ {i}/{len(pdf_files)} {pdf_path.name} → {new_filename}")
+                self.callback(f"✓ {i}/{len(pdf_files)} {pdf_path.name} → {new_filename}", debug=True)
 
             except StepFatalError:
                 # Re-raise fatal errors
@@ -263,7 +259,7 @@ class LoadFilesStep(BaseStep):
                 file_result["error"] = str(e)
                 file_result["success"] = False
                 stats["papers_failed"] += 1
-                self.callback(f"✗ {i}/{len(pdf_files)} {pdf_path.name}: {str(e)[:50]}")
+                self.callback(f"✗ {i}/{len(pdf_files)} {pdf_path.name}: {str(e)[:50]}", debug=True)
 
             details.append(file_result)
 

@@ -60,9 +60,6 @@ class FixCiteKeysStep(BaseStep):
         Returns:
             StepResult with status, count of updated/skipped papers, and any errors
         """
-        if verbose:
-            console.print("[bold cyan]Fixing citation keys...[/bold cyan]")
-
         # Track results
         updated_papers = []
         skipped_papers = []
@@ -108,8 +105,7 @@ class FixCiteKeysStep(BaseStep):
 
                     new_keys_map[paper.id] = new_key
                     updated_papers.append(paper.id)
-                    if debug:
-                        console.print(f"[dim]{paper.cite_key} -> {new_key}[/dim]")
+                    self.callback(f"{paper.cite_key} -> {new_key}", debug=True)
                 else:
                     skipped_papers.append(paper.id)
 
@@ -130,14 +126,6 @@ class FixCiteKeysStep(BaseStep):
                     updated_paper = paper.model_copy(update={"cite_key": new_key})
                     self.db.update(updated_paper)
 
-            if verbose:
-                console.print(f"[green]Updated {len(new_keys_map)} papers[/green]")
-
-        if verbose:
-            if skipped_papers:
-                console.print(f"[yellow]Skipped {len(skipped_papers)} papers[/yellow]")
-            if error_messages:
-                console.print(f"[red]{len(error_messages)} errors[/red]")
 
         # Determine final status
         total_papers = len(primary_papers)
@@ -146,7 +134,7 @@ class FixCiteKeysStep(BaseStep):
         if errors_count > 0:
             status = StepStatus.WARNING if len(updated_papers) > 0 else StepStatus.ERROR
             message = f"Fixed {len(updated_papers)} cite keys but {errors_count} error(s) occurred"
-            details = "Errors:\n" + "\n".join(f"  - {err}" for err in error_messages)
+            details = ["Errors:\n" + "\n".join(f"  - {err}" for err in error_messages)]
         else:
             status = StepStatus.SUCCESS
             message = f"Fixed {len(updated_papers)} cite keys out of {total_papers} papers"
@@ -156,7 +144,7 @@ class FixCiteKeysStep(BaseStep):
             status=status,
             message=message,
             stats={
-                "total_papers": total_papers,
+                "count": total_papers,
                 "updated": len(updated_papers),
                 "skipped": len(skipped_papers),
                 "errors": errors_count,

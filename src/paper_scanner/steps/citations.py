@@ -197,10 +197,11 @@ class CitationsStep(BaseStep):
             "cache_misses": 0,
         }
 
-        if backward_config:
-            self.backward_execute(config, results)
         if forward_config:
             self.forward_execute(config, results)
+        if backward_config:
+            self.backward_execute(config, results)
+
         if not backward_config and not forward_config:
             raise ValueError("CitationsStep requires 'backward' or 'forward' configuration.")
 
@@ -253,7 +254,7 @@ class CitationsStep(BaseStep):
                       f"Continue on not found: {continue_on_not_found}\n"
                       f"Iterations: {iterations}\n"
                       f"Applying screening template : {screening}\n" if screening else ""
-                      + (f"Limit papers to process: {limit}" if limit else ""))
+                      + (f"Limit papers to process: {limit}" if limit else ""), debug=True)
 
         while self.iteration < iterations:
             # Get papers to process (in simple readable format)
@@ -347,7 +348,9 @@ class CitationsStep(BaseStep):
         limit = config.get("limit", None)
         included_only = config.get("included_only", True)
         citations = forward_config.get("citations", ["crossref"])
+        screening = forward_config.get("screening", None)
         details = forward_config.get("details", ["crossref"])
+        year = forward_config.get("year", None)
         self.output_errors = forward_config.get("output_errors", None)
         if self.output_errors:
             # Clear existing error file
@@ -359,15 +362,18 @@ class CitationsStep(BaseStep):
                       f"Citation sources: {citations}\n"
                       f"Details sources: {details}\n"
                       f"Continue on not found: {continue_on_not_found}\n"
-                      + (f"Limit papers to process: {limit}" if limit else ""))
+                      f"Applying screening template : {screening}\n" if screening else ""
+                      + (f"Limit papers to process: {limit}" if limit else ""), debug=True)
 
         # Get papers to process (in simple readable format)
         def predicate(p):
+            if year and p.year < year:
+                return False
             if included_only and not p.is_included:
                 return False
             if paper_types and p.paper_type.value not in paper_types:
                 return False
-            return p.discovery.iteration == self.iteration
+            return p.discovery.iteration == 0 # Forward only for primary papers
 
         target_papers = self.db.find(
             predicate=predicate,
@@ -376,6 +382,8 @@ class CitationsStep(BaseStep):
 
         if limit:
             target_papers = target_papers[:limit]
+
+        self.iteration = 1
 
         results['target_papers'] = results.get("target_papers", 0) + len(target_papers)
         self.callback(f"Total papers in DB: {self.db.count(primary_only=True)}\n"
@@ -412,6 +420,20 @@ class CitationsStep(BaseStep):
             papers=all_papers,
             results=results,
         )
+
+        # PASS 4: if template is available, execute it
+        if screening:
+            self.callback(f"Executing screening template '{screening}' for iteration {self.iteration}...", debug=True)
+            step_params = {
+                "template": screening,
+            }
+            result = self.executor._execute_template(
+                step_params=step_params,
+                description=f"Citation screening iteration {self.iteration}",
+                dry_run=self.dry_run,
+            )
+            if result.status != StepStatus.SUCCESS:
+                results['errors'].append(f"Screening iteration {self.iteration} failed: {result.message}")
 
         return None
 
@@ -467,7 +489,6 @@ class CitationsStep(BaseStep):
 
                 # Store citations in paper
                 paper.citations.extend(citations)
-
 
             except Exception as e:
                 results["errors"].append(f"Fetch error for {paper.doi}: {str(e)}")
@@ -528,6 +549,9 @@ class CitationsStep(BaseStep):
             except Exception as e:
                 results["errors"].append(f"Fetch error for {paper.doi}: {str(e)}")
                 self.callback(f"[red]Error fetching citations for {paper.doi}: {e}[/red]")
+                import traceback
+                traceback.print_exc()
+                return None
 
     def _resolve_citations_and_fetch_papers(
         self,

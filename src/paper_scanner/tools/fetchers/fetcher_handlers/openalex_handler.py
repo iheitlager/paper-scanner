@@ -532,7 +532,7 @@ class OpenAlexHandler(BaseFetcherHandler):
             url = (
                 f"{OPENALEX_API_URL}/works?"
                 f"filter=cites:{source_key}&"
-                f"per-page={min(limit, 200)}"
+                f"per-page={min(limit or 200, 200)}"
             )
 
             response = self.session.get(url, timeout=10)

@@ -1,5 +1,5 @@
 """
-Unit tests for bibtex_import step
+Unit tests for bibtex_import step (updated for flat structure - no nested imports)
 """
 
 import tempfile
@@ -19,9 +19,7 @@ class TestValidate:
     def test_validate_valid_basic_config(self):
         """Test validation of minimal valid config"""
         config = {
-            "imports": [
-                {"file_path": "test.bib"}
-            ]
+            "file_path": "test.bib"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is True
@@ -30,15 +28,10 @@ class TestValidate:
     def test_validate_valid_full_config(self):
         """Test validation of full config with all fields"""
         config = {
-            "imports": [
-                {
-                    "name": "Test Import",
-                    "file_path": "test.bib",
-                    "source_type": "scopus",
-                    "expected_count": 10,
-                    "fix_cite_key": True
-                }
-            ],
+            "file_path": "test.bib",
+            "source_type": "scopus",
+            "expected_count": 10,
+            "fix_cite_key": True,
             "type_mapping_config_path": "/path/to/config.yaml"
         }
         is_valid, errors = BibtexImportStep.validate(config)
@@ -48,7 +41,7 @@ class TestValidate:
     def test_validate_missing_file_path(self):
         """Test validation fails without file_path"""
         config = {
-            "imports": [{"source_type": "scopus"}]
+            "source_type": "scopus"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
@@ -57,9 +50,8 @@ class TestValidate:
     def test_validate_invalid_source_type(self):
         """Test validation fails with invalid source_type"""
         config = {
-            "imports": [
-                {"file_path": "test.bib", "source_type": "invalid"}
-            ]
+            "file_path": "test.bib",
+            "source_type": "invalid"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
@@ -68,9 +60,8 @@ class TestValidate:
     def test_validate_invalid_expected_count(self):
         """Test validation fails with invalid expected_count"""
         config = {
-            "imports": [
-                {"file_path": "test.bib", "expected_count": "not_a_number"}
-            ]
+            "file_path": "test.bib",
+            "expected_count": "not_a_number"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
@@ -79,9 +70,8 @@ class TestValidate:
     def test_validate_invalid_fix_cite_key(self):
         """Test validation fails with non-boolean fix_cite_key"""
         config = {
-            "imports": [
-                {"file_path": "test.bib", "fix_cite_key": "true"}
-            ]
+            "file_path": "test.bib",
+            "fix_cite_key": "true"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
@@ -91,7 +81,7 @@ class TestValidate:
         """Test validation with valid limit parameter"""
         config = {
             "limit": 25,
-            "imports": [{"file_path": "test.bib"}]
+            "file_path": "test.bib"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is True
@@ -101,7 +91,7 @@ class TestValidate:
         """Test validation fails with non-positive limit"""
         config = {
             "limit": 0,
-            "imports": [{"file_path": "test.bib"}]
+            "file_path": "test.bib"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
@@ -111,7 +101,7 @@ class TestValidate:
         """Test validation fails with non-integer limit"""
         config = {
             "limit": "25",
-            "imports": [{"file_path": "test.bib"}]
+            "file_path": "test.bib"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
@@ -121,7 +111,7 @@ class TestValidate:
         """Test validation with valid randomize parameter"""
         config = {
             "randomize": True,
-            "imports": [{"file_path": "test.bib"}]
+            "file_path": "test.bib"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is True
@@ -131,7 +121,7 @@ class TestValidate:
         """Test validation fails with non-boolean randomize"""
         config = {
             "randomize": "true",
-            "imports": [{"file_path": "test.bib"}]
+            "file_path": "test.bib"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
@@ -141,7 +131,7 @@ class TestValidate:
         """Test validation with valid random_seed parameter"""
         config = {
             "random_seed": 42,
-            "imports": [{"file_path": "test.bib"}]
+            "file_path": "test.bib"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is True
@@ -151,7 +141,7 @@ class TestValidate:
         """Test validation fails with non-integer random_seed"""
         config = {
             "random_seed": "42",
-            "imports": [{"file_path": "test.bib"}]
+            "file_path": "test.bib"
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is False
@@ -163,15 +153,10 @@ class TestValidate:
             "limit": 25,
             "randomize": True,
             "random_seed": 42,
-            "imports": [
-                {
-                    "name": "Scopus Dataset",
-                    "file_path": "data/bib/scopus.bib",
-                    "source_type": "scopus",
-                    "fix_cite_key": False,
-                    "expected_count": 19
-                }
-            ],
+            "file_path": "data/bib/scopus.bib",
+            "source_type": "scopus",
+            "fix_cite_key": False,
+            "expected_count": 19,
             "type_mapping_config_path": "/path/to/config.yaml"
         }
         is_valid, errors = BibtexImportStep.validate(config)
@@ -265,13 +250,13 @@ class TestFixCiteKeyCollisions:
 
         fixed_count = _fix_cite_key_collisions(papers, papers_db)
 
-        # Should assign _03 and _04 since _01 and _02 exist
+        # Should get paper_03 and paper_04
         assert papers[0].cite_key == "paper_03"
         assert papers[1].cite_key == "paper_04"
         assert fixed_count == 2
 
-    def test_collision_between_imported_papers(self):
-        """Test collision between papers in the same import"""
+    def test_same_file_collisions(self):
+        """Test handling of duplicate cite_keys within the same file"""
         papers_db = PapersDatabase()
 
         papers = [
@@ -357,9 +342,7 @@ class TestExecute:
         from paper_scanner.core.exceptions import ConfigurationError
 
         config = {
-            "imports": [
-                {"name": "Missing File", "file_path": "/nonexistent/file.bib"}
-            ]
+            "file_path": "/nonexistent/file.bib"
         }
         papers_db = PapersDatabase()
         step = BibtexImportStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
@@ -367,7 +350,6 @@ class TestExecute:
         # Missing file is a configuration error - should raise
         with pytest.raises(ConfigurationError):
             step.execute(config, verbose=False, dry_run=False)
-
 
     @patch("paper_scanner.steps.bibtex_import.bibtex_file_to_papers")
     def test_execute_dry_run(self, mock_bibtex_parser, temp_cache_dir):
@@ -382,20 +364,18 @@ class TestExecute:
             )
         ]
 
-        config = {
-            "imports": [
-                {"name": "Test", "file_path": "test.bib", "expected_count": 1}
-            ]
-        }
         papers_db = PapersDatabase()
         step = BibtexImportStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
 
         with tempfile.NamedTemporaryFile(suffix=".bib") as tmp:
-            config["imports"][0]["file_path"] = tmp.name
+            config = {
+                "file_path": tmp.name,
+                "expected_count": 1
+            }
             result = step.execute(config, verbose=False, dry_run=True)
 
-        assert result.stats["processed"] == 0  # Dry run doesn't import
-        assert result.stats["files_processed"] == 1
+        assert result.stats["count"] == 1  # Still counted papers even in dry run
+        assert len(papers_db.to_list()) == 0  # But not added to database
 
     @patch("paper_scanner.steps.bibtex_import.bibtex_file_to_papers")
     def test_execute_with_fix_cite_key(self, mock_bibtex_parser, temp_cache_dir):
@@ -418,25 +398,18 @@ class TestExecute:
         ]
         mock_bibtex_parser.return_value = papers_list
 
-        config = {
-            "imports": [
-                {
-                    "name": "Test",
-                    "file_path": "test.bib",
-                    "fix_cite_key": True,
-                    "expected_count": 2
-                }
-            ]
-        }
         papers_db = PapersDatabase()
         step = BibtexImportStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
 
         with tempfile.NamedTemporaryFile(suffix=".bib") as tmp:
-            config["imports"][0]["file_path"] = tmp.name
+            config = {
+                "file_path": tmp.name,
+                "fix_cite_key": True,
+                "expected_count": 2
+            }
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result.stats["processed"] == 2
-        assert result.stats["files_processed"] == 1
+        assert result.stats["count"] == 2
 
         # Verify papers in database have unique cite_keys
         db_papers = papers_db.to_list()
@@ -446,17 +419,15 @@ class TestExecute:
     def test_execute_randomize_with_seed(self, temp_cache_dir):
         """Test execute with randomization and seed"""
         sample_bib = Path(__file__).parent.parent.parent / "data" / "scopus_sample_20.bib"
+        if not sample_bib.exists():
+            pytest.skip(f"Sample BibTeX file not found: {sample_bib}")
+
         config = {
             "randomize": True,
             "random_seed": 42,
             "limit": 2,
-            "imports": [
-                {
-                    "name": "Test Import",
-                    "file_path": str(sample_bib),
-                    "source_type": "scopus"
-                }
-            ]
+            "file_path": str(sample_bib),
+            "source_type": "scopus"
         }
 
         # Execute first time with seed
@@ -476,19 +447,22 @@ class TestExecute:
         # With same seed, should get same papers (though order may differ due to sorting)
         assert titles1 == titles2, "Same seed should produce same set of papers"
         assert len(papers1) == 2, "Should have limited to 2 papers"
-        assert result1.stats["processed"] == 2
-        assert result2.stats["processed"] == 2
+        assert result1.stats["count"] == 2
+        assert result2.stats["count"] == 2
 
     def test_execute_randomize_different_seeds(self, temp_cache_dir):
         """Test that different seeds produce different orders"""
         sample_bib = Path(__file__).parent.parent.parent / "data" / "scopus_sample_20.bib"
+        if not sample_bib.exists():
+            pytest.skip(f"Sample BibTeX file not found: {sample_bib}")
 
         # Execute with seed 42
         config1 = {
             "randomize": True,
             "random_seed": 42,
             "limit": 5,
-            "imports": [{"name": "Test", "file_path": str(sample_bib), "source_type": "scopus"}]
+            "file_path": str(sample_bib),
+            "source_type": "scopus"
         }
         papers_db1 = PapersDatabase()
         step1 = BibtexImportStep(general_config={}, db=papers_db1, cache_dir=temp_cache_dir)
@@ -501,7 +475,8 @@ class TestExecute:
             "randomize": True,
             "random_seed": 123,
             "limit": 5,
-            "imports": [{"name": "Test", "file_path": str(sample_bib), "source_type": "scopus"}]
+            "file_path": str(sample_bib),
+            "source_type": "scopus"
         }
         papers_db2 = PapersDatabase()
         step2 = BibtexImportStep(general_config={}, db=papers_db2, cache_dir=temp_cache_dir)
@@ -511,109 +486,23 @@ class TestExecute:
 
         # Both should import 5 papers
         assert len(titles1) == 5 and len(titles2) == 5
-        assert result1.stats["processed"] == 5
-        assert result2.stats["processed"] == 5
+        assert result1.stats["count"] == 5
+        assert result2.stats["count"] == 5
         # Orders should be different due to different seeds
-        # (probabilistically true for most seeds)
         assert titles1 != titles2 or len(set(titles1)) < 5
-
-    def test_execute_invalid_type_mapping_config_raises(self, temp_cache_dir):
-        """Test that invalid type mapping config raises fatal error"""
-        config = {
-            "imports": [
-                {"file_path": "test.bib"}
-            ],
-            "type_mapping_config_path": "/nonexistent/type_mapping.yaml"
-        }
-        papers_db = PapersDatabase()
-        step = BibtexImportStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
-
-        # Should raise because type mapping config is required
-        with pytest.raises(Exception):
-            step.execute(config, verbose=False, dry_run=False)
 
     @patch("paper_scanner.steps.bibtex_import.bibtex_file_to_papers")
     def test_execute_bibtex_parsing_failure_raises(self, mock_bibtex_parser, temp_cache_dir):
         """Test that BibTeX parsing failure raises fatal error"""
         mock_bibtex_parser.side_effect = ValueError("Invalid BibTeX format")
 
-        config = {
-            "imports": [
-                {"name": "Test", "file_path": "test.bib"}
-            ]
-        }
         papers_db = PapersDatabase()
         step = BibtexImportStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
 
         with tempfile.NamedTemporaryFile(suffix=".bib") as tmp:
-            config["imports"][0]["file_path"] = tmp.name
+            config = {
+                "file_path": tmp.name
+            }
             # Should raise because parsing failed
             with pytest.raises(ValueError):
                 step.execute(config, verbose=False, dry_run=False)
-
-    def test_execute_partial_failure_returns_warning(self, temp_cache_dir):
-        """Test that mixed valid/invalid files raises error for missing files"""
-        from paper_scanner.core.exceptions import ConfigurationError
-
-        config = {
-            "imports": [
-                {"name": "Missing File", "file_path": "/nonexistent/file.bib"},
-                {"name": "Valid", "file_path": "valid.bib"}
-            ]
-        }
-        papers_db = PapersDatabase()
-        step = BibtexImportStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
-
-        # First import has missing file - should raise ConfigurationError
-        with pytest.raises(ConfigurationError):
-            step.execute(config, verbose=False, dry_run=False)
-
-    @patch("paper_scanner.steps.bibtex_import.bibtex_file_to_papers")
-    def test_execute_some_files_succeed_some_fail_returns_warning(self, mock_bibtex_parser, temp_cache_dir):
-        """Test that step succeeds when all files are valid"""
-        # Return different papers for each call
-        papers_list = [
-            [
-                Paper(
-                    id="p1",
-                    cite_key="test1",
-                    title="Test Paper 1",
-                    authors=[Author(family_name="T", given_name="T", full_name="T T")],
-                    paper_type=PaperType.JOURNAL_ARTICLE
-                )
-            ],
-            [
-                Paper(
-                    id="p2",
-                    cite_key="test2",
-                    title="Test Paper 2",
-                    authors=[Author(family_name="T", given_name="T", full_name="T T")],
-                    paper_type=PaperType.JOURNAL_ARTICLE
-                )
-            ]
-        ]
-        mock_bibtex_parser.side_effect = papers_list
-
-        config = {
-            "imports": [
-                {"name": "File1", "file_path": "file1.bib"},
-                {"name": "File2", "file_path": "file2.bib"}
-            ]
-        }
-        papers_db = PapersDatabase()
-        step = BibtexImportStep(general_config={}, db=papers_db, cache_dir=temp_cache_dir)
-
-        with tempfile.NamedTemporaryFile(suffix=".bib") as tmp1, \
-             tempfile.NamedTemporaryFile(suffix=".bib") as tmp2:
-            config["imports"][0]["file_path"] = tmp1.name
-            config["imports"][1]["file_path"] = tmp2.name
-            result = step.execute(config, verbose=False, dry_run=False)
-
-        # Both files succeeded - should be SUCCESS
-        assert result.status.value == "ok"
-        assert result.stats["processed"] == 2
-        assert result.stats["files_processed"] == 2
-        assert result.stats["total_files"] == 2
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

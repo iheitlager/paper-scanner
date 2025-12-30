@@ -33,6 +33,7 @@ class ReportStep(BaseStep):
         "screening": None,
         "citations": None,
         "bibliography": None,
+        "histogram": None,
         # "tabulate": None,
     }
 
@@ -118,6 +119,7 @@ class ReportStep(BaseStep):
         show_screening = config.get("screening", False)
         show_citations = config.get("citations", False)
         show_bibliography = config.get("bibliography", False)
+        show_histogram = config.get("histogram", False)
         show_dump_citations = config.get("dump_citations", False)
 
         # Support both old and new configuration format
@@ -156,6 +158,10 @@ class ReportStep(BaseStep):
         if verbose and show_bibliography:
             reports.append("bibliography")
             _display_bibliography(self.db)
+
+        if verbose and show_histogram:
+            reports.append("histogram")
+            _display_histogram(self.db)
 
         if verbose and tabulate_configs:
             reports.append("tabulate")
@@ -648,5 +654,93 @@ def _display_bibliography(db: PapersDatabase) -> None:
         str(pdf),
         str(doi)
     )
+    console.print(table)
+
+
+def _display_histogram(db: PapersDatabase) -> None:
+    """
+    Display a histogram of included papers by discovery iteration and publication year.
+    
+    Shows only papers that passed screening (included = True), grouped by:
+    - Discovery iteration (0 = initial, 1+ = snowballing iterations)
+    - Publication year
+    
+    Args:
+        db: PapersDatabase instance
+    """
+    # Get all included papers (screening passed)
+    all_papers = db.to_list(primary_only=False)
+    included_papers = [p for p in all_papers if p.is_included]
+    
+    if not included_papers:
+        console.print("[yellow]No included papers found[/yellow]")
+        return
+    
+    # Build histogram: iteration -> year -> count
+    histogram: Dict[int, Dict[int, int]] = {}
+    
+    for paper in included_papers:
+        iteration = paper.discovery.iteration if paper.discovery else 0
+        year = paper.year
+        
+        if year is None:
+            year = 0  # Unknown year
+        
+        if iteration not in histogram:
+            histogram[iteration] = {}
+        
+        if year not in histogram[iteration]:
+            histogram[iteration][year] = 0
+        
+        histogram[iteration][year] += 1
+    
+    # Create table
+    table = Table(title="Included Papers by Discovery Iteration and Year")
+    table.add_column("Iteration", style="cyan", justify="right")
+    table.add_column("Year", style="green", justify="right")
+    table.add_column("Count", style="yellow", justify="right")
+    table.add_column("% of Total", style="blue", justify="right")
+    table.add_column("Distribution", style="magenta")
+    
+    total_included = len(included_papers)
+    
+    # Find max count for bar width normalization
+    max_count = max(
+        count 
+        for year_dict in histogram.values() 
+        for count in year_dict.values()
+    ) if histogram else 1
+    
+    # Sort iterations and years, display with grouping
+    for iteration in sorted(histogram.keys(), reverse=True):
+        years = sorted(histogram[iteration].keys(), reverse=True)
+        for year in years:
+            count = histogram[iteration][year]
+            percentage = (count / total_included * 100) if total_included > 0 else 0
+            
+            # Create bar visualization
+            bar_width = int((count / max_count) * 30) if max_count > 0 else 0
+            bar = "█" * bar_width
+            
+            year_str = str(year) if year > 0 else "[dim]Unknown[/dim]"
+            iteration_str = str(iteration) if iteration == 0 else f"{iteration} (snowball)"
+            
+            table.add_row(
+                iteration_str,
+                year_str,
+                str(count),
+                f"{percentage:.1f}%",
+                bar
+            )
+    
+    # Add total row
+    table.add_row(
+        "[bold]Total[/bold]",
+        "",
+        f"[bold]{total_included}[/bold]",
+        "[bold]100.0%[/bold]",
+        ""
+    )
+    
     console.print(table)
 

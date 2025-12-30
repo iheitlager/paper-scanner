@@ -112,8 +112,6 @@ class DownloadPDFsStep(BaseStep):
         fetcher = Fetcher(
             cache_dir=self.cache_dir,
             methods=sources,
-            verbose=verbose,
-            debug=debug,
         )
 
         # Find papers needing PDF downloads
