@@ -34,9 +34,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Minimum 2 pattern threshold for empirical classification (prevents false positives)
   - Comprehensive unit test suite (43 tests) covering KeywordMatcher, StudyTypeDetector, KeywordScreener, and step execution
 
+### Changed
+
+- **Screening Pipeline Architecture**: Refactored for better evaluation and snowballing support
+  - Enhanced `Deduplication` step with improved duplicate detection and resolution
+  - Refactored `Semantic Screening` step for consistency with metadata/keyword screening outputs
+  - Updated `Keyword Screening` step to support LLM-based evaluation mode
+  - Improved screening result model to track evaluation confidence and reasoning
+  - Papers now maintain explicit `is_duplicate` property for simpler exclusion checking
+
+- **REPL Enhancements**: Improved interactive viewer and show command
+  - Better handling of duplicate papers in detail view
+  - Added `apa_formatted` property for rich console output (italicized journal names)
+  - Fixed console viewer to display strikethrough formatting for excluded papers
+  - Improved filtering and search in paginated view
+
+- **Database/Model Updates**: 
+  - Added `is_duplicate` property to Paper model for cleaner duplicate checking
+  - Split APA citation formatting: `apa_formatted` (rich text) vs `apa` (plain text)
+  - Enhanced screening reason tracking across metadata, keyword, and semantic phases
+
 ### Fixed
 
-_(Bugfixes for 3.4.0 release will be documented here)_
+- Fixed unit test coverage for deduplication, keyword screening, and semantic screening steps
+- Corrected duplicate paper filtering logic in console viewer
+- Fixed empty database handling in REPL show command
+- Resolved issues with screening decision propagation through pipeline
 
 ## [3.4.0] - 2025-12-25
 

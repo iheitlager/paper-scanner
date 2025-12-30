@@ -62,7 +62,7 @@ class ConsoleViewer:
             apa_idx_color = "red" if (not paper.keywords or not paper.abstract) else "cyan"
             citations_count = len(paper.citations) if paper.citations else 0
             cited_by_count = len(paper.cited_by_papers) if paper.cited_by_papers else 0
-            apa = paper.apa if not paper.is_excluded else f"[dim][strike]{paper.apa}[/strike][/dim]"
+            apa = paper.apa_formatted if not paper.is_excluded else f"[dim][strike]{paper.apa_formatted}[/strike][/dim]"
             if is_selected:
                 # Highlight selected paper with background color
                 self.console.print(
@@ -123,6 +123,17 @@ class ConsoleViewer:
         if not paper:
             return
 
+        if paper.is_duplicate:
+            duplicate_note = f"[red]Duplicate of[/red] '{paper.duplicate_of.id}'\n"
+            duplicate_note += f"[red]Method:[/red] {paper.screening.deduplication.method} " if paper.screening and paper.screening.deduplication and paper.screening.deduplication.method else ""
+            duplicate_note += f"[red]Similarity Score:[/red] {paper.screening.deduplication.similarity_score:.4f} " if paper.screening and paper.screening.deduplication else ""
+            duplicate_note += f"[red]Confidence[/red] {paper.screening.deduplication.confidence:.2f} " if paper.screening and paper.screening.deduplication else ""
+            duplicate_note += f"\n\n[red]Paper apa:[/red]\n\n{paper.apa_formatted}\n"
+            self.console.print(duplicate_note)
+            footer = "[dim][cyan]q/ESC[/cyan] exit detail mode[/dim]"
+            self.console.print(footer)
+            return
+
         screening_reasons = [
             paper.screening.metadata_screening.exclusion_reason if paper.screening and paper.screening.metadata_screening else "",
             paper.screening.keyword_screening.exclusion_reason if paper.screening and paper.screening.keyword_screening else "",
@@ -163,7 +174,7 @@ class ConsoleViewer:
 Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by) if paper.cited_by else 0} - Resolved: {len(paper.cited_papers) if paper.cited_papers else 0} / {len(paper.cited_by_papers) if paper.cited_by_papers else 0}
 
 [bold cyan]APA Citation:[/bold cyan]
-{paper.apa}
+{paper.apa_formatted}
 """
         self.console.print(details)
 

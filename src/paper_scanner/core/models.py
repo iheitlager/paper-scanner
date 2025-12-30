@@ -737,6 +737,11 @@ class Paper(BaseModel):
             return f"{self.authors[0].family_name} et al."
 
     @property
+    def is_duplicate(self) -> bool:
+        """Check if paper is marked as duplicate"""
+        return self.duplicate_of is not None or (self.screening.deduplication is not None and self.screening.deduplication.is_duplicate)
+
+    @property
     def is_processed(self) -> bool:
         """Check if paper completed all processing"""
         return (
@@ -767,8 +772,7 @@ class Paper(BaseModel):
             base += 0.25
         return min(base, 1.0)
 
-    @property
-    def apa(self) -> str:
+    def formatted_apa(self, formatted=True) -> str:
         """Format paper as APA citation"""
         # Format authors
         if self.authors:
@@ -784,7 +788,10 @@ class Paper(BaseModel):
         citation = f"{authors_str} ({self.year}). {self.title}."
 
         if self.journal:
-            citation += f" {self.journal}"
+            if formatted:
+                citation += f" [italic]{self.journal}[/italic]"
+            else:
+                citation += f" {self.journal}"
             if self.volume:
                 citation += f", {self.volume}"
                 if self.number:
@@ -799,6 +806,15 @@ class Paper(BaseModel):
 
         return citation
 
+    @property
+    def apa_formatted(self) -> str:
+        """Get APA formatted citation (rich text)"""
+        return self.formatted_apa(formatted=True)
+
+    @property
+    def apa(self) -> str:
+        """Get APA formatted citation (plain text)"""
+        return self.formatted_apa(formatted=False)
 
     # =============
     # Magic Methods

@@ -557,6 +557,10 @@ class ReplController(AbstractController):
             "duplicates": ("Show duplicate papers", lambda p: p.is_duplicate),
             "all": ("Show all papers", lambda p: True),
         }
+        if not len(self.executor.papers_db):
+            self.controller_reporter.log_warning("No papers in database")
+            return StepResult(status=StepStatus.SUCCESS)
+
         if len(args) > 1:
             raise ValueError("show command takes at most one argument")
         if len(args) == 0:
@@ -573,9 +577,7 @@ class ReplController(AbstractController):
                 raise ValueError(f"Unknown show option: {option}")
             _, filter_func = options[option]
             papers = self.executor.papers_db.find(filter_func)
-        if not papers:
-            self.controller_reporter.log_warning("No papers in database")
-            return StepResult(status=StepStatus.SUCCESS)
+
 
         # Get all papers
         all_papers = list(papers)
