@@ -461,20 +461,17 @@ class KeywordScreener:
 
         combined_text = " ".join(filter(None, [title, abstract, " ".join(keywords or [])]))
 
-        # 2. CHECK FOR SYSTEMATIC/LITERATURE REVIEW (priority over all other screening)
+        # 2. DETECT STUDY TYPE (implicit)
+        # CHECK FOR SYSTEMATIC/LITERATURE REVIEW (priority over all other screening)
         # If title contains review-type keywords, automatically include with high confidence
         # Matches: "systematic literature review", "systematic review", "literature review"
-        is_systematic_review = False
-        if title:
-            title_lower = title.lower()
-            if ("systematic literature review" in title_lower or
+        title_lower = title.lower() if title else ""
+        if ("systematic literature review" in title_lower or
                 "systematic review" in title_lower or
                 "literature review" in title_lower):
-                is_systematic_review = True
-
-        # DETECT STUDY TYPE (implicit)
+                detected_study_type = StudyType.LITERATURE_REVIEW
         # If abstract is missing, force UNKNOWN study type
-        if not has_abstract:
+        elif not has_abstract:
             detected_study_type = StudyType.UNKNOWN
         else:
             detected_study_type = StudyTypeDetector.detect_study_type(combined_text)
@@ -509,11 +506,7 @@ class KeywordScreener:
         should_include = True
         final_exclusion_reason = None
 
-        # SPECIAL CASE: Systematic literature reviews always included (high priority)
-        if is_systematic_review:
-            should_include = True
-            final_exclusion_reason = None
-        elif self.mode == "inclusion_required":
+        if self.mode == "inclusion_required":
             if matched_exclusion_keywords or study_type_exclusion:
                 should_include = False
                 final_exclusion_reason = exclusion_reason
@@ -532,9 +525,7 @@ class KeywordScreener:
 
         # Set inclusion_reason to reflect systematic review preference
         inclusion_reason = None
-        if is_systematic_review:
-            inclusion_reason = "systematic literature review (auto-included)"
-        elif inclusion_score > 0:
+        if inclusion_score > 0:
             inclusion_reason = f"matched {inclusion_score} inclusion keywords"
 
         keyword_screening = KeywordScreening(
@@ -546,7 +537,7 @@ class KeywordScreener:
             is_empirical=detected_study_type in [StudyType.EMPIRICAL_QUALITATIVE, StudyType.EMPIRICAL_QUANTITATIVE, StudyType.CASE_STUDY],
             is_conceptual=detected_study_type == StudyType.CONCEPTUAL,
             is_literature_review=detected_study_type == StudyType.LITERATURE_REVIEW,
-            keyword_screening_confidence=1.0 if is_systematic_review else min(1.0, inclusion_score / max(1, len(self.inclusion_keywords))),
+            keyword_screening_confidence=min(1.0, inclusion_score / max(1, len(self.inclusion_keywords))),
             exclusion_reason=final_exclusion_reason,
             inclusion_reason=inclusion_reason,
             metadata=ProcessingMetadata(
