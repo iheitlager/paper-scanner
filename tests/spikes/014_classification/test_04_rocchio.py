@@ -22,7 +22,7 @@ This tests the core Rocchio functionality with minimal training signal.
 import pytest
 from pathlib import Path
 from paper_scanner.core.executor import StepExecutor
-from paper_scanner.core.reporter import NOOP
+from paper_scanner.core.reporter import NoOpReporter
 
 
 @pytest.fixture
@@ -41,10 +41,10 @@ def executor(test_data_dir):
         "research_question": "How do incumbent firms involve suppliers in digital innovation processes?",
         "email": "test@example.com",
     }
-    
+
     return StepExecutor(
         general_config=general_config,
-        step_reporter=NOOP,
+        step_reporter=NoOpReporter(),
         verbose=True,
         debug=True,
     )
@@ -75,18 +75,27 @@ def test_rocchio_prototype_1_zero_seed(executor, bib_file):
     if not bib_file.exists():
         pytest.skip(f"Test data file not found: {bib_file}")
     
-    # Load definition
-    definition = {
+    # Load definition steps directly (executor.steps, not load_definition)
+    executor.definition = {
+        "project": {
+            "name": "Rocchio_Test_004",
+        },
         "steps": [
             {
-                "name": "bibtex_import",
-                "config": {
-                    "input_file": str(bib_file),
+                "step": "bibtex_import",
+                "builtin.bibtex_import": {
+                    "imports": [
+                        {
+                            "name": "scopus_sample_20",
+                            "file_path": str(bib_file),
+                            "source_type": "scopus",
+                        }
+                    ]
                 }
             },
             {
-                "name": "keyword_screening",
-                "config": {
+                "step": "keyword_screening",
+                "builtin.keyword_screening": {
                     "screening_mode": "inclusion_required",
                     "keywords": {
                         "inclusion": [
@@ -100,8 +109,8 @@ def test_rocchio_prototype_1_zero_seed(executor, bib_file):
                 }
             },
             {
-                "name": "semantic_classification",
-                "config": {
+                "step": "semantic_classification",
+                "builtin.semantic_classification": {
                     "model": "all-mpnet-base-v2",  # Lighter model for testing
                     "rocchio_weights": {
                         "alpha": 1.0,
@@ -117,46 +126,47 @@ def test_rocchio_prototype_1_zero_seed(executor, bib_file):
             }
         ]
     }
-    
-    executor.load_definition(definition)
-    
+
+    # Load steps into executor
+    executor.steps = executor.definition.get("steps", [])
+
     # Execute step by step
     results = []
     while executor.has_next_step:
         result = executor.execute_next_step()
         results.append(result)
-        
+
         if result["status"] != "success":
             pytest.fail(f"Step failed: {result['message']}")
-    
+
     # Verify results
     assert len(results) == 3, f"Expected 3 steps, got {len(results)}"
-    
+
     # Check bibtex_import
     import_result = results[0]
     assert import_result["status"] == "success"
     assert import_result["stats"]["papers_count"] > 0, "No papers imported"
     initial_paper_count = import_result["stats"]["papers_count"]
-    
+
     # Check keyword_screening
     keyword_result = results[1]
     assert keyword_result["status"] == "success"
     assert keyword_result["stats"]["screened"] > 0, "No papers screened"
-    
+
     # Check semantic_classification
     rocchio_result = results[2]
     assert rocchio_result["status"] == "success"
     assert rocchio_result["stats"]["classified"] > 0, "No papers classified"
-    
+
     # Verify step_state persistence
     assert "semantic_classification_rocchio_state" in executor.step_state, \
         "Rocchio state not stored in executor.step_state"
-    
+
     state_dict = executor.step_state["semantic_classification_rocchio_state"]
     assert state_dict["query_centroid"] is not None, "Query centroid not initialized"
     assert state_dict["count_relevant"] > 0 or state_dict["count_irrelevant"] > 0, \
         "No centroids initialized from keyword_screening"
-    
+
     # Print summary
     print("\n" + "="*60)
     print("PROTOTYPE 1: ZERO-SEED BASELINE")
