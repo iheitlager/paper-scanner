@@ -217,7 +217,7 @@ class SemanticClassificationStep(BaseStep):
             accepted_embeddings = []
             rejected_embeddings = []
 
-            all_papers = self.db.find(primary_only=True)
+            all_papers = self.db.all(primary_only=True)
             for paper in all_papers:
                 if paper.screening.keyword_screening:
                     if paper.screening.keyword_screening.passed:
