@@ -16,7 +16,7 @@ from typing import Any, Dict, Tuple
 from paper_scanner.core.enum import ScreeningDecision, StepStatus
 from paper_scanner.core.exceptions import ConfigurationError, StepFatalError
 from paper_scanner.core.models import ProcessingMetadata, SemanticScreening
-from paper_scanner.core.rocchio import AdaptiveRocchioScreener, ScreeningState
+from paper_scanner.tools.documents.rocchio import AdaptiveRocchioScreener, ScreeningState
 from paper_scanner.core.step_result import StepResult
 from .base import BaseStep
 
