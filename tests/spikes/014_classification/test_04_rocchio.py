@@ -26,13 +26,7 @@ from paper_scanner.core.reporter import NoOpReporter
 
 
 @pytest.fixture
-def test_data_dir():
-    """Get the test data directory."""
-    return Path(__file__).parent.parent.parent / "data"
-
-
-@pytest.fixture
-def executor(test_data_dir):
+def executor():
     """Create an executor with project configuration."""
     general_config = {
         "project_name": "Rocchio_Test_004",
@@ -51,13 +45,23 @@ def executor(test_data_dir):
 
 
 @pytest.fixture
-def bib_file(test_data_dir):
-    """Locate the scopus_sample_20.bib file."""
-    bib_path = test_data_dir / "scopus_sample_20.bib"
-    if not bib_path.exists():
-        # Try alternative location
-        bib_path = Path(__file__).parent.parent.parent.parent / "scopus_sample_20.bib"
-    return bib_path
+def bib_file():
+    """Locate the scopus_sample_20.bib file by searching upward from test directory."""
+    # Start from test file and search upward
+    search_dir = Path(__file__).parent
+    for _ in range(5):  # Search up to 5 directories
+        bib_path = search_dir / "scopus_sample_20.bib"
+        if bib_path.exists():
+            return bib_path
+        search_dir = search_dir.parent
+
+    # Fallback: try tests/data
+    fallback = Path(__file__).parent.parent.parent / "data" / "scopus_sample_20.bib"
+    if fallback.exists():
+        return fallback
+
+    # If nothing found, return the expected location anyway (test will skip with clear message)
+    return Path(__file__).parent.parent.parent / "data" / "scopus_sample_20.bib"
 
 
 def test_rocchio_prototype_1_zero_seed(executor, bib_file):
