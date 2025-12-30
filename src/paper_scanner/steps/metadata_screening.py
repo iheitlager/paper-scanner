@@ -252,7 +252,7 @@ class MetadataScreeningStep(BaseStep):
                 allowed_value = field_logic["exclude_all_except"]
                 if not self._value_matches(paper_value, allowed_value):
                     exclusion_reason = (
-                        f"{field}: {paper_value} (only {allowed_value} allowed)"
+                        f"{field}: '{paper_value}' (only '{allowed_value}' allowed)"
                     )
 
             # Stop checking if excluded

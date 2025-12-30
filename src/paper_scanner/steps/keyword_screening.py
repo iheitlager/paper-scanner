@@ -389,6 +389,7 @@ class KeywordScreener:
         """Initialize with screening config"""
         self.config = config
         self.mode = config.get("mode", "inclusion_required")
+        self.complete = config.get("complete", None)
 
         self.exclusion_keywords = self._flatten_keywords(
             config.get("exclude", {}).get("keywords", {})
@@ -430,7 +431,7 @@ class KeywordScreener:
         # Also validate that abstract is substantive (not just boilerplate)
         has_title = title and title.strip()
         has_abstract = abstract and abstract.strip() and abstract.strip().upper() != "N/A" and is_substantive_abstract(abstract)
-        has_keywords = keywords and len(keywords) > 0 and any(k.strip() for k in keywords)
+        has_keywords = self.complete != "strict" or (keywords and len(keywords) > 0 and any(k.strip() for k in keywords))
         
         if not (has_title and has_abstract and has_keywords):
             # Return EXCLUDED_INCOMPLETE decision
@@ -444,7 +445,7 @@ class KeywordScreener:
             if not has_keywords:
                 missing_parts.append("keywords")
             
-            reason = f"incomplete metadata: missing {', '.join(missing_parts)}"
+            reason = f"incomplete metadata: missing '{', '.join(missing_parts)}'"
             excluded_incomplete = KeywordScreening(
                 passed=False,
                 is_empirical=False,
@@ -479,7 +480,7 @@ class KeywordScreener:
         # Check if excluded by study_type
         study_type_exclusion = None
         if detected_study_type.value in self.excluded_study_types:
-            study_type_exclusion = f"study_type '{detected_study_type.value}' is excluded"
+            study_type_exclusion = f"study_type: '{detected_study_type.value}' is excluded"
 
         # 3. CHECK EXCLUSION KEYWORDS
         matched_exclusion_keywords = []
@@ -537,7 +538,7 @@ class KeywordScreener:
             is_empirical=detected_study_type in [StudyType.EMPIRICAL_QUALITATIVE, StudyType.EMPIRICAL_QUANTITATIVE, StudyType.CASE_STUDY],
             is_conceptual=detected_study_type == StudyType.CONCEPTUAL,
             is_literature_review=detected_study_type == StudyType.LITERATURE_REVIEW,
-            keyword_screening_confidence=min(1.0, inclusion_score / max(1, len(self.inclusion_keywords))),
+            keyword_screening_confidence=min(1.0 if self.complete != "strict" else 0.8, inclusion_score / max(1, len(self.inclusion_keywords))),
             exclusion_reason=final_exclusion_reason,
             inclusion_reason=inclusion_reason,
             metadata=ProcessingMetadata(
@@ -565,6 +566,11 @@ class KeywordScreeningStep(BaseStep):
             if mode not in ["inclusion_required", "exclusion_only", "soft"]:
                 errors.append(f"'mode' must be one of: inclusion_required, exclusion_only, soft (got {mode})")
 
+        if "complete" in config:
+            complete = config["complete"]
+            if complete not in ["strict"]:
+                errors.append("'complete' must be one of: strict")
+
         if "exclude" in config:
             exclude = config["exclude"]
             if not isinstance(exclude, dict):
@@ -587,14 +593,6 @@ class KeywordScreeningStep(BaseStep):
         """Execute keyword screening step"""
 
         screener = KeywordScreener(config)
-
-        self.callback(
-             "Keyword Screening\n"
-            f" * Exclusion keywords: {len(screener.exclusion_keywords)}\n"
-            f" * Inclusion keywords: {len(screener.inclusion_keywords)}\n"
-            f" * Mode: {screener.mode}\n"
-            f" * Processing {self.db.count(primary_only=False)} papers...\n", debug=True
-        )
 
         results = {
             "total_papers": self.db.count(primary_only=False),
