@@ -49,6 +49,7 @@ def bib_file():
     """Locate the scopus_sample_20.bib file by searching upward from test directory."""
     # Start from test file and search upward
     search_dir = Path(__file__).parent
+    
     for _ in range(5):  # Search up to 5 directories
         bib_path = search_dir / "scopus_sample_20.bib"
         if bib_path.exists():
@@ -60,8 +61,19 @@ def bib_file():
     if fallback.exists():
         return fallback
 
-    # If nothing found, return the expected location anyway (test will skip with clear message)
-    return Path(__file__).parent.parent.parent / "data" / "scopus_sample_20.bib"
+    # Last resort: search from project root
+    project_root = Path(__file__).parent
+    while project_root.name != "paper-scanner" and project_root.parent != project_root:
+        project_root = project_root.parent
+
+    if project_root.name == "paper-scanner":
+        last_try = project_root / "scopus_sample_20.bib"
+        if last_try.exists():
+            return last_try
+
+    # Return the expected default location (test will skip if not found)
+    default = Path(__file__).parent.parent.parent / "data" / "scopus_sample_20.bib"
+    return default
 
 
 def test_rocchio_prototype_1_zero_seed(executor, bib_file):
@@ -76,18 +88,13 @@ def test_rocchio_prototype_1_zero_seed(executor, bib_file):
     5. Verify papers are classified and centroids are initialized
     """
     
-    if not bib_file.exists():
-        pytest.skip(f"Test data file not found: {bib_file}")
-    
-    # Load definition steps directly (executor.steps, not load_definition)
-    executor.definition = {
-        "project": {
-            "name": "Rocchio_Test_004",
-        },
-        "steps": [
-            {
-                "step": "bibtex_import",
-                "builtin.bibtex_import": {
+    # Ensure bib_file is a valid Path
+    if bib_file is None:
+        pytest.skip("bib_file fixture returned None")
+
+    if not isinstance(bib_file, Path):
+        bib_file = Path(bib_file)
+
                     "imports": [
                         {
                             "name": "scopus_sample_20",
