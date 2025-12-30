@@ -9,14 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **EXCLUDED_INCOMPLETE Screening Decision**: New decision type for papers with incomplete metadata
+  - Validates title, abstract, and keywords completeness as first-pass screening
+  - Papers failing validation are marked with EXCLUDED_INCOMPLETE decision
+  - Prevents downstream processing of papers with insufficient metadata
+  - Updated `Paper.is_excluded` property to recognize EXCLUDED_INCOMPLETE
+
 - **Rocchio Screening Step** (`rocchio_screening`): Adaptive semantic classification using Rocchio algorithm
   - Persistent centroid-based decision boundaries that evolve as papers are labeled
   - Bootstraps from keyword_screening results for initial seed labels
+  - Extended to classify on title, abstract, and keywords for richer semantic features
   - Configurable Rocchio weights and accept/reject thresholds
   - Routes papers to ACCEPT, REJECT, or UNCERTAIN decisions
   - State persists in executor.step_state between steps within a session
 
 ### Changed
+
+- **BibTeX Import/Export**: Improved handling of special characters
+  - Normalize ampersands in imported papers: convert `\&` and `&amp;` to regular `&`
+  - Applied to title, abstract, journal, booktitle, and publisher fields
+  - Properly escape ampersands when exporting to BibTeX format (`&` → `\&`)
+  - Prevent double-escaping of already-escaped ampersands
+
+- **Abstract Processing**: Enhanced whitespace normalization
+  - Collapse multi-line abstracts with newlines, tabs, and multiple spaces to single line
+  - Improve readability and consistency of abstract text
 
 ### Fixed
 
