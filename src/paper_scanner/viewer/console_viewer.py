@@ -1,6 +1,5 @@
 """ConsoleViewer - MVC View for rendering papers in the console"""
 
-import select
 import sys
 import termios
 import tty
@@ -226,35 +225,26 @@ Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by
             self.render_page()
 
     def _get_key(self) -> str:
-        """Get a single key press from terminal
-        
-        Uses select.select() with timeout to avoid indefinite blocking on incomplete
-        escape sequences. This ensures ESC alone returns immediately without waiting.
-        """
+        """Get a single key press from terminal"""
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
             tty.setraw(fd)
             ch = sys.stdin.read(1)
-            
             # Check for escape sequences (arrow keys)
             if ch == "\x1b":  # ESC sequence
-                # Use select with small timeout to check if more data is available
-                # This prevents indefinite blocking on slow/incomplete sequences
-                ready, _, _ = select.select([sys.stdin], [], [], 0.05)
-                if ready:
-                    next_ch = sys.stdin.read(1)
-                    if next_ch == "[":
-                        arrow = sys.stdin.read(1)
-                        if arrow == "C":  # Right arrow
-                            return "right"
-                        elif arrow == "D":  # Left arrow
-                            return "left"
-                        elif arrow == "A":  # Up arrow
-                            return "up"
-                        elif arrow == "B":  # Down arrow
-                            return "down"
-                # If ESC not followed by arrow sequence, return ESC immediately
+                next_ch = sys.stdin.read(1)
+                if next_ch == "[":
+                    arrow = sys.stdin.read(1)
+                    if arrow == "C":  # Right arrow
+                        return "right"
+                    elif arrow == "D":  # Left arrow
+                        return "left"
+                    elif arrow == "A":  # Up arrow
+                        return "up"
+                    elif arrow == "B":  # Down arrow
+                        return "down"
+                # If ESC not followed by arrow sequence, return ESC
                 return "\x1b"
             return ch
         finally:
