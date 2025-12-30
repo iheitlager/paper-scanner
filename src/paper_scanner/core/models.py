@@ -292,6 +292,23 @@ class DeduplicationResult(BaseModel):
 # ============================================================================
 # METADATA SCREENING MODEL
 # ============================================================================
+# ============================================================================
+# JOURNAL SCREENING MODEL
+# ============================================================================
+
+class JournalScreeningResult(BaseModel):
+    """Journal screening and enrichment results"""
+
+    journal_name: str
+    acronym: Optional[str] = None
+    iso4: Optional[str] = None
+    lookup_type: str = "exact_match"  # exact_match or iso4_generation
+    metadata: Optional[ProcessingMetadata] = None
+
+
+# ============================================================================
+# METADATA SCREENING MODEL
+# ============================================================================
 
 class MetadataScreening(BaseModel):
     """Metadata screening results"""
@@ -388,19 +405,22 @@ class Screening(BaseModel):
     # Stage 0: Deduplication
     deduplication: Optional[DeduplicationResult] = None
 
-    # Stage 1: Metadata screening
+    # Stage 1: Journal screening
+    journal_screening: Optional[JournalScreeningResult] = None
+
+    # Stage 2: Metadata screening
     metadata_screening: Optional[MetadataScreening] = None
 
-    # Stage 2: Keyword screening
+    # Stage 3: Keyword screening
     keyword_screening: Optional[KeywordScreening] = None
 
-    # Stage 3: Semantic screening
+    # Stage 4: Semantic screening
     semantic_screening: Optional[SemanticScreening] = None
 
-    # Stage 4: LLMc screening
+    # Stage 5: LLMc screening
     llm_screening: Optional[SemanticScreening] = None
 
-    # Stage 5: Full paper screening (not excluded stages 0-3 means full paper review)
+    # Stage 6: Full paper screening (not excluded stages 0-3 means full paper review)
     full_paper_screening: Optional[FullPaperScreening] = None
 
     manual_decision: Optional[ScreeningDecision] = None

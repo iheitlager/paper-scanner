@@ -15,6 +15,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "halt": "paper_scanner.steps.halt:HaltStep",
     "paper": "paper_scanner.steps.paper:PaperStep",
     "input": "paper_scanner.steps.input:InputStep",
+    "journal_screening": "paper_scanner.steps.journal_screening:JournalScreeningStep",
     "keyword_screening": "paper_scanner.steps.keyword_screening:KeywordScreeningStep",
     "load_files": "paper_scanner.steps.load_files:LoadFilesStep",
     "metadata_screening": "paper_scanner.steps.metadata_screening:MetadataScreeningStep",
