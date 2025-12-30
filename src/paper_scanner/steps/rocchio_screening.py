@@ -220,18 +220,28 @@ class RocchioScreeningStep(BaseStep):
             all_papers = self.db.all(primary_only=True)
             for paper in all_papers:
                 if paper.screening.keyword_screening:
+                    # Combine title, abstract, and keywords for rich embedding
+                    text_parts = []
+                    if paper.title:
+                        text_parts.append(paper.title)
+                    if paper.abstract:
+                        text_parts.append(paper.abstract)
+                    if paper.keywords:
+                        keywords_str = " ".join(paper.keywords)
+                        text_parts.append(keywords_str)
+                    
+                    text = " ".join(text_parts)
+                    if not text:
+                        continue
+                    
+                    emb = embedder.encode(text, convert_to_numpy=True)
+                    
                     if paper.screening.keyword_screening.passed:
                         # This paper passed keyword screening (accepted)
-                        abstract = paper.abstract or paper.title or ""
-                        if abstract:
-                            emb = embedder.encode(abstract, convert_to_numpy=True)
-                            accepted_embeddings.append(emb)
+                        accepted_embeddings.append(emb)
                     else:
                         # This paper failed keyword screening (rejected)
-                        abstract = paper.abstract or paper.title or ""
-                        if abstract:
-                            emb = embedder.encode(abstract, convert_to_numpy=True)
-                            rejected_embeddings.append(emb)
+                        rejected_embeddings.append(emb)
 
             if accepted_embeddings or rejected_embeddings:
                 screener.bootstrap_from_seeds(accepted_embeddings, rejected_embeddings)
@@ -258,10 +268,19 @@ class RocchioScreeningStep(BaseStep):
 
         for i, paper in enumerate(all_papers):
             try:
-                # Get abstract or title for embedding
-                text = paper.abstract or paper.title or ""
+                # Combine title, abstract, and keywords for rich embedding
+                text_parts = []
+                if paper.title:
+                    text_parts.append(paper.title)
+                if paper.abstract:
+                    text_parts.append(paper.abstract)
+                if paper.keywords:
+                    keywords_str = " ".join(paper.keywords)
+                    text_parts.append(keywords_str)
+                
+                text = " ".join(text_parts)
                 if not text:
-                    self.callback(f"Skipping {paper.cite_key}: no abstract or title", debug=True)
+                    self.callback(f"Skipping {paper.cite_key}: no text content", debug=True)
                     continue
 
                 # Embed and classify
