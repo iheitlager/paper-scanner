@@ -747,7 +747,7 @@ class StepExecutor:
             # ConfigurationError propagates for invalid config
             step_name, step_params, step_desc = self.parse_step_config(template_step)
 
-            self.step_reporter.on_step_event(f"Executing template '{template_name}' step: {step_name}", debug=True) 
+            self.step_reporter.on_step_event(f"Executing template '{template_name}' step: '{step_name}'") 
             if step_name == "run-template":
                 # Nested template call
                 result = self._execute_template(step_params, step_desc, dry_run)

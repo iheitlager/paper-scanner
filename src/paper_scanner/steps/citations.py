@@ -179,8 +179,6 @@ class CitationsStep(BaseStep):
 
         self.iteration = 0
 
-
-
         results = {
             "total_papers": self.db.count(primary_only=True),
             "papers_with_citations": 0,
@@ -245,16 +243,6 @@ class CitationsStep(BaseStep):
         if self.output_errors:
             # Clear existing error file
             Path(self.output_errors).write_text("", encoding="utf-8")
-
-        self.callback(f"Citations backward processing\n"
-                      f"Paper types to process: {paper_types}\n"
-                      f"Citation sources: {citations}\n"
-                      f"Details sources: {details}\n"
-                      f"Included only: {included_only}\n"
-                      f"Continue on not found: {continue_on_not_found}\n"
-                      f"Iterations: {iterations}\n"
-                      f"Applying screening template : {screening}\n" if screening else ""
-                      + (f"Limit papers to process: {limit}" if limit else ""), debug=True)
 
         while self.iteration < iterations:
             # Get papers to process (in simple readable format)
@@ -356,15 +344,6 @@ class CitationsStep(BaseStep):
             # Clear existing error file
             Path(self.output_errors).write_text("", encoding="utf-8")
 
-        self.callback(f"Citations forward processing\n"
-                      f"Paper types to process: {paper_types}\n"
-                      f"Included only: {included_only}\n"
-                      f"Citation sources: {citations}\n"
-                      f"Details sources: {details}\n"
-                      f"Continue on not found: {continue_on_not_found}\n"
-                      f"Applying screening template : {screening}\n" if screening else ""
-                      + (f"Limit papers to process: {limit}" if limit else ""), debug=True)
-
         # Get papers to process (in simple readable format)
         def predicate(p):
             if year and p.year < year:
@@ -382,8 +361,6 @@ class CitationsStep(BaseStep):
 
         if limit:
             target_papers = target_papers[:limit]
-
-        self.iteration = 1
 
         results['target_papers'] = results.get("target_papers", 0) + len(target_papers)
         self.callback(f"Total papers in DB: {self.db.count(primary_only=True)}\n"
@@ -737,6 +714,7 @@ class CitationsStep(BaseStep):
 
         # Citation not found in database
         # TODO: Implement title+year and/or other resolutions if needed
+        # TODO: this is probably broken as we removed many try/catch blocks
         if continue_on_not_found:
             return None, False
         else:
