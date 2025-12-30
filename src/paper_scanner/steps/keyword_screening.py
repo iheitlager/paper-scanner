@@ -140,6 +140,7 @@ class StudyTypeDetector:
         "metaanalysis",
         "meta analysis",
         "state of the art",
+        "bibliometric",
     ]
 
     CONCEPTUAL_INDICATORS = [
@@ -162,9 +163,17 @@ class StudyTypeDetector:
         r'questionnaire|measurement|hypothesis',
         r'significant.*p\s*[<>]|p\s*[<>]\s*0\.',
         r'quantitative|quantitatively',
+        r'survey',
         r'numerical',
-        r'sample size',
+        r'sample size|sample',
         r'participants?|subjects?|respondents?',
+        r'data from[\s\S]*?(?:firm|company|provider|organization|source)',
+        r'significant[\s\S]*?(?:impact|effect|relationship)',
+        r'sensitivity (?:test|analysis)',
+        r'heterogeneity analysis',
+        r'sample[\s\S]*?(?:\d+|firms?|companies?|organizations?|pairs?)',
+        r'empirical data|empirical (?:evidence|findings)',
+        r'results (?:imply|show|indicate|suggest|reveal)',
     ]
 
     QUALITATIVE_PATTERNS = [
@@ -182,11 +191,16 @@ class StudyTypeDetector:
         r'qualitative|qualitatively',
         r'in-depth|in depth',
         r'semi-structured|unstructured',
+        r'evaluate[\s\S]*?(?:with|of|for)[\s\S]*?(?:\d+|organization|company|firm|provider|practitioner)',
+        r'assess(?:ed|ment|ments?)[\s\S]*?(?:organization|company|firm|provider|case)',
+        r'(?:study|research)[\s\S]*?(?:investigated|examined|analyzed|explored)',
+        r'examines[\s\S]*?(?:case|firm|company|scenario)',
     ]
 
     CASESTUDY_INDICATORS = [
         r'case study|case studies|case-study|case[- ]based',
-        r'multiple case|single case|comparative case',
+        r'multiple[- ]case|single[- ]case|comparative[- ]case',
+        r'study of (?:two|three|four|five|six|seven|eight|nine|ten|\d+)[\s\S]*?(?:cases?|firms?|companies?|organizations?|relationships?)',
     ]
 
     METHOD_INDICATORS = [
@@ -200,36 +214,67 @@ class StudyTypeDetector:
         r'validation|evaluated',
         r'structural model|path model|SEM|sem|m-TISM|TISM',
         r'modeling approach|model evaluation|model development',
+        r'text mining|data mining|machine learning|computational',
+        r'validated (?:by|using|with) real|real (?:data|information)',
+        r'evolutionary (?:algorithm|heuristic)',
+        r'process view|process approach|process model',
     ]
 
     @classmethod
     def detect_study_type(cls, text: Optional[str]) -> StudyType:
         """Detect study type from text content with empirical-first priority
         
-        Design Decision: Empirical classification takes priority over literature review
-        because many academic papers combine literature review WITH empirical research.
-        When both are detected, the empirical nature is more important.
+        Design Decisions:
+        - Empirical classification has priority because many papers combine literature 
+          reviews WITH empirical research (e.g., building model from lit review, then 
+          validating with case studies). The empirical nature is more important.
+        - Special case: Pure literature review studies (e.g., bibliometric, systematic 
+          review) with weak empirical signals are classified as LITERATURE_REVIEW to 
+          avoid false positives.
+        - Case studies are given separate category (CASE_STUDY) from other empirical types.
         
         Priority Order:
-        1. Empirical (pattern-scored: interviews, surveys, case studies, etc.)
-        2. Editorial (news, commentary) - highest priority
-        3. Literature Review (only explicit review types)
+        1. Editorial (news, commentary) - most specific
+        2. Empirical (pattern-scored: interviews, surveys, case studies, etc.)
+        3. Literature Review (explicit review types - checked if no strong empirical signals)
         4. Conceptual/Theoretical (frameworks, opinions, no empirical indicators)
         5. Unknown (default)
+        
+        Example Classifications:
+        - "A literature review building a model, validated via 4 case studies" → CASE_STUDY
+        - "A bibliometric analysis of 200 publications" → LITERATURE_REVIEW (weak empirical)
+        - "Interviews with 12 managers about digital transformation" → EMPIRICAL_QUALITATIVE
         """
         if not text:
             return StudyType.UNKNOWN
 
         text_lower = text.lower()
 
-        empirical_info = cls._detect_empirical_research(text)
-        if empirical_info['is_empirical']:
-            return empirical_info['type']  # Return the StudyType enum directly
-
+        # Check explicit editorial first
         if any(cls._has_indicator(text_lower, ind) for ind in cls.EDITORIAL_INDICATORS):
             return StudyType.EDITORIAL
 
-        if any(cls._has_indicator(text_lower, ind) for ind in cls.LITERATURE_REVIEW_INDICATORS):
+        # Check empirical
+        empirical_info = cls._detect_empirical_research(text)
+        
+        # Special case: Pure literature review studies (e.g., bibliometric, systematic reviews)
+        # may have weak quantitative pattern matches (e.g., "analyzed 200 publications") but are
+        # fundamentally literature reviews, not empirical studies. If explicit literature review
+        # indicators exist AND total empirical score is weak (≤3), classify as LITERATURE_REVIEW.
+        # This avoids misclassifying bibliometric analyses as empirical research.
+        has_explicit_lit_review = any(cls._has_indicator(text_lower, ind) for ind in cls.LITERATURE_REVIEW_INDICATORS)
+        if has_explicit_lit_review and empirical_info['total_score'] <= 3:
+            return StudyType.LITERATURE_REVIEW
+        
+        if empirical_info['is_empirical']:
+            return empirical_info['type']  # Return the StudyType enum directly
+
+        # Check for ambiguous papers with some empirical signals but below threshold
+        if empirical_info['total_score'] > 0 and empirical_info['total_score'] < 2:
+            return StudyType.UNKNOWN
+
+        # Fall back to literature review if explicit indicators exist
+        if has_explicit_lit_review:
             return StudyType.LITERATURE_REVIEW
 
         if any(cls._has_indicator(text_lower, ind) for ind in cls.CONCEPTUAL_INDICATORS):
@@ -252,17 +297,24 @@ class StudyTypeDetector:
                           if re.search(p, text_lower))
 
         total_score = quant_score + qual_score + case_score + method_score
-        is_empirical = total_score >= 2
+        # Case studies are definitively empirical, even if only case_score > 0
+        is_empirical = case_score > 0 or total_score >= 2
 
         # Determine type as StudyType enum
         if case_score > 0:
-            study_type = StudyType.EMPIRICAL_QUALITATIVE
+            study_type = StudyType.CASE_STUDY
         elif quant_score > qual_score:
             study_type = StudyType.EMPIRICAL_QUANTITATIVE
         elif qual_score > quant_score:
             study_type = StudyType.EMPIRICAL_QUALITATIVE
         elif quant_score > 0 and qual_score > 0:
             study_type = StudyType.EMPIRICAL_QUANTITATIVE
+        elif method_score > 0:
+            # Default to quantitative for empirical papers identified by methodology indicators
+            study_type = StudyType.EMPIRICAL_QUANTITATIVE
+        elif total_score > 0 and total_score < 2:
+            # Has some empirical indicators but below threshold - needs manual review
+            study_type = StudyType.UNKNOWN
         else:
             study_type = StudyType.UNKNOWN
 
@@ -331,8 +383,26 @@ class KeywordScreener:
 
         combined_text = " ".join(filter(None, [title, abstract, " ".join(keywords or [])]))
 
+        # 0. CHECK FOR SYSTEMATIC/LITERATURE REVIEW (priority over all other screening)
+        # If title contains review-type keywords, automatically include with high confidence
+        # Matches: "systematic literature review", "systematic review", "literature review"
+        is_systematic_review = False
+        if title:
+            title_lower = title.lower()
+            if ("systematic literature review" in title_lower or
+                "systematic review" in title_lower or
+                "literature review" in title_lower):
+                is_systematic_review = True
+
+        # 1. CHECK FOR MISSING ABSTRACT
+        has_abstract = abstract and abstract.strip() and abstract.strip().upper() != "N/A"
+        
         # 1. DETECT STUDY TYPE (implicit)
-        detected_study_type = StudyTypeDetector.detect_study_type(combined_text)
+        # If abstract is missing, force UNKNOWN study type
+        if not has_abstract:
+            detected_study_type = StudyType.UNKNOWN
+        else:
+            detected_study_type = StudyTypeDetector.detect_study_type(combined_text)
 
         # Check if excluded by study_type
         study_type_exclusion = None
@@ -364,7 +434,11 @@ class KeywordScreener:
         should_include = True
         final_exclusion_reason = None
 
-        if self.mode == "inclusion_required":
+        # SPECIAL CASE: Systematic literature reviews always included (high priority)
+        if is_systematic_review:
+            should_include = True
+            final_exclusion_reason = None
+        elif self.mode == "inclusion_required":
             if matched_exclusion_keywords or study_type_exclusion:
                 should_include = False
                 final_exclusion_reason = exclusion_reason
@@ -381,6 +455,13 @@ class KeywordScreener:
         # 5. BUILD KEYWORD SCREENING MODEL
         duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
 
+        # Set inclusion_reason to reflect systematic review preference
+        inclusion_reason = None
+        if is_systematic_review:
+            inclusion_reason = "systematic literature review (auto-included)"
+        elif inclusion_score > 0:
+            inclusion_reason = f"matched {inclusion_score} inclusion keywords"
+
         keyword_screening = KeywordScreening(
             passed=should_include,
             study_type=detected_study_type,
@@ -390,9 +471,9 @@ class KeywordScreener:
             is_empirical=detected_study_type in [StudyType.EMPIRICAL_QUALITATIVE, StudyType.EMPIRICAL_QUANTITATIVE, StudyType.CASE_STUDY],
             is_conceptual=detected_study_type == StudyType.CONCEPTUAL,
             is_literature_review=detected_study_type == StudyType.LITERATURE_REVIEW,
-            keyword_screening_confidence=min(1.0, inclusion_score / max(1, len(self.inclusion_keywords))),
+            keyword_screening_confidence=1.0 if is_systematic_review else min(1.0, inclusion_score / max(1, len(self.inclusion_keywords))),
             exclusion_reason=final_exclusion_reason,
-            inclusion_reason=f"matched {inclusion_score} inclusion keywords" if inclusion_score > 0 else None,
+            inclusion_reason=inclusion_reason,
             metadata=ProcessingMetadata(
                 duration_seconds=duration_seconds,
                 success=True
@@ -458,8 +539,9 @@ class KeywordScreeningStep(BaseStep):
             "exclusion_reasons": {},
         }
 
+        # Process each non duplicate paper, this is idempotent
         all_papers = self.db.find(
-            predicate=lambda p: not p.is_excluded,
+            predicate=lambda p: not p.is_excluded and not p.is_included and not p.screening.keyword_screening,
             primary_only=True
         )
 

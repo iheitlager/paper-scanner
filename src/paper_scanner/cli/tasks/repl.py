@@ -23,6 +23,7 @@ from prompt_toolkit.styles import Style
 from pygments.lexers.python import PythonLexer
 
 from paper_scanner.core.controller import AbstractController, macro_step
+from paper_scanner.core.enum import ScreeningDecision
 from paper_scanner.core.step_result import StepResult, StepStatus
 from paper_scanner.core.reporter import AbstractStepReporter, AbstractControllerReporter, ConsoleLoggingMixin
 from paper_scanner.viewer import ConsoleViewer
@@ -238,6 +239,10 @@ class ReplController(AbstractController):
             "executor": self.executor,
             "db": self.executor.papers_db,
             "steps": self.executor.steps,
+            "templates": self.executor.templates,
+            'definition': self.executor.definition,
+            "config" : self.executor.general_config,
+            "cache_dir": self.executor.cache_dir,
             "reporter": self.step_reporter,
         }
 
@@ -376,6 +381,12 @@ class ReplController(AbstractController):
             except EOFError:
                 break
 
+        namespace['settings'] = {
+            "verbose": self.verbose,
+            "dryrun": self.dryrun,
+            "timings": self.timings,
+            "debug": self.debug,
+        }
         # Now execute the complete code
         try:
             # Try eval first (for expressions)
@@ -539,7 +550,29 @@ class ReplController(AbstractController):
     @macro_step("show", "v")
     def show_cmd(self, args: list[str]) -> StepResult:
         """Show database records in paginated APA format"""
-        papers = self.executor.papers_db
+        options = {
+            "manual": ("Show papers marked for manual review", lambda p: p.screening.final_decision == ScreeningDecision.MANUAL_REVIEW),
+            "included": ("Show included papers", lambda p: p.is_included),
+            "excluded": ("Show excluded papers", lambda p: p.is_excluded),
+            "duplicates": ("Show duplicate papers", lambda p: p.is_duplicate),
+            "all": ("Show all papers", lambda p: True),
+        }
+        if len(args) > 1:
+            raise ValueError("show command takes at most one argument")
+        if len(args) == 0:
+            papers = self.executor.papers_db
+        elif args[0] == "help":
+            self.controller_reporter.log("\n[bold]📋 Show Options:[/bold]")
+            for option, (description, _) in options.items():
+                self.controller_reporter.log(f"  • [cyan]{option}[/cyan] - {description}")
+            self.controller_reporter.log("")
+            return StepResult(status=StepStatus.SUCCESS)
+        elif len(args) == 1:
+            option = args[0]
+            if option not in options:
+                raise ValueError(f"Unknown show option: {option}")
+            _, filter_func = options[option]
+            papers = self.executor.papers_db.find(filter_func)
         if not papers:
             self.controller_reporter.log_warning("No papers in database")
             return StepResult(status=StepStatus.SUCCESS)

@@ -1,23 +1,27 @@
 # Keyword Screening
 
 ### Title
-**Keyword Screening** - Filters papers using inclusion and exclusion keyword lists
+**Keyword Screening** - Automated keyword-based screening with implicit study type detection
 
 ### Description
 
-The Keyword Screening step performs automated keyword-based filtering using user-defined inclusion and exclusion keywords. Papers are scored based on keyword presence in their title, abstract, and keywords field. Papers scoring above the inclusion threshold are marked INCLUDED, those below the exclusion threshold are marked EXCLUDED, and borderline papers are marked MANUAL_REVIEW for human assessment.
+The Keyword Screening step performs advanced keyword-based screening with two key features:
 
-This step provides a fast, configurable first-pass filter that can significantly reduce the screening workload before semantic and manual screening stages.
+1. **Study Type Detection**: Automatically detects research methodology (empirical, literature review, conceptual, editorial, case study, unknown) from paper content using 60+ regex patterns
+2. **Keyword Filtering**: Filters papers using inclusion/exclusion keywords with wildcard support and configurable matching modes
+
+Papers are classified by study type, matched against inclusion/exclusion keywords, and marked with screening decisions. The study type classification helps identify the research approach, which is valuable for downstream analysis and manual review prioritization.
 
 ### Features
 
-- ✅ **Inclusion keywords**: Define keywords that papers must contain for automatic inclusion
-- ✅ **Exclusion keywords**: Define keywords that automatically exclude papers
-- ✅ **Scoring mechanism**: Keyword frequency-based scoring (0-100 scale)
-- ✅ **Configurable thresholds**: Set inclusion and exclusion thresholds for decision points
-- ✅ **Progress reporting**: Inline updates every 100 papers showing screening progress
-- ✅ **Decision tracking**: Automatically sets final_decision based on keyword scores
-- ✅ **Scoring details**: Logs keyword scores and matching keywords in screening notes
+- ✅ **Implicit Study Type Detection**: Automatically detects empirical (qualitative/quantitative), literature review, case study, conceptual, editorial, and unknown types
+- ✅ **Sophisticated Pattern Matching**: Uses 60+ regex patterns across 8 categories (quantitative methods, qualitative methods, case studies, methodology indicators, etc.)
+- ✅ **Wildcard Keyword Matching**: Support for exact (`keyword`), prefix (`*keyword`), suffix (`keyword*`), and full (`*keyword*`) wildcards
+- ✅ **Flexible Screening Modes**: `inclusion_required`, `exclusion_only`, or `soft` matching modes
+- ✅ **Study Type Exclusion**: Can exclude papers by study type (e.g., exclude editorials, exclude conceptual papers)
+- ✅ **Missing Abstract Handling**: Automatically flags papers with missing abstracts as UNKNOWN study type
+- ✅ **Confidence Scoring**: Provides keyword matching confidence (0-1 scale)
+- ✅ **Detailed Results**: Tracks matched keywords, exclusion reasons, and processing metadata
 
 ### Configuration
 
@@ -25,60 +29,95 @@ This step provides a fast, configurable first-pass filter that can significantly
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `inclusion_keywords` | `list[string]` | No | `[]` | Keywords that support paper inclusion |
-| `exclusion_keywords` | `list[string]` | No | `[]` | Keywords that support paper exclusion |
-| `inclusion_threshold` | `number` | No | `60` | Inclusion score threshold (0-100) |
-| `exclusion_threshold` | `number` | No | `40` | Exclusion score threshold (0-100) |
+| `mode` | `string` | No | `inclusion_required` | Screening mode: `inclusion_required`, `exclusion_only`, or `soft` |
+| `include.keywords` | `dict` or `list` | No | `{}` | Inclusion keywords (nested dict or flat list) |
+| `exclude.keywords` | `dict` or `list` | No | `{}` | Exclusion keywords (nested dict or flat list) |
+| `exclude.study_types` | `list[string]` | No | `[]` | Study types to exclude (e.g., `["editorial", "conceptual"]`) |
+
+#### Wildcard Syntax
+
+Keywords support flexible wildcard patterns:
+
+| Pattern | Example | Matches |
+|---------|---------|---------|
+| Exact | `agile` | "agile", "Agile", "AGILE" |
+| Suffix | `agile*` | "agile", "agile-based", "agilely" |
+| Prefix | `*agile` | "agile", "be-agile", "more-agile" |
+| Both | `*agile*` | "agile" anywhere in text |
+
+#### Screening Modes
+
+- **`inclusion_required`** (default): Paper must match inclusion keywords AND not match exclusion keywords AND not be excluded study type
+- **`exclusion_only`**: Exclude based on exclusion keywords and study types; no inclusion requirement
+- **`soft`**: Permissive mode; performs matching but doesn't enforce exclusion
 
 #### YAML Definition
 
 ```yaml
-- step: Screen by keywords
+- step: Keyword screening with study type detection
   builtin.keyword_screening:
-    inclusion_keywords:
-      - "digital transformation"
-      - "Industry 4.0"
-      - "IoT"
-    exclusion_keywords:
-      - "fiction"
-      - "game"
-    inclusion_threshold: 60
-    exclusion_threshold: 40
+    mode: inclusion_required  # or exclusion_only, soft
+    include:
+      keywords:
+        - "digital transformation"
+        - "Industry 4.0"
+        - "IoT"
+        - "blockchain*"
+        - "*agile*"
+    exclude:
+      keywords:
+        - "game"
+        - "fiction"
+        - "entertainment"
+      study_types:
+        - "editorial"
+        - "conceptual"
 ```
 
 ### Input/Output
 
 #### Input
-- **Format**: Papers from prior screening stages
-- **Source**: Database with papers, titles, abstracts
-- **Requirements**: Papers must have title/abstract content for matching
+- **Format**: Papers from database
+- **Source**: Results from `bibtex_import`, `deduplication`, or prior screening steps
+- **Requirements**: Papers should have title/abstract for accurate study type detection; handles missing abstracts gracefully
 
 #### Output
-- **Format**: Papers with keyword screening status
-- **Database**: Updates `Paper` model with:
-  - `screening.keyword_screening.status` set to INCLUDED/EXCLUDED/MANUAL_REVIEW
-  - `screening.keyword_screening.final_decision` with decision
-  - `screening.keyword_screening.score` with calculated score
-  - `screening.keyword_screening.notes` with matching keywords
-- **Metrics**: Papers by decision (included, excluded, manual review)
+- **Format**: Papers with keyword screening results and study type classification
+- **Database Updates**:
+  - `screening.keyword_screening.study_type`: Detected study type enum
+  - `screening.keyword_screening.passed`: Boolean inclusion/exclusion decision
+  - `screening.keyword_screening.inclusion_keywords`: Matched inclusion keywords (list)
+  - `screening.keyword_screening.exclusion_keywords`: Matched exclusion keywords (list)
+  - `screening.keyword_screening.keyword_screening_confidence`: Keyword match confidence (0-1)
+  - `screening.keyword_screening.exclusion_reason`: Explanation if excluded
+  - `screening.keyword_screening.is_empirical`: Whether detected as empirical research
+  - `screening.keyword_screening.is_conceptual`: Whether detected as conceptual
+  - `screening.keyword_screening.is_literature_review`: Whether detected as literature review
+  - `screening.final_decision`: Set to EXCLUDED if failed screening
+  - `screening.final_decision_by`: Set to "automated:keyword_screening"
+- **Metrics**: 
+  - `total_papers`: Papers processed
+  - `screened`: Papers evaluated
+  - `passed`: Papers included
+  - `failed`: Papers excluded
+  - `study_types`: Distribution across detected study types
+  - `exclusion_reasons`: Breakdown of exclusion reasons
 
 ### Validation
 
 The step validates:
-- `inclusion_keywords`: Must be list of strings
-- `exclusion_keywords`: Must be list of strings
-- `inclusion_threshold`: Must be number between 0 and 100
-- `exclusion_threshold`: Must be number between 0 and 100
-- `inclusion_threshold` should be ≥ `exclusion_threshold`
+- `mode`: Must be `inclusion_required`, `exclusion_only`, or `soft`
+- `include.keywords`: Must be dict or list of strings
+- `exclude.keywords`: Must be dict or list of strings
+- `exclude.study_types`: Must be list of valid study type values
 
 ### Error Handling
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| "Empty keyword list" | Both inclusion and exclusion keywords are empty | Add at least some keywords |
-| "Invalid threshold" | Threshold outside 0-100 range | Use values between 0 and 100 |
-| "Malformed keywords" | Keywords contain invalid characters | Use plain text without special regex chars |
-| "Missing content" | Papers lack title/abstract | Check bibtex_import included these fields |
+The step handles:
+- **Missing abstracts**: Classifies as UNKNOWN study type; useful for exclusion
+- **Empty keyword lists**: Acts as pass-through (all papers pass/fail based on study type only)
+- **No matches**: Papers with no keyword matches are excluded in `inclusion_required` mode
+- **Ambiguous signals**: Papers with 1 empirical pattern (but <2 total) classified as UNKNOWN for manual review
 
 ### Examples
 

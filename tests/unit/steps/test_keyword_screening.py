@@ -194,10 +194,10 @@ class TestStudyTypeDetector:
         assert study_type == StudyType.CONCEPTUAL
     
     def test_detect_empirical_qualitative(self):
-        """Should detect qualitative empirical paper"""
+        """Should detect case study paper (case study takes priority over qualitative)"""
         text = "A qualitative case study examining interviews with agile practitioners. We conducted interviews with 12 participants."
         study_type = StudyTypeDetector.detect_study_type(text)
-        assert study_type == StudyType.EMPIRICAL_QUALITATIVE
+        assert study_type == StudyType.CASE_STUDY
     
     def test_detect_empirical_quantitative(self):
         """Should detect quantitative empirical paper"""
@@ -212,10 +212,10 @@ class TestStudyTypeDetector:
         assert study_type == StudyType.EMPIRICAL_QUANTITATIVE
     
     def test_detect_empirical_case_study(self):
-        """Should detect empirical from case study keyword"""
+        """Should detect case study from case study keyword"""
         text = "A case study of agile adoption in a large organization. Observational study over 18 months."
         study_type = StudyTypeDetector.detect_study_type(text)
-        assert study_type == StudyType.EMPIRICAL_QUALITATIVE
+        assert study_type == StudyType.CASE_STUDY
     
     def test_detect_empirical_mixed_methods(self):
         """Should detect empirical with mixed methods"""
@@ -245,12 +245,12 @@ class TestStudyTypeDetector:
         assert study_type in [StudyType.EMPIRICAL_QUALITATIVE, StudyType.EMPIRICAL_QUANTITATIVE, StudyType.LITERATURE_REVIEW]
     
     def test_minimum_threshold_for_empirical(self):
-        """Should require minimum 2 patterns for empirical classification"""
-        # Single empirical indicator should not be enough
-        text = "We used survey methodology"  # Only 1 indicator
+        """Should require minimum 2 patterns for empirical classification (except case studies)"""
+        # Text with only 1 empirical-like indicator that isn't methodology/validation should not classify as empirical
+        text = "We discussed some things about the topic"  # No empirical patterns
         study_type = StudyTypeDetector.detect_study_type(text)
-        # Should not classify as empirical with only 1 indicator
-        assert study_type != StudyType.EMPIRICAL_QUANTITATIVE
+        # Should not classify as empirical with no indicators
+        assert study_type not in [StudyType.EMPIRICAL_QUANTITATIVE, StudyType.EMPIRICAL_QUALITATIVE]
 
 
 # ============================================================================

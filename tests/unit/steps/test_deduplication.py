@@ -18,10 +18,9 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import PaperType
-from paper_scanner.core.models import Author, Paper
+from paper_scanner.core.models import Author, Paper, Screening, DeduplicationResult
 from paper_scanner.steps.deduplication import (
     DeduplicationStep,
-    _get_confidence,
     _normalize_title,
     _title_author_fuzzy_match,
     _title_fuzzy_match,
@@ -34,10 +33,11 @@ from paper_scanner.steps.deduplication import (
 @pytest.fixture
 def sample_paper_1():
     """Create first sample paper."""
+    title = "Machine Learning Applications in Healthcare"
     return Paper(
         id="paper-1",
         cite_key="smith2024a",
-        title="Machine Learning Applications in Healthcare",
+        title=title,
         abstract="Exploring ML applications in clinical settings",
         year=2024,
         authors=[
@@ -224,30 +224,6 @@ class TestTitleFuzzyMatch:
         assert result is None
 
 
-class TestGetConfidence:
-    """Test confidence score calculation"""
-
-    def test_confidence_doi_exact(self):
-        """Test DOI exact match confidence is 1.0."""
-        confidence = _get_confidence("doi_exact", 0.5)
-        assert confidence == 1.0
-
-    def test_confidence_title_author_fuzzy(self):
-        """Test title + author fuzzy match uses similarity score."""
-        confidence = _get_confidence("title_author_fuzzy", 0.85)
-        assert confidence == 0.85
-
-    def test_confidence_title_fuzzy(self):
-        """Test title fuzzy match uses similarity score."""
-        confidence = _get_confidence("title_fuzzy", 0.92)
-        assert confidence == 0.92
-
-    def test_confidence_unknown_method(self):
-        """Test unknown method returns default confidence."""
-        confidence = _get_confidence("unknown_method", 0.75)
-        assert confidence == 0.5
-
-
 # ============================================================================
 # VALIDATION TESTS
 # ============================================================================
@@ -429,8 +405,8 @@ class TestExecute:
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         result = step.execute(config=config)
 
-        assert result["step"] == "deduplication"
-        assert result["duplicates_found"] == 0
+        assert result.stats["step"] == "deduplication"
+        assert result.stats["duplicates_found"] == 0
 
     def test_execute_finds_exact_duplicate(self, sample_paper_1, sample_paper_duplicate_doi):
         """Test execution finds DOI-based duplicates."""
@@ -446,10 +422,10 @@ class TestExecute:
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         result = step.execute(config=config)
 
-        assert result["duplicates_found"] == 1
-        assert len(result["duplicates"]) == 1
+        assert result.stats["duplicates_found"] == 1
+        assert len(result.stats["duplicates"]) == 1
 
-        dup = result["duplicates"][0]
+        dup = result.stats["duplicates"][0]
         assert dup["paper_id"] == "paper-3"
         assert dup["duplicate_of_id"] == "paper-1"
         assert dup["method"] == "doi_exact"
@@ -533,13 +509,11 @@ class TestExecute:
         step = DeduplicationStep(general_config={}, db=papers_db, cache_dir=Path("/tmp"))
         result = step.execute(config=config)
 
-        assert "step" in result
-        assert "total_papers" in result
-        assert "duplicates_found" in result
-        assert "duplicates" in result
-        assert "methods_used" in result
-        assert result["total_papers"] == 2
-        assert result["duplicates_found"] == 1
+        assert result.stats["step"] == "deduplication"
+        assert result.stats["total_papers"] == 2
+        assert result.stats["duplicates_found"] == 1
+        assert "duplicates" in result.stats
+        assert "methods_used" in result.stats
 
     def test_execute_method_priority(self, sample_paper_1, sample_paper_same_author_similar_title):
         """Test that methods are applied in priority order."""
@@ -558,9 +532,9 @@ class TestExecute:
         result = step.execute(config=config)
 
         # Should use title_author_fuzzy (not doi_exact since no match)
-        assert result["duplicates_found"] == 1
-        if result["duplicates"]:
-            assert result["duplicates"][0]["method"] == "title_author_fuzzy"
+        assert result.stats["duplicates_found"] == 1
+        if result.stats["duplicates"]:
+            assert result.stats["duplicates"][0]["method"] == "title_author_fuzzy"
 
 
 # ============================================================================

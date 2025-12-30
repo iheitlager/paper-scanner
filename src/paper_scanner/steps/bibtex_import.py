@@ -183,7 +183,7 @@ class BibtexImportStep(BaseStep):
             if not path.exists() or not path.is_file():
                 raise ConfigurationError(f"File not found or not a file: {file_path}")
 
-            self.callback(f"Processing import '{name}'\nfrom file: {file_path}\nSource: {source_type}", debug=True)
+            self.callback(f"Processing import '{name}'\n from file: {file_path}\n Source: {source_type}", debug=True)
 
             # Parse BibTeX file - fatal if parsing fails
             papers = bibtex_file_to_papers(
@@ -219,7 +219,7 @@ class BibtexImportStep(BaseStep):
                 self.db.add_many(papers)
                 papers_imported += count
 
-                self.callback(f" [green]✓[/green] Imported {count} papers")
+                self.callback(f" [green]✓[/green] Imported {count} papers for '{name}'")
             if expected_count:
                 match = "✓" if count == expected_count else "!"
                 style = "green" if count == expected_count else "yellow"

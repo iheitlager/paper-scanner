@@ -19,18 +19,29 @@ Click on each step to see detailed documentation:
 |------|---------|--------|
 | [bibtex_import](overview.md) | Import papers from BibTeX files | ✅ Stable |
 | [citations](overview.md) | Extract forward and backward citations | ✅ Stable |
-| [deduplication](overview.md) | Find and remove duplicate papers | ✅ Stable |
+| [deduplication](deduplication.md) | Find and remove duplicate papers | ✅ Stable |
 | [export](overview.md) | Export papers to various formats | ✅ Stable |
 | [metadata_screening](metadata_screening.md) | Filter papers by language, type, quality | ✅ Stable |
 | [keyword_screening](keyword_screening.md) | Keyword-based paper filtering | ✅ Stable |
 | [patch](overview.md) | Update paper metadata | ✅ Stable |
 | [retrieve_metadata](overview.md) | Fetch missing metadata | ✅ Stable |
-| [run_template](overview.md) | Run analysis templates (LLM-based) | ✅ Stable |
-| [semantic_screening](overview.md) | ML-based paper screening | ✅ Stable |
+| [run_template](overview.md) | Run analysis templates | ✅ Stable |
+| [semantic_screening](semantic_screening.md) | ML-based paper screening | ✅ Stable |
 | [summarize](overview.md) | Summarize papers and generate reports | ✅ Stable |
 | [upload_database](overview.md) | Upload papers to remote database | ✅ Stable |
 
-## Common Usage Patterns
+## Screeners Group
+
+Four specialized screening steps work together to filter papers progressively:
+
+1. **[deduplication](deduplication.md)** - Removes duplicate papers using DOI, title+author, or title matching
+2. **[metadata_screening](metadata_screening.md)** - Filters by language, paper type, and quality indicators
+3. **[keyword_screening](keyword_screening.md)** - Pattern-based study type detection with 64+ regex patterns
+4. **[semantic_screening](semantic_screening.md)** - Embedding-based relevance filtering to research question
+
+A 5th screener (LLM-based) is planned for advanced semantic understanding.
+
+### Typical Screening Pipeline
 
 ### Import and Process
 ```yaml

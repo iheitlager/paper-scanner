@@ -251,7 +251,7 @@ class CitationsStep(BaseStep):
             # Get papers to process (filter by paper_type)
             if paper_types:
                 target_papers = self.db.find(
-                    lambda p: p.paper_type and p.paper_type.value in paper_types and p.discovery.iteration == self.iteration,
+                    lambda p: p.paper_type and p.paper_type.value in paper_types and p.discovery.iteration == self.iteration and p.is_included,
                     primary_only=True
                 )
             else:

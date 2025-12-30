@@ -261,8 +261,9 @@ class DeduplicationResult(BaseModel):
     is_duplicate: bool
     duplicate_of: Optional['Paper'] = None
     similarity_score: Optional[float] = Field(ge=0, le=1, default=None)
-    method: str  # "doi_exact", "title_author", "fuzzy_title", etc.
+    method: Optional[str] = None  # "doi_exact", "title_author", "fuzzy_title", etc.
     confidence: float = Field(ge=0, le=1)
+    normalized_title: Optional[str] = None
 
     # Metadata
     metadata: Optional[ProcessingMetadata] = None
@@ -284,7 +285,10 @@ class DeduplicationResult(BaseModel):
         """Convert Paper reference to ID string during serialization"""
         return value.id if value else None
 
-
+    @property
+    def passed(self) -> bool:
+        """Whether paper passed deduplication (not a duplicate)"""
+        return not self.is_duplicate
 # ============================================================================
 # METADATA SCREENING MODEL
 # ============================================================================
@@ -349,11 +353,9 @@ class SemanticScreening(BaseModel):
     similarity_score: float = Field(ge=0, le=1)
     threshold: float = Field(ge=0, le=1)
 
-    # LLM decision (if applied)
-    llm_decision: Optional[ScreeningDecision] = None
-    llm_confidence: Optional[float] = Field(ge=0, le=1, default=None)
-
-    exclusion_reason: Optional[str] = None
+    decision: Optional[ScreeningDecision] = None
+    confidence: Optional[float] = Field(ge=0, le=1, default=None)
+    reason: Optional[str] = None
 
     # Metadata
     metadata: Optional[ProcessingMetadata] = None
@@ -368,13 +370,10 @@ class FullPaperScreening(BaseModel):
     similarity_score: float = Field(ge=0, le=1)
     threshold: float = Field(ge=0, le=1)
 
-    manual_decision: Optional[ScreeningDecision] = None
     # LLM decision
-    llm_decision: Optional[ScreeningDecision] = None
-    llm_confidence: Optional[float] = Field(ge=0, le=1, default=None)
-
-    inclusion_reason: Optional[str] = None
-    exclusion_reason: Optional[str] = None
+    decision: Optional[ScreeningDecision] = None
+    confidence: Optional[float] = Field(ge=0, le=1, default=None)
+    reasoning: Optional[str] = None
 
     # Metadata
     metadata: Optional[ProcessingMetadata] = None
@@ -398,9 +397,13 @@ class Screening(BaseModel):
     # Stage 3: Semantic screening
     semantic_screening: Optional[SemanticScreening] = None
 
-    # Stage 4: Full paper screening (not excluded stages 0-3 means full paper review)
+    # Stage 4: LLMc screening
+    llm_screening: Optional[SemanticScreening] = None
+
+    # Stage 5: Full paper screening (not excluded stages 0-3 means full paper review)
     full_paper_screening: Optional[FullPaperScreening] = None
 
+    manual_decision: Optional[ScreeningDecision] = None
     # Final decision (for further processing)
     final_decision: ScreeningDecision = ScreeningDecision.PENDING
     final_decision_by: Optional[str] = None  # "automated", "manual:user_name"
@@ -749,7 +752,8 @@ class Paper(BaseModel):
     @property
     def is_excluded(self) -> bool:
         """Check if paper was excluded"""
-        return self.screening.final_decision in (ScreeningDecision.EXCLUDED, ScreeningDecision.EXCLUDED_DUPLICATE, ScreeningDecision.EXCLUDED_MANUAL)
+        return self.screening.final_decision in (ScreeningDecision.EXCLUDED, ScreeningDecision.EXCLUDED_DUPLICATE, ScreeningDecision.EXCLUDED_MANUAL) \
+               or self.duplicate_of is not None
 
     @property
     def calculated_quality_score(self) -> float:

@@ -127,8 +127,15 @@ class ConsoleViewer:
             paper.screening.metadata_screening.exclusion_reason if paper.screening and paper.screening.metadata_screening else "",
             paper.screening.keyword_screening.exclusion_reason if paper.screening and paper.screening.keyword_screening else "",
             paper.screening.keyword_screening.inclusion_reason if paper.screening and paper.screening.keyword_screening else "",
-            paper.screening.semantic_screening.exclusion_reason if paper.screening and paper.screening.semantic_screening else "",
+            paper.screening.semantic_screening.reason if paper.screening and paper.screening.semantic_screening else "",
         ]
+        excl_color = "red" if paper.is_excluded else "cyan"
+        # Build screening decision string with proper rich markup (variable-based closing tags need to be pre-formatted)
+        screening_decision = paper.screening.final_decision.value if paper.screening and paper.screening.final_decision else "N/A"
+        screening_stage = paper.screening.current_stage if paper.screening else "N/A"
+        study_type = paper.screening.keyword_screening.study_type.value if paper.screening and paper.screening.keyword_screening else "N/A"
+        iteration = f" (Iteration {paper.discovery.iteration})" if paper.discovery and paper.discovery.iteration else ""
+
         details = f"""
 [bold cyan]Paper Details (Detail Mode)[/bold cyan]
 [dim]{position}[/dim]
@@ -141,8 +148,9 @@ class ConsoleViewer:
 [bold]Pages:[/bold] {paper.pages or "N/A"}
 [bold]DOI:[/bold] {paper.doi or "N/A"}
 [bold]URL:[/bold] {paper.url or "N/A"}
-[bold]Source:[/bold] [cyan]{paper.discovery.source_database or "N/A"}[/cyan] (Iteration: {paper.discovery.iteration})
-[bold]Screening Decision:[/bold] [cyan]{paper.screening.current_stage} - {paper.screening.final_decision.value if paper.screening and paper.screening.final_decision else "N/A"}[/cyan]
+[bold]Source:[/bold] [cyan]{paper.discovery.source_database or "N/A"}[/cyan] {iteration}
+[bold]Screening Decision:[/bold] [{excl_color}]{screening_decision}[/{excl_color}] - {screening_stage}
+[bold]Study Type:[/bold] {study_type}
 {"[bold]Screening:[/bold]\n * " + "\n * ".join([r for r in screening_reasons if r])}
 
 [bold]Abstract:[/bold]

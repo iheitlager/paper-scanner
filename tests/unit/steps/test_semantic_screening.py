@@ -160,9 +160,9 @@ class TestExecute:
 
         result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["step"] == "semantic_screening"
-        assert result["total_papers"] == 0
-        assert result["screened"] == 0
+        assert result.stats["step"] == "semantic_screening"
+        assert result.stats["total_papers"] == 0
+        assert result.stats["screened"] == 0
 
     def test_execute_missing_research_question(self, sample_db, temp_cache_dir):
         """Test execute fails when research question missing"""
@@ -173,11 +173,9 @@ class TestExecute:
             cache_dir=temp_cache_dir,
         )
 
-        result = step.execute(config, verbose=False, dry_run=False)
-
-        assert result["step"] == "semantic_screening"
-        assert "error" in result
-        assert "research_question" in result["error"]
+        from paper_scanner.core.exceptions import ConfigurationError
+        with pytest.raises(ConfigurationError, match="research_question"):
+            step.execute(config, verbose=False, dry_run=False)
 
     def test_execute_with_mocked_screener(self, sample_db, temp_cache_dir):
         """Test execute with mocked semantic screener"""
@@ -201,9 +199,9 @@ class TestExecute:
                             passed=True,
                             similarity_score=0.85,
                             threshold=0.65,
-                            llm_decision=ScreeningDecision.INCLUDED,
-                            llm_confidence=0.85,
-                            llm_reasoning="High similarity",
+                            decision=ScreeningDecision.INCLUDED,
+                            confidence=0.85,
+                            reason="High similarity",
                             metadata=ProcessingMetadata(
                                 duration_seconds=0.1,
                                 success=True,
@@ -218,9 +216,9 @@ class TestExecute:
                             passed=False,
                             similarity_score=0.2,
                             threshold=0.65,
-                            llm_decision=ScreeningDecision.EXCLUDED,
-                            llm_confidence=0.2,
-                            llm_reasoning="Low similarity",
+                            decision=ScreeningDecision.EXCLUDED,
+                            confidence=0.2,
+                            reason="Low similarity",
                             metadata=ProcessingMetadata(
                                 duration_seconds=0.1,
                                 success=True,
@@ -235,9 +233,9 @@ class TestExecute:
                             passed=False,
                             similarity_score=0.58,
                             threshold=0.65,
-                            llm_decision=ScreeningDecision.MANUAL_REVIEW,
-                            llm_confidence=0.58,
-                            llm_reasoning="Borderline similarity",
+                            decision=ScreeningDecision.MANUAL_REVIEW,
+                            confidence=0.58,
+                            reason="Borderline similarity",
                             metadata=ProcessingMetadata(
                                 duration_seconds=0.1,
                                 success=True,
@@ -251,11 +249,11 @@ class TestExecute:
             result = step.execute(config, verbose=False, dry_run=False)
 
         # Verify results
-        assert result["step"] == "semantic_screening"
-        assert result["screened"] == 3
-        assert result["included"] == 1
-        assert result["excluded"] == 1
-        assert result["manual_review"] == 1
+        assert result.stats["step"] == "semantic_screening"
+        assert result.stats["screened"] == 3
+        assert result.stats["included"] == 1
+        assert result.stats["excluded"] == 1
+        assert result.stats["manual_review"] == 1
 
     def test_execute_dry_run(self, sample_db, temp_cache_dir):
         """Test execute in dry run mode doesn't update database"""
@@ -275,9 +273,9 @@ class TestExecute:
                     passed=True,
                     similarity_score=0.8,
                     threshold=0.65,
-                    llm_decision=ScreeningDecision.INCLUDED,
-                    llm_confidence=0.8,
-                    llm_reasoning="High similarity",
+                    decision=ScreeningDecision.INCLUDED,
+                    confidence=0.8,
+                    reason="High similarity",
                     metadata=ProcessingMetadata(
                         duration_seconds=0.1,
                         success=True,
@@ -289,8 +287,8 @@ class TestExecute:
 
             result = step.execute(config, verbose=False, dry_run=True)
 
-        assert result["step"] == "semantic_screening"
-        assert result["screened"] == 3
+        assert result.stats["step"] == "semantic_screening"
+        assert result.stats["screened"] == 3
 
     def test_execute_with_custom_thresholds(self, sample_db, temp_cache_dir):
         """Test execute respects custom thresholds"""
@@ -313,9 +311,9 @@ class TestExecute:
                     passed=True,
                     similarity_score=0.75,
                     threshold=0.7,
-                    llm_decision=ScreeningDecision.INCLUDED,
-                    llm_confidence=0.75,
-                    llm_reasoning="Above custom threshold",
+                    decision=ScreeningDecision.INCLUDED,
+                    confidence=0.75,
+                    reason="Above custom threshold",
                     metadata=ProcessingMetadata(
                         duration_seconds=0.1,
                         success=True,
@@ -327,9 +325,9 @@ class TestExecute:
 
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["step"] == "semantic_screening"
-        assert result["model"] == "custom-model"
-        assert result["thresholds"]["auto_include"] == 0.7
+        assert result.stats["step"] == "semantic_screening"
+        assert result.stats["model"] == "custom-model"
+        assert result.stats["thresholds"]["auto_include"] == 0.7
 
     def test_execute_updates_paper_screening(self, sample_db, temp_cache_dir):
         """Test execute updates paper screening results"""
@@ -349,9 +347,9 @@ class TestExecute:
                     passed=True,
                     similarity_score=0.8,
                     threshold=0.65,
-                    llm_decision=ScreeningDecision.INCLUDED,
-                    llm_confidence=0.8,
-                    llm_reasoning="Good match",
+                    decision=ScreeningDecision.INCLUDED,
+                    confidence=0.8,
+                    reason="Good match",
                     metadata=ProcessingMetadata(
                         duration_seconds=0.1,
                         success=True,
@@ -411,9 +409,9 @@ class TestIntegration:
                         passed=passed,
                         similarity_score=score,
                         threshold=0.65,
-                        llm_decision=decision,
-                        llm_confidence=score,
-                        llm_reasoning=f"Score {score:.2f}",
+                        decision=decision,
+                        confidence=score,
+                        reason=f"Score {score:.2f}",
                         metadata=ProcessingMetadata(
                             duration_seconds=0.1,
                             success=True,
@@ -427,10 +425,10 @@ class TestIntegration:
 
             result = step.execute(config, verbose=False, dry_run=False)
 
-        assert result["step"] == "semantic_screening"
-        assert result["screened"] == 3
-        assert result["included"] == 2  # ML and NLP papers
-        assert result["excluded"] == 1  # Cooking recipes
+        assert result.stats["step"] == "semantic_screening"
+        assert result.stats["screened"] == 3
+        assert result.stats["included"] == 2  # ML and NLP papers
+        assert result.stats["excluded"] == 1  # Cooking recipes
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

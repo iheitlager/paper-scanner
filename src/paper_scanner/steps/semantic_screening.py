@@ -29,6 +29,8 @@ from scipy.spatial.distance import cosine
 from paper_scanner.core.enum import StepStatus
 
 from ..core.enum import ScreeningDecision
+from ..core.step_result import StepResult
+from ..core.exceptions import StepFatalError, ConfigurationError
 from ..core.models import Paper, ProcessingMetadata, SemanticScreening
 from .base import BaseStep
 
@@ -44,8 +46,6 @@ try:
 except ImportError:
     SentenceTransformer = None
 
-# Initialize rich console for colored output
-console = Console(file=sys.stderr)
 
 # Class-based step interface (new architecture)
 class SemanticScreeningStep(BaseStep):
@@ -57,10 +57,21 @@ class SemanticScreeningStep(BaseStep):
         Validate semantic_screening step configuration.
         
         Args:
-            config: Step configuration
+            config: Step configuration with optional keys:
+                - model: str - Sentence transformer model ID (e.g., 'all-mpnet-base-v2')
+                - thresholds: dict with keys:
+                    - auto_include: float [0-1] - Score >= this triggers INCLUDED
+                    - manual_review: float [0-1] - Score in [manual_review, auto_include) triggers MANUAL_REVIEW
+                    - auto_exclude: float [0-1] - Score < this triggers EXCLUDED
             
         Returns:
             Tuple of (is_valid, error_messages)
+            
+        Raises:
+            Returns error list if:
+            - model is not a string
+            - thresholds is not a dict
+            - any threshold is not a number between 0-1
         """
         errors = []
 
@@ -87,7 +98,25 @@ class SemanticScreeningStep(BaseStep):
 
     def execute(self, config, verbose=False, dry_run=False, debug=False):
         """
-        Execute semantic screening step.
+        Execute semantic screening step using embedding-based relevance scoring.
+        
+        Design Decisions:
+        ==================
+        - Embedding-based approach captures semantic meaning beyond keywords
+        - Uses sentence-transformers for efficient encoding (all-mpnet-base-v2 default)
+        - Cosine similarity (0-1 scale) measures relevance to research question
+        - Three-tier decision logic: INCLUDED → MANUAL_REVIEW → EXCLUDED
+        
+        Priority Logic:
+        ===============
+        Papers are classified based on similarity score:
+        1. Score >= auto_include (default 0.65)     → INCLUDED
+        2. Score >= manual_review (default 0.55)    → MANUAL_REVIEW (border cases)
+        3. Score < manual_review                     → EXCLUDED
+        
+        Note: Unlike keyword_screening, semantic screening doesn't combine with other
+        signals - the embedding-based score is the sole decision criterion, as it
+        captures holistic relevance.
 
         Args:
             config: Step configuration with options:
@@ -103,18 +132,10 @@ class SemanticScreeningStep(BaseStep):
         Returns:
             Dictionary with execution results
         """
-        step_start_time = time.time()
 
         research_question = self.general_config.get("research_question", "")
         if not research_question:
-            return {
-                "step": "semantic_screening",
-                "error": "research_question not found in project configuration",
-                "total_papers": self.db.count(primary_only=False),
-                "screened": 0,
-                "included": 0,
-                "excluded": 0,
-            }
+            raise ConfigurationError("research_question must be set in project configuration")
 
         # Get model and thresholds
         model_name = config.get("model", "all-mpnet-base-v2")
@@ -138,10 +159,10 @@ class SemanticScreeningStep(BaseStep):
             },
         }
 
-        if verbose:
-            console.print(f"\n  [bold cyan]Semantic screening {self.db.count(primary_only=False)} papers[/bold cyan]")
-            console.print(f"    Model: [dim]{model_name}[/dim]")
-            console.print(f"    Research question: [dim]{research_question[:80]}...[/dim]")
+        self.callback(
+            f"Model: '{model_name}'\n"
+            f" Research question: '{research_question[:80]}...'", debug=True
+        )
 
         # Initialize screener
         try:
@@ -153,19 +174,14 @@ class SemanticScreeningStep(BaseStep):
                 auto_exclude_threshold=auto_exclude,
             )
         except ImportError as e:
-            return {
-                "step": "semantic_screening",
-                "error": f"Required package not installed: {e}",
-                "total_papers": self.db.count(primary_only=False),
-                "screened": 0,
-            }
+            raise StepFatalError(f"Required package {model_name} not installed", e)
 
         # Screen each paper
-        all_papers = self.db.to_list(primary_only=False)
+        all_papers = self.db.find(
+            predicate=lambda p: not p.is_excluded and not p.is_included and not p.screening.semantic_screening,
+            primary_only=True
+        )
         for i, paper in enumerate(all_papers):
-            # Show progress every 100 papers
-            if verbose and (i + 1) % 100 == 0:
-                console.print(f"\r    Processed {i + 1}/{len(all_papers)} papers... Included: {results['included']}, Excluded: {results['excluded']}", end="")
 
             try:
                 semantic_screening, should_include, exclusion_reason = screener.screen_paper(paper)
@@ -175,34 +191,32 @@ class SemanticScreeningStep(BaseStep):
                     paper.screening.semantic_screening = semantic_screening
 
                     # Update final decision if not already decided
-                    if paper.screening.final_decision == ScreeningDecision.PENDING:
-                        paper.screening.final_decision = semantic_screening.llm_decision
+                    if paper.screening.final_decision in (ScreeningDecision.PENDING, ScreeningDecision.UNCERTAIN):
+                        paper.screening.final_decision = semantic_screening.decision
+                        paper.screening.final_decision_by = "automated:semantic_screening"
 
+                    paper.screening.current_stage = "semantic_screening_complete"
                     # Update paper in database
                     self.db.update(paper)
 
                 results["screened"] += 1
 
-                if semantic_screening.llm_decision == ScreeningDecision.INCLUDED:
+                if semantic_screening.decision == ScreeningDecision.INCLUDED:
                     results["included"] += 1
-                elif semantic_screening.llm_decision == ScreeningDecision.EXCLUDED:
+                elif semantic_screening.decision == ScreeningDecision.EXCLUDED:
                     results["excluded"] += 1
-                elif semantic_screening.llm_decision == ScreeningDecision.MANUAL_REVIEW:
+                elif semantic_screening.decision == ScreeningDecision.MANUAL_REVIEW:
                     results["manual_review"] += 1
 
             except Exception as e:
-                if verbose:
-                    console.print(f"\n    [red]✗ Error screening paper {paper.cite_key}: {e}[/red]")
+                self.cascade(f"[red]✗ Error screening paper {paper.cite_key}: {e}[/red]")
 
-        duration = time.time() - step_start_time
-        results["duration_seconds"] = duration
-
-        if verbose:
-            # Clear the progress line and print final result
-            console.print(f"    [green]✓ Semantic screening complete[/green] - Included: [cyan]{results['included']}[/cyan], Excluded: [cyan]{results['excluded']}[/cyan], Manual Review: [cyan]{results['manual_review']}[/cyan]")
-
-        results["status"] = StepStatus.SUCCESS
-        return results
+        return StepResult(
+            status=StepStatus.SUCCESS,
+            message=f"Semantic screening completed: Included {results['included']}, Excluded {results['excluded']}, Manual Review {results['manual_review']}",
+            step="semantic_screening",
+            stats=results
+        )
 
 
 class _SemanticScreener:
@@ -216,14 +230,18 @@ class _SemanticScreener:
         manual_review_threshold: float = 0.55,
         auto_exclude_threshold: float = 0.55,
     ):
-        """Initialize semantic screener.
+        """Initialize semantic screener with research question and similarity thresholds.
+        
+        The screener embeds the research question once and reuses that embedding to
+        compute similarity for each paper, providing O(1) per-paper screening after
+        initial model load.
         
         Args:
-            research_question: Research question to embed
-            model_name: Sentence transformer model name
-            auto_include_threshold: Score >= this → INCLUDED
-            manual_review_threshold: Score between manual_review and auto_include → MANUAL_REVIEW
-            auto_exclude_threshold: Score < this → EXCLUDED
+            research_question: The research question text to embed (used as reference)
+            model_name: Sentence transformer model ID (e.g., 'all-mpnet-base-v2')
+            auto_include_threshold: Similarity score >= this → INCLUDED (should be >= manual_review)
+            manual_review_threshold: Papers in [manual_review, auto_include) → MANUAL_REVIEW
+            auto_exclude_threshold: Similarity score < this → EXCLUDED (should be <= manual_review)
         """
         self.research_question = research_question
         self.model_name = model_name
@@ -289,10 +307,22 @@ class _SemanticScreener:
         return float(max(0.0, min(1.0, similarity)))
 
     def screen_paper(self, paper: Paper) -> Tuple[SemanticScreening, bool, Optional[str]]:
-        """Screen a single paper.
+        """Screen a single paper based on semantic similarity to research question.
+        
+        Computes cosine similarity between paper (title + abstract combined) and
+        the research question embeddings. Uses similarity thresholds to make
+        INCLUDED/EXCLUDED/MANUAL_REVIEW decision.
+        
+        Similarity Score Examples (with defaults auto_include=0.65, manual_review=0.55):
+        - 0.80: "Cloud computing security frameworks" vs RQ about cloud security → INCLUDED
+        - 0.62: "Digital transformation in supply chains" vs RQ about IT adoption → MANUAL_REVIEW
+        - 0.35: "Classical philosophy in ancient Greece" vs RQ about IT innovation → EXCLUDED
         
         Returns:
-            (semantic_screening_result, should_include, exclusion_reason)
+            Tuple of:
+            - SemanticScreening: Result object with score, decision, reasoning
+            - should_include: Boolean flag for upstream processing
+            - exclusion_reason: Human-readable reason if excluded/manual review
         """
         step_start_time = time.time()
 
@@ -306,23 +336,21 @@ class _SemanticScreener:
         # Classify
         should_include = True
         exclusion_reason = None
-        llm_decision = ScreeningDecision.PENDING
-        llm_confidence = similarity_score
-        llm_reasoning = None
+        decision = ScreeningDecision.PENDING
+        reasoning = None
 
         if similarity_score >= self.auto_include_threshold:
-            llm_decision = ScreeningDecision.INCLUDED
-            llm_reasoning = f"High semantic similarity ({similarity_score:.4f}) to research question"
+            decision = ScreeningDecision.INCLUDED
+            reasoning = f"High semantic similarity ({similarity_score:.4f}) to research question"
         elif similarity_score >= self.manual_review_threshold:
-            llm_decision = ScreeningDecision.MANUAL_REVIEW
-            llm_reasoning = f"Borderline semantic similarity ({similarity_score:.4f}): manual review recommended"
-            should_include = False
-            exclusion_reason = llm_reasoning
+            decision = ScreeningDecision.MANUAL_REVIEW
+            reasoning = f"Borderline semantic similarity ({similarity_score:.4f}): manual review recommended"
+            should_include = True
         else:
-            llm_decision = ScreeningDecision.EXCLUDED
-            llm_reasoning = f"Low semantic similarity ({similarity_score:.4f}) to research question"
+            decision = ScreeningDecision.EXCLUDED
+            reasoning = f"Low semantic similarity ({similarity_score:.4f}) to research question"
             should_include = False
-            exclusion_reason = llm_reasoning
+            exclusion_reason = reasoning
 
         duration = time.time() - step_start_time
 
@@ -331,9 +359,9 @@ class _SemanticScreener:
             passed=should_include,
             similarity_score=similarity_score,
             threshold=self.auto_include_threshold,
-            llm_decision=llm_decision,
-            llm_confidence=llm_confidence,
-            llm_reasoning=llm_reasoning,
+            decision=decision,
+            confidence=similarity_score,
+            reason=reasoning,
             metadata=ProcessingMetadata(
                 timestamp=datetime.now(timezone.utc),
                 duration_seconds=duration,

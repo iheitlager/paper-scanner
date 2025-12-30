@@ -106,6 +106,14 @@ class StepExecutor:
 
     # Class-level lazy registry (created on first access)
     _step_registry: Optional[LazyStepRegistry] = None
+    _general_config = {
+        "project_name": "name",
+        "description": "description",
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "researcher": "researcher",
+        "research_question": "research_question",
+        "email": "email",
+    }
 
     def __init__(
         self,
@@ -415,8 +423,9 @@ class StepExecutor:
 
         # Update general config from definition
         project_config = self.definition.get("project", {})
-        if "name" in project_config:
-            self.general_config["project_name"] = project_config["name"]
+        for key, def_key in self._general_config.items():
+            if key in project_config:
+                self.general_config[key] = project_config[key]
 
         # Load templates section (optional, v1: static sequences only)
         self.templates = {}

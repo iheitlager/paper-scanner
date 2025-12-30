@@ -13,9 +13,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 
-from paper_scanner.core.enum import StepStatus
-
+from paper_scanner.core.enum import StepStatus, ScreeningDecision
 from ..core.models import DeduplicationResult, Paper, ProcessingMetadata
+from ..core.step_result import StepResult
 from .base import BaseStep
 
 # Initialize rich console
@@ -55,7 +55,12 @@ def _title_author_fuzzy_match(
         if not existing.title or not existing.authors:
             continue
 
-        existing_norm_title = _normalize_title(existing.title)
+        # Compute normalized title (may already be stored in screening results)
+        if existing.screening and existing.screening.deduplication and existing.screening.deduplication.normalized_title:
+            existing_norm_title = existing.screening.deduplication.normalized_title
+        else:
+            existing_norm_title = _normalize_title(existing.title)
+            
         existing_first_author = existing.authors[0].family_name.lower()
 
         if first_author != existing_first_author:
@@ -87,7 +92,12 @@ def _title_fuzzy_match(
         if not existing.title:
             continue
 
-        existing_norm_title = _normalize_title(existing.title)
+        # Compute normalized title (may already be stored in screening results)
+        if existing.screening and existing.screening.deduplication and existing.screening.deduplication.normalized_title:
+            existing_norm_title = existing.screening.deduplication.normalized_title
+        else:
+            existing_norm_title = _normalize_title(existing.title)
+            
         similarity = SequenceMatcher(None, norm_title, existing_norm_title).ratio()
 
         if similarity >= threshold:
@@ -95,16 +105,6 @@ def _title_fuzzy_match(
 
     return None
 
-
-def _get_confidence(method: str, similarity_score: float) -> float:
-    """Calculate confidence based on method and similarity score"""
-    if method == "doi_exact":
-        return 1.0  # 100% confident for DOI exact match
-    elif method == "title_author_fuzzy":
-        return min(1.0, similarity_score)  # Use similarity as confidence
-    elif method == "title_fuzzy":
-        return min(1.0, similarity_score)
-    return 0.5
 
 class DeduplicationStep(BaseStep):
     """Deduplication step that finds duplicate papers."""
@@ -115,10 +115,21 @@ class DeduplicationStep(BaseStep):
         Validate deduplication step configuration.
         
         Args:
-            config: Step configuration
-            
+            config: Step configuration with optional keys:
+                - methods: list of dicts, each with:
+                    - method: str - One of 'doi_exact', 'title_author_fuzzy', 'title_fuzzy'
+                    - threshold: float [0-1] - Similarity threshold for fuzzy methods
+                    - priority: int - Execution order (lower first)
+                        
         Returns:
             Tuple of (is_valid, error_messages)
+            
+        Raises:
+            Returns error list if:
+            - methods is not a list of dicts
+            - any method is not in VALID_METHODS
+            - any threshold is not in [0, 1]
+            - any priority is not an integer
         """
         errors = []
 
@@ -162,23 +173,51 @@ class DeduplicationStep(BaseStep):
         debug: bool = False
     ) -> Dict[str, Any]:
         """
-        Execute deduplication step
+        Execute multi-method deduplication step.
         
-        Updates papers with:
-        1. Simple flag: paper.duplicate_of = matching_paper
-        2. Full audit trail: paper.screening.deduplication = DeduplicationResult(...)
+        Design Decisions:
+        ==================
+        - Three-tier matching strategy: DOI (exact) → title+author (fuzzy) → title-only (fuzzy)
+        - DOI matching is O(1) with indexed lookup (most reliable when available)
+        - Fuzzy matching uses difflib.SequenceMatcher for string similarity (0-1 scale)
+        - Marks duplicates with paper.duplicate_of and creates full audit trail
+        - Preserves first occurrence as primary, subsequent matches marked as duplicates
+        - Idempotent: only processes papers with screening.deduplication = None
+        
+        Priority/Threshold Logic:
+        ========================
+        Papers are matched sequentially by method priority:
+        1. DOI exact match (confidence=1.0)         → Perfect match, highest confidence
+        2. Title+author fuzzy (default threshold 0.90) → Very similar paper from different source
+        3. Title-only fuzzy (default threshold 0.95)   → Fallback for missing author data
+        
+        Higher thresholds are more conservative:
+        - threshold=0.95 (strict):   Only obvious duplicates marked
+        - threshold=0.85 (moderate): Balanced false positive/negative rate
+        - threshold=0.75 (aggressive): Marks similar papers but risks false positives
+        
+        Update Chain:
+        =============
+        For each duplicate found:
+        1. Sets paper.duplicate_of = matching_paper (simple flag)
+        2. Creates screening.deduplication = DeduplicationResult(...) (audit trail)
+        3. Sets screening.current_stage = 'deduplication_complete'
+        4. Updates paper in database (if not dry_run)
         
         Args:
-            config: Step configuration
+            config: Step configuration with optional keys:
+                - methods: list - Deduplication methods to use (default: all three)
+                    Each method dict has: method, threshold (optional), priority (optional)
             verbose: Enable verbose output
             dry_run: Don't modify papers
             debug: Enable debug output
         
         Returns:
-            Dictionary with deduplication results
+            StepResult with status, message, and stats dict containing:
+            - duplicates_found: Count of duplicate papers identified
+            - unique_count: Count of unique papers (total - duplicates)
+            - methods_used: List of deduplication methods applied
         """
-
-        step_start_time = time.time()
 
         # Get deduplication configuration
         dedup_config = config.get("deduplication")
@@ -186,13 +225,10 @@ class DeduplicationStep(BaseStep):
             dedup_config = config
 
         methods = dedup_config.get("methods", [
-            {"method": "doi_exact", "priority": 1},
-            {"method": "title_author_fuzzy", "priority": 2, "threshold": 0.90},
-            {"method": "title_fuzzy", "priority": 3, "threshold": 0.95},
+            {"method": "doi_exact"},
+            {"method": "title_author_fuzzy", "threshold": 0.90},
+            {"method": "title_fuzzy", "threshold": 0.95},
         ])
-
-        # Sort methods by priority
-        methods = sorted(methods, key=lambda x: x.get("priority", 999))
 
         results = {
             "step": "deduplication",
@@ -202,29 +238,24 @@ class DeduplicationStep(BaseStep):
             "methods_used": [m.get("method") for m in methods]
         }
 
-        if verbose:
-            console.print(f"\n  [bold cyan]Deduplicating {self.db.count(primary_only=False)} papers[/bold cyan]")
-            console.print(f"    [yellow]Methods:[/yellow] {', '.join([m.get('method') for m in methods])}")
+        # Get all papers at the start - idempotent, non processed papers only
+        all_papers = self.db.find(
+            predicate=lambda p: p.screening.deduplication is None,
+            primary_only=False
+        )
 
-        # Get all papers at the start - this gives us the original state
-        all_papers = self.db.to_list(primary_only=False)
+        self.callback(
+            f"Deduplicating {len(all_papers)} papers "
+            f"Methods: {', '.join([m.get('method') for m in methods])}", debug=True)
 
         # Track papers already processed
         processed_ids = set()
 
         for i, paper in enumerate(all_papers):
-            # Skip if already marked as duplicate
+            # Skip if already marked as duplicate, should be impossible due to filtering above
             if paper.duplicate_of is not None:
                 processed_ids.add(paper.id)
                 continue
-
-            duplicate_found = False
-
-            # Show progress every 100 papers
-            if verbose and (i + 1) % 100 == 0:
-                import sys
-                sys.stdout.write(f"\r    Processed {i + 1}/{len(all_papers)} papers... Found {results['duplicates_found']} duplicates so far")
-                sys.stdout.flush()
 
             # Try each method in priority order
             for method_config in methods:
@@ -233,17 +264,20 @@ class DeduplicationStep(BaseStep):
 
                 match_result = None
                 matching_paper = None
+                confidence= 0.0
+                similarity_score = 0.0
 
                 if method == "doi_exact":
-                    # Use indexed lookup for O(1) performance
+                    # Match against papers that came before in the list (respects insertion order)
+                    # This ensures the first-added paper is treated as primary
                     if paper.doi:
-                        # Use the indexed lookup for O(1) performance
-                        matching_papers = self.db.get_by_doi(paper.doi, primary_only=True)
-                        if matching_papers:
-                            matching_paper = matching_papers[0]
-                            # If this paper is NOT the primary, it's a duplicate
-                            if paper.id != matching_paper.id:
+                        candidate_primaries = [p for p in all_papers[:i] if p.duplicate_of is None]
+                        for candidate in candidate_primaries:
+                            if candidate.doi and candidate.doi == paper.doi:
+                                matching_paper = candidate
                                 match_result = (matching_paper.id, 1.0)
+                                confidence = 1.0
+                                break  # Found match with earliest paper
                 elif method == "title_author_fuzzy":
                     # For fuzzy matching, compare against papers processed so far (primary candidates)
                     # Only match against papers that came before in the list and haven't been marked as duplicates
@@ -252,6 +286,7 @@ class DeduplicationStep(BaseStep):
                     if match_result:
                         duplicate_id, similarity_score = match_result
                         matching_paper = self.db.get_by_id(duplicate_id)
+                    confidence = min(1.0, similarity_score) if match_result else 1.0
                 elif method == "title_fuzzy":
                     # For fuzzy matching, compare against papers processed so far (primary candidates)
                     # Only match against papers that came before in the list and haven't been marked as duplicates
@@ -260,82 +295,52 @@ class DeduplicationStep(BaseStep):
                     if match_result:
                         duplicate_id, similarity_score = match_result
                         matching_paper = self.db.get_by_id(duplicate_id)
-
+                    confidence = min(1.0, similarity_score) if match_result else 1.0
+                
+                # Break out of methods loop once a match is found (use first matching method)
                 if match_result and matching_paper:
-                    duplicate_id, similarity_score = match_result
-
-                    if not dry_run:
-                        # 1. Set simple duplicate_of field
-                        paper.duplicate_of = matching_paper
-
-                        # 2. Create full audit trail in screening model
-                        paper.screening.deduplication = DeduplicationResult(
-                            is_duplicate=True,
-                            duplicate_of=matching_paper,
-                            similarity_score=similarity_score,
-                            method=method,
-                            confidence=_get_confidence(method, similarity_score),
-                            metadata=ProcessingMetadata(
-                                timestamp=datetime.now(timezone.utc),
-                                success=True
-                            )
-                        )
-                        paper.screening.current_stage = "deduplication_complete"
-
-                        # Update the paper in the database
-                        self.db.update(paper)
-
-                    results["duplicates_found"] += 1
-                    results["duplicates"].append({
-                        "paper_id": paper.id,
-                        "paper_title": paper.title,
-                        "duplicate_of_id": duplicate_id,
-                        "duplicate_of_title": matching_paper.title,
-                        "method": method,
-                        "similarity_score": round(similarity_score, 3),
-                        "confidence": round(_get_confidence(method, similarity_score), 3)
-                    })
-
-                    duplicate_found = True
                     break
 
-                if duplicate_found:
-                    break
+            if match_result and matching_paper:
+                results["duplicates_found"] += 1
+                # Record the duplicate for the results
+                results["duplicates"].append({
+                    "paper_id": paper.id,
+                    "duplicate_of_id": matching_paper.id,
+                    "method": method,
+                    "confidence": confidence,
+                    "similarity_score": similarity_score
+                })
 
-            # If not a duplicate, mark as non-duplicate in screening model
-            if not duplicate_found:
-                if not dry_run:
-                    # Mark as non-duplicate in screening model
-                    paper.screening.deduplication = DeduplicationResult(
-                        is_duplicate=False,
-                        duplicate_of=None,
-                        similarity_score=None,
-                        method="none",
-                        confidence=1.0,
-                        metadata=ProcessingMetadata(
-                            timestamp=datetime.now(timezone.utc),
-                            success=True
-                        )
+            if not dry_run:
+                if match_result and matching_paper:
+                    # 1. Set simple duplicate_of field
+                    paper.duplicate_of = matching_paper
+                    paper.screening.final_decision = ScreeningDecision.EXCLUDED_DUPLICATE
+                    paper.screening.final_decision_by = "automated:deduplication"
+
+                # 2. Create full audit trail in screening model
+                paper.screening.deduplication = DeduplicationResult(
+                    is_duplicate=bool(match_result),
+                    duplicate_of=matching_paper if match_result else None,
+                    similarity_score=similarity_score,
+                    method=method if match_result else None,
+                    confidence=confidence,
+                    normalized_title=_normalize_title(paper.title),
+                    metadata=ProcessingMetadata(
+                        timestamp=datetime.now(timezone.utc),
+                        success=True
                     )
-                    paper.screening.current_stage = "deduplication_complete"
+                )
+                paper.screening.current_stage = "deduplication_complete"
 
-                    # Update the paper in the database
+                # Update the paper in the database
+                self.db.update(paper)
 
-                # Note: We don't maintain a separate unique_papers list anymore
-                # Duplicates are tracked via the duplicate_of field in the database
-
-        # Record processing time
-        duration = time.time() - step_start_time
-        if not dry_run:
-            for paper in self.db.to_list(primary_only=False):
-                if paper.screening.deduplication:
-                    paper.screening.deduplication.metadata.duration_seconds = duration
-
-        if verbose:
-            # Clear the progress line and print final result
-            import sys
-            unique_count = self.db.count(primary_only=True)  # Count primary papers (non-duplicates)
-            console.print(f"    [green]✓ Deduplication complete[/green] - Found [cyan]{results['duplicates_found']}[/cyan] duplicates, [cyan]{unique_count}[/cyan] unique papers")
-
-        results["status"] = StepStatus.SUCCESS
+        unique_count = results["total_papers"] - results["duplicates_found"]
+        results = StepResult(
+            status=StepStatus.SUCCESS,
+            message=f"Deduplication found {results['duplicates_found']} duplicates, {unique_count} unique papers",
+            stats=results
+        )
         return results

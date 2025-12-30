@@ -46,10 +46,23 @@ class MetadataScreeningStep(BaseStep):
         Validate metadata_screening step configuration.
         
         Args:
-            config: Step configuration
+            config: Step configuration with optional keys:
+                - enabled: bool - Whether screening is enabled (default: true)
+                - exclude: dict - Fields and values to exclude with keys:
+                    - language: list[str] - Language codes to exclude (e.g., ["de", "fr"])
+                    - paper_types: list[str|dict] - Paper types to exclude
+                        Can be plain string or dict with "NOT": value for exclude-everything-except
+                    - quality_tier: list[str] - Quality tiers to exclude
+                    - is_peer_reviewed: list[bool] - Peer review status to exclude
             
         Returns:
             Tuple of (is_valid, error_messages)
+            
+        Raises:
+            Returns error list if:
+            - Any exclude field is not a list
+            - Any list item is not string or {"NOT": value} dict
+            - enabled is not boolean
         """
         errors = []
 
@@ -94,16 +107,49 @@ class MetadataScreeningStep(BaseStep):
         debug: bool = False,
     ) -> StepResult:
         """
-        Execute metadata screening step.
+        Execute metadata-based screening step using tri-state logic.
         
+        Design Decisions:
+        ==================
+        - Tri-state inclusion logic: Must match include rules, must NOT match exclude rules
+        - Supports negation: {"NOT": "value"} inverts the match (exclude all EXCEPT value)
+        - Language and paper type are most common filters
+        - Quality tier assessment based on peer review status and source ranking
+        - Missing metadata treated as passing (don't exclude without info)
+        
+        Priority Logic:
+        ===============
+        Papers are screened in this order:
+        1. Check if paper_types field matches exclude rules → EXCLUDED if match
+        2. Check if language matches exclude rules → EXCLUDED if match
+        3. Check if quality_tier matches exclude rules → EXCLUDED if match
+        4. Check if is_peer_reviewed status matches exclude rules → EXCLUDED if match
+        5. If no exclusions match → INCLUDED
+        
+        Negation (NOT) Syntax:
+        ======================
+        The {"NOT": "value"} syntax inverts logic - exclude everything EXCEPT the value:
+        
+        exclude:
+          paper_types:
+            - {"NOT": "OPINION"}  # Means: exclude everything except OPINION papers
+        
+        This is useful for inclusive filters (e.g., only include conference papers).
+
         Args:
-            config: Step configuration with 'exclude' section
+            config: Step configuration with optional keys:
+                - enabled: bool (default: true) - Whether to run this screening
+                - exclude: dict - Fields and values that trigger exclusion
             verbose: Enable verbose output
             dry_run: Don't actually modify papers
             debug: Enable debug output
             
         Returns:
-            StepResult with execution statistics
+            StepResult with execution statistics including:
+            - screened: Papers processed
+            - passed: Papers included
+            - failed: Papers excluded
+            - exclusion_reasons: Dict with counts of exclusion reasons
         """
         # Parse configuration
         exclude_logic = self._extract_exclude_logic(config.get("exclude", {}))
@@ -125,7 +171,7 @@ class MetadataScreeningStep(BaseStep):
 
         # Process each non duplicate paper, this is idempotent
         all_papers = self.db.find(
-            predicate=lambda p: not p.is_excluded and not p.is_processed and not p.screening.metadata_screening,
+            predicate=lambda p: not p.is_excluded and not p.is_included and not p.screening.metadata_screening,
             primary_only=True
         )
 
@@ -136,10 +182,10 @@ class MetadataScreeningStep(BaseStep):
 
             if not dry_run:
                 paper.screening.metadata_screening = screening
-                paper.screening.current_stage="metadata_screening passed"
+                paper.screening.current_stage="metadata_screening_complete"
 
                 # Update screening decision if appropriate
-                if not passed:
+                if not passed and paper.screening.final_decision in (ScreeningDecision.PENDING, ScreeningDecision.UNCERTAIN):
                     paper.screening.final_decision = ScreeningDecision.EXCLUDED
                     paper.screening.final_decision_by = "automated:metadata_screening"
 

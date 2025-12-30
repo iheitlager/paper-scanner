@@ -393,7 +393,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
         papers_by_type[paper_type]["total"] += 1
 
         # Track through screening stages
-        final_decision = paper.screening.final_decision.value
+        final_decision = paper.screening.final_decision
 
         # Check metadata exclusion
         if paper.screening.metadata_screening and not paper.screening.metadata_screening.passed:
@@ -405,10 +405,10 @@ def _display_screening_results(db: PapersDatabase) -> None:
         elif paper.screening.semantic_screening and not paper.screening.semantic_screening.passed:
             papers_by_type[paper_type]["semantic_excluded"] += 1
         # Check manual review flag
-        elif final_decision == ScreeningDecision.MANUAL_REVIEW.value:
+        elif final_decision == ScreeningDecision.MANUAL_REVIEW:
             papers_by_type[paper_type]["manual_review"] += 1
         # Included
-        elif final_decision == ScreeningDecision.INCLUDED.value:
+        elif final_decision in (ScreeningDecision.INCLUDED, ScreeningDecision.INCLUDED_MANUAL):
             papers_by_type[paper_type]["included"] += 1
 
     # Create comprehensive table
