@@ -381,7 +381,7 @@ class KeywordScreener:
         """
         start_time = datetime.now(timezone.utc)
 
-        # 0. CHECK COMPLETENESS: Exclude if title, abstract, or keywords missing
+        # 1. CHECK COMPLETENESS: Exclude if title, abstract, or keywords missing
         has_title = title and title.strip()
         has_abstract = abstract and abstract.strip() and abstract.strip().upper() != "N/A"
         has_keywords = keywords and len(keywords) > 0 and any(k.strip() for k in keywords)
@@ -413,7 +413,7 @@ class KeywordScreener:
 
         combined_text = " ".join(filter(None, [title, abstract, " ".join(keywords or [])]))
 
-        # 0. CHECK FOR SYSTEMATIC/LITERATURE REVIEW (priority over all other screening)
+        # 2. CHECK FOR SYSTEMATIC/LITERATURE REVIEW (priority over all other screening)
         # If title contains review-type keywords, automatically include with high confidence
         # Matches: "systematic literature review", "systematic review", "literature review"
         is_systematic_review = False
@@ -436,7 +436,7 @@ class KeywordScreener:
         if detected_study_type.value in self.excluded_study_types:
             study_type_exclusion = f"study_type '{detected_study_type.value}' is excluded"
 
-        # 2. CHECK EXCLUSION KEYWORDS
+        # 3. CHECK EXCLUSION KEYWORDS
         matched_exclusion_keywords = []
         for keyword in self.exclusion_keywords:
             if KeywordMatcher.matches(keyword, combined_text):
@@ -448,7 +448,7 @@ class KeywordScreener:
         elif study_type_exclusion:
             exclusion_reason = study_type_exclusion
 
-        # 3. CALCULATE INCLUSION SCORE
+        # 4. CALCULATE INCLUSION SCORE
         inclusion_score = 0
         matched_inclusion_keywords = []
 
@@ -457,7 +457,7 @@ class KeywordScreener:
                 inclusion_score += 1
                 matched_inclusion_keywords.append(keyword)
 
-        # 4. DETERMINE INCLUSION
+        # 5. DETERMINE INCLUSION
         should_include = True
         final_exclusion_reason = None
 
@@ -479,7 +479,7 @@ class KeywordScreener:
         elif self.mode == "soft":
             should_include = True
 
-        # 5. BUILD KEYWORD SCREENING MODEL
+        # 6. BUILD KEYWORD SCREENING MODEL
         duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         # Set inclusion_reason to reflect systematic review preference

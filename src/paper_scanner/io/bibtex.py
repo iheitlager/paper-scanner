@@ -242,6 +242,38 @@ def parse_keywords(keywords_string: str) -> List[str]:
     return keywords
 
 
+def normalize_ampersands(text: Optional[str]) -> Optional[str]:
+    """
+    Normalize ampersands in text: replace \\& and &amp; with &
+    
+    Handles common BibTeX and HTML-encoded ampersands.
+    """
+    if not text:
+        return text
+    
+    # Replace \& with &
+    text = text.replace(r'\&', '&')
+    # Replace &amp; with &
+    text = text.replace('&amp;', '&')
+    
+    return text
+
+
+def escape_ampersands_for_bibtex(text: Optional[str]) -> Optional[str]:
+    """
+    Escape ampersands for BibTeX format: replace & with \\&
+    
+    Ensures ampersands in fields are properly escaped when exporting to BibTeX.
+    """
+    if not text:
+        return text
+    
+    # Only escape & that aren't already escaped
+    text = re.sub(r'(?<!\\)&', r'\&', text)
+    
+    return text
+
+
 def infer_paper_type(entry: Dict) -> PaperType:
     """Infer paper type from BibTeX entry type"""
 
@@ -297,11 +329,17 @@ def bibtex_entry_to_paper(
     title = titlecase.titlecase(title.lower())
     # Remove LaTeX braces from title
     title = re.sub(r'[{}]', '', title)
+    # Normalize ampersands
+    title = normalize_ampersands(title)
 
     # Abstract
     abstract = entry.get('abstract', '').strip() or None
     if abstract:
         abstract = re.sub(r'[{}]', '', abstract)
+        # Normalize whitespace: replace newlines and multiple spaces with single space
+        abstract = re.sub(r'\s+', ' ', abstract).strip()
+        # Normalize ampersands
+        abstract = normalize_ampersands(abstract)
 
     # Authors
     author_string = entry.get('author', '')
@@ -337,9 +375,14 @@ def bibtex_entry_to_paper(
     issn = entry.get('issn', '').strip() or None
 
     # Publication venue
-    journal = entry.get('journal', '').strip() or None
-    booktitle = entry.get('booktitle', '').strip() or None
-    publisher = entry.get('publisher', '').strip() or None
+    journal = entry.get('journal', '').strip().title() or None
+    booktitle = entry.get('booktitle', '').strip().title() or None
+    publisher = entry.get('publisher', '').strip().title() or None
+    
+    # Normalize ampersands in venue fields
+    journal = normalize_ampersands(journal)
+    booktitle = normalize_ampersands(booktitle)
+    publisher = normalize_ampersands(publisher)
 
     # Volume/Issue/Pages
     volume = entry.get('volume', '').strip() or None
@@ -574,7 +617,7 @@ def paper_to_bibtex_entry(paper: Paper, use_source_key: bool = False) -> Dict:
     entry = {
         'ID': cite_key,
         'ENTRYTYPE': infer_bibtex_type(paper),
-        'title': paper.title,
+        'title': escape_ampersands_for_bibtex(paper.title),
     }
 
     # Authors
@@ -587,7 +630,7 @@ def paper_to_bibtex_entry(paper: Paper, use_source_key: bool = False) -> Dict:
 
     # Abstract
     if paper.abstract:
-        entry['abstract'] = paper.abstract
+        entry['abstract'] = escape_ampersands_for_bibtex(paper.abstract)
 
     # Keywords
     if paper.keywords:
@@ -608,13 +651,13 @@ def paper_to_bibtex_entry(paper: Paper, use_source_key: bool = False) -> Dict:
 
     # Publication venue
     if paper.journal:
-        entry['journal'] = paper.journal
+        entry['journal'] = escape_ampersands_for_bibtex(paper.journal)
 
     if paper.booktitle:
-        entry['booktitle'] = paper.booktitle
+        entry['booktitle'] = escape_ampersands_for_bibtex(paper.booktitle)
 
     if paper.publisher:
-        entry['publisher'] = paper.publisher
+        entry['publisher'] = escape_ampersands_for_bibtex(paper.publisher)
 
     # Volume/Issue/Pages
     if paper.volume:
