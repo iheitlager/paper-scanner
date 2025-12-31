@@ -30,6 +30,7 @@ class ReportStep(BaseStep):
     """Wrapper for report step (legacy function-based)."""
     _report_types = {
         "summary": None,
+        "source": None,
         "screening": None,
         "citations": None,
         "bibliography": None,
@@ -120,6 +121,7 @@ class ReportStep(BaseStep):
         show_citations = config.get("citations", False)
         show_bibliography = config.get("bibliography", False)
         show_histogram = config.get("histogram", False)
+        show_source = config.get("source", False)
         show_dump_citations = config.get("dump_citations", False)
 
         # Support both old and new configuration format
@@ -149,6 +151,11 @@ class ReportStep(BaseStep):
         if verbose and show_screening:
             reports.append("screening")
             _display_screening_results(self.db)
+
+        # Display screening results if requested
+        if verbose and show_source:
+            reports.append("source")
+            _display_source_results(self.db)
 
         # Display citations histogram if requested
         if verbose and show_citations:
@@ -498,6 +505,139 @@ def _display_screening_results(db: PapersDatabase) -> None:
     console.print(f"  [dim]Inclusion rate: {total_included}/{total_primary} ({inclusion_rate:.1f}%)[/dim]" if total_primary > 0 else f"  [dim]Inclusion rate: {total_included}/0[/dim]")
     if duplicate_papers:
         console.print(f"  [dim]Duplicate records: {len(duplicate_papers)}[/dim]")
+
+
+def _display_source_results(db: PapersDatabase) -> None:
+    """
+    Display results breakdown by source_database  with stage progression
+    
+    Args:
+        db: PapersDatabase instance to analyze
+    """
+
+    # Separate primary papers from duplicates
+    primary_papers = [p for p in db.to_list(primary_only=False) if p.duplicate_of is None]
+    duplicate_papers = [p for p in db.to_list(primary_only=False) if p.duplicate_of is not None]
+
+    # Group primary papers by paper_type and track through screening stages
+    papers_by_type = {}
+
+    for paper in primary_papers:
+        source_type = paper.discovery.source_database or "Unknown"
+        
+        if source_type not in papers_by_type:
+            papers_by_type[source_type] = {
+                "total": 0,
+                "metadata_excluded": 0,
+                "keyword_excluded": 0,
+                "semantic_excluded": 0,
+                "uncertain": 0,
+                "manual_review": 0,
+                "included": 0,
+            }
+
+        papers_by_type[source_type]["total"] += 1
+
+        # Track through screening stages
+        final_decision = paper.screening.final_decision
+
+        # Check metadata exclusion
+        if paper.screening.metadata_screening and not paper.screening.metadata_screening.passed:
+            papers_by_type[source_type]["metadata_excluded"] += 1
+        # Check keyword screening exclusion
+        elif paper.screening.keyword_screening and not paper.screening.keyword_screening.passed:
+            papers_by_type[source_type]["keyword_excluded"] += 1
+        # Check semantic screening exclusion
+        elif paper.screening.semantic_screening and not paper.screening.semantic_screening.passed:
+            papers_by_type[source_type]["semantic_excluded"] += 1
+        elif final_decision == ScreeningDecision.UNCERTAIN:
+            papers_by_type[source_type]["uncertain"] += 1
+        # Check manual review flag
+        elif final_decision == ScreeningDecision.MANUAL_REVIEW:
+            papers_by_type[source_type]["manual_review"] += 1
+        # Included
+        elif paper.is_included:
+            papers_by_type[source_type]["included"] += 1
+
+    # Create comprehensive table
+    table = Table(title="Screening Results Progression")
+    table.add_column("Paper Type", style="cyan", width=18)
+    table.add_column("Total", justify="right", style="bold")
+    table.add_column("Metadata\nExcluded", justify="right", style="yellow")
+    table.add_column("Keyword\nExcluded", justify="right", style="yellow")
+    table.add_column("Semantic\nExcluded", justify="right", style="yellow")
+    table.add_column("Uncertain", justify="right", style="yellow")
+    table.add_column("Manual\nReview", justify="right", style="blue")
+    table.add_column("Included", justify="right", style="green")
+
+    # Totals tracking
+    total_primary = 0
+    total_metadata_excl = 0
+    total_kw_excl = 0
+    total_sem_excl = 0
+    total_uncertain = 0
+    total_manual = 0
+    total_included = 0
+
+    # Add rows for each paper type
+    for paper_type in sorted(papers_by_type.keys()):
+        counts = papers_by_type[paper_type]
+
+        total_primary += counts["total"]
+        total_metadata_excl += counts["metadata_excluded"]
+        total_kw_excl += counts["keyword_excluded"]
+        total_sem_excl += counts["semantic_excluded"]
+        total_uncertain += counts["uncertain"]
+        total_manual += counts["manual_review"]
+        total_included += counts["included"]
+
+        table.add_row(
+            paper_type,
+            str(counts["total"]),
+            str(counts["metadata_excluded"]),
+            str(counts["keyword_excluded"]),
+            str(counts["semantic_excluded"]),
+            str(counts["uncertain"]),
+            str(counts["manual_review"]),
+            str(counts["included"]),
+        )
+
+    # Add duplicates row if any exist
+    if duplicate_papers:
+        table.add_row(
+            "[dim]Duplicates[/dim]",
+            f"[dim]{len(duplicate_papers)}[/dim]",
+            "[dim]-[/dim]",
+            "[dim]-[/dim]",
+            "[dim]-[/dim]",
+            "[dim]-[/dim]",
+            "[dim]-[/dim]",
+        )
+
+    # Add total row (only counting primary papers in screening totals)
+    total_all = total_primary + len(duplicate_papers)
+    table.add_row(
+        "[bold]Total[/bold]",
+        f"[bold]{total_all}[/bold]",
+        f"[bold yellow]{total_metadata_excl}[/bold yellow]",
+        f"[bold yellow]{total_kw_excl}[/bold yellow]",
+        f"[bold yellow]{total_sem_excl}[/bold yellow]",
+        f"[bold yellow]{total_uncertain}[/bold yellow]",
+        f"[bold blue]{total_manual}[/bold blue]",
+        f"[bold green]{total_included}[/bold green]",
+    )
+
+    console.print(table)
+
+    # Print summary statistics
+    total_excluded = total_metadata_excl + total_kw_excl + total_sem_excl
+    inclusion_rate = (total_included / total_primary * 100) if total_primary > 0 else 0
+
+    console.print(f"\n  [dim]Total excluded: {total_excluded} ({total_excluded/total_primary*100:.1f}%)[/dim]" if total_primary > 0 else f"\n  [dim]Total excluded: {total_excluded}[/dim]")
+    console.print(f"  [dim]Inclusion rate: {total_included}/{total_primary} ({inclusion_rate:.1f}%)[/dim]" if total_primary > 0 else f"  [dim]Inclusion rate: {total_included}/0[/dim]")
+    if duplicate_papers:
+        console.print(f"  [dim]Duplicate records: {len(duplicate_papers)}[/dim]")
+
 
 
 def _display_citations_histogram(db: PapersDatabase) -> None:

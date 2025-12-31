@@ -17,7 +17,8 @@ Click on each step to see detailed documentation:
 
 | Step | Purpose | Status |
 |------|---------|--------|
-| [bibtex_import](overview.md) | Import papers from BibTeX files | ✅ Stable |
+| [bibtex_import](bibtex_import.md) | Import papers from BibTeX files | ✅ Stable |
+| [ris_import](ris_import.md) | Import papers from RIS files | ✅ Stable |
 | [citations](overview.md) | Extract forward and backward citations | ✅ Stable |
 | [deduplication](deduplication.md) | Find and remove duplicate papers | ✅ Stable |
 | [export](overview.md) | Export papers to various formats | ✅ Stable |
