@@ -48,7 +48,7 @@ def mock_db():
     """Create a mock database."""
     db = Mock()
     db.all = Mock(return_value=[])
-    db.update_paper = Mock()
+    db.update = Mock()
     return db
 
 
@@ -218,7 +218,7 @@ class TestJournalScreeningExecute:
         )
         
         assert result.status == StepStatus.SUCCESS
-        # update_paper should not be called in dry-run mode
+        # update should not be called in dry-run mode
         mock_db.update_paper.assert_not_called()
 
     def test_execute_with_verbose(self, step, mock_db, temp_journal_definitions, capsys):
@@ -261,10 +261,10 @@ class TestJournalScreeningExecute:
         
         assert result.status == StepStatus.SUCCESS
         # Verify update_paper was called
-        mock_db.update_paper.assert_called()
+        mock_db.update.assert_called()
         
         # Verify screening metadata was set
-        calls = mock_db.update_paper.call_args_list
+        calls = mock_db.update.call_args_list
         assert len(calls) > 0
         updated_paper = calls[0][0][0]
         assert updated_paper.screening.journal_screening is not None
