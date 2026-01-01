@@ -14,9 +14,8 @@ import bibtexparser
 from rich.console import Console
 
 from paper_scanner.core.doi import DOI
-from paper_scanner.core.enum import CitationDirection, PaperType
+from paper_scanner.core.enum import CitationDirection
 from paper_scanner.core.models import Citation
-from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 
 console = Console(file=sys.stderr)
 

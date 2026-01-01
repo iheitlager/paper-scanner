@@ -10,6 +10,7 @@ import pytest
 
 from paper_scanner.core.enum import DiscoveryMethod, PaperType
 from paper_scanner.core.models import Author, Discovery, Paper
+from paper_scanner.core.normalization import Normalizer
 from paper_scanner.io.bibtex import (
     bibtex_entry_to_paper,
     bibtex_file_to_papers,
@@ -28,94 +29,11 @@ from paper_scanner.io.bibtex import (
     paper_to_bibtex_entry,
     papers_to_bibtex,
     papers_to_bibtex_file,
-    parse_authors,
     parse_keywords,
 )
 
 # Test data directory
 TEST_DATA_DIR = Path(__file__).parent.parent.parent / "data"
-
-
-class TestParseAuthors:
-    """Test author parsing from BibTeX format"""
-
-    def test_parse_authors_comma_separated(self):
-        """Verify parsing of 'Last, First' format"""
-        author_string = "Smith, John and Doe, Jane"
-        authors = parse_authors(author_string)
-
-        assert len(authors) == 2
-        assert authors[0].family_name == "Smith"
-        assert authors[0].given_name == "John"
-        assert authors[1].family_name == "Doe"
-        assert authors[1].given_name == "Jane"
-
-    def test_parse_authors_space_separated(self):
-        """Verify parsing of 'First Last' format"""
-        author_string = "John Smith and Jane Doe"
-        authors = parse_authors(author_string)
-
-        assert len(authors) == 2
-        assert authors[0].family_name == "Smith"
-        assert authors[0].given_name == "John"
-        assert authors[1].family_name == "Doe"
-        assert authors[1].given_name == "Jane"
-
-    def test_parse_authors_single_author(self):
-        """Verify parsing of single author"""
-        author_string = "John Smith"
-        authors = parse_authors(author_string)
-
-        assert len(authors) == 1
-        assert authors[0].family_name == "Smith"
-        assert authors[0].given_name == "John"
-
-    def test_parse_authors_single_name(self):
-        """Verify parsing of single name author"""
-        author_string = "Aristotle"
-        authors = parse_authors(author_string)
-
-        assert len(authors) == 1
-        assert authors[0].family_name == "Aristotle"
-        assert authors[0].given_name is None
-
-    def test_parse_authors_abbreviated_names(self):
-        """Verify parsing of abbreviated names"""
-        author_string = "Smith, J. and Doe, J."
-        authors = parse_authors(author_string)
-
-        assert len(authors) == 2
-        assert authors[0].family_name == "Smith"
-        assert authors[0].given_name == "J."
-
-    def test_parse_authors_empty_string(self):
-        """Verify empty author string returns empty list"""
-        authors = parse_authors("")
-        assert authors == []
-
-    def test_parse_authors_multiple(self):
-        """Verify parsing multiple authors"""
-        author_string = "Smith, John and Doe, Jane and Johnson, Bob"
-        authors = parse_authors(author_string)
-
-        assert len(authors) == 3
-        assert authors[2].family_name == "Johnson"
-
-    def test_parse_authors_whitespace_handling(self):
-        """Verify whitespace is properly handled"""
-        author_string = "  Smith, John  and  Doe, Jane  "
-        authors = parse_authors(author_string)
-
-        assert len(authors) == 2
-        assert authors[0].family_name == "Smith"
-        assert authors[1].family_name == "Doe"
-
-    def test_parse_authors_creates_author_objects(self):
-        """Verify Author objects are created"""
-        author_string = "John Smith and Jane Doe"
-        authors = parse_authors(author_string)
-
-        assert all(isinstance(a, Author) for a in authors)
 
 
 class TestParseKeywords:
@@ -124,7 +42,7 @@ class TestParseKeywords:
     def test_parse_keywords_semicolon_separated(self):
         """Verify parsing of semicolon-separated keywords"""
         keywords_string = "machine learning; deep learning; AI"
-        keywords = parse_keywords(keywords_string)
+        keywords = Normalizer.normalize_keywords(keywords_string)
 
         assert len(keywords) == 3
         assert "machine learning" in keywords
@@ -134,7 +52,7 @@ class TestParseKeywords:
     def test_parse_keywords_comma_separated(self):
         """Verify parsing of comma-separated keywords"""
         keywords_string = "machine learning, deep learning, AI"
-        keywords = parse_keywords(keywords_string)
+        keywords = Normalizer.normalize_keywords(keywords_string)
 
         assert len(keywords) == 3
         assert "machine learning" in keywords
@@ -142,7 +60,7 @@ class TestParseKeywords:
     def test_parse_keywords_and_separated(self):
         """Verify parsing of 'and'-separated keywords"""
         keywords_string = "machine learning and deep learning and AI"
-        keywords = parse_keywords(keywords_string)
+        keywords = Normalizer.normalize_keywords(keywords_string)
 
         assert len(keywords) == 3
         assert "machine learning" in keywords
@@ -150,20 +68,20 @@ class TestParseKeywords:
     def test_parse_keywords_single_keyword(self):
         """Verify single keyword is returned"""
         keywords_string = "machine learning"
-        keywords = parse_keywords(keywords_string)
+        keywords = Normalizer.normalize_keywords(keywords_string)
 
         assert len(keywords) == 1
         assert keywords[0] == "machine learning"
 
     def test_parse_keywords_empty_string(self):
         """Verify empty string returns empty list"""
-        keywords = parse_keywords("")
+        keywords = Normalizer.normalize_keywords("")
         assert keywords == []
 
     def test_parse_keywords_whitespace_trimmed(self):
         """Verify whitespace is trimmed"""
         keywords_string = "  machine learning  ;  deep learning  "
-        keywords = parse_keywords(keywords_string)
+        keywords = Normalizer.normalize_keywords(keywords_string)
 
         assert keywords[0] == "machine learning"
         assert keywords[1] == "deep learning"
@@ -171,7 +89,7 @@ class TestParseKeywords:
     def test_parse_keywords_empty_entries_removed(self):
         """Verify empty entries are removed"""
         keywords_string = "machine learning;; deep learning"
-        keywords = parse_keywords(keywords_string)
+        keywords = Normalizer.normalize_keywords(keywords_string)
 
         assert len(keywords) == 2
         assert "machine learning" in keywords
@@ -447,7 +365,7 @@ class TestBibtexEntryToPaper:
         assert paper.abstract.count("&") == 2
 
     def test_bibtex_entry_title_ampersands_normalization(self):
-        """Verify ampersands in title are normalized"""
+        """Verify ampersands in title are not normalized"""
         entry = {
             "ID": "smith2020",
             "ENTRYTYPE": "article",

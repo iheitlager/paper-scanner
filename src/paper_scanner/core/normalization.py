@@ -72,7 +72,8 @@ class Normalizer:
         1. Strip leading/trailing whitespace
         2. Remove LaTeX braces
         3. Collapse multiple spaces to single space
-        4. Apply smart titlecase with particle handling
+        4. Normalize ampersands
+        5. Apply smart titlecase with particle handling
         
         Args:
             title: Raw title string
@@ -91,6 +92,7 @@ class Normalizer:
         title = title.strip()
         title = Normalizer._clean_markup(title)
         title = Normalizer._collapse_whitespace(title)
+        title = Normalizer._normalize_ampersands(title)
         title = Normalizer._smart_titlecase(title)
         return title
 
@@ -467,53 +469,133 @@ class Normalizer:
     @staticmethod
     def _smart_titlecase(text: str) -> str:
         """
-        Apply titlecase with particle handling.
+        Apply titlecase with particle and acronym handling.
         
         Preserves lowercase particles (de, van, von, der, den, el, la, le, di, da, du)
-        when not at the start of the text. Handles hyphenated words by titlecasing
-        each part separately while preserving hyphens.
+        when not at the start of the text. Preserves proper case for known acronyms
+        (business entities, scientific terms) in English, Dutch, French, and German.
+        Handles hyphenated words by titlecasing each part separately while preserving hyphens.
         
         Args:
             text: Text to titlecase
             
         Returns:
-            Titlecased text with particles preserved
+            Titlecased text with particles and acronyms preserved
             
         Example:
             >>> Normalizer._smart_titlecase("ludwig van beethoven")
             'Ludwig van Beethoven'
             >>> Normalizer._smart_titlecase("jean-claude van damme")
             'Jean-Claude van Damme'
+            >>> Normalizer._smart_titlecase("smith & co. ltd")
+            'Smith & Co. Ltd'
+            >>> Normalizer._smart_titlecase("müller gmbh")
+            'Müller GmbH'
         """
         if not text:
             return text
         
         particles = {'de', 'van', 'von', 'der', 'den', 'el', 'la', 'le', 'di', 'da', 'du', 'the'}
-        words = text.lower().split()
+        
+        # Acronyms: map lowercase to proper case
+        # Business entities (English, Dutch, French, German)
+        acronyms = {
+            # English
+            'ltd': 'Ltd',
+            'inc': 'Inc',
+            'corp': 'Corp',
+            'llc': 'LLC',
+            'co': 'Co',
+            'plc': 'PLC',
+            # Dutch
+            'bv': 'BV',
+            'nv': 'NV',
+            'vof': 'VOF',
+            # French
+            'sarl': 'SARL',
+            'sa': 'SA',
+            'sas': 'SAS',
+            'eurl': 'EURL',
+            # German
+            'gmbh': 'GmbH',
+            'ag': 'AG',
+            'kg': 'KG',
+            'ohg': 'oHG',
+            # Scientific/Academic
+            'phd': 'PhD',
+            'mba': 'MBA',
+            'bsc': 'BSc',
+            'msc': 'MSc',
+            # Tech companies (common acronyms)
+            'ibm': 'IBM',
+            'bm': 'BM',
+            'sap': 'SAP',
+            'hp': 'HP',
+            'amd': 'AMD',
+            'nvidia': 'NVIDIA',
+        }
+        
+        # Acronyms that should stay lowercase (even at word start)
+        lowercase_acronyms = {'et al', 'vs'}
+        
+        text_lower = text.lower()
+        
+        # Pre-process: Replace "et al" with a placeholder to preserve it as a unit
+        import re
+        et_al_placeholder = '__ET_AL__'
+        # Match "et al" with optional punctuation and capture the punctuation
+        pattern = r'\bet\s+al(?=[.\s,;:]|$)'
+        text_processed = re.sub(pattern, et_al_placeholder, text_lower)
+        
+        words = text_processed.split()
         result = []
         
         for i, word in enumerate(words):
+            # Handle words that contain the placeholder
+            if et_al_placeholder in word:
+                # Restore "et al" and preserve any attached punctuation
+                restored = word.replace(et_al_placeholder, 'et al')
+                result.append(restored)
+                continue
+            
             # Handle hyphenated words
             if '-' in word:
                 parts = word.split('-')
                 titlecased = []
                 for part in parts:
                     part_clean = part.rstrip('.,;:').lower()
+                    # Check if it's an acronym first
+                    if part_clean in acronyms:
+                        titlecased.append(acronyms[part_clean])
                     # Capitalize unless it's a particle (and not first word overall)
-                    if i == 0 or part_clean not in particles:
+                    elif i == 0 or part_clean not in particles:
                         titlecased.append(part.capitalize())
                     else:
                         titlecased.append(part)
                 result.append('-'.join(titlecased))
-            # First word: always capitalize
-            elif i == 0:
-                result.append(word.capitalize())
-            # Check if word is a particle (minus trailing punctuation)
-            elif word.rstrip('.,;:').lower() in particles:
-                result.append(word)
-            # Regular word: capitalize
             else:
-                result.append(word.capitalize())
+                word_clean = word.rstrip('.,;:').lower()
+                
+                # Check if word is an acronym (preserve original trailing punctuation)
+                if word_clean in acronyms:
+                    # Preserve trailing punctuation
+                    punct = word[len(word_clean):]
+                    result.append(acronyms[word_clean] + punct)
+                # First word: capitalize unless it's a lowercase acronym
+                elif i == 0:
+                    if word_clean in lowercase_acronyms:
+                        result.append(word)
+                    else:
+                        result.append(word.capitalize())
+                # Check if word is a particle (minus trailing punctuation)
+                elif word_clean in particles:
+                    result.append(word)
+                # Check if word is a lowercase acronym
+                elif word_clean in lowercase_acronyms:
+                    result.append(word)
+                # Regular word: capitalize
+                else:
+                    result.append(word.capitalize())
         
         return ' '.join(result)
 

@@ -285,23 +285,20 @@ class TestCrossrefMetadataExtraction:
         assert paper.paper_type == PaperType.JOURNAL_ARTICLE.value
 
     def test_cite_key_generation(self, handler):
-        """Test cite key generation from authors and year."""
-        from paper_scanner.core.models import Author
+        """Test cite key generation from DOI using centralized function."""
+        from paper_scanner.core.cite_key import generate_doi_based_cite_key
 
-        authors = [
-            Author(given_name="John", family_name="Smith", full_name="John Smith")
-        ]
-        year = 2020
         doi = "10.1145/3025453.3025761"
-
-        cite_key = handler._generate_cite_key(authors, year, doi)
+        cite_key = generate_doi_based_cite_key(doi)
         assert cite_key == "doi_2d61f4f8"  # MD5 of "10.1145/3025453.3025761"
 
     def test_cite_key_generation_no_author(self, handler):
-        """Test cite key generation without author."""
-        doi = "10.1145/3025453.3025761"
-        cite_key = handler._generate_cite_key([], None, doi)
-        assert "doi_" in cite_key
+        """Test cite key generation without DOI using centralized function."""
+        from paper_scanner.core.cite_key import generate_doi_based_cite_key
+
+        # Empty DOI should generate UUID-based key
+        cite_key = generate_doi_based_cite_key("")
+        assert len(cite_key) == 8  # UUID prefix truncated to 8 chars
 
     @patch("paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler.requests.Session.get")
     def test_fetch_from_api_success(self, mock_get, handler):

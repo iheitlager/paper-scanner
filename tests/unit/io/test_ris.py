@@ -11,10 +11,6 @@ from paper_scanner.io.ris import (
     RISRecord,
     ris_file_to_papers,
     ris_to_papers,
-    parse_authors_ris,
-    parse_keywords_ris,
-    normalize_ampersands,
-    normalize_whitespace,
     infer_paper_type_ris,
 )
 from paper_scanner.core.enum import PaperType, DiscoveryMethod
@@ -50,118 +46,6 @@ class TestRISRecord:
         record = RISRecord()
         record.add_field("KW", "keyword1")
         assert record.get_list("KW") == ["keyword1"]
-
-
-class TestNormalization:
-    """Test normalization functions"""
-
-    def test_normalize_ampersands_latex(self):
-        """Test normalizing LaTeX-escaped ampersands"""
-        result = normalize_ampersands(r"Smith \& Jones")
-        assert result == "Smith & Jones"
-
-    def test_normalize_ampersands_html(self):
-        """Test normalizing HTML-encoded ampersands"""
-        result = normalize_ampersands("Smith &amp; Jones")
-        assert result == "Smith & Jones"
-
-    def test_normalize_whitespace(self):
-        """Test normalizing whitespace"""
-        text = "Line 1\n  Line 2\n\nLine 3"
-        result = normalize_whitespace(text)
-        assert result == "Line 1 Line 2 Line 3"
-
-    def test_normalize_whitespace_multiple_spaces(self):
-        """Test collapsing multiple spaces"""
-        result = normalize_whitespace("Word1    Word2     Word3")
-        assert result == "Word1 Word2 Word3"
-
-    def test_normalize_none_input(self):
-        """Test normalization with None input"""
-        assert normalize_ampersands(None) is None
-        assert normalize_whitespace(None) is None
-
-
-class TestAuthorParsing:
-    """Test author parsing"""
-
-    def test_parse_single_author(self):
-        """Test parsing single author"""
-        authors = parse_authors_ris(["Smith, John"])
-        assert len(authors) == 1
-        assert authors[0].family_name == "Smith"
-        assert authors[0].given_name == "John"
-        assert authors[0].full_name == "John Smith"
-
-    def test_parse_multiple_authors(self):
-        """Test parsing multiple authors"""
-        authors = parse_authors_ris([
-            "Smith, John",
-            "Doe, Jane",
-            "Williams, Robert"
-        ])
-        assert len(authors) == 3
-        assert authors[0].family_name == "Smith"
-        assert authors[1].family_name == "Doe"
-        assert authors[2].family_name == "Williams"
-
-    def test_parse_author_with_middle_initial(self):
-        """Test parsing author with middle initial"""
-        authors = parse_authors_ris(["Jahid, Md. Abu"])
-        assert len(authors) == 1
-        assert authors[0].family_name == "Jahid"
-        assert authors[0].given_name == "Md. Abu"
-
-    def test_parse_author_no_given_name(self):
-        """Test parsing author with only last name"""
-        authors = parse_authors_ris(["Plato"])
-        assert len(authors) == 1
-        assert authors[0].family_name == "Plato"
-        assert authors[0].given_name is None
-
-    def test_parse_empty_list(self):
-        """Test parsing empty author list"""
-        authors = parse_authors_ris([])
-        assert authors == []
-
-    def test_parse_author_titlecase(self):
-        """Test that author names are titlecased"""
-        authors = parse_authors_ris(["smith, john"])
-        assert authors[0].full_name == "John Smith"
-
-
-class TestKeywordParsing:
-    """Test keyword parsing"""
-
-    def test_parse_single_keyword(self):
-        """Test parsing single keyword"""
-        keywords = parse_keywords_ris(["keyword1"])
-        assert keywords == ["keyword1"]
-
-    def test_parse_multiple_keywords(self):
-        """Test parsing multiple keywords"""
-        keywords = parse_keywords_ris([
-            "keyword1",
-            "keyword2",
-            "keyword3"
-        ])
-        assert len(keywords) == 3
-        assert all(kw in keywords for kw in ["keyword1", "keyword2", "keyword3"])
-
-    def test_parse_keywords_lowercase(self):
-        """Test that keywords are lowercased"""
-        keywords = parse_keywords_ris(["KEYWORD1", "KeyWord2"])
-        assert keywords == ["keyword1", "keyword2"]
-
-    def test_parse_keywords_strip_whitespace(self):
-        """Test that whitespace is stripped"""
-        keywords = parse_keywords_ris(["  keyword1  ", "keyword2\n"])
-        assert keywords == ["keyword1", "keyword2"]
-
-    def test_parse_empty_keywords(self):
-        """Test parsing empty keyword list"""
-        keywords = parse_keywords_ris([])
-        assert keywords == []
 
 
 class TestPaperTypeInference:

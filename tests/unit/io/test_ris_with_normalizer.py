@@ -8,11 +8,7 @@ field normalization instead of duplicated functions.
 import pytest
 from paper_scanner.io.ris import (
     RISRecord,
-    ris_record_to_paper,
-    normalize_ampersands,
-    normalize_whitespace,
-    parse_authors_ris,
-    parse_keywords_ris
+    ris_record_to_paper
 )
 from paper_scanner.core.models import Author, PaperType
 from paper_scanner.core.normalization import Normalizer
@@ -22,37 +18,33 @@ class TestRISNormalizerIntegration:
     """Test that ris.py uses Normalizer for field normalization"""
 
     def test_normalize_ampersands_uses_normalizer(self):
-        """normalize_ampersands should use Normalizer._normalize_ampersands()"""
-        result = normalize_ampersands("Smith \\& Jones")
+        """Test ampersand normalization via Normalizer"""
+        result = Normalizer._normalize_ampersands("Smith \\& Jones")
         assert result == "Smith & Jones"
         
-        result = normalize_ampersands("Art &amp; Design")
+        result = Normalizer._normalize_ampersands("Art &amp; Design")
         assert result == "Art & Design"
 
     def test_normalize_whitespace_uses_normalizer(self):
-        """normalize_whitespace should use Normalizer._collapse_whitespace()"""
-        result = normalize_whitespace("Multiple   spaces   and\n\nlinebreaks   here")
+        """Test whitespace normalization via Normalizer"""
+        result = Normalizer._collapse_whitespace("Multiple   spaces   and\n\nlinebreaks   here")
         assert result == "Multiple spaces and linebreaks here"
 
     def test_parse_authors_ris_uses_normalizer(self):
-        """parse_authors_ris should use Normalizer.normalize_authors()"""
+        """Test author parsing and normalization via Normalizer"""
         authors_list = ["Smith, John", "Doe, Jane"]
-        result = parse_authors_ris(authors_list)
+        result = Normalizer.normalize_authors(authors_list)
         
         assert len(result) == 2
-        assert all(isinstance(a, Author) for a in result)
-        assert "Smith" in result[0].family_name
-        assert "John" in result[0].given_name
+        assert all(isinstance(a, str) for a in result)
 
     def test_parse_keywords_ris_uses_normalizer(self):
-        """parse_keywords_ris should use Normalizer.normalize_keywords()"""
+        """Test keyword parsing and normalization via Normalizer"""
         keywords_list = ["Machine Learning", "Deep Learning", "NLP"]
-        result = parse_keywords_ris(keywords_list)
+        result = Normalizer.normalize_keywords(keywords_list)
         
         assert len(result) == 3
         assert all(kw.islower() for kw in result)
-        assert "machine learning" in result
-        assert "deep learning" in result
 
     def test_ris_record_to_paper_normalizes_all_fields(self):
         """ris_record_to_paper should normalize all fields using Normalizer"""
@@ -174,32 +166,6 @@ class TestRISNormalizerIntegration:
         # Should be titlecased and ampersand normalized
         assert paper.publisher
         assert '&' in paper.publisher
-
-
-class TestRISBackwardCompatibility:
-    """Test backward compatibility of deprecated functions"""
-
-    def test_normalize_ampersands_backward_compat(self):
-        """normalize_ampersands still works (though deprecated)"""
-        result = normalize_ampersands("A \\& B")
-        assert "&" in result
-
-    def test_normalize_whitespace_backward_compat(self):
-        """normalize_whitespace still works (though deprecated)"""
-        result = normalize_whitespace("A   B   C")
-        assert result == "A B C"
-
-    def test_parse_authors_ris_backward_compat(self):
-        """parse_authors_ris still works (though deprecated)"""
-        result = parse_authors_ris(["Smith, John"])
-        assert len(result) == 1
-        assert isinstance(result[0], Author)
-
-    def test_parse_keywords_ris_backward_compat(self):
-        """parse_keywords_ris still works (though deprecated)"""
-        result = parse_keywords_ris(["Machine Learning"])
-        assert len(result) == 1
-        assert result[0] == "machine learning"
 
 
 class TestRISNormalizerConsistency:

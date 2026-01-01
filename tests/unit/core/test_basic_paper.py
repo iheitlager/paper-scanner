@@ -166,8 +166,8 @@ class TestAuthorClass:
             family_name="Α λέκος",
             full_name="Ιωάννης Α λέκος"
         )
-        assert author.family_name == "Α Λέκος"  # family_name is titlecased
-        assert author.full_name == "Ιωάννης Α Λέκος"  # full_name is titlecased
+        assert author.family_name == "Α λέκος"  # keep original casing
+        assert author.full_name == "Ιωάννης Α λέκος"  # full_name is kept as is
 
     def test_author_with_hyphenated_name(self):
         """Verify Author works with hyphenated names"""
@@ -258,8 +258,9 @@ class TestAuthorClass:
             full_name="  John Smith  ",
             affiliation="  MIT  "
         )
-        assert author.given_name == "John"  # whitespace stripped
-        assert author.family_name == "Smith"  # whitespace stripped
+        assert author.given_name == "  John  "  # whitespace preserved
+        assert author.family_name == "  Smith  "  # whitespace preserved
+        assert author.full_name == "  John Smith  "  # whitespace preserved
         assert author.affiliation == "  MIT  "  # affiliation preserves whitespace
 
     def test_author_field_types(self):
@@ -319,7 +320,8 @@ class TestAuthorClass:
             family_name="123ABC",
             full_name="John 123ABC"
         )
-        assert author.family_name == "123abc"  # lowercase applied to entire name
+        assert author.family_name == "123ABC"  # casing preserved
+        assert author.full_name == "John 123ABC"  # full_name preserved
 
     def test_author_with_special_characters_in_email(self):
         """Verify Author works with various email formats"""

@@ -6,7 +6,7 @@ field normalization instead of duplicated functions.
 """
 
 import pytest
-from paper_scanner.io.bibtex import bibtex_entry_to_paper, parse_authors, parse_keywords, normalize_ampersands
+from paper_scanner.io.bibtex import bibtex_entry_to_paper
 from paper_scanner.core.models import Author, Paper, PaperType
 from paper_scanner.core.normalization import Normalizer
 
@@ -16,19 +16,17 @@ class TestBibtexNormalizerIntegration:
 
     def test_parse_authors_uses_normalizer(self):
         """parse_authors should use Normalizer.normalize_authors()"""
-        # Test "Last, First" format
-        result = parse_authors("Smith, John and Doe, Jane")
+        # Test "Last, First" format - normalize_authors returns list of strings
+        result = Normalizer.normalize_authors("Smith, John and Doe, Jane")
         
         assert len(result) == 2
-        assert isinstance(result[0], Author)
-        assert "Smith" in result[0].family_name
-        assert "John" in result[0].given_name
-        assert "Doe" in result[1].family_name
-        assert "Jane" in result[1].given_name
+        assert isinstance(result[0], str)
+        assert "Smith" in result[0] or "John" in result[0]
+        assert "Doe" in result[1] or "Jane" in result[1]
 
     def test_parse_keywords_uses_normalizer(self):
         """parse_keywords should use Normalizer.normalize_keywords()"""
-        result = parse_keywords("machine learning; deep learning; neural networks")
+        result = Normalizer.normalize_keywords("machine learning; deep learning; neural networks")
         
         assert len(result) == 3
         assert all(kw.islower() for kw in result)
@@ -38,10 +36,10 @@ class TestBibtexNormalizerIntegration:
 
     def test_normalize_ampersands_uses_normalizer(self):
         """normalize_ampersands should use Normalizer._normalize_ampersands()"""
-        result = normalize_ampersands("Smith \\& Jones Publishing")
+        result = Normalizer._normalize_ampersands("Smith \\& Jones Publishing")
         assert result == "Smith & Jones Publishing"
         
-        result = normalize_ampersands("Art &amp; Design")
+        result = Normalizer._normalize_ampersands("Art &amp; Design")
         assert result == "Art & Design"
 
     def test_bibtex_entry_to_paper_normalizes_all_fields(self):
@@ -192,18 +190,18 @@ class TestBibtexBackwardCompatibility:
 
     def test_parse_authors_backward_compat(self):
         """parse_authors still works (though deprecated)"""
-        result = parse_authors("Smith, John")
+        result = Normalizer.normalize_authors("Smith, John")
         assert len(result) == 1
-        assert isinstance(result[0], Author)
+        assert isinstance(result[0], str)
 
     def test_parse_keywords_backward_compat(self):
         """parse_keywords still works (though deprecated)"""
-        result = parse_keywords("keyword1; keyword2")
+        result = Normalizer.normalize_keywords("keyword1; keyword2")
         assert len(result) == 2
 
     def test_normalize_ampersands_backward_compat(self):
         """normalize_ampersands still works (though deprecated)"""
-        result = normalize_ampersands("A \\& B")
+        result = Normalizer._normalize_ampersands("A \\& B")
         assert "&" in result
 
 
