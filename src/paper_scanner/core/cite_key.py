@@ -5,6 +5,11 @@ Provides functions to generate BibTeX-style citation keys in the format
 'LastnameYear' with automatic collision handling.
 """
 
+from typing import List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from paper_scanner.core.database import PapersDatabase
+
 from paper_scanner.core.models import Paper
 
 
@@ -93,3 +98,43 @@ def resolve_collision(base_key: str, existing_keys: dict) -> str:
             return candidate_key
 
         collision_index += 1
+
+
+def fix_cite_key_collisions(papers: List[Paper], existing_db: "PapersDatabase") -> int:
+    """
+    Fix cite_key collisions for a list of papers.
+    
+    Checks each paper's cite_key against the database and other papers
+    in the list. If a collision is detected, appends a suffix (a, b, c, ..., aa, ab, ...)
+    until the key is unique.
+    
+    Args:
+        papers: List of papers to fix cite_keys for
+        existing_db: Existing papers database to check against
+        
+    Returns:
+        Number of cite_keys that were fixed (had collisions)
+    """
+    # Build dict of existing keys from database
+    existing_keys = {}
+    for paper in existing_db.papers:
+        if paper.cite_key:
+            existing_keys[paper.cite_key] = True
+    
+    seen_keys = set()
+    fixed_count = 0
+    
+    for paper in papers:
+        original_key = paper.cite_key
+        
+        # Use resolve_collision to get unique key
+        unique_key = resolve_collision(original_key, {**existing_keys, **{k: True for k in seen_keys}})
+        
+        # If the key was changed, increment fixed count
+        if unique_key != original_key:
+            fixed_count += 1
+        
+        paper.cite_key = unique_key
+        seen_keys.add(unique_key)
+    
+    return fixed_count

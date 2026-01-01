@@ -13,49 +13,12 @@ from ..core.enum import DiscoveryMethod, StepStatus
 from ..core.models import Paper
 from ..core.step_result import StepResult
 from ..core.exceptions import ConfigurationError
+from ..core.cite_key import fix_cite_key_collisions
 from ..io.bibtex import bibtex_file_to_papers, load_type_mapping_config
 from .base import BaseStep
 
 # Valid source types
 VALID_SOURCE_TYPES = {"scopus", "web_of_science", "ieee_xplore", "other"}
-
-
-def _fix_cite_key_collisions(papers: List[Paper], existing_db: PapersDatabase) -> int:
-    """
-    Fix cite_key collisions by adding _XX suffix to duplicates.
-
-    For each paper with a cite_key that collides with existing entries in the database
-    or with other papers in the import, add a _XX suffix where XX is a decimal number
-    starting from 01 and incrementing until the key is unique.
-
-    Args:
-        papers: List of papers to fix
-        existing_db: Existing papers database to check against
-
-    Returns:
-        Number of cite_keys that were fixed (had collisions)
-    """
-    seen_keys = set()
-    fixed_count = 0
-
-    for paper in papers:
-        original_key = paper.cite_key
-        unique_key = original_key
-        counter = 1
-
-        # Check if the key already exists in the database or was already processed
-        while existing_db.get_by_cite_key(unique_key) is not None or unique_key in seen_keys:
-            unique_key = f"{original_key}_{counter:02d}"
-            counter += 1
-
-        # If the key was changed, increment fixed count
-        if unique_key != original_key:
-            fixed_count += 1
-
-        paper.cite_key = unique_key
-        seen_keys.add(unique_key)
-
-    return fixed_count
 
 
 class BibtexImportStep(BaseStep):
@@ -103,9 +66,6 @@ class BibtexImportStep(BaseStep):
                 fix_cite_key = config["fix_cite_key"]
                 if not isinstance(fix_cite_key, bool):
                     errors.append("'fix_cite_key' must be a boolean")
-            elif key == "type_mapping_config_path":
-                if not isinstance(config["type_mapping_config_path"], str):
-                    errors.append("'type_mapping_config_path' must be a string")
             else:
                 errors.append(f"Unknown configuration key: '{key}'")
 
@@ -139,7 +99,6 @@ class BibtexImportStep(BaseStep):
         randomize = config.get("randomize", False)
         random_seed = config.get("random_seed", None)
         limit = config.get("limit", None)
-        type_mapping_config_path = config.get("type_mapping_config_path")
         file_path = config.get("file_path")
         source_type = config.get("source_type", "manual")
         expected_count = config.get("expected_count")
@@ -149,14 +108,7 @@ class BibtexImportStep(BaseStep):
         details = []
         fixed_count = 0
 
-        # Load type mapping configuration (fatal if fails)
-        type_mapping_config = None
-        if type_mapping_config_path:
-            self.callback(f"Loading type mapping config from: {type_mapping_config_path}", debug=True)
-            type_mapping_config = load_type_mapping_config(type_mapping_config_path)
-        else:
-            # Use default location
-            type_mapping_config = load_type_mapping_config()
+        type_mapping_config = load_type_mapping_config()
 
         # Process each import
 
@@ -184,7 +136,7 @@ class BibtexImportStep(BaseStep):
 
         # Fix cite_key collisions if requested
         if fix_cite_key:
-            fixed_count = _fix_cite_key_collisions(papers, self.db)
+            fixed_count = fix_cite_key_collisions(papers, self.db)
 
         count = len(papers)
         if dry_run:
@@ -207,6 +159,7 @@ class BibtexImportStep(BaseStep):
             message=message,
             stats={
                 "count": count,
+                "fixed_cite_keys": fixed_count
             },
             details=details
         )

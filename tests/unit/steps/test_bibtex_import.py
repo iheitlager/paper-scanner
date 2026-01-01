@@ -10,7 +10,8 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Author, Paper, PaperType
-from paper_scanner.steps.bibtex_import import BibtexImportStep, _fix_cite_key_collisions
+from paper_scanner.core.cite_key import fix_cite_key_collisions
+from paper_scanner.steps.bibtex_import import BibtexImportStep
 
 
 class TestValidate:
@@ -183,7 +184,7 @@ class TestFixCiteKeyCollisions:
             )
         ]
 
-        fixed_count = _fix_cite_key_collisions(papers, papers_db)
+        fixed_count = fix_cite_key_collisions(papers, papers_db)
 
         # Cite keys should remain unchanged
         assert papers[0].cite_key == "paper1"
@@ -210,10 +211,10 @@ class TestFixCiteKeyCollisions:
             )
         ]
 
-        fixed_count = _fix_cite_key_collisions(papers, papers_db)
+        fixed_count = fix_cite_key_collisions(papers, papers_db)
 
-        # New paper should have _01 suffix
-        assert papers[0].cite_key == "duplicate_01"
+        # New paper should have 'a' suffix
+        assert papers[0].cite_key == "duplicatea"
         assert fixed_count == 1
 
     def test_multiple_collisions(self):
@@ -221,8 +222,9 @@ class TestFixCiteKeyCollisions:
         papers_db = PapersDatabase()
 
         # Add existing papers with suffixes
-        for i in range(3):
-            key = "paper" if i == 0 else f"paper_{i:02d}"
+        suffixes = [None, "a", "b"]  # None for base key
+        for i, suffix in enumerate(suffixes):
+            key = "paper" + (suffix or "")
             existing_paper = Paper(
                 id=f"p_existing_{i}", cite_key=key,
                 title=f"Existing Paper {i}",
@@ -246,11 +248,11 @@ class TestFixCiteKeyCollisions:
             )
         ]
 
-        fixed_count = _fix_cite_key_collisions(papers, papers_db)
+        fixed_count = fix_cite_key_collisions(papers, papers_db)
 
-        # Should get paper_03 and paper_04
-        assert papers[0].cite_key == "paper_03"
-        assert papers[1].cite_key == "paper_04"
+        # Should get paperc and paperd
+        assert papers[0].cite_key == "paperc"
+        assert papers[1].cite_key == "paperd"
         assert fixed_count == 2
 
     def test_same_file_collisions(self):
@@ -278,19 +280,19 @@ class TestFixCiteKeyCollisions:
             )
         ]
 
-        fixed_count = _fix_cite_key_collisions(papers, papers_db)
+        fixed_count = fix_cite_key_collisions(papers, papers_db)
 
-        # First should keep original, others get suffixes
+        # First should keep original, others get suffixes starting with 'a'
         assert papers[0].cite_key == "samefile"
-        assert papers[1].cite_key == "samefile_01"
-        assert papers[2].cite_key == "samefile_02"
+        assert papers[1].cite_key == "samefilea"
+        assert papers[2].cite_key == "samefileb"
         assert fixed_count == 2
 
     def test_suffix_format(self):
-        """Test that suffix is correctly formatted with leading zeros"""
+        """Test that suffix follows letter pattern (a-z, aa, ab, etc.)"""
         papers_db = PapersDatabase()
 
-        # Add existing paper "paper" and papers with suffixes up to _08
+        # Add existing paper "paper" and papers with suffixes a-h
         existing_paper = Paper(
             id="p_existing_0", cite_key="paper",
             title="Original Paper",
@@ -299,9 +301,11 @@ class TestFixCiteKeyCollisions:
         )
         papers_db.add(existing_paper)
 
-        for i in range(1, 9):
+        # Add papers with suffixes a through h (indices 0-7)
+        for i in range(8):
+            suffix = chr(ord('a') + i)
             existing_paper = Paper(
-                id=f"p_existing_{i}", cite_key=f"paper_{i:02d}",
+                id=f"p_existing_{i+1}", cite_key=f"paper{suffix}",
                 title=f"Existing Paper {i}",
                 authors=[Author(family_name="E", given_name="E", full_name="E E")],
                 paper_type=PaperType.JOURNAL_ARTICLE
@@ -317,10 +321,10 @@ class TestFixCiteKeyCollisions:
             )
         ]
 
-        fixed_count = _fix_cite_key_collisions(papers, papers_db)
+        fixed_count = fix_cite_key_collisions(papers, papers_db)
 
-        # Should be paper_09 (9 with leading zero, since _01 through _08 exist)
-        assert papers[0].cite_key == "paper_09"
+        # Should be paperi (i is the 9th letter, index 8)
+        assert papers[0].cite_key == "paperi"
         assert fixed_count == 1
 
 
