@@ -31,8 +31,7 @@ class TestValidate:
             "file_path": "test.bib",
             "source_type": "scopus",
             "expected_count": 10,
-            "fix_cite_key": True,
-            "type_mapping_config_path": "/path/to/config.yaml"
+            "fix_cite_key": True
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is True
@@ -156,8 +155,7 @@ class TestValidate:
             "file_path": "data/bib/scopus.bib",
             "source_type": "scopus",
             "fix_cite_key": False,
-            "expected_count": 19,
-            "type_mapping_config_path": "/path/to/config.yaml"
+            "expected_count": 19
         }
         is_valid, errors = BibtexImportStep.validate(config)
         assert is_valid is True
