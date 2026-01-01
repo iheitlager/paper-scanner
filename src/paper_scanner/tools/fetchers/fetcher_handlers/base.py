@@ -16,6 +16,7 @@ from rich.console import Console
 from paper_scanner.core.doi import DOI
 from paper_scanner.core.models import Citation, Paper, PDFInfo
 from paper_scanner.core.cache import JSONFileCache, create_404_marker, is_404_marker
+from paper_scanner.core.cite_key import generate_doi_based_cite_key
 
 console = Console(file=sys.stderr)
 
@@ -440,8 +441,8 @@ class BaseFetcherHandler(ABC):
         # citations = self._extract_citations(api_data)
         citations = []
 
-        # Generate cite key from author + year
-        cite_key = self._generate_cite_key(authors, year, doi)
+        # Generate cite key from DOI (deterministic and unique)
+        cite_key = generate_doi_based_cite_key(doi)
 
         # Create Paper model
         paper = Paper(
@@ -477,23 +478,6 @@ class BaseFetcherHandler(ABC):
         )
 
         return paper
-
-    def _generate_cite_key(self, authors: list, year: Optional[int], doi: str) -> str:
-        """
-        Generate cite key using MD5 hash of DOI.
-
-        Deterministic and unique: same DOI always produces same cite_key.
-        Falls back to random UUID if no DOI provided.
-        """
-        import uuid
-
-        if doi:
-            # Hash the normalized DOI for reproducibility
-            hash_input = DOI(doi).md5
-            return "doi_" + hash_input[:8]
-
-        # Fallback: random UUID if no DOI
-        return str(uuid.uuid4())[:8]
 
     def _clean_title(self, title: str) -> str:
         """

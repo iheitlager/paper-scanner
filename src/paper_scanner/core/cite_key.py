@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from paper_scanner.core.database import PapersDatabase
 
 from paper_scanner.core.models import Paper
+from paper_scanner.core.doi import DOI
 
 
 def generate_cite_key(paper: Paper) -> str:
@@ -138,3 +139,27 @@ def fix_cite_key_collisions(papers: List[Paper], existing_db: "PapersDatabase") 
         seen_keys.add(unique_key)
     
     return fixed_count
+
+
+def generate_doi_based_cite_key(doi: str) -> str:
+    """
+    Generate a deterministic cite key from DOI using MD5 hash.
+    
+    Deterministic and unique: same DOI always produces same cite_key.
+    Falls back to random UUID if no DOI provided.
+    
+    Args:
+        doi: Digital Object Identifier
+        
+    Returns:
+        Generated cite key string (e.g., "doi_a1b2c3d4" or UUID-based key)
+    """
+    import uuid
+    
+    if doi:
+        # Hash the normalized DOI for reproducibility
+        hash_input = DOI(doi).md5
+        return "doi_" + hash_input[:8]
+    
+    # Fallback: random UUID if no DOI
+    return str(uuid.uuid4())[:8]
