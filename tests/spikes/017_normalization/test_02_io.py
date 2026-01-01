@@ -198,43 +198,71 @@ class TestIONormalizationConsistency:
 
 
 class TestIOBackwardCompatibility:
-    """Test that deprecated IO functions still work"""
+    """Test new APIs directly (replacing deprecated IO functions)"""
 
-    def test_deprecated_bibtex_functions_work(self):
-        """Deprecated BibTeX functions should still be callable"""
-        from paper_scanner.io.bibtex import parse_authors, parse_keywords, normalize_ampersands
+    def test_normalizer_parse_bibtex_authors(self):
+        """Normalizer should parse BibTeX-style author strings"""
+        from paper_scanner.core.normalization import Normalizer
         
-        # These should not raise
-        authors = parse_authors("Smith, John")
+        # Parse BibTeX author format via Normalizer
+        authors = Normalizer.normalize_authors("Smith, John")
         assert len(authors) > 0
+        # Authors are returned as strings from normalization
+        assert isinstance(authors[0], str) or hasattr(authors[0], 'family_name')
+
+    def test_normalizer_parse_keywords(self):
+        """Normalizer should parse and normalize keywords"""
+        from paper_scanner.core.normalization import Normalizer
         
-        keywords = parse_keywords("ML; Deep Learning")
+        # Parse keywords via Normalizer - returns lowercase list
+        keywords = Normalizer.normalize_keywords("ML; Deep Learning")
         assert len(keywords) > 0
+        # Keywords are normalized to lowercase
+        assert "ml" in keywords or "deep learning" in keywords
+
+    def test_normalizer_normalize_ampersands(self):
+        """Normalizer should normalize HTML and LaTeX ampersands"""
+        from paper_scanner.core.normalization import Normalizer
         
-        result = normalize_ampersands("A \\& B")
+        # Normalize ampersands via Normalizer._normalize_ampersands
+        result = Normalizer._normalize_ampersands("A \\& B")
         assert "&" in result
 
-    def test_deprecated_ris_functions_work(self):
-        """Deprecated RIS functions should still be callable"""
-        from paper_scanner.io.ris import (
-            normalize_ampersands,
-            normalize_whitespace,
-            parse_authors_ris,
-            parse_keywords_ris
-        )
+    def test_normalizer_normalize_ris_ampersands(self):
+        """Normalizer should normalize RIS-style ampersands"""
+        from paper_scanner.core.normalization import Normalizer
         
-        # These should not raise
-        result = normalize_ampersands("A &amp; B")
+        # Normalize RIS ampersands
+        result = Normalizer._normalize_ampersands("A &amp; B")
         assert "&" in result
+
+    def test_normalizer_collapse_whitespace(self):
+        """Normalizer should collapse excess whitespace"""
+        from paper_scanner.core.normalization import Normalizer
         
-        result = normalize_whitespace("A   B   C")
+        # Collapse whitespace via Normalizer._collapse_whitespace
+        result = Normalizer._collapse_whitespace("A   B   C")
         assert result == "A B C"
+
+    def test_normalizer_parse_ris_authors(self):
+        """Normalizer should parse RIS-style author lists"""
+        from paper_scanner.core.normalization import Normalizer
         
-        authors = parse_authors_ris(["Smith, John"])
+        # Parse RIS authors via Normalizer
+        authors = Normalizer.normalize_authors(["Smith, John"])
         assert len(authors) > 0
+        # Authors are returned as strings or Author objects
+        assert isinstance(authors[0], str) or hasattr(authors[0], 'family_name')
+
+    def test_normalizer_parse_ris_keywords(self):
+        """Normalizer should parse RIS-style keywords"""
+        from paper_scanner.core.normalization import Normalizer
         
-        keywords = parse_keywords_ris(["Machine Learning"])
+        # Parse RIS keywords via Normalizer - returns lowercase list
+        keywords = Normalizer.normalize_keywords(["Machine Learning"])
         assert len(keywords) > 0
+        # Keywords are normalized to lowercase
+        assert "machine learning" in keywords
 
 
 class TestIOFieldNormalizationDetails:
