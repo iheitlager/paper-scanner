@@ -176,7 +176,7 @@ The step implements a 3-tier fallback strategy for generating unique cite keys:
 
 - **Upstream**: None (usually the first step)
 - **Downstream**: `checkpoint`, `deduplication`, `categorization`, `keyword_screening`
-- **Alternative**: BibTeX import, CSV import, database query
+- **Alternative**: BibTeX import, CSV import (not yet), database query
 
 ### Notes
 

@@ -52,97 +52,6 @@ class Author(BaseModel):
     orcid: Optional[str] = None
     email: Optional[str] = None
 
-    @staticmethod
-    def _apply_smart_titlecase(text: str, keep_first_word_caps: bool = True) -> str:
-        """Apply title case while preserving lowercase particles (de, van, von, etc.)
-        
-        Also properly handles hyphenated words by titlecasing each part.
-        
-        Args:
-            text: The text to titlecase
-            keep_first_word_caps: If True, first word is always capitalized (for surnames)
-        """
-        if not text:
-            return text
-        
-        # List of particles that should be lowercase when not at the start
-        particles = {'de', 'van', 'von', 'der', 'den', 'el', 'la', 'le', 'di', 'da', 'du', 'the'}
-        
-        words = text.lower().split()
-        result = []
-        
-        for i, word in enumerate(words):
-            # Handle hyphenated words by titlecasing each part separately
-            if '-' in word:
-                hyphenated_parts = word.split('-')
-                titlecased_parts = []
-                for part in hyphenated_parts:
-                    # Clean punctuation for particle checking
-                    part_clean = part.rstrip('.,;:').lower()
-                    # First part of hyphenated word: capitalize if first word overall, or always capitalize
-                    if i == 0 or part_clean not in particles:
-                        titlecased_parts.append(part.capitalize())
-                    else:
-                        titlecased_parts.append(part)
-                result.append('-'.join(titlecased_parts))
-            # First word: capitalize if requested, or if particle is first word, still capitalize it
-            elif i == 0:
-                result.append(word.capitalize())
-            # Check if word (without punctuation) is a particle
-            elif word.rstrip('.,;:').lower() in particles:
-                result.append(word)
-            # Regular words are title-cased
-            else:
-                result.append(word.capitalize())
-        
-        return ' '.join(result)
-
-    @field_validator('given_name', mode='before')
-    @classmethod
-    def titlecase_given_name(cls, v):
-        """Apply smart titlecase to given_name field"""
-        if v is None:
-            return None
-        if isinstance(v, str):
-            return cls._apply_smart_titlecase(v)
-        return v
-
-    @field_validator('family_name', mode='before')
-    @classmethod
-    def titlecase_family_name(cls, v):
-        """Apply smart titlecase to family_name field
-        
-        For family names, we use a modified approach that preserves capitalization
-        patterns more strictly - we capitalize each word (including particles)
-        to ensure cite keys and other uses have consistent capitalization.
-        """
-        if v is None:
-            return v
-        if isinstance(v, str):
-            # For family names, titlecase each word including particles
-            # This is better for cite key generation and formal name use
-            words = v.lower().split()
-            result = []
-            for word in words:
-                # Handle hyphenated words
-                if '-' in word:
-                    parts = word.split('-')
-                    result.append('-'.join(part.capitalize() for part in parts))
-                else:
-                    result.append(word.capitalize())
-            return ' '.join(result)
-        return v
-
-    @field_validator('full_name', mode='before')
-    @classmethod
-    def titlecase_full_name(cls, v):
-        """Apply smart titlecase to full_name field"""
-        if v is None:
-            return v
-        if isinstance(v, str):
-            return cls._apply_smart_titlecase(v)
-        return v
-
     @property
     def last_name(self) -> str:
         return self.family_name
@@ -289,9 +198,7 @@ class DeduplicationResult(BaseModel):
     def passed(self) -> bool:
         """Whether paper passed deduplication (not a duplicate)"""
         return not self.is_duplicate
-# ============================================================================
-# METADATA SCREENING MODEL
-# ============================================================================
+
 # ============================================================================
 # JOURNAL SCREENING MODEL
 # ============================================================================

@@ -516,8 +516,8 @@ def _display_source_results(db: PapersDatabase) -> None:
     """
 
     # Separate primary papers from duplicates
-    primary_papers = [p for p in db.to_list(primary_only=False) if p.duplicate_of is None]
-    duplicate_papers = [p for p in db.to_list(primary_only=False) if p.duplicate_of is not None]
+    primary_papers = db.to_list(primary_only=True)
+    duplicate_papers = [p for p in db.to_list(primary_only=False) if p.is_duplicate]
 
     # Group primary papers by paper_type and track through screening stages
     papers_by_type = {}

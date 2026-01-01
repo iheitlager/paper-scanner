@@ -7,16 +7,16 @@ Handles import/export of papers from/to BibTeX format
 
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import bibtexparser
 import yaml
-import titlecase
 from bibtexparser.bibdatabase import BibDatabase
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.bwriter import BibTexWriter
 
 from ..core.models import Author, Discovery, DiscoveryMethod, Paper, PaperType
+from ..core.normalization import Normalizer
 
 # ============================================================================
 # TYPE MAPPING CONFIGURATION
@@ -164,25 +164,19 @@ def parse_authors(author_string: str) -> List[Author]:
     """
     Parse author string from BibTeX format
     
+    DEPRECATED: Use Normalizer.normalize_authors() instead.
+    This function is maintained for backward compatibility.
+    
     BibTeX formats:
     - "Smith, John and Doe, Jane"
     - "Smith, J. and Doe, J."
     - "John Smith and Jane Doe"
     """
-
-    if not author_string:
-        return []
-
+    normalized_names = Normalizer.normalize_authors(author_string)
+    
+    # Convert normalized author strings to Author objects
     authors = []
-
-    # Split by 'and'
-    author_parts = re.split(r'\s+and\s+', author_string, flags=re.IGNORECASE)
-
-    for author_str in author_parts:
-        author_str = author_str.strip()
-        if not author_str:
-            continue
-        author_str = titlecase.titlecase(author_str.lower())
+    for author_str in normalized_names:
         # Try to parse: "Last, First" format
         if ',' in author_str:
             parts = author_str.split(',', 1)
@@ -214,49 +208,27 @@ def parse_keywords(keywords_string: str) -> List[str]:
     """
     Parse keywords from BibTeX format
 
+    DEPRECATED: Use Normalizer.normalize_keywords() instead.
+    This function is maintained for backward compatibility.
+
     Formats:
     - "keyword1; keyword2; keyword3"
     - "keyword1, keyword2, keyword3"
     - "keyword1 and keyword2"
     """
-
-    if not keywords_string:
-        return []
-
-    # Try semicolon separator first
-    if ';' in keywords_string:
-        keywords = keywords_string.split(';')
-    # Try comma separator
-    elif ',' in keywords_string:
-        keywords = keywords_string.split(',')
-    # Try 'and' separator
-    elif ' and ' in keywords_string.lower():
-        keywords = re.split(r'\s+and\s+', keywords_string, flags=re.IGNORECASE)
-    else:
-        # Single keyword or space-separated
-        keywords = [keywords_string]
-
-    # Clean up
-    keywords = [k.strip().lower() for k in keywords if k.strip()]
-
-    return keywords
+    return Normalizer.normalize_keywords(keywords_string)
 
 
 def normalize_ampersands(text: Optional[str]) -> Optional[str]:
     """
     Normalize ampersands in text: replace \\& and &amp; with &
     
+    DEPRECATED: Use Normalizer._normalize_ampersands() instead.
+    This function is maintained for backward compatibility.
+    
     Handles common BibTeX and HTML-encoded ampersands.
     """
-    if not text:
-        return text
-    
-    # Replace \& with &
-    text = text.replace(r'\&', '&')
-    # Replace &amp; with &
-    text = text.replace('&amp;', '&')
-    
-    return text
+    return Normalizer._normalize_ampersands(text)
 
 
 def escape_ampersands_for_bibtex(text: Optional[str]) -> Optional[str]:
@@ -322,67 +294,66 @@ def bibtex_entry_to_paper(
     if not cite_key:
         raise ValueError("BibTeX entry missing ID (cite_key)")
 
-    # Basic fields
-    title = entry.get('title', '').strip()
+    # Use Normalizer for field normalization
+    normalized = Normalizer.normalize({
+        'title': entry.get('title', ''),
+        'abstract': entry.get('abstract', ''),
+        'authors': entry.get('author', ''),
+        'keywords': ';'.join([entry.get(kw, '') for kw in ('keyword', 'keywords', 'author_keywords', 'keywords-plus') if kw in entry]),
+        'journal': entry.get('journal', ''),
+        'publisher': entry.get('publisher', ''),
+        'year': entry.get('year', ''),
+        'doi': entry.get('doi', ''),
+        'paper_type': None  # Will be determined by evaluate_paper_type
+    })
+
+    # Extract normalized values
+    title = normalized['title']
     if not title:
         raise ValueError(f"BibTeX entry {cite_key} missing title")
-    title = titlecase.titlecase(title.lower())
-    # Remove LaTeX braces from title
-    title = re.sub(r'[{}]', '', title)
-    # Normalize ampersands
-    title = normalize_ampersands(title)
-
-    # Abstract
-    abstract = entry.get('abstract', '').strip() or None
-    if abstract:
-        abstract = re.sub(r'[{}]', '', abstract)
-        # Normalize whitespace: replace newlines and multiple spaces with single space
-        abstract = re.sub(r'\s+', ' ', abstract).strip()
-        # Normalize ampersands
-        abstract = normalize_ampersands(abstract)
-
-    # Authors
-    author_string = entry.get('author', '')
-    authors = parse_authors(author_string)
-
-    # Year
-    year_str = entry.get('year', '')
-    year = None
-    if year_str:
-        try:
-            year = int(year_str)
-        except (ValueError, TypeError):
-            # Try to extract year from date field
-            date_str = entry.get('date', '')
-            if date_str:
-                year_match = re.search(r'\b(\d{4})\b', date_str)
-                if year_match:
-                    year = int(year_match.group(1))
-
-    # Keywords - check both 'keywords' and 'author_keywords' (Scopus uses both)
-    keywords_string = ""
-    for kw in ('keyword', 'keywords', 'author_keywords', 'keywords-plus'):
-        if kw in entry:
-            keywords_string += entry[kw] + ';'
-    keywords = parse_keywords(keywords_string)
+    
+    abstract = normalized['abstract']
+    authors = []
+    if normalized['authors']:
+        # Convert normalized author strings to Author objects
+        for author_str in normalized['authors']:
+            if ',' in author_str:
+                parts = author_str.split(',', 1)
+                family_name = parts[0].strip()
+                given_name = parts[1].strip() if len(parts) > 1 else None
+                full_name = f"{given_name} {family_name}" if given_name else family_name
+            else:
+                parts = author_str.split()
+                if len(parts) > 1:
+                    family_name = parts[-1]
+                    given_name = ' '.join(parts[:-1])
+                    full_name = author_str
+                else:
+                    family_name = author_str
+                    given_name = None
+                    full_name = author_str
+            
+            authors.append(Author(
+                family_name=family_name,
+                given_name=given_name,
+                full_name=full_name
+            ))
+    
+    keywords = normalized['keywords'] or []
+    year = normalized['year']
+    doi = normalized['doi']
 
     # Identifiers
-    doi = entry.get('doi', '').strip() or None
     url = entry.get('url', '').strip() or None
 
     # ISBN/ISSN
     isbn = entry.get('isbn', '').strip() or None
     issn = entry.get('issn', '').strip() or None
 
-    # Publication venue
-    journal = titlecase.titlecase(entry.get('journal', '').strip()) or None
-    booktitle = titlecase.titlecase(entry.get('booktitle', '').strip()) or None
-    publisher = titlecase.titlecase(entry.get('publisher', '').strip()) or None
-    
-    # Normalize ampersands in venue fields
-    journal = normalize_ampersands(journal)
-    booktitle = normalize_ampersands(booktitle)
-    publisher = normalize_ampersands(publisher)
+    # Publication venue - normalize
+    journal = normalized['journal'] or None
+    booktitle = Normalizer.normalize_journal(entry.get('booktitle', '')) or None
+    publisher = normalized['publisher'] or None
 
     # Volume/Issue/Pages
     volume = entry.get('volume', '').strip() or None

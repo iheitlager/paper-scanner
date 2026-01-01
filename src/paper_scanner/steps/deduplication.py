@@ -238,22 +238,48 @@ class DeduplicationStep(BaseStep):
             "methods_used": [m.get("method") for m in methods]
         }
 
-        # Get all papers at the start - idempotent, non processed papers only
-        all_papers = self.db.find(
-            predicate=lambda p: p.screening.deduplication is None,
-            primary_only=False
-        )
+        # Get all papers - both processed and unprocessed
+        # Papers already marked as duplicate_of at import time need screening result set
+        all_papers = self.db.all(primary_only=False)
 
         self.callback(
             f"Deduplicating {len(all_papers)} papers "
             f"Methods: {', '.join([m.get('method') for m in methods])}", debug=True)
 
-        # Track papers already processed
+        # Note: DOI duplicates are already resolved at import time via PapersDatabase.resolve_duplicates
+        # This step now:
+        # 1. Records deduplication results for papers already marked as duplicate_of at import
+        # 2. Performs fuzzy matching for papers without DOI duplicates
         processed_ids = set()
 
         for i, paper in enumerate(all_papers):
-            # Skip if already marked as duplicate, should be impossible due to filtering above
-            if paper.duplicate_of is not None:
+            # If already marked as duplicate at import time, record the deduplication result
+            if paper.is_duplicate and paper.screening.deduplication is None:
+                # Record the import-time DOI duplicate detection
+                if not dry_run:
+                    paper.screening.deduplication = DeduplicationResult(
+                        is_duplicate=True,
+                        duplicate_of=paper.duplicate_of,
+                        similarity_score=1.0,
+                        method="doi_exact",
+                        confidence=1.0,
+                        normalized_title=paper.title.lower() if paper.title else None,
+                        metadata=ProcessingMetadata()
+                    )
+                    self.db.update(paper)
+                
+                results["duplicates_found"] += 1
+                results["duplicates"].append({
+                    "paper_id": paper.id,
+                    "duplicate_of_id": paper.duplicate_of.id,
+                    "method": "doi_exact",
+                    "confidence": 1.0
+                })
+                processed_ids.add(paper.id)
+                continue
+
+            # Skip if already has deduplication result
+            if paper.screening.deduplication is not None:
                 processed_ids.add(paper.id)
                 continue
 
@@ -268,16 +294,12 @@ class DeduplicationStep(BaseStep):
                 similarity_score = 0.0
 
                 if method == "doi_exact":
-                    # Match against papers that came before in the list (respects insertion order)
-                    # This ensures the first-added paper is treated as primary
-                    if paper.doi:
-                        candidate_primaries = [p for p in all_papers[:i] if p.duplicate_of is None]
-                        for candidate in candidate_primaries:
-                            if candidate.doi and candidate.doi == paper.doi:
-                                matching_paper = candidate
-                                match_result = (matching_paper.id, 1.0)
-                                confidence = 1.0
-                                break  # Found match with earliest paper
+                    # Check if already marked as duplicate at import time via PapersDatabase.resolve_duplicates
+                    # If paper.duplicate_of is set, it was detected as DOI duplicate during indexing
+                    if paper.duplicate_of is not None:
+                        matching_paper = paper.duplicate_of
+                        match_result = (matching_paper.id, 1.0)
+                        confidence = 1.0
                 elif method == "title_author_fuzzy":
                     # For fuzzy matching, compare against papers processed so far (primary candidates)
                     # Only match against papers that came before in the list and haven't been marked as duplicates

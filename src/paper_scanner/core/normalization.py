@@ -1,0 +1,598 @@
+"""
+Centralized field normalization for Paper Scanner
+
+This module provides the Normalizer class as the SINGLE source of truth for all
+field formatting and cleaning. All IO handlers, fetchers, and pipeline steps
+should use this module instead of implementing their own normalization logic.
+
+Design principle: Normalizer handles ALL formatting; Paper/Author models are
+passive data containers with NO validators or transformations.
+"""
+
+import re
+from typing import Any, Dict, List, Optional
+
+from paper_scanner.core.doi import DOI
+from paper_scanner.core.enum import PaperType
+
+
+class Normalizer:
+    """
+    Centralized field normalization for all IO handlers and fetchers.
+    
+    This class provides methods to normalize bibliographic fields extracted
+    from various sources (BibTeX, RIS, Crossref, OpenAlex, etc.).
+    
+    All methods are stateless and can be called as static methods or on an instance.
+    """
+
+    @staticmethod
+    def normalize(data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize all standardized fields in a data dictionary.
+        
+        This is the primary entry point. Fields not in the normalization list
+        are passed through unchanged.
+        
+        Args:
+            data: Dictionary with raw field values (from IO handler/fetcher)
+            
+        Returns:
+            Dictionary with normalized fields ready for Paper construction
+            
+        Example:
+            >>> raw = {'title': 'the GREAT study', 'year': '2024'}
+            >>> normalized = Normalizer.normalize(raw)
+            >>> normalized['title']
+            'The Great Study'
+        """
+        normalizer = Normalizer()
+        return {
+            'title': normalizer.normalize_title(data.get('title')),
+            'abstract': normalizer.normalize_abstract(data.get('abstract')),
+            'authors': normalizer.normalize_authors(data.get('authors')),
+            'keywords': normalizer.normalize_keywords(data.get('keywords')),
+            'journal': normalizer.normalize_journal(data.get('journal')),
+            'publisher': normalizer.normalize_publisher(data.get('publisher')),
+            'year': normalizer.normalize_year(data.get('year')),
+            'doi': normalizer.normalize_doi(data.get('doi')),
+            'paper_type': normalizer.normalize_paper_type(data.get('paper_type')),
+            # Pass through all other fields unchanged
+            **{k: v for k, v in data.items() 
+               if k not in ['title', 'abstract', 'authors', 'keywords', 
+                           'journal', 'publisher', 'year', 'doi', 'paper_type']}
+        }
+
+    @staticmethod
+    def normalize_title(title: Optional[str]) -> Optional[str]:
+        """
+        Normalize paper title.
+        
+        Process:
+        1. Strip leading/trailing whitespace
+        2. Remove LaTeX braces
+        3. Collapse multiple spaces to single space
+        4. Apply smart titlecase with particle handling
+        
+        Args:
+            title: Raw title string
+            
+        Returns:
+            Normalized title or None
+            
+        Example:
+            >>> Normalizer.normalize_title('the great STUDY of Machine Learning')
+            'The Great Study of Machine Learning'
+            >>> Normalizer.normalize_title('  title with  spaces  ')
+            'Title With Spaces'
+        """
+        if not title:
+            return title
+        title = title.strip()
+        title = Normalizer._clean_markup(title)
+        title = Normalizer._collapse_whitespace(title)
+        title = Normalizer._smart_titlecase(title)
+        return title
+
+    @staticmethod
+    def normalize_abstract(abstract: Optional[str]) -> Optional[str]:
+        """
+        Normalize paper abstract.
+        
+        Process:
+        1. Strip leading/trailing whitespace
+        2. Remove LaTeX braces and HTML markup
+        3. Normalize ampersands
+        4. Collapse multiple spaces/newlines to single space
+        
+        Args:
+            abstract: Raw abstract string
+            
+        Returns:
+            Normalized abstract or None
+            
+        Example:
+            >>> Normalizer.normalize_abstract('We\\&nbsp;tested...\\n\\n')
+            'We & tested...'
+        """
+        if not abstract:
+            return abstract
+        abstract = abstract.strip()
+        abstract = Normalizer._clean_markup(abstract)
+        abstract = Normalizer._normalize_ampersands(abstract)
+        abstract = Normalizer._collapse_whitespace(abstract)
+        return abstract
+
+    @staticmethod
+    def normalize_authors(authors: Optional[Any]) -> List[str]:
+        """
+        Normalize author list with smart titlecase.
+        
+        Handles multiple input formats:
+        - String: "Smith, John and Doe, Jane" (BibTeX/RIS)
+        - String: "John Smith and Jane Doe" (some APIs)
+        - List of strings: ["Smith, John", "Doe, Jane"]
+        - List of dicts: [{"given_name": "John", "family_name": "Smith"}]
+        - List of Author objects
+        
+        Process:
+        1. Parse input format to list of strings
+        2. Apply smart titlecase to each author name
+        3. Return list of normalized author strings
+        
+        Args:
+            authors: Raw authors in various formats
+            
+        Returns:
+            List of titlecased author strings (empty list if None/empty)
+            
+        Example:
+            >>> Normalizer.normalize_authors("smith, john and doe, jane")
+            ['John Smith', 'Jane Doe']
+            >>> Normalizer.normalize_authors([{"given_name": "john", "family_name": "smith"}])
+            ['John Smith']
+        """
+        if not authors:
+            return []
+        
+        parsed = []
+        author_list = authors if isinstance(authors, list) else [authors]
+        
+        for author in author_list:
+            if isinstance(author, dict):
+                # Dict format: extract given/family names
+                given = author.get('given_name', '').strip()
+                family = author.get('family_name', '').strip()
+                if family:
+                    full = f"{given} {family}".strip() if given else family
+                    full = Normalizer._smart_titlecase(full)
+                    parsed.append(full)
+            elif hasattr(author, 'full_name'):
+                # Author object: use full_name (should already be normalized)
+                parsed.append(author.full_name)
+            elif isinstance(author, str):
+                # String format: parse and titlecase each author
+                author_strings = Normalizer._parse_author_string(author)
+                for author_str in author_strings:
+                    titlecased = Normalizer._smart_titlecase(author_str)
+                    parsed.append(titlecased)
+        
+        return parsed
+
+    @staticmethod
+    def normalize_keywords(keywords: Optional[Any]) -> List[str]:
+        """
+        Normalize keyword list.
+        
+        Handles multiple input formats:
+        - String with semicolons: "keyword1; keyword2; keyword3"
+        - String with commas: "keyword1, keyword2, keyword3"
+        - String with 'and': "keyword1 and keyword2"
+        - List: ["keyword1", "keyword2"]
+        
+        Process:
+        1. Split by delimiter (priority: ; > , > and)
+        2. Strip whitespace from each
+        3. Convert to lowercase
+        4. Deduplicate while preserving order
+        
+        Args:
+            keywords: Raw keywords in various formats
+            
+        Returns:
+            List of lowercase keyword strings (empty list if None/empty)
+            
+        Example:
+            >>> Normalizer.normalize_keywords("ML; Deep Learning; ml")
+            ['ml', 'deep learning']
+            >>> Normalizer.normalize_keywords("keyword1, keyword2, keyword1")
+            ['keyword1', 'keyword2']
+        """
+        if not keywords:
+            return []
+        
+        result = []
+        kw_list = keywords if isinstance(keywords, list) else [keywords]
+        
+        for kw in kw_list:
+            if isinstance(kw, str):
+                # Split by delimiter
+                parts = Normalizer._split_keywords(kw)
+                for part in parts:
+                    part = part.strip().lower()
+                    if part and part not in result:
+                        result.append(part)
+        
+        return result
+
+    @staticmethod
+    def normalize_journal(journal: Optional[str]) -> Optional[str]:
+        """
+        Normalize journal name.
+        
+        Process:
+        1. Strip leading/trailing whitespace
+        2. Normalize ampersands
+        3. Apply smart titlecase with particle handling
+        
+        Args:
+            journal: Raw journal name
+            
+        Returns:
+            Normalized journal name or None
+            
+        Note:
+            This is separate from Journal Screening (spike 015) which enriches
+            with ISSN, ISO4, quartile ranking, etc. This only cleans the name string.
+            
+        Example:
+            >>> Normalizer.normalize_journal("the JOURNAL of machine & learning")
+            'The Journal of Machine & Learning'
+        """
+        if not journal:
+            return journal
+        journal = journal.strip()
+        journal = Normalizer._normalize_ampersands(journal)
+        journal = Normalizer._smart_titlecase(journal)
+        return journal
+
+    @staticmethod
+    def normalize_publisher(publisher: Optional[str]) -> Optional[str]:
+        """
+        Normalize publisher name.
+        
+        Process:
+        1. Strip leading/trailing whitespace
+        2. Normalize ampersands
+        3. Apply smart titlecase with particle handling
+        
+        Args:
+            publisher: Raw publisher name
+            
+        Returns:
+            Normalized publisher name or None
+            
+        Example:
+            >>> Normalizer.normalize_publisher("academic press & co.")
+            'Academic Press & Co.'
+        """
+        if not publisher:
+            return publisher
+        publisher = publisher.strip()
+        publisher = Normalizer._normalize_ampersands(publisher)
+        publisher = Normalizer._smart_titlecase(publisher)
+        return publisher
+
+    @staticmethod
+    def normalize_year(year: Optional[Any]) -> Optional[int]:
+        """
+        Normalize publication year.
+        
+        Handles multiple input formats:
+        - Integer: 2024
+        - String: "2024"
+        - Date string: "2024-01-15"
+        
+        Process:
+        1. Convert string to int if needed
+        2. Extract 4-digit year from date strings
+        3. Validate range 1000–2100
+        4. Return None if invalid
+        
+        Args:
+            year: Raw year in various formats
+            
+        Returns:
+            Integer year (1000–2100) or None if invalid
+            
+        Example:
+            >>> Normalizer.normalize_year("2024-01-15")
+            2024
+            >>> Normalizer.normalize_year("202a")
+            None
+            >>> Normalizer.normalize_year(2024)
+            2024
+        """
+        if year is None:
+            return None
+        
+        # Already an int
+        if isinstance(year, int):
+            if 1000 <= year <= 2100:
+                return year
+            return None
+        
+        # String format
+        if isinstance(year, str):
+            year = year.strip()
+            if not year:
+                return None
+            
+            # Try direct int conversion
+            try:
+                year_int = int(year)
+                if 1000 <= year_int <= 2100:
+                    return year_int
+            except ValueError:
+                pass
+            
+            # Try to extract 4-digit year from date strings
+            match = re.search(r'\b(\d{4})\b', year)
+            if match:
+                year_int = int(match.group(1))
+                if 1000 <= year_int <= 2100:
+                    return year_int
+        
+        return None
+
+    @staticmethod
+    def normalize_doi(doi: Optional[str]) -> Optional[str]:
+        """
+        Normalize DOI to standard format.
+        
+        Handles formats:
+        - "10.1234/example"
+        - "https://doi.org/10.1234/example"
+        - "doi:10.1234/example"
+        
+        Process:
+        1. Use DOI class for standardization (stem extraction)
+        2. Return None if invalid
+        
+        Args:
+            doi: Raw DOI string
+            
+        Returns:
+            Normalized DOI string or None if invalid
+            
+        Example:
+            >>> Normalizer.normalize_doi("https://doi.org/10.1234/example")
+            '10.1234/example'
+        """
+        if not doi:
+            return None
+        
+        try:
+            normalized = DOI(doi).stem
+            return normalized if normalized else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def normalize_paper_type(paper_type: Optional[str]) -> Optional[str]:
+        """
+        Validate paper type against PaperType enum.
+        
+        Note: Source-specific type mapping (BibTeX → PaperType, RIS → PaperType, etc.)
+        is handled by each source module. This method only validates that the
+        resulting value is a valid enum value.
+        
+        Args:
+            paper_type: Paper type string (should be a PaperType enum value)
+            
+        Returns:
+            Valid PaperType value string or None if invalid
+            
+        Example:
+            >>> Normalizer.normalize_paper_type("journal_article")
+            'journal_article'
+            >>> Normalizer.normalize_paper_type("invalid_type")
+            None
+        """
+        if not paper_type:
+            return None
+        
+        if not isinstance(paper_type, str):
+            return None
+        
+        try:
+            # Validate against enum values
+            for pt in PaperType:
+                if pt.value == paper_type:
+                    return paper_type
+            return None
+        except Exception:
+            return None
+
+    # ========== INTERNAL HELPER METHODS ==========
+
+    @staticmethod
+    def _smart_titlecase(text: str) -> str:
+        """
+        Apply titlecase with particle handling.
+        
+        Preserves lowercase particles (de, van, von, der, den, el, la, le, di, da, du)
+        when not at the start of the text. Handles hyphenated words by titlecasing
+        each part separately while preserving hyphens.
+        
+        Args:
+            text: Text to titlecase
+            
+        Returns:
+            Titlecased text with particles preserved
+            
+        Example:
+            >>> Normalizer._smart_titlecase("ludwig van beethoven")
+            'Ludwig van Beethoven'
+            >>> Normalizer._smart_titlecase("jean-claude van damme")
+            'Jean-Claude van Damme'
+        """
+        if not text:
+            return text
+        
+        particles = {'de', 'van', 'von', 'der', 'den', 'el', 'la', 'le', 'di', 'da', 'du', 'the'}
+        words = text.lower().split()
+        result = []
+        
+        for i, word in enumerate(words):
+            # Handle hyphenated words
+            if '-' in word:
+                parts = word.split('-')
+                titlecased = []
+                for part in parts:
+                    part_clean = part.rstrip('.,;:').lower()
+                    # Capitalize unless it's a particle (and not first word overall)
+                    if i == 0 or part_clean not in particles:
+                        titlecased.append(part.capitalize())
+                    else:
+                        titlecased.append(part)
+                result.append('-'.join(titlecased))
+            # First word: always capitalize
+            elif i == 0:
+                result.append(word.capitalize())
+            # Check if word is a particle (minus trailing punctuation)
+            elif word.rstrip('.,;:').lower() in particles:
+                result.append(word)
+            # Regular word: capitalize
+            else:
+                result.append(word.capitalize())
+        
+        return ' '.join(result)
+
+    @staticmethod
+    def _collapse_whitespace(text: Optional[str]) -> Optional[str]:
+        """
+        Collapse multiple spaces and newlines to single space.
+        
+        Args:
+            text: Text to normalize
+            
+        Returns:
+            Text with whitespace collapsed
+            
+        Example:
+            >>> Normalizer._collapse_whitespace("text  with   spaces\\n\\n")
+            'text with spaces'
+        """
+        if not text:
+            return text
+        return re.sub(r'\s+', ' ', text).strip()
+
+    @staticmethod
+    def _normalize_ampersands(text: Optional[str]) -> Optional[str]:
+        """
+        Normalize ampersands: \\& and &amp; → &.
+        
+        Args:
+            text: Text to normalize
+            
+        Returns:
+            Text with normalized ampersands
+            
+        Example:
+            >>> Normalizer._normalize_ampersands("Smith \\& Jones & Co.")
+            'Smith & Jones & Co.'
+        """
+        if not text:
+            return text
+        text = text.replace(r'\&', '&')
+        text = text.replace('&amp;', '&')
+        return text
+
+    @staticmethod
+    def _clean_markup(text: Optional[str]) -> Optional[str]:
+        """
+        Remove LaTeX braces and HTML markup.
+        
+        Args:
+            text: Text to clean
+            
+        Returns:
+            Text with markup removed
+            
+        Example:
+            >>> Normalizer._clean_markup("Title {with} braces <b>and</b> HTML")
+            'Title with braces and HTML'
+        """
+        if not text:
+            return text
+        # Remove LaTeX braces
+        text = re.sub(r'[{}]', '', text)
+        # Remove HTML tags
+        text = re.sub(r'<[^>]+>', '', text)
+        return text
+
+    @staticmethod
+    def _parse_author_string(author_str: str) -> List[str]:
+        """
+        Parse author string to list of individual author names.
+        
+        Handles:
+        - "First Last" format
+        - "First M. Last" format
+        - "Last, First" format (BibTeX)
+        - Multiple authors separated by "and"
+        
+        Args:
+            author_str: Author string (possibly multiple authors)
+            
+        Returns:
+            List of individual author name strings
+            
+        Example:
+            >>> Normalizer._parse_author_string("smith, john and doe, jane")
+            ['smith, john', 'doe, jane']
+        """
+        if not author_str:
+            return []
+        
+        # Split by ' and ' (BibTeX style)
+        authors = re.split(r'\s+and\s+', author_str, flags=re.IGNORECASE)
+        
+        # Clean each author
+        result = []
+        for author in authors:
+            author = author.strip()
+            if author:
+                result.append(author)
+        
+        return result
+
+    @staticmethod
+    def _split_keywords(kw_str: str) -> List[str]:
+        """
+        Split keyword string by common delimiters.
+        
+        Priority: semicolon > comma > 'and'
+        
+        Args:
+            kw_str: Keyword string (possibly multiple keywords)
+            
+        Returns:
+            List of individual keyword strings
+            
+        Example:
+            >>> Normalizer._split_keywords("ML; Deep Learning; Neural Networks")
+            ['ML', ' Deep Learning', ' Neural Networks']
+        """
+        if not kw_str:
+            return []
+        
+        if ';' in kw_str:
+            return kw_str.split(';')
+        elif ',' in kw_str:
+            return kw_str.split(',')
+        elif ' and ' in kw_str.lower():
+            return re.split(r'\s+and\s+', kw_str, flags=re.IGNORECASE)
+        else:
+            return [kw_str]

@@ -45,9 +45,17 @@ class PapersDatabase:
     to maintain consistency and enable O(1) or O(log n) lookups.
     """
 
-    def __init__(self):
-        """Initialize empty database with indexes"""
+    def __init__(self, resolve_duplicates: bool = True):
+        """
+        Initialize empty database with indexes.
+        
+        Args:
+            resolve_duplicates: If True, automatically mark papers with duplicate DOIs as duplicates
+                               of the first paper with that DOI during indexing (at import time).
+                               Default: True (resolves DOI duplicates immediately)
+        """
         self.papers: List[Paper] = []
+        self.resolve_duplicates = resolve_duplicates
         self._doi_index: Dict[str, List[Paper]] = defaultdict(list)
         self._cite_key_index: Dict[str, Paper] = {}
         self._id_index: Dict[str, Paper] = {}
@@ -62,6 +70,9 @@ class PapersDatabase:
         """
         Add paper to all indexes.
         
+        If resolve_duplicates is True, automatically marks papers with duplicate DOIs
+        as duplicates of the first paper with that DOI.
+        
         Args:
             paper: Paper to index
         """
@@ -75,6 +86,12 @@ class PapersDatabase:
         if paper.doi:
             doi_key = DOI(paper.doi).stem
             if paper not in self._doi_index[doi_key]:
+                # If resolve_duplicates enabled and this DOI already exists, mark as duplicate
+                if self.resolve_duplicates and self._doi_index[doi_key]:
+                    primary_paper = self._doi_index[doi_key][0]
+                    if paper.duplicate_of is None:  # Only set if not already marked
+                        paper.duplicate_of = primary_paper
+                
                 self._doi_index[doi_key].append(paper)
 
         # Index by year (for efficient fuzzy finding by year)
@@ -164,7 +181,6 @@ class PapersDatabase:
                 self._doi_index[doi_key].append(paper)
 
     # ========================================================================
-    # CREATE OPERATIONS
     # ========================================================================
 
     def add(self, paper: Paper) -> None:

@@ -11,11 +11,10 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from titlecase import titlecase
-
 from ..core.models import Author, Discovery, DiscoveryMethod, Paper
 from ..core.enum import PaperType
-
+from ..core.doi import DOI
+from ..core.normalization import Normalizer
 
 # ============================================================================
 # RIS PARSING
@@ -108,36 +107,40 @@ class RISParser:
 
 
 def normalize_ampersands(text: Optional[str]) -> Optional[str]:
-    """Normalize ampersands in text: replace \\& and &amp; with &"""
-    if not text:
-        return text
-    text = text.replace(r'\&', '&')
-    text = text.replace('&amp;', '&')
-    return text
+    """
+    Normalize ampersands in text: replace \\& and &amp; with &
+    
+    DEPRECATED: Use Normalizer._normalize_ampersands() instead.
+    This function is maintained for backward compatibility.
+    """
+    return Normalizer._normalize_ampersands(text)
 
 
 def normalize_whitespace(text: Optional[str]) -> Optional[str]:
-    """Normalize whitespace: collapse multiple spaces, remove newlines"""
-    if not text:
-        return text
-    return re.sub(r'\s+', ' ', text).strip()
+    """
+    Normalize whitespace: collapse multiple spaces, remove newlines
+    
+    DEPRECATED: Use Normalizer._collapse_whitespace() instead.
+    This function is maintained for backward compatibility.
+    """
+    return Normalizer._collapse_whitespace(text)
 
 
 def parse_authors_ris(authors_list: List[str]) -> List[Author]:
     """
     Parse RIS author list (AU fields are separate lines)
 
+    DEPRECATED: Use Normalizer.normalize_authors() instead.
+    This function is maintained for backward compatibility.
+
     RIS format: AU  - Last, First
     """
+    normalized_names = Normalizer.normalize_authors(authors_list)
+    
+    # Convert normalized author strings to Author objects
     parsed = []
-    for author_str in authors_list:
-        author_str = author_str.strip()
-        if not author_str:
-            continue
-
-        author_str = titlecase(author_str.lower())
-
-        # RIS uses "Last, First" format
+    for author_str in normalized_names:
+        # RIS uses "Last, First" format (preserved by Normalizer)
         if ',' in author_str:
             parts = author_str.split(',', 1)
             family_name = parts[0].strip()
@@ -166,13 +169,14 @@ def parse_authors_ris(authors_list: List[str]) -> List[Author]:
 def parse_keywords_ris(keywords_list: List[str]) -> List[str]:
     """
     Parse RIS keyword list (KW fields are separate lines in RIS)
+    
+    DEPRECATED: Use Normalizer.normalize_keywords() instead.
+    This function is maintained for backward compatibility.
     """
-    keywords = []
-    for kw_str in keywords_list:
-        kw_str = kw_str.strip().lower()
-        if kw_str:
-            keywords.append(kw_str)
-    return keywords
+    # Join with semicolon and use Normalizer
+    if not keywords_list:
+        return []
+    return Normalizer.normalize_keywords(';'.join(keywords_list))
 
 
 def infer_paper_type_ris(pub_type: str) -> PaperType:
@@ -248,61 +252,62 @@ def ris_record_to_paper(
     title = record.get('T1', '').strip()
     if not title:
         raise ValueError("RIS record missing T1 (title)")
-    title = titlecase(title.lower())
-    title = normalize_ampersands(title)
 
-    # Abstract
-    abstract = record.get('AB', '').strip() or None
-    if abstract:
-        abstract = normalize_whitespace(abstract)
-        abstract = normalize_ampersands(abstract)
+    # Use Normalizer for field normalization
+    normalized = Normalizer.normalize({
+        'title': title,
+        'abstract': record.get('AB', ''),
+        'authors': record.get_list('AU'),
+        'keywords': record.get_list('KW'),
+        'journal': record.get('JF', ''),
+        'publisher': record.get('PB', ''),
+        'year': record.get('PY', ''),
+        'doi': record.get('DO', ''),
+        'paper_type': None  # Will be determined by infer_paper_type_ris
+    })
+
+    # Extract normalized values
+    title = normalized['title']
+    abstract = normalized['abstract']
+    keywords = normalized['keywords'] or []
+    year = normalized['year']
+    doi = normalized['doi']
+    journal = normalized['journal'] or None
+    publisher = normalized['publisher'] or None
 
     # Authors
-    authors_list = record.get_list('AU')
-    authors = parse_authors_ris(authors_list)
+    authors = []
+    if normalized['authors']:
+        for author_str in normalized['authors']:
+            # RIS uses "Last, First" format (preserved by Normalizer)
+            if ',' in author_str:
+                parts = author_str.split(',', 1)
+                family_name = parts[0].strip()
+                given_name = parts[1].strip() if len(parts) > 1 else None
+                full_name = f"{given_name} {family_name}" if given_name else family_name
+            else:
+                parts = author_str.split()
+                if len(parts) > 1:
+                    family_name = parts[-1]
+                    given_name = ' '.join(parts[:-1])
+                else:
+                    family_name = author_str
+                    given_name = None
+                full_name = author_str
 
-    # Year
-    year_str = record.get('PY', '')
-    year = None
-    if year_str:
-        try:
-            year = int(year_str)
-        except ValueError:
-            # Try to extract from date field
-            date_str = record.get('DA', '')
-            if date_str:
-                year_match = re.search(r'\b(\d{4})\b', date_str)
-                if year_match:
-                    year = int(year_match.group(1))
-
-    # Journal
-    journal = record.get('JF', '').strip() or None
-    if journal:
-        journal = titlecase(journal.lower())
-        journal = normalize_ampersands(journal)
-
-    # Keywords
-    keywords_list = record.get_list('KW')
-    keywords = parse_keywords_ris(keywords_list)
+            authors.append(Author(
+                family_name=family_name,
+                given_name=given_name,
+                full_name=full_name
+            ))
 
     # Identifiers
-    doi = record.get('DO', '').strip() or None
-    if doi:
-        # Clean up DOI format
-        doi = doi.replace('https://doi.org/', '').replace('http://doi.org/', '')
-
     url = record.get('UR', '').strip() or None
 
     # Volume, Issue, Pages
     volume = record.get('VL', '').strip() or None
     number = record.get('IS', '').strip() or None
     pages = record.get('SP', '').strip() or None
-
-    # Publisher
-    publisher = record.get('PB', '').strip() or None
-    if publisher:
-        publisher = titlecase(publisher.lower())
-        publisher = normalize_ampersands(publisher)
 
     # Database tracking
     accession_number = record.get('AN', '').strip() or None
