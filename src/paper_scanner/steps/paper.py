@@ -14,6 +14,7 @@ from rich.console import Console
 from paper_scanner.core.doi import DOI
 from paper_scanner.core.enum import DiscoveryMethod, PaperType, StepStatus, StudyType
 from paper_scanner.core.models import Discovery, Paper
+from paper_scanner.core.cite_key import generate_doi_based_cite_key
 
 from .base import BaseStep
 
@@ -144,9 +145,9 @@ class PaperStep(BaseStep):
                     doi_obj = DOI(doi_str)
                     normalized_doi = doi_obj.stem
 
-                    # Generate cite_key if not provided
+                    # Generate cite_key if not provided (uses centralized function)
                     if not cite_key:
-                        cite_key = f"doi_{doi_obj.md5[:8]}"
+                        cite_key = generate_doi_based_cite_key(normalized_doi)
 
                     # Parse optional paper_type
                     paper_type = None

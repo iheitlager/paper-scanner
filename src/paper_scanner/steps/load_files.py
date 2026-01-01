@@ -19,6 +19,7 @@ from paper_scanner.core.cache import PDFCache
 
 from ..core.enum import DiscoveryMethod, StepStatus
 from ..core.doi import DOI
+from ..core.cite_key import generate_doi_based_cite_key
 from ..core.exceptions import ConfigurationError, StepFatalError
 from ..core.models import Discovery, Paper, PDFInfo
 from ..core.step_result import StepResult
@@ -205,7 +206,7 @@ class LoadFilesStep(BaseStep):
 
                 paper = Paper(
                     source_key=doi,
-                    cite_key=pdf_path.stem,
+                    cite_key=generate_doi_based_cite_key(doi),
                     doi=doi,
                     discovery=discovery,
                 )
