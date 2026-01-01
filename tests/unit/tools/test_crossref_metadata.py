@@ -273,7 +273,7 @@ class TestCrossrefMetadataExtraction:
             "published-print": {"date-parts": [[2026, 3]]},
             "container-title": ["Technovation"],
             "volume": "151",
-            "publisher": "Elsevier BV"
+            "publisher": "Elsevier bv"
         }
 
         paper = handler._translate_to_paper("10.1016/j.technovation.2025.103396", api_data)
