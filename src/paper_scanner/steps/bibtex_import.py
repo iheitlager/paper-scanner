@@ -156,7 +156,6 @@ class BibtexImportStep(BaseStep):
             type_mapping_config = load_type_mapping_config(type_mapping_config_path)
         else:
             # Use default location
-            self.callback("Using default type mapping configuration", debug=True)
             type_mapping_config = load_type_mapping_config()
 
         # Process each import
