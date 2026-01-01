@@ -8,6 +8,7 @@ RIS (Research Information Systems) is a tagged format used by many academic data
 
 import hashlib
 import re
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -113,6 +114,11 @@ def normalize_ampersands(text: Optional[str]) -> Optional[str]:
     DEPRECATED: Use Normalizer._normalize_ampersands() instead.
     This function is maintained for backward compatibility.
     """
+    warnings.warn(
+        "normalize_ampersands() is deprecated. Use Normalizer._normalize_ampersands() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return Normalizer._normalize_ampersands(text)
 
 
@@ -123,6 +129,11 @@ def normalize_whitespace(text: Optional[str]) -> Optional[str]:
     DEPRECATED: Use Normalizer._collapse_whitespace() instead.
     This function is maintained for backward compatibility.
     """
+    warnings.warn(
+        "normalize_whitespace() is deprecated. Use Normalizer._collapse_whitespace() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return Normalizer._collapse_whitespace(text)
 
 
@@ -135,6 +146,11 @@ def parse_authors_ris(authors_list: List[str]) -> List[Author]:
 
     RIS format: AU  - Last, First
     """
+    warnings.warn(
+        "parse_authors_ris() is deprecated. Use Normalizer.normalize_authors() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     normalized_names = Normalizer.normalize_authors(authors_list)
     
     # Convert normalized author strings to Author objects
@@ -173,6 +189,11 @@ def parse_keywords_ris(keywords_list: List[str]) -> List[str]:
     DEPRECATED: Use Normalizer.normalize_keywords() instead.
     This function is maintained for backward compatibility.
     """
+    warnings.warn(
+        "parse_keywords_ris() is deprecated. Use Normalizer.normalize_keywords() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     # Join with semicolon and use Normalizer
     if not keywords_list:
         return []

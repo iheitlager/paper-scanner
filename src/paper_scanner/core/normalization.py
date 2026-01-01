@@ -180,6 +180,54 @@ class Normalizer:
         return parsed
 
     @staticmethod
+    def normalize_author_list(authors: Optional[List[Any]]) -> Optional[List[Any]]:
+        """
+        Normalize a list of Author model objects.
+        
+        Applies titlecase normalization to the full_name field of each Author,
+        preserving the Author object structure. This is the centralized place
+        where the decision is made: "Author normalization applies to full_name only".
+        
+        Args:
+            authors: List of Author objects (from paper_scanner.core.models.Author)
+            
+        Returns:
+            List of Author objects with normalized full_name fields, or None if input is None
+            
+        Note:
+            This handles Author MODEL objects (which have full_name, given_name, etc. attributes).
+            For string/dict author data, use normalize_authors() instead.
+            
+        Example:
+            >>> from paper_scanner.core.models import Author
+            >>> author = Author(given_name="john", family_name="DOE", full_name="john DOE")
+            >>> normalized = Normalizer.normalize_author_list([author])
+            >>> normalized[0].full_name
+            'John Doe'
+        """
+        if not authors:
+            return authors
+        
+        from paper_scanner.core.models import Author
+        
+        normalized = []
+        for author in authors:
+            if isinstance(author, Author):
+                # Normalize the full_name field via smart titlecase
+                normalized_author = Author(
+                    given_name=author.given_name,
+                    family_name=author.family_name,
+                    full_name=Normalizer._smart_titlecase(author.full_name),
+                    affiliation=author.affiliation
+                )
+                normalized.append(normalized_author)
+            else:
+                # Preserve non-Author objects as-is (shouldn't happen in normal flow)
+                normalized.append(author)
+        
+        return normalized
+
+    @staticmethod
     def normalize_keywords(keywords: Optional[Any]) -> List[str]:
         """
         Normalize keyword list.

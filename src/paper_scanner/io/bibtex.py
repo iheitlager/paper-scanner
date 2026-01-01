@@ -6,6 +6,7 @@ Handles import/export of papers from/to BibTeX format
 """
 
 import re
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -172,6 +173,11 @@ def parse_authors(author_string: str) -> List[Author]:
     - "Smith, J. and Doe, J."
     - "John Smith and Jane Doe"
     """
+    warnings.warn(
+        "parse_authors() is deprecated. Use Normalizer.normalize_authors() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     normalized_names = Normalizer.normalize_authors(author_string)
     
     # Convert normalized author strings to Author objects
@@ -216,6 +222,11 @@ def parse_keywords(keywords_string: str) -> List[str]:
     - "keyword1, keyword2, keyword3"
     - "keyword1 and keyword2"
     """
+    warnings.warn(
+        "parse_keywords() is deprecated. Use Normalizer.normalize_keywords() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return Normalizer.normalize_keywords(keywords_string)
 
 
@@ -228,6 +239,11 @@ def normalize_ampersands(text: Optional[str]) -> Optional[str]:
     
     Handles common BibTeX and HTML-encoded ampersands.
     """
+    warnings.warn(
+        "normalize_ampersands() is deprecated. Use Normalizer._normalize_ampersands() instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     return Normalizer._normalize_ampersands(text)
 
 

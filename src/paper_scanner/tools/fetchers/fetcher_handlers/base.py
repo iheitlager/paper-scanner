@@ -65,10 +65,12 @@ class BaseFetcherHandler(ABC):
         pass
 
     def _extract_title(self, api_data: Dict[str, Any]) -> Optional[str]:
-        """Extract abstract from API response"""
+        """Extract title from API response (raw, unnormalized)"""
         title = api_data.get("title", "")
-        title = title.title() if isinstance(title, str) else title
-        return title
+        # Handle both string and list formats (Crossref uses list)
+        if isinstance(title, list):
+            return title[0] if title else None
+        return title if isinstance(title, str) else None
 
     def _extract_volume(self, api_data: Dict[str, Any]) -> Optional[str]:
         """Extract volume from API response"""
@@ -395,14 +397,13 @@ class BaseFetcherHandler(ABC):
         """
         from paper_scanner.core.enum import DiscoveryMethod
         from paper_scanner.core.models import Discovery
+        from paper_scanner.core.normalization import Normalizer
 
-        # Extract fields
+        # Extract fields (raw, unnormalized)
         title = self._extract_title(api_data)
-        if isinstance(title, list):
-            title = title[0] if title else ""
 
         # Clean up title: remove newlines and HTML tags
-        title = self._clean_title(title)
+        title = self._clean_title(title) if title else title
 
         abstract = self._extract_abstract(api_data)
         authors = self._extract_authors(api_data)
@@ -425,6 +426,15 @@ class BaseFetcherHandler(ABC):
         pages = api_data.get("pages")
         language = api_data.get("language", "en")
         publication_date = api_data.get("publication_date")
+
+        # Apply normalization to all extracted fields
+        title = Normalizer.normalize_title(title) if title else title
+        abstract = Normalizer.normalize_abstract(abstract) if abstract else abstract
+        # Normalize Author objects' full_name fields (centralized in Normalizer)
+        authors = Normalizer.normalize_author_list(authors) if authors else authors
+        keywords = Normalizer.normalize_keywords(keywords) if keywords else keywords
+        journal = Normalizer.normalize_journal(journal) if journal else journal
+        publisher = Normalizer.normalize_publisher(publisher) if publisher else publisher
 
         # Extract citations
         # citations = self._extract_citations(api_data)
