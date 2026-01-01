@@ -25,11 +25,9 @@ from paper_scanner.io.bibtex import (
     infer_bibtex_type,
     infer_paper_type,
     load_type_mapping_config,
-    normalize_ampersands,
     paper_to_bibtex_entry,
     papers_to_bibtex,
     papers_to_bibtex_file,
-    parse_keywords,
 )
 
 # Test data directory

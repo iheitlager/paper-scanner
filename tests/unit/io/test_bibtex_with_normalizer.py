@@ -185,26 +185,6 @@ class TestBibtexNormalizerIntegration:
         assert any(kw in keyword_text for kw in ['ml', 'deep learning', 'neural networks', 'transformers'])
 
 
-class TestBibtexBackwardCompatibility:
-    """Test backward compatibility of deprecated functions"""
-
-    def test_parse_authors_backward_compat(self):
-        """parse_authors still works (though deprecated)"""
-        result = Normalizer.normalize_authors("Smith, John")
-        assert len(result) == 1
-        assert isinstance(result[0], str)
-
-    def test_parse_keywords_backward_compat(self):
-        """parse_keywords still works (though deprecated)"""
-        result = Normalizer.normalize_keywords("keyword1; keyword2")
-        assert len(result) == 2
-
-    def test_normalize_ampersands_backward_compat(self):
-        """normalize_ampersands still works (though deprecated)"""
-        result = Normalizer._normalize_ampersands("A \\& B")
-        assert "&" in result
-
-
 class TestBibtexNormalizerConsistency:
     """Test consistency between direct Normalizer use and bibtex.py"""
 
