@@ -89,6 +89,22 @@ class TestNormalizerAbstract:
         """Handle whitespace-only string"""
         assert Normalizer.normalize_abstract("   ") == ""
 
+    def test_abstract_percent_normalization(self):
+        """Normalize percent signs in abstracts"""
+        # LaTeX percent escape
+        result = Normalizer.normalize_abstract("The study improved results by 50\\% overall.")
+        assert result == "The study improved results by 50% overall."
+
+    def test_abstract_percent_html_entity(self):
+        """Normalize HTML percent entity"""
+        result = Normalizer.normalize_abstract("We achieved 75&percnt; accuracy in tests.")
+        assert result == "We achieved 75% accuracy in tests."
+
+    def test_abstract_percent_mixed(self):
+        """Normalize mixed percent notations"""
+        result = Normalizer.normalize_abstract("Results: 50\\% success & 75&percnt; improvement")
+        assert result == "Results: 50% success & 75% improvement"
+
 
 class TestNormalizerAuthors:
     """Tests for normalize_authors()"""

@@ -122,6 +122,7 @@ class Normalizer:
         abstract = abstract.strip()
         abstract = Normalizer._clean_markup(abstract)
         abstract = Normalizer._normalize_ampersands(abstract)
+        abstract = Normalizer._normalize_percent(abstract)
         abstract = Normalizer._collapse_whitespace(abstract)
         return abstract
 
@@ -483,8 +484,8 @@ class Normalizer:
             Titlecased text with particles and acronyms preserved
             
         Example:
-            >>> Normalizer._smart_titlecase("ludwig van beethoven")
-            'Ludwig van Beethoven'
+            >>> Normalizer._smart_titlecase("ludwig von beethoven")
+            'Ludwig von Beethoven'
             >>> Normalizer._smart_titlecase("jean-claude van damme")
             'Jean-Claude van Damme'
             >>> Normalizer._smart_titlecase("smith & co. ltd")
@@ -494,11 +495,22 @@ class Normalizer:
         """
         if not text:
             return text
-        
+
+        # Define particles and acronyms
         particles = {'de', 'van', 'von', 'der', 'den', 'el', 'la', 'le', 'di', 'da', 'du', 'the'}
-        
+        caps_only = {
+            'usa', 'uk', 'eu', 'un',
+            'nasa', 'nato',
+            'ai', 'ml', 'it',
+            'b2b', 'b2c', 'b2g'
+            'ibm', 'hp', 'amd', 'sap',
+            'sql', 'html', 'css', 'json', 'xml'
+        }
+
         # Acronyms: map lowercase to proper case
         # Business entities (English, Dutch, French, German)
+        # Scientific/academic acronyms
+        # Tech company acronyms
         acronyms = {
             # English
             'ltd': 'Ltd',
@@ -526,15 +538,11 @@ class Normalizer:
             'mba': 'MBA',
             'bsc': 'BSc',
             'msc': 'MSc',
-            # Tech companies (common acronyms)
-            'ibm': 'IBM',
-            'bm': 'BM',
-            'sap': 'SAP',
-            'hp': 'HP',
-            'amd': 'AMD',
-            'nvidia': 'NVIDIA',
+            'ieee': 'IEEE',
+            'aims': 'AIMS',
+            'acm': 'ACM',
         }
-        
+
         # Acronyms that should stay lowercase (even at word start)
         lowercase_acronyms = {'et al', 'vs'}
         
@@ -567,6 +575,9 @@ class Normalizer:
                     # Check if it's an acronym first
                     if part_clean in acronyms:
                         titlecased.append(acronyms[part_clean])
+                    # always uppercase caps-only acronyms
+                    elif part_clean in caps_only:
+                        titlecased.append(part.upper())
                     # Capitalize unless it's a particle (and not first word overall)
                     elif i == 0 or part_clean not in particles:
                         titlecased.append(part.capitalize())
@@ -637,6 +648,27 @@ class Normalizer:
             return text
         text = text.replace(r'\&', '&')
         text = text.replace('&amp;', '&')
+        return text
+
+    @staticmethod
+    def _normalize_percent(text: Optional[str]) -> Optional[str]:
+        """
+        Normalize percent: \\% and &percnt; → %.
+        
+        Args:
+            text: Text to normalize
+            
+        Returns:
+            Text with normalized ampersands
+            
+        Example:
+            >>> Normalizer._normalize_percent("50\\% of &percnt;")
+            '50% of %'
+        """
+        if not text:
+            return text
+        text = text.replace(r'\%', '%')
+        text = text.replace('&percnt;', '%')
         return text
 
     @staticmethod
