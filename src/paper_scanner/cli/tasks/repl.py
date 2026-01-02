@@ -98,7 +98,7 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
         description = step_config.get("description", step_config.get("step", "Unknown"))
         self.log_msg(f"[cyan]Executing step:[/cyan] {description}... [dim]('{step_config['command']}')[/dim]")
         for section_key, section_values in step_config.items():
-            if section_key in ("command", "description", "step", "enabled"):
+            if section_key in ("command", "description", "step", "enable"):
                 continue
             self.log_info(f"[cyan]{section_key}[/cyan]:")
             if isinstance(section_values, dict):
@@ -157,7 +157,9 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
         # TODO: fix if this makes sense or propagates correctly
         if result.details:
             self.log_debug(f"{'\n'.join(result.details)}")
-        if result.status == StepStatus.SUCCESS and not self.in_macro_task:
+        if result.status == StepStatus.SKIPPED:
+            self.log_info(" - Step skipped")
+        elif result.status == StepStatus.SUCCESS and not self.in_macro_task:
             count = result.stats.get("count", result.stats.get("processed", 0))
             self.log_success(f" ✓ ({count} items)")
         elif result.status == StepStatus.ERROR:

@@ -463,7 +463,26 @@ class TestStepExecution:
 
         result = executor.execute_step(0, step_config=override_config)
 
-        assert result["status"] == "ok"
+        assert result.status == StepStatus.SUCCESS
+
+    def test_execute_disabled_step(self, executor, sample_definition_file):
+        """Test executing step with overridden config"""
+        executor.load_definition(sample_definition_file)
+
+        override_config = {"step": "Override", "enable": False, "builtin.echo": {"message": "overridden"}}
+
+        result = executor.execute_step(0, step_config=override_config)
+
+        assert result.status == StepStatus.SKIPPED
+
+    def test_execute_enabled_step(self, executor, sample_definition_file):
+        """Test executing step with overridden config"""
+        executor.load_definition(sample_definition_file)
+
+        override_config = {"step": "Override", "enable": True, "builtin.echo": {"message": "overridden"}}
+        result = executor.execute_step(0, step_config=override_config)
+
+        assert result.status == StepStatus.SUCCESS
 
     def test_execute_step_error_handling(self, executor, sample_definition_file):
         """Test that exceptions propagate from step execution"""

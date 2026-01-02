@@ -441,7 +441,7 @@ class StepExecutor:
         # Load main steps section
         self.steps = self.definition.get("steps", [])
         for step in self.steps:
-            step['command'] = tuple(set(step.keys()) - {"step", "description"})[0]
+            step['command'] = tuple(set(step.keys()) - {"step", "description", "enable"})[0]
 
         # Validate all template references (fail early)
         self._validate_template_references()
@@ -613,19 +613,28 @@ class StepExecutor:
             if self.step_reporter:
                 self.step_reporter.on_step_start(self.current_step_index, step_config, total=len(self.steps))
 
-            # Handle run-template: recursively execute template steps
-            if step_name == "run-template":
-                result = self._execute_template(step_params, description, dry_run)
+            if step_config.get("enable", True) != False:
+                # Handle run-template: recursively execute template steps
+                if step_name == "run-template":
+                    result = self._execute_template(step_params, description, dry_run)
+                else:
+                    # Execute regular step
+                    result = self._execute_builtin_step(step_name, step_params, description, dry_run)
             else:
-                # Execute regular step
-                result = self._execute_builtin_step(step_name, step_params, description, dry_run)
-
+                # Step is disabled
+                result = StepResult(
+                    status=StepStatus.SKIPPED,
+                    step=step_name,
+                    message="Step disabled, skipping execution",
+                    stats={"count": 0},
+                )
             # Track timing and history
             duration = time.time() - step_start
             self.step_history.append(
                 {
                     "index": step_index,
                     "step": step_name,
+                    "enabled": step_config.get("enable", True),
                     "status": result.get("status", "unknown"),
                     "duration_ms": int(duration * 1000),
                 }
@@ -635,9 +644,10 @@ class StepExecutor:
             }
             result.stats["db_records"] = self.papers_db.count()
             self.results = result
-            self.current_step_index = step_index + 1
+
             if self.step_reporter:
-                self.step_reporter.on_step_end(self.current_step_index - 1, step_params, result)
+                self.step_reporter.on_step_end(self.current_step_index, step_params, result)
+            self.current_step_index = step_index + 1
             return result
 
         except HaltException as e:
