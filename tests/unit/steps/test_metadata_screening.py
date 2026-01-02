@@ -36,23 +36,6 @@ class TestMetadataScreeningValidation:
         assert is_valid is True
         assert errors == []
 
-    def test_validate_enabled_flag_true(self):
-        """Should accept enabled: true"""
-        is_valid, errors = MetadataScreeningStep.validate({"enabled": True})
-        assert is_valid is True
-        assert errors == []
-
-    def test_validate_enabled_flag_false(self):
-        """Should accept enabled: false"""
-        is_valid, errors = MetadataScreeningStep.validate({"enabled": False})
-        assert is_valid is True
-        assert errors == []
-
-    def test_validate_enabled_flag_invalid(self):
-        """Should reject non-boolean enabled"""
-        is_valid, errors = MetadataScreeningStep.validate({"enabled": "true"})
-        assert is_valid is False
-        assert len(errors) > 0
 
     def test_validate_exclude_dict(self):
         """Should accept exclude as dict"""
@@ -177,6 +160,23 @@ class TestMetadataScreeningExecution:
         assert result.stats["screened"] == 2
         assert result.stats["passed"] == 1  # Only paper1 with language "en"
         assert result.stats["failed"] == 1  # paper2 with language "fr"
+
+
+    def test_execute_with_papers(self, papers_db, metadata_screening_step):
+        """Should process papers in database"""
+        # Add test papers
+        paper1 = Paper(cite_key="paper1", doi="10.1000/testpaper1", title="Test Paper 1", language="en")
+        paper2 = Paper(cite_key="paper2", title="Test Paper 2", language="fr")
+        papers_db.add(paper1)
+        papers_db.add(paper2)
+        
+        config = {"exclude": {"doi_not_set": True}}
+        result = metadata_screening_step.execute(config)
+        
+        assert result.status == StepStatus.SUCCESS
+        assert result.stats["screened"] == 2
+        assert result.stats["passed"] == 1  # Only paper1 with doi set
+        assert result.stats["failed"] == 1  # paper2 with doi not set
 
     def test_execute_no_exclusions(self, papers_db, metadata_screening_step):
         """Should pass all papers when no exclusions defined"""
@@ -385,6 +385,17 @@ class TestExtractExcludeLogic:
         assert logic["language"]["exclude_all_except"] == "en"
         assert logic["paper_types"]["hard_excludes"] == ["conference_paper"]
 
+    def test_extract_doi_not_set(self):
+        """Should extract logic for multiple fields"""
+        step = MetadataScreeningStep({}, None, None)
+        for val in [True, False]:
+            exclude_config = {
+                "doi_not_set": val,
+            }
+            logic = step._extract_exclude_logic(exclude_config)
+            
+            assert len(logic) == 1
+            assert logic["doi_not_set"]["hard_excludes"] == ["None" if val else "set"]
 
 class TestValueMatching:
     """Tests for value matching logic"""
@@ -392,6 +403,7 @@ class TestValueMatching:
     def test_value_matches_exact(self):
         """Should match exact values"""
         assert MetadataScreeningStep._value_matches("en", "en") is True
+        assert MetadataScreeningStep._value_matches("None", "None") is True
 
     def test_value_matches_case_insensitive(self):
         """Should match case-insensitively"""

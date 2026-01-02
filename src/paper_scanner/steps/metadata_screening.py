@@ -231,7 +231,10 @@ class MetadataScreeningStep(BaseStep):
 
         # Check each field in exclude logic
         for field, field_logic in exclude_logic.items():
-            if field == "language":
+            if field == "doi_not_set":
+                # string handling trick to stay within structure
+                paper_value = paper.doi or "None" 
+            elif field == "language":
                 paper_value = paper.language or "en"
             elif field == "paper_types":
                 paper_value = paper.paper_type.value if paper.paper_type else None
@@ -308,19 +311,23 @@ class MetadataScreeningStep(BaseStep):
         for field, criteria in exclude_config.items():
             exclude_all_except = None
             hard_excludes = []
-
-            for criterion in criteria:
-                # Parse NOT operator (works with both dict and string formats)
-                not_value = self._parse_not_operator(criterion)
-                if not_value:
-                    exclude_all_except = not_value
-                else:
-                    # Hard exclude: add the value
-                    if isinstance(criterion, dict):
-                        # Skip dict entries that aren't NOT
-                        pass
-                    elif isinstance(criterion, str):
-                        hard_excludes.append(criterion)
+            if isinstance(criteria, bool):
+                # Special case for doi_not_set
+                if field == "doi_not_set":
+                    hard_excludes.append("None" if criteria else "set")
+            else:
+                for criterion in criteria:
+                    # Parse NOT operator (works with both dict and string formats)
+                    not_value = self._parse_not_operator(criterion)
+                    if not_value:
+                        exclude_all_except = not_value
+                    else:
+                        # Hard exclude: add the value
+                        if isinstance(criterion, dict):
+                            # Skip dict entries that aren't NOT
+                            pass
+                        elif isinstance(criterion, str):
+                            hard_excludes.append(criterion)
 
             logic[field] = {
                 "exclude_all_except": exclude_all_except,
