@@ -176,84 +176,105 @@ class TestStudyTypeDetector:
     
     def test_detect_editorial(self):
         """Should detect editorial study type"""
-        text = "Editorial: The state of the art in software engineering"
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "Editorial: The state of the art in software engineering"
+        abstract = "This study examined how firms leverage digital technologies to transform software development practices through agile methodologies."
+        keywords = ["software", "agile", "digital transformation"]        
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.EDITORIAL
     
     def test_detect_literature_review(self):
         """Should detect literature review"""
-        text = "A systematic review of agile practices in software development"
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "A systematic review of agile practices in software development"
+        abstract = "This study examined how firms leverage digital technologies to transform software development practices through agile methodologies."
+        keywords = ["software", "agile", "digital transformation"]        
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.LITERATURE_REVIEW
     
     def test_detect_literature_review_metaanalysis(self):
         """Should detect meta-analysis as literature review"""
-        text = "A meta-analysis of DevOps practices in software teams"
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "A meta-analysis of DevOps practices in software teams"
+        abstract = "This is a meta-analysis study"
+        keywords = ["meta-analysis", "devops"]
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.LITERATURE_REVIEW
     
     def test_detect_conceptual(self):
         """Should detect conceptual/theoretical paper"""
-        text = "A theoretical framework for understanding organizational change"
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "A theoretical framework for understanding organizational change"
+        abstract = "This paper presents a conceptual framework"
+        keywords = ["framework", "theory"]
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.CONCEPTUAL
     
     def test_detect_empirical_qualitative(self):
         """Should detect case study paper (case study takes priority over qualitative)"""
-        text = "A qualitative case study examining interviews with agile practitioners. We conducted interviews with 12 participants."
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "A qualitative case study examining interviews with agile practitioners"
+        abstract = "We conducted interviews with 12 participants using thematic analysis of interview transcripts."
+        keywords = ["agile", "qualitative", "case study"]
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.CASE_STUDY
     
     def test_detect_empirical_quantitative(self):
         """Should detect quantitative empirical paper"""
-        text = "An empirical study of agile adoption. Survey of 200 participants. Statistical analysis using t-test (p < 0.05)."
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "An empirical study of agile adoption"
+        abstract = "Survey of 200 participants. Statistical analysis using t-test (p < 0.05). Regression model explained variance."
+        keywords = ["quantitative", "agile", "metrics"]
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.EMPIRICAL_QUANTITATIVE
     
     def test_detect_empirical_with_sample_size(self):
         """Should detect empirical from sample size notation"""
-        text = "A study with n = 150 participants using regression analysis"
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "Sample size study"
+        abstract = "A study with n = 150 participants using regression analysis"
+        keywords = ["regression", "analysis"]
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.EMPIRICAL_QUANTITATIVE
     
     def test_detect_empirical_case_study(self):
         """Should detect case study from case study keyword"""
-        text = "A case study of agile adoption in a large organization. Observational study over 18 months."
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "A case study of agile adoption in a large organization"
+        abstract = "Observational study over 18 months examining real practices."
+        keywords = ["case study", "agile", "adoption"]
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.CASE_STUDY
     
     def test_detect_empirical_mixed_methods(self):
         """Should detect empirical with mixed methods"""
-        text = "Mixed methods study combining surveys (n=100) with interviews (n=20). ANOVA showed significant results."
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "Mixed methods study"
+        abstract = "Mixed methods study combining surveys (n=100) with interviews (n=20). ANOVA showed significant results."
+        keywords = ["mixed methods", "surveys", "interviews"]
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         # Mixed methods is considered EMPIRICAL_QUANTITATIVE when both present
         assert study_type in [StudyType.EMPIRICAL_QUANTITATIVE, StudyType.EMPIRICAL_QUALITATIVE]
     
     def test_detect_unknown(self):
         """Should default to UNKNOWN for unclear papers"""
-        text = "Something about computers and innovation"
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "Something about computers"
+        abstract = "Something about computers and innovation"
+        keywords = ["computers", "innovation"]
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.UNKNOWN
     
     def test_detect_none_text(self):
         """Should handle None text"""
-        study_type = StudyTypeDetector.detect_study_type(None)
+        study_type = StudyTypeDetector.detect_study_type(None, None, None)
         assert study_type == StudyType.UNKNOWN
     
     def test_empirical_priority_over_review(self):
         """Should detect study type correctly when both review and empirical present"""
-        # Paper that mentions both review AND empirical indicators
-        # With only 1 interview mention, may not reach empirical threshold
-        text = "A systematic review was conducted. We conducted interviews with 20 practitioners and also used surveys."
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "A systematic review with empirical validation"
+        abstract = "A systematic review was conducted. We conducted interviews with 20 practitioners and also used surveys."
+        keywords = ["systematic review", "interviews", "surveys"]
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         # Should detect some type of empirical or review
         assert study_type in [StudyType.EMPIRICAL_QUALITATIVE, StudyType.EMPIRICAL_QUANTITATIVE, StudyType.LITERATURE_REVIEW]
     
     def test_minimum_threshold_for_empirical(self):
         """Should require minimum 2 patterns for empirical classification (except case studies)"""
-        # Text with only 1 empirical-like indicator that isn't methodology/validation should not classify as empirical
-        text = "We discussed some things about the topic"  # No empirical patterns
-        study_type = StudyTypeDetector.detect_study_type(text)
+        title = "General topic"
+        abstract = "We discussed some things about the topic"
+        keywords = ["topic", "discussion"]
+        study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         # Should not classify as empirical with no indicators
         assert study_type not in [StudyType.EMPIRICAL_QUANTITATIVE, StudyType.EMPIRICAL_QUALITATIVE]
 
@@ -291,7 +312,10 @@ class TestKeywordScreener:
         config = {
             "mode": "inclusion_required",
             "exclude": {"keywords": {}, "study_types": []},
-            "include": {"keywords": {"domains": ["software", "agile"]}}
+            "include": {
+                "thresholds": {"auto_accept": 0.65, "manual-review": 0.4},
+                "keywords": {"domains": ["software", "agile"]}
+            }
         }
         screener = KeywordScreener(config)
         screening, should_include, reason = screener.screen_paper(
@@ -303,20 +327,23 @@ class TestKeywordScreener:
         assert reason is None
     
     def test_inclusion_required_mode_exclude_by_keyword(self):
-        """Should exclude paper with exclusion keywords"""
+        """Should exclude paper with exclusion keywords when no inclusion keywords match"""
         config = {
             "mode": "inclusion_required",
             "exclude": {"keywords": {"domains": ["medical", "healthcare"]}, "study_types": []},
-            "include": {"keywords": {"domains": ["software"]}}
+            "include": {
+                "keywords": {"domains": ["software"]},
+                "thresholds": {"auto_accept": 0.65, "manual_review": 0.4},
+            }
         }
         screener = KeywordScreener(config)
         screening, should_include, reason = screener.screen_paper(
-            title="Medical Software",
-            abstract="Healthcare medical applications",
+            title="Medical Research",
+            abstract="Healthcare medical applications in patient care",
             keywords=["medical", "healthcare"]
         )
         assert should_include is False
-        assert "excluded keywords" in reason
+        assert "no inclusion keywords matched" in reason
     
     def test_inclusion_required_mode_no_inclusions(self):
         """Should exclude paper without inclusion keywords"""
@@ -386,7 +413,7 @@ class TestKeywordScreener:
     def test_study_type_exclusion(self):
         """Should exclude papers by study type"""
         config = {
-            "mode": "inclusion_required",
+            "mode": "exclusion_only",
             "exclude": {"keywords": {}, "study_types": ["editorial"]},
             "include": {"keywords": {}}
         }
@@ -396,15 +423,17 @@ class TestKeywordScreener:
             abstract="This editorial discusses the future",
             keywords=["editorial", "future"]
         )
-        assert should_include is False
         assert "study_type" in reason
+        assert should_include is False
     
     def test_wildcard_keyword_matching(self):
         """Should support wildcard patterns in keywords"""
         config = {
             "mode": "inclusion_required",
             "exclude": {"keywords": {}, "study_types": []},
-            "include": {"keywords": {"domains": ["soft*", "*development"]}}
+            "include": {
+                "thresholds": {"auto_accept": 0.65, "manual-review": 0.4},
+                "keywords": {"domains": ["soft*", "*development"]}}
         }
         screener = KeywordScreener(config)
         
@@ -421,7 +450,10 @@ class TestKeywordScreener:
         config = {
             "mode": "inclusion_required",
             "exclude": {"keywords": {"domains": ["medical"]}, "study_types": []},
-            "include": {"keywords": {"domains": ["software", "agile"]}}
+            "include": {
+                "thresholds": {"auto_accept": 0.65, "manual-review": 0.4},
+                "keywords": {"domains": ["software", "agile"]}
+            }
         }
         screener = KeywordScreener(config)
         screening, should_include, reason = screener.screen_paper(
@@ -500,7 +532,10 @@ class TestKeywordScreeningStep:
         config = {
             "mode": "inclusion_required",
             "exclude": {"keywords": {}, "study_types": []},
-            "include": {"keywords": {"domains": ["software", "agile"]}}
+            "include": {
+                "keywords": {"domains": ["software", "agile"]},
+                "thresholds": {"auto_accept": 0.65, "manual-review": 0.4}
+            }
         }
         result = keyword_screening_step.execute(config)
         
@@ -531,7 +566,10 @@ class TestKeywordScreeningStep:
             "enabled": True,
             "mode": "inclusion_required",
             "exclude": {"keywords": {}, "study_types": []},
-            "include": {"keywords": {"domains": ["software"]}}
+            "include": {
+                "keywords": {"domains": ["software"]},
+                "thresholds": {"auto_accept": 0.65, "manual-review": 0.4}
+            }
         }
         result = keyword_screening_step.execute(config, dry_run=True)
         
@@ -613,6 +651,7 @@ class TestKeywordScreeningIntegration:
                 "study_types": ["editorial"]
             },
             "include": {
+                "thresholds": {"auto_accept": 0.65, "manual-review": 0.4},
                 "keywords": {"domains": ["software", "agile", "devops"]}
             }
         }

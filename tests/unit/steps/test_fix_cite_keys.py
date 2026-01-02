@@ -17,6 +17,8 @@ from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Author, Paper
 from paper_scanner.steps.fix_cite_keys import FixCiteKeysStep
 
+from icecream import ic
+
 # ============================================================================
 # FIXTURES
 # ============================================================================
@@ -584,3 +586,6 @@ class TestIntegration:
         # All papers should still be retrievable
         for paper_id in paper_ids_before:
             assert sample_db.get_by_id(paper_id) is not None
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

@@ -122,9 +122,8 @@ class FixCiteKeysStep(BaseStep):
             for paper in primary_papers:
                 if paper.id in new_keys_map:
                     new_key = new_keys_map[paper.id]
-                    # Create updated paper with new cite_key
-                    updated_paper = paper.model_copy(update={"cite_key": new_key})
-                    self.db.update(updated_paper)
+                    paper.cite_key = new_key
+                    self.db.update(paper)
 
 
         # Determine final status

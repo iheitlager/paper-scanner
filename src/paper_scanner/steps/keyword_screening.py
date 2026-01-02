@@ -297,12 +297,16 @@ class StudyTypeDetector:
         """
         # We can assume that title and abstract are already normalized
         # These words in the title is always decisive for literature review
+        title = str(title) if title else ""
+        abstract = str(abstract) if abstract else ""
+        
         if "systematic literature review" in title or "systematic review" in title or "literature review" in title:
             return StudyType.LITERATURE_REVIEW
         elif "bibliometric" in abstract or "bibliometric" in title:
             return StudyType.LITERATURE_REVIEW
 
-        combined_text = " ".join(filter(None, [title, abstract, " ".join(keywords or [])]))
+        keywords_str = " ".join(keywords) if keywords else ""
+        combined_text = " ".join(filter(None, [title, abstract, keywords_str]))
 
         if not combined_text:
             return StudyType.UNKNOWN
@@ -530,12 +534,6 @@ class KeywordScreener:
             if KeywordMatcher.matches(keyword, combined_text):
                 matched_exclusion_keywords.append(keyword)
 
-        exclusion_reason = None
-        if matched_exclusion_keywords:
-            exclusion_reason = f"excluded keywords found: {', '.join(matched_exclusion_keywords[:3])}"
-        elif study_type_exclusion:
-            exclusion_reason = study_type_exclusion
-
         # 4. CALCULATE INCLUSION SCORE
         matched_inclusion_keywords_grouped = {}
 
@@ -554,8 +552,9 @@ class KeywordScreener:
         screening_decision = ScreeningDecision.UNCERTAIN
 
         if study_type_exclusion:
-            final_exclusion_reason = exclusion_reason
+            final_exclusion_reason = study_type_exclusion
             screening_decision = ScreeningDecision.EXCLUDED
+            should_include = False
         elif self.mode == "soft":
             should_include = True
             screening_decision = ScreeningDecision.PENDING
@@ -576,7 +575,7 @@ class KeywordScreener:
                 screening_decision = ScreeningDecision.EXCLUDED
         elif matched_exclusion_keywords:
             should_include = False
-            final_exclusion_reason = exclusion_reason
+            final_exclusion_reason = f"excluded keywords found: {', '.join(matched_exclusion_keywords[:3])}"
             screening_decision = ScreeningDecision.EXCLUDED
     
         # 6. BUILD KEYWORD SCREENING MODEL
@@ -658,7 +657,7 @@ class KeywordScreeningStep(BaseStep):
         screener = KeywordScreener(config)
 
         results = {
-            "total_papers": self.db.count(primary_only=False),
+            "total_papers": self.db.count(primary_only=True),
             "screened": 0,
             "passed": 0,
             "failed": 0,

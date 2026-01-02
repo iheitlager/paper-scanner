@@ -392,7 +392,7 @@ class TestHandlerConsistencyWithNormalizer:
         # Authors are Author objects, verify the names are properly formatted
         assert paper.authors[0].full_name == "John Doe"
         assert paper.authors[1].full_name == "Jane Smith"
-        assert paper.journal == "Ieee Transactions On Neural Networks"
+        assert paper.journal == "IEEE Transactions On Neural Networks"
         assert len(paper.keywords) == 2
 
 

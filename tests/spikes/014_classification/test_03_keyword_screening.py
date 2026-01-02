@@ -462,6 +462,7 @@ class KeywordScreener:
         keyword_screening = KeywordScreening(
             passed=should_include,
             study_type=detected_study_type,
+            screening_decision=ScreeningDecision.INCLUDED if should_include else ScreeningDecision.EXCLUDED,    
             inclusion_keywords=matched_inclusion_keywords,
             inclusion_threshold=len(self.inclusion_keywords) if self.inclusion_keywords else None,
             exclusion_keywords=matched_exclusion_keywords,
