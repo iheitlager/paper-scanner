@@ -6,12 +6,12 @@ This directory contains comprehensive documentation for all steps in the paper s
 
 The paper scanner processes papers through a configurable pipeline of steps. Each step performs specific operations and can be combined to create flexible screening workflows.
 
-**17 built-in steps** organized into 6 categories:
+**18 built-in steps** organized into 6 categories:
 - 3 Data Import steps
 - 1 Data Maintenance step
 - 2 Data Quality steps
 - 2 Citation Management steps
-- 2 Screening & Filtering steps
+- 3 Screening & Filtering steps
 - 3 Checkpoint & Control Flow steps
 - 2 Output & Reporting steps
 - 2 Utility steps (dump_db, paper)
@@ -30,11 +30,12 @@ The paper scanner processes papers through a configurable pipeline of steps. Eac
 | 8 | `retrieve_metadata` | [retrieve_metadata.md](./steps/retrieve_metadata.md) | Metadata enrichment from APIs |
 | 9 | `keyword_screening` | [keyword_screening.md](./steps/keyword_screening.md) | Keyword-based filtering |
 | 10 | `semantic_screening` | [semantic_screening.md](./steps/semantic_screening.md) | Embedding-based filtering |
-| 11 | `checkpoint` | [checkpoint.md](./steps/checkpoint.md) | Save pipeline state |
-| 12 | `echo` | [echo.md](./steps/echo.md) | Display messages |
-| 13 | `halt` | [halt.md](./steps/halt.md) | Conditional halt |
-| 14 | `summarize` | [summarize.md](./steps/summarize.md) | Statistics & reporting |
-| 15 | `export` | [export.md](./steps/export.md) | Multi-format export |
+| 11 | `rocchio_screening` | [rocchio_screening.md](./steps/rocchio_screening.md) | Adaptive Rocchio classification |
+| 12 | `checkpoint` | [checkpoint.md](./steps/checkpoint.md) | Save pipeline state |
+| 13 | `echo` | [echo.md](./steps/echo.md) | Display messages |
+| 14 | `halt` | [halt.md](./steps/halt.md) | Conditional halt |
+| 15 | `summarize` | [summarize.md](./steps/summarize.md) | Statistics & reporting |
+| 16 | `export` | [export.md](./steps/export.md) | Multi-format export |
 
 ### Utility Steps (Internal)
 
@@ -70,6 +71,7 @@ The paper scanner processes papers through a configurable pipeline of steps. Eac
 #### **Screening & Filtering**
 - [**Keyword Screening**](./steps/keyword_screening.md) - Filter using inclusion/exclusion keywords
 - [**Semantic Screening**](./steps/semantic_screening.md) - Filter using embedding-based relevance
+- [**Rocchio Screening**](./steps/rocchio_screening.md) - Adaptive Rocchio algorithm with persistent centroids
 
 #### **Checkpoints & Control Flow**
 - [**Checkpoint**](./steps/checkpoint.md) - Save pipeline state for resuming
