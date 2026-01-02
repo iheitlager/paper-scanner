@@ -30,6 +30,7 @@ Papers are classified by study type, matched against inclusion/exclusion keyword
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
+| `complete` | `bool` | No | True | keyword required (default) | 
 | `mode` | `string` | No | `inclusion_required` | Screening mode: `inclusion_required`, `exclusion_only`, or `soft` |
 | `include.keywords` | `dict` or `list` | No | `{}` | Inclusion keywords (nested dict or flat list) |
 | `exclude.keywords` | `dict` or `list` | No | `{}` | Exclusion keywords (nested dict or flat list) |
@@ -50,7 +51,7 @@ Keywords support flexible wildcard patterns:
 
 - **`inclusion_required`** (default): Paper must match inclusion keywords AND not match exclusion keywords AND not be excluded study type
 - **`exclusion_only`**: Exclude based on exclusion keywords and study types; no inclusion requirement
-- **`soft`**: Permissive mode; performs matching but doesn't enforce exclusion
+- **`soft`**: Permissive mode; performs matching but doesn't enforce exclusion (accept for StudyType)
 
 #### Metadata Completeness Check
 

@@ -39,23 +39,23 @@ console = Console(file=sys.stderr)
 def is_substantive_abstract(abstract: str) -> bool:
     """
     Check if abstract is substantive enough for analysis.
-    
+
     Filters out:
     - Very short abstracts (< 20 characters)
     - Pure boilerplate statements (conflicts of interest, author declarations, etc.)
-    
+
     Args:
         abstract: Abstract text to validate
-        
+
     Returns:
         True if abstract is substantive, False otherwise
     """
     if not abstract or len(abstract.strip()) < 20:
         return False
-    
+
     # only check the beginning (first 25 words) of the abstract for boilerplate
     abstract_lower = " ".join(abstract.lower().split()[:25])
-    
+
     # Check for conflict of interest / competing interests boilerplate
     conflict_phrases = [
         "authors declare no",
@@ -63,17 +63,17 @@ def is_substantive_abstract(abstract: str) -> bool:
         "conflict of interest",
         "no competing interests",
         "competing interests",
-        "authors would like to thank"
+        "authors would like to thank",
     ]
-    
+
     if any(phrase in abstract_lower for phrase in conflict_phrases):
         return False
-    
+
     # For acknowledgements - only reject if combined with funding/thanks keywords
     if any(word in abstract_lower for word in ("acknowledge", "acknowledgements", "acknowledgments")):
         if any(keyword in abstract_lower for keyword in ("funding", "thank", "support", "gratitude")):
             return False
-    
+
     return True
 
 
@@ -98,13 +98,13 @@ class KeywordMatcher:
     def escape_special_chars(text: str) -> str:
         """Escape regex special characters except * which we use for wildcards"""
         escaped = re.escape(text)
-        escaped = escaped.replace(r'\*', '*')
+        escaped = escaped.replace(r"\*", "*")
         return escaped
 
     @staticmethod
     def wildcard_to_regex(pattern: str) -> str:
         r"""Convert wildcard pattern to regex
-        
+
         Examples:
             "keyword" -> r"\bkeyword\b" (word boundary)
             "keyword*" -> r"\bkeyword\w*\b"
@@ -115,17 +115,17 @@ class KeywordMatcher:
 
         escaped = KeywordMatcher.escape_special_chars(pattern)
 
-        if escaped.startswith('*') and escaped.endswith('*'):
+        if escaped.startswith("*") and escaped.endswith("*"):
             core = escaped[1:-1]
             return core
-        elif escaped.startswith('*'):
+        elif escaped.startswith("*"):
             core = escaped[1:]
-            return rf'\w*{core}\b'
-        elif escaped.endswith('*'):
+            return rf"\w*{core}\b"
+        elif escaped.endswith("*"):
             core = escaped[:-1]
-            return rf'\b{core}\w*'
+            return rf"\b{core}\w*"
         else:
-            return rf'\b{escaped}\b'
+            return rf"\b{escaped}\b"
 
     @classmethod
     def matches(cls, pattern: str, text: Optional[str]) -> bool:
@@ -139,7 +139,7 @@ class KeywordMatcher:
         try:
             return bool(re.search(regex_pattern, text_norm))
         except re.error:
-            return pattern.lower().replace('*', '') in text_norm
+            return pattern.lower().replace("*", "") in text_norm
 
     @classmethod
     def find_all(cls, pattern: str, text: Optional[str]) -> List[str]:
@@ -153,8 +153,8 @@ class KeywordMatcher:
         try:
             return re.findall(regex_pattern, text_norm)
         except re.error:
-            if pattern.lower().replace('*', '') in text_norm:
-                return [pattern.lower().replace('*', '')]
+            if pattern.lower().replace("*", "") in text_norm:
+                return [pattern.lower().replace("*", "")]
             return []
 
 
@@ -175,6 +175,8 @@ class StudyTypeDetector:
 
     LITERATURE_REVIEW_INDICATORS = [
         "systematic review",
+        "systematic literature review",
+        "literature review",
         "scoping review",
         "narrative review",
         "meta-analysis",
@@ -197,125 +199,132 @@ class StudyTypeDetector:
     ]
 
     QUANTITATIVE_PATTERNS = [
-        r'\bn\s*=\s*\d+',
-        r'survey.*\d+.*participants?',
-        r'statistical analysis',
-        r'regression|correlation|anova|t[- ]?test|chi[- ]?square',
-        r'questionnaire|measurement|hypothesis',
-        r'significant.*p\s*[<>]|p\s*[<>]\s*0\.',
-        r'quantitative|quantitatively',
-        r'survey',
-        r'numerical',
-        r'sample size|sample',
-        r'participants?|subjects?|respondents?',
-        r'data from[\s\S]*?(?:firm|company|provider|organization|source)',
-        r'significant[\s\S]*?(?:impact|effect|relationship)',
-        r'sensitivity (?:test|analysis)',
-        r'heterogeneity analysis',
-        r'sample[\s\S]*?(?:\d+|firms?|companies?|organizations?|pairs?)',
-        r'empirical data|empirical (?:evidence|findings)',
-        r'results (?:imply|show|indicate|suggest|reveal)',
-        r'analyze[\s\S]{0,100}?(?:data|firms?|companies?|organizations?)',
-        r'(?:\d+)\s+(?:firms?|companies?|organizations?|respondents?|participants?|subjects?)',
-        r'affects?[\s\S]{0,100}?(?:volume|quality|performance|outcome)',
-        r'configuration.*affects?|affects?.*configuration',
+        r"\bn\s*=\s*\d+",
+        r"survey.*\d+.*participants?",
+        r"statistical analysis",
+        r"regression|correlation|anova|t[- ]?test|chi[- ]?square",
+        r"questionnaire|measurement|hypothesis",
+        r"significant.*p\s*[<>]|p\s*[<>]\s*0\.",
+        r"quantitative|quantitatively",
+        r"survey",
+        r"numerical",
+        r"sample size|sample",
+        r"participants?|subjects?|respondents?",
+        r"data from[\s\S]*?(?:firm|company|provider|organization|source)",
+        r"significant[\s\S]*?(?:impact|effect|relationship)",
+        r"sensitivity (?:test|analysis)",
+        r"heterogeneity analysis",
+        r"sample[\s\S]*?(?:\d+|firms?|companies?|organizations?|pairs?)",
+        r"empirical data|empirical (?:evidence|findings)",
+        r"results (?:imply|show|indicate|suggest|reveal)",
+        r"analyze[\s\S]{0,100}?(?:data|firms?|companies?|organizations?)",
+        r"(?:\d+)\s+(?:firms?|companies?|organizations?|respondents?|participants?|subjects?)",
+        r"affects?[\s\S]{0,100}?(?:volume|quality|performance|outcome)",
+        r"configuration.*affects?|affects?.*configuration",
     ]
 
     QUALITATIVE_PATTERNS = [
-        r'interview[s]?.*(?:participant|expert|user|developer)',
-        r'interviews?',
-        r'survey.*\d+.*participants?|survey of',
-        r'ethnograph',
-        r'grounded theory',
-        r'thematic analysis',
-        r'content analysis',
-        r'observational study|observation',
-        r'field work|fieldwork',
-        r'focus group',
-        r'phenomenological',
-        r'qualitative|qualitatively',
-        r'in-depth|in depth',
-        r'semi-structured|unstructured',
-        r'evaluate[\s\S]*?(?:with|of|for)[\s\S]*?(?:\d+|organization|company|firm|provider|practitioner)',
-        r'assess(?:ed|ment|ments?)[\s\S]*?(?:organization|company|firm|provider|case)',
-        r'(?:study|research)[\s\S]*?(?:investigated|examined|analyzed|explored)',
-        r'examines[\s\S]*?(?:case|firm|company|scenario)',
+        r"interview[s]?.*(?:participant|expert|user|developer)",
+        r"interviews?",
+        r"survey.*\d+.*participants?|survey of",
+        r"ethnograph",
+        r"grounded theory",
+        r"thematic analysis",
+        r"content analysis",
+        r"observational study|observation",
+        r"field work|fieldwork",
+        r"focus group",
+        r"phenomenological",
+        r"qualitative|qualitatively",
+        r"in-depth|in depth",
+        r"semi-structured|unstructured",
+        r"evaluate[\s\S]*?(?:with|of|for)[\s\S]*?(?:\d+|organization|company|firm|provider|practitioner)",
+        r"assess(?:ed|ment|ments?)[\s\S]*?(?:organization|company|firm|provider|case)",
+        r"(?:study|research)[\s\S]*?(?:investigated|examined|analyzed|explored)",
+        r"examines[\s\S]*?(?:case|firm|company|scenario)",
     ]
 
     CASESTUDY_INDICATORS = [
-        r'case study|case studies|case-study|case[- ]based',
-        r'multiple[- ]case|single[- ]case|comparative[- ]case',
-        r'study of (?:two|three|four|five|six|seven|eight|nine|ten|\d+)[\s\S]*?(?:cases?|firms?|companies?|organizations?|relationships?)',
+        r"case study|case studies|case-study|case[- ]based",
+        r"multiple[- ]case|single[- ]case|comparative[- ]case",
+        r"study of (?:two|three|four|five|six|seven|eight|nine|ten|\d+)[\s\S]*?(?:cases?|firms?|companies?|organizations?|relationships?)",
     ]
 
     METHOD_INDICATORS = [
-        r'data collection|data gathered|data were collected',
-        r'empirical study|empirical investigation',
-        r'experimental design|experiment',
-        r'quasi-experimental',
-        r'study design',
-        r'methodology|methods',
-        r'longitudinal|cross-sectional',
-        r'validation|evaluated',
-        r'structural model|path model|SEM|sem|m-TISM|TISM',
-        r'modeling approach|model evaluation|model development',
-        r'text mining|data mining|machine learning|computational',
-        r'validated (?:by|using|with) real|real (?:data|information)',
-        r'evolutionary (?:algorithm|heuristic)',
-        r'process view|process approach|process model',
+        r"data collection|data gathered|data were collected",
+        r"empirical study|empirical investigation",
+        r"experimental design|experiment",
+        r"quasi-experimental",
+        r"study design",
+        r"methodology|methods",
+        r"longitudinal|cross-sectional",
+        r"validation|evaluated",
+        r"structural model|path model|SEM|sem|m-TISM|TISM",
+        r"modeling approach|model evaluation|model development",
+        r"text mining|data mining|machine learning|computational",
+        r"validated (?:by|using|with) real|real (?:data|information)",
+        r"evolutionary (?:algorithm|heuristic)",
+        r"process view|process approach|process model",
     ]
 
     @classmethod
-    def detect_study_type(cls, text: Optional[str]) -> StudyType:
+    def detect_study_type(cls, title: Optional[str], abstract: Optional[str], keywords: Optional[str]) -> StudyType:
         """Detect study type from text content with empirical-first priority
-        
+
         Design Decisions:
-        - Empirical classification has priority because many papers combine literature 
-          reviews WITH empirical research (e.g., building model from lit review, then 
+        - Empirical classification has priority because many papers combine literature
+          reviews WITH empirical research (e.g., building model from lit review, then
           validating with case studies). The empirical nature is more important.
-        - Special case: Pure literature review studies (e.g., bibliometric, systematic 
-          review) with weak empirical signals are classified as LITERATURE_REVIEW to 
+        - Special case: Pure literature review studies (e.g., bibliometric, systematic
+          review) with weak empirical signals are classified as LITERATURE_REVIEW to
           avoid false positives.
         - Case studies are given separate category (CASE_STUDY) from other empirical types.
-        
+
         Priority Order:
         1. Editorial (news, commentary) - most specific
         2. Empirical (pattern-scored: interviews, surveys, case studies, etc.)
         3. Literature Review (explicit review types - checked if no strong empirical signals)
         4. Conceptual/Theoretical (frameworks, opinions, no empirical indicators)
         5. Unknown (default)
-        
+
         Example Classifications:
         - "A literature review building a model, validated via 4 case studies" → CASE_STUDY
         - "A bibliometric analysis of 200 publications" → LITERATURE_REVIEW (weak empirical)
         - "Interviews with 12 managers about digital transformation" → EMPIRICAL_QUALITATIVE
         """
-        if not text:
+        # We can assume that title and abstract are already normalized
+        # These words in the title is always decisive for literature review
+        if "systematic literature review" in title or "systematic review" in title or "literature review" in title:
+            return StudyType.LITERATURE_REVIEW
+
+        combined_text = " ".join(filter(None, [title, abstract, " ".join(keywords or [])]))
+
+        if not combined_text:
             return StudyType.UNKNOWN
 
-        text_lower = text.lower()
+        text_lower = combined_text.lower()
 
         # Check explicit editorial first
         if any(cls._has_indicator(text_lower, ind) for ind in cls.EDITORIAL_INDICATORS):
             return StudyType.EDITORIAL
 
         # Check empirical
-        empirical_info = cls._detect_empirical_research(text)
-        
+        empirical_info = cls._detect_empirical_research(text_lower)
+
         # Special case: Pure literature review studies (e.g., bibliometric, systematic reviews)
         # may have weak quantitative pattern matches (e.g., "analyzed 200 publications") but are
         # fundamentally literature reviews, not empirical studies. If explicit literature review
         # indicators exist AND total empirical score is weak (≤3), classify as LITERATURE_REVIEW.
         # This avoids misclassifying bibliometric analyses as empirical research.
         has_explicit_lit_review = any(cls._has_indicator(text_lower, ind) for ind in cls.LITERATURE_REVIEW_INDICATORS)
-        if has_explicit_lit_review and empirical_info['total_score'] <= 3:
+        if has_explicit_lit_review and empirical_info["total_score"] <= 2:
             return StudyType.LITERATURE_REVIEW
-        
-        if empirical_info['is_empirical']:
-            return empirical_info['type']  # Return the StudyType enum directly
+
+        if empirical_info["is_empirical"]:
+            return empirical_info["type"]  # Return the StudyType enum directly
 
         # Check for ambiguous papers with some empirical signals but below threshold
-        if empirical_info['total_score'] > 0 and empirical_info['total_score'] < 2:
+        if empirical_info["total_score"] > 0 and empirical_info["total_score"] < 2:
             return StudyType.UNKNOWN
 
         # Fall back to literature review if explicit indicators exist
@@ -332,14 +341,10 @@ class StudyTypeDetector:
         """Detect empirical research with sophisticated pattern matching"""
         text_lower = text.lower()
 
-        quant_score = sum(1 for p in cls.QUANTITATIVE_PATTERNS 
-                         if re.search(p, text_lower))
-        qual_score = sum(1 for p in cls.QUALITATIVE_PATTERNS 
-                        if re.search(p, text_lower))
-        case_score = sum(1 for p in cls.CASESTUDY_INDICATORS 
-                        if re.search(p, text_lower))
-        method_score = sum(1 for p in cls.METHOD_INDICATORS 
-                          if re.search(p, text_lower))
+        quant_score = sum(1 for p in cls.QUANTITATIVE_PATTERNS if re.search(p, text_lower))
+        qual_score = sum(1 for p in cls.QUALITATIVE_PATTERNS if re.search(p, text_lower))
+        case_score = sum(1 for p in cls.CASESTUDY_INDICATORS if re.search(p, text_lower))
+        method_score = sum(1 for p in cls.METHOD_INDICATORS if re.search(p, text_lower))
 
         total_score = quant_score + qual_score + case_score + method_score
         # Case studies are definitively empirical, even if only case_score > 0
@@ -366,14 +371,14 @@ class StudyTypeDetector:
         confidence = min(total_score / 10.0, 1.0)
 
         return {
-            'is_empirical': is_empirical,
-            'type': study_type,
-            'confidence': confidence,
-            'quant_score': quant_score,
-            'qual_score': qual_score,
-            'case_score': case_score,
-            'method_score': method_score,
-            'total_score': total_score
+            "is_empirical": is_empirical,
+            "type": study_type,
+            "confidence": confidence,
+            "quant_score": quant_score,
+            "qual_score": qual_score,
+            "case_score": case_score,
+            "method_score": method_score,
+            "total_score": total_score,
         }
 
     @staticmethod
@@ -389,14 +394,12 @@ class KeywordScreener:
         """Initialize with screening config"""
         self.config = config
         self.mode = config.get("mode", "inclusion_required")
-        self.complete = config.get("complete", None)
+        self.complete = config.get("complete", "strict")
 
-        self.exclusion_keywords = self._flatten_keywords(
-            config.get("exclude", {}).get("keywords", {})
-        )
-        self.inclusion_keywords = self._flatten_keywords(
-            config.get("include", {}).get("keywords", {})
-        )
+        self.exclusion_keywords = self._flatten_keywords(config.get("exclude", {}).get("keywords", {}))
+        self.inclusion_keywords = config.get("include", {}).get("keywords", {})
+
+        self.inclusion_thresholds = config.get("include", {}).get("thresholds", {})
         self.excluded_study_types = config.get("exclude", {}).get("study_types", [])
 
     @staticmethod
@@ -414,6 +417,38 @@ class KeywordScreener:
             return keywords_config
         return []
 
+    @staticmethod
+    def _calculate_inclusion_score(matches: Dict[str, list], keywords: Dict[str, list]) -> float:
+        """
+        Calculate inclusion score requiring matches from ALL groups.
+
+        Args:
+            matches: dict like {"innovation": 2, "organization": 1, "collaboration": 0}
+                    where keys are group names and values are match counts
+
+        Returns:
+            float between 0.0 and 1.0
+        """
+        if not matches:
+            return 0.0
+
+        total_groups = len(keywords)
+        max_possible_matches = sum(len(v) for v in keywords.values())
+        # Count how many groups have at least one match
+        groups_with_matches = sum(1 for match in matches.values() if len(match) > 0)
+
+        # Score: what fraction of groups are represented?
+        group_coverage = groups_with_matches / total_groups
+
+        # Also count total matches (more matches = higher score)
+        total_matches = sum(len(v) for v in matches.values())
+        match_density = min(total_matches / max_possible_matches, 1.0)
+
+        # Combine: require ALL groups (70%) + reward more matches (30%)
+        final_score = (0.7 * group_coverage) + (0.3 * match_density)
+
+        return final_score
+
     def screen_paper(
         self,
         title: Optional[str] = None,
@@ -421,7 +456,7 @@ class KeywordScreener:
         keywords: Optional[List[str]] = None,
     ) -> Tuple[KeywordScreening, bool, Optional[str]]:
         """Screen paper based on keywords
-        
+
         Returns:
             (KeywordScreening model, should_include, exclusion_reason)
         """
@@ -429,10 +464,16 @@ class KeywordScreener:
 
         # 1. CHECK COMPLETENESS: Exclude if title, abstract, or keywords missing
         # Also validate that abstract is substantive (not just boilerplate)
-        has_title = title and title.strip()
-        has_abstract = abstract and abstract.strip() and abstract.strip().upper() != "N/A" and is_substantive_abstract(abstract)
-        has_keywords = self.complete != "strict" or (keywords and len(keywords) > 0 and any(k.strip() for k in keywords))
-        
+        # Title/Abstract must always be there, keywords required if complete=="strict"
+        title = title.strip() if title else ""
+        abstract = abstract.strip() if abstract else ""
+
+        has_title = title
+        has_abstract = abstract and is_substantive_abstract(abstract)
+        has_keywords = self.complete != "strict" or (
+            keywords and len(keywords) > 0 and any(k.strip() for k in keywords)
+        )
+
         if not (has_title and has_abstract and has_keywords):
             # Return EXCLUDED_INCOMPLETE decision
             missing_parts = []
@@ -444,10 +485,12 @@ class KeywordScreener:
                 missing_parts.append("abstract (boilerplate)")
             if not has_keywords:
                 missing_parts.append("keywords")
-            
+
             reason = f"incomplete metadata: missing '{', '.join(missing_parts)}'"
             excluded_incomplete = KeywordScreening(
                 passed=False,
+                study_type=StudyType.UNKNOWN,
+                screening_decision=ScreeningDecision.EXCLUDED_INCOMPLETE,
                 is_empirical=False,
                 is_conceptual=False,
                 is_literature_review=False,
@@ -461,21 +504,15 @@ class KeywordScreener:
             return (excluded_incomplete, False, reason)
 
         combined_text = " ".join(filter(None, [title, abstract, " ".join(keywords or [])]))
+        screening_decision = ScreeningDecision.PENDING
 
         # 2. DETECT STUDY TYPE (implicit)
         # CHECK FOR SYSTEMATIC/LITERATURE REVIEW (priority over all other screening)
         # If title contains review-type keywords, automatically include with high confidence
         # Matches: "systematic literature review", "systematic review", "literature review"
-        title_lower = title.lower() if title else ""
-        if ("systematic literature review" in title_lower or
-                "systematic review" in title_lower or
-                "literature review" in title_lower):
-                detected_study_type = StudyType.LITERATURE_REVIEW
+
         # If abstract is missing, force UNKNOWN study type
-        elif not has_abstract:
-            detected_study_type = StudyType.UNKNOWN
-        else:
-            detected_study_type = StudyTypeDetector.detect_study_type(combined_text)
+        detected_study_type = StudyTypeDetector.detect_study_type(title, abstract, keywords)
 
         # Check if excluded by study_type
         study_type_exclusion = None
@@ -495,56 +532,71 @@ class KeywordScreener:
             exclusion_reason = study_type_exclusion
 
         # 4. CALCULATE INCLUSION SCORE
-        inclusion_score = 0
-        matched_inclusion_keywords = []
+        matched_inclusion_keywords_grouped = {}
 
-        for keyword in self.inclusion_keywords:
-            if KeywordMatcher.matches(keyword, combined_text):
-                inclusion_score += 1
-                matched_inclusion_keywords.append(keyword)
+        for group, keywords in self.inclusion_keywords.items():
+            for keyword in keywords:
+                if KeywordMatcher.matches(keyword, combined_text):
+                    matched_inclusion_keywords_grouped[group] = matched_inclusion_keywords_grouped.get(group, []) + [keyword]
+        
+        # Flatten to list for KeywordScreening model
+        matched_inclusion_keywords = sum(matched_inclusion_keywords_grouped.values(), [])
+        inclusion_score = self._calculate_inclusion_score(matched_inclusion_keywords_grouped, self.inclusion_keywords)
 
-        # 5. DETERMINE INCLUSION
+        # 5. DETERMINE SCREENING DECISION
         should_include = True
         final_exclusion_reason = None
 
-        if self.mode == "inclusion_required":
-            if matched_exclusion_keywords or study_type_exclusion:
-                should_include = False
-                final_exclusion_reason = exclusion_reason
-            elif inclusion_score == 0 and self.inclusion_keywords:
-                should_include = False
-                final_exclusion_reason = "no inclusion keywords matched"
-        elif self.mode == "exclusion_only":
-            if matched_exclusion_keywords or study_type_exclusion:
-                should_include = False
-                final_exclusion_reason = exclusion_reason
+        if study_type_exclusion:
+            final_exclusion_reason = exclusion_reason
+            screening_decision = ScreeningDecision.EXCLUDED
         elif self.mode == "soft":
             should_include = True
-
+        elif matched_exclusion_keywords:
+            should_include = False
+            final_exclusion_reason = exclusion_reason
+            screening_decision = ScreeningDecision.EXCLUDED
+        elif self.mode == "inclusion_required":
+            if inclusion_score == 0 or not self.inclusion_keywords:
+                should_include = False
+                final_exclusion_reason = "no inclusion keywords matched"
+                screening_decision = ScreeningDecision.EXCLUDED
+            elif inclusion_score > self.inclusion_thresholds["auto_accept"]:
+                should_include = True
+                screening_decision = ScreeningDecision.INCLUDED
+            elif inclusion_score > self.inclusion_thresholds["manual_review"]:
+                should_include = False
+                screening_decision = ScreeningDecision.MANUAL_REVIEW
+            else:
+                should_include = False
+                final_exclusion_reason = "inclusion score below threshold"
+                screening_decision = ScreeningDecision.EXCLUDED
+    
         # 6. BUILD KEYWORD SCREENING MODEL
         duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         # Set inclusion_reason to reflect systematic review preference
         inclusion_reason = None
         if inclusion_score > 0:
-            inclusion_reason = f"matched {inclusion_score} inclusion keywords"
+            inclusion_reason = f"matched {len(matched_inclusion_keywords)} inclusion keywords, score {inclusion_score:.2f}"
 
         keyword_screening = KeywordScreening(
             passed=should_include,
+            screening_decision=screening_decision,
             study_type=detected_study_type,
             inclusion_keywords=matched_inclusion_keywords,
             inclusion_threshold=len(self.inclusion_keywords) if self.inclusion_keywords else None,
             exclusion_keywords=matched_exclusion_keywords,
-            is_empirical=detected_study_type in [StudyType.EMPIRICAL_QUALITATIVE, StudyType.EMPIRICAL_QUANTITATIVE, StudyType.CASE_STUDY],
-            is_conceptual=detected_study_type == StudyType.CONCEPTUAL,
+            is_empirical=detected_study_type
+                in [StudyType.EMPIRICAL_QUALITATIVE, StudyType.EMPIRICAL_QUANTITATIVE, StudyType.CASE_STUDY],
+            is_conceptual=detected_study_type in [StudyType.CONCEPTUAL, StudyType.EDITORIAL, StudyType.THEORETICAL],
             is_literature_review=detected_study_type == StudyType.LITERATURE_REVIEW,
-            keyword_screening_confidence=min(1.0 if self.complete != "strict" else 0.8, inclusion_score / max(1, len(self.inclusion_keywords))),
+            keyword_screening_confidence=min(
+                1.0 if self.complete != "strict" else 0.8, inclusion_score / max(1, len(self.inclusion_keywords))
+            ),
             exclusion_reason=final_exclusion_reason,
             inclusion_reason=inclusion_reason,
-            metadata=ProcessingMetadata(
-                duration_seconds=duration_seconds,
-                success=True
-            )
+            metadata=ProcessingMetadata(duration_seconds=duration_seconds, success=True),
         )
 
         return keyword_screening, should_include, final_exclusion_reason
@@ -558,9 +610,6 @@ class KeywordScreeningStep(BaseStep):
         """Validate keyword_screening step configuration"""
         errors = []
 
-        if "enabled" in config and not isinstance(config["enabled"], bool):
-            errors.append("'enabled' must be a boolean")
-
         if "mode" in config:
             mode = config["mode"]
             if mode not in ["inclusion_required", "exclusion_only", "soft"]:
@@ -570,6 +619,11 @@ class KeywordScreeningStep(BaseStep):
             complete = config["complete"]
             if complete not in ["strict"]:
                 errors.append("'complete' must be one of: strict")
+
+        if "inclusion_is_final" in config:
+            inclusion_is_final = config["inclusion_is_final"]
+            if not isinstance(inclusion_is_final, bool):
+                errors.append("'inclusion_is_final' must be a boolean")
 
         if "exclude" in config:
             exclude = config["exclude"]
@@ -592,6 +646,8 @@ class KeywordScreeningStep(BaseStep):
     ) -> Dict[str, Any]:
         """Execute keyword screening step"""
 
+        self.inclusion_is_final = config.get("inclusion_is_final", False)
+
         screener = KeywordScreener(config)
 
         results = {
@@ -606,7 +662,7 @@ class KeywordScreeningStep(BaseStep):
         # Process each non duplicate paper, this is idempotent
         all_papers = self.db.find(
             predicate=lambda p: not p.is_excluded and not p.is_included and not p.screening.keyword_screening,
-            primary_only=True
+            primary_only=True,
         )
 
         for i, paper in enumerate(all_papers):
@@ -618,12 +674,24 @@ class KeywordScreeningStep(BaseStep):
 
             if not dry_run:
                 paper.screening.keyword_screening = screening
-                paper.screening.current_stage="keyword_screening passed"
+                paper.screening.current_stage = "keyword_screening passed"
 
-                if not passed and paper.screening.final_decision == ScreeningDecision.PENDING:
-                    paper.screening.final_decision = ScreeningDecision.EXCLUDED
-                    paper.screening.final_decision_by = "automated:keyword_screening"
-
+                if (
+                    paper.screening.keyword_screening.screening_decision != ScreeningDecision.PENDING
+                    and paper.screening.final_decision == ScreeningDecision.PENDING
+                ):
+                    if paper.screening.keyword_screening.screening_decision in [
+                        ScreeningDecision.EXCLUDED,
+                        ScreeningDecision.EXCLUDED_INCOMPLETE,
+                    ]:
+                        paper.screening.final_decision = paper.screening.keyword_screening.screening_decision
+                        paper.screening.final_decision_by = "automated:keyword_screening"
+                    elif (
+                        self.inclusion_is_final
+                        and paper.screening.keyword_screening.screening_decision == ScreeningDecision.INCLUDED
+                    ):
+                        paper.screening.final_decision = paper.screening.keyword_screening.screening_decision
+                        paper.screening.final_decision_by = "automated:keyword_screening"
                 self.db.update(paper)
 
             results["screened"] += 1
@@ -645,4 +713,3 @@ class KeywordScreeningStep(BaseStep):
             message=f"Screened {results['screened']} papers: {results['passed']} passed, {results['failed']} failed",
             stats=results,
         )
-

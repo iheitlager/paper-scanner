@@ -15,14 +15,14 @@ Domain-Specific Models (Recommended for academic papers):
 - "specter2" (default): Specialized for academic paper titles/abstracts. Optimized for scholarly
   content with understanding of research methodology and domain concepts. Best for systematic reviews.
   Dimension: 768
-  
+
 - "sciBERT": Domain-aware BERT trained on scientific papers. Good balance of academic understanding
   and general language capability. Dimension: 768
 
 General-Purpose Models (For broader content):
 - "all-mpnet-base-v2": Multilingual, general-purpose model. Fast, high-quality embeddings for
   diverse text. Good for papers with varied writing styles or non-academic content. Dimension: 768
-  
+
 - "all-MiniLM-L6-v2": Lightweight model, much faster inference, lower memory footprint. Suitable
   when processing large collections or resource-constrained environments. Quality slightly lower
   than all-mpnet-base-v2. Dimension: 384
@@ -30,7 +30,7 @@ General-Purpose Models (For broader content):
 For best results with academic papers, use "specter2" (domain-specialized).
 For speed with acceptable quality, use "all-mpnet-base-v2" or "all-MiniLM-L6-v2".
 
-For more details on Rocchio algorithm: 
+For more details on Rocchio algorithm:
 https://nlp.stanford.edu/IR-book/html/htmledition/rocchio-classification-1.html
 """
 
@@ -58,6 +58,8 @@ try:
 except ImportError:
     SentenceTransformer = None
 
+import numpy as np
+
 
 class RocchioScreeningStep(BaseStep):
     """
@@ -78,24 +80,24 @@ class RocchioScreeningStep(BaseStep):
 
         Args:
             config: Step configuration with optional keys:
-                
+
                 - model: str - Sentence transformer model ID (default: 'specter2')
                   Options:
                     * "specter2" - Domain-specific for academic papers (recommended)
                     * "sciBERT" - Scientific BERT, domain-aware
                     * "all-mpnet-base-v2" - General-purpose, multilingual, fast
                     * "all-MiniLM-L6-v2" - Lightweight, fastest inference
-                  
+
                 - rocchio_weights: dict with keys 'alpha', 'beta', 'gamma'
                   * alpha (default 1.0): Weight for research question centroid
                   * beta (default 0.75): Weight for relevant papers centroid
                   * gamma (default 0.15): Weight for irrelevant papers centroid
-                  
+
                 - thresholds: dict with keys 'accept', 'reject'
                   * accept (default 0.7): Similarity score threshold to accept paper
                   * reject (default 0.3): Similarity score threshold to reject paper
                   * Papers with scores between reject and accept thresholds: uncertain
-                  
+
                 - initialize_from_keyword_screening: bool - Bootstrap centroids from
                   keyword_screening results (default: True). Accelerates convergence.
 
@@ -118,13 +120,9 @@ class RocchioScreeningStep(BaseStep):
                     if weight_name in weights:
                         val = weights[weight_name]
                         if not isinstance(val, (int, float)):
-                            errors.append(
-                                f"'rocchio_weights.{weight_name}' must be a number"
-                            )
+                            errors.append(f"'rocchio_weights.{weight_name}' must be a number")
                         elif val < 0:
-                            errors.append(
-                                f"'rocchio_weights.{weight_name}' must be non-negative"
-                            )
+                            errors.append(f"'rocchio_weights.{weight_name}' must be non-negative")
 
         # Check thresholds
         if "thresholds" in config:
@@ -138,9 +136,7 @@ class RocchioScreeningStep(BaseStep):
                         if not isinstance(val, (int, float)):
                             errors.append(f"'thresholds.{threshold_name}' must be a number")
                         elif not (0 <= val <= 1):
-                            errors.append(
-                                f"'thresholds.{threshold_name}' must be between 0 and 1"
-                            )
+                            errors.append(f"'thresholds.{threshold_name}' must be between 0 and 1")
 
         # Check initialize_from_keyword_screening
         if "initialize_from_keyword_screening" in config:
@@ -150,11 +146,7 @@ class RocchioScreeningStep(BaseStep):
         return len(errors) == 0, errors
 
     def execute(
-        self,
-        config: Dict[str, Any],
-        verbose: bool = False,
-        dry_run: bool = False,
-        debug: bool = False
+        self, config: Dict[str, Any], verbose: bool = False, dry_run: bool = False, debug: bool = False
     ) -> StepResult:
         """
         Execute semantic classification using Adaptive Rocchio.
@@ -168,7 +160,7 @@ class RocchioScreeningStep(BaseStep):
            - Embed paper (title + abstract + keywords)
            - Compute similarity to query and centroids
            - Rocchio formula: score = alpha*query + beta*relevant - gamma*irrelevant
-           - Decide: Accept (score > accept_threshold), Reject (score < reject_threshold), 
+           - Decide: Accept (score > accept_threshold), Reject (score < reject_threshold),
              or Uncertain (in between)
         6. Update centroids based on classifications
         7. Store updated state back to executor.step_state for persistence
@@ -182,9 +174,10 @@ class RocchioScreeningStep(BaseStep):
 
         research_question = self.general_config.get("research_question", "")
         if not research_question:
-            raise ConfigurationError(
-                "research_question must be set in project configuration"
-            )
+            raise ConfigurationError("research_question must be set in project configuration")
+
+        # Get research dimensions from config
+        research_dimensions = self.general_config.get("research_dimensions", [])
 
         # Get configuration
         model_name = config.get("model", "sentence-transformers/allenai-specter")
@@ -210,11 +203,7 @@ class RocchioScreeningStep(BaseStep):
             "centroids_initialized": False,
         }
 
-        self.callback(
-            f"Model: '{model_name}'\n"
-            f"Research question: '{research_question[:80]}...'",
-            debug=True
-        )
+        self.callback(f"Model: '{model_name}'\nResearch question: '{research_question[:80]}...'", debug=True)
 
         # Initialize embedder
         try:
@@ -245,19 +234,44 @@ class RocchioScreeningStep(BaseStep):
         # Initialize screener
         screener = AdaptiveRocchioScreener(embedding_dim, state)
 
-        # Embed research question (if not already done)
+        # # Embed research question (if not already done)
+        # if screener.state.query_centroid is None:
+        #     self.callback("Embedding research question...", debug=True)
+        #     rq_embedding = embedder.encode(research_question, convert_to_numpy=True)
+        #     screener.initialize_from_research_question(rq_embedding)
+        #     self.callback(f"Research question embedding shape: {rq_embedding.shape}", debug=True)
+
         if screener.state.query_centroid is None:
-            self.callback("Embedding research question...", debug=True)
-            rq_embedding = embedder.encode(research_question, convert_to_numpy=True)
+            self.callback("Embedding research question with dimensions...", debug=True)
+
+            # Start with primary research question
+            texts_to_embed = [research_question]
+
+            # Add research dimensions if provided
+            if research_dimensions:
+                texts_to_embed.extend(research_dimensions)
+                self.callback(f"Using {len(research_dimensions)} research dimensions", debug=True)
+
+            # Embed all at once (batch is faster)
+            embeddings = embedder.encode(texts_to_embed, convert_to_numpy=True)
+
+            # Compute weighted centroid: primary RQ gets 70%, dimensions get 30% split
+            rq_embedding = embeddings[0]  # Primary RQ
+
+            if len(embeddings) > 1:
+                # Weight: RQ=0.7, dimensions split remaining 0.3
+                dimension_embeddings = embeddings[1:]
+                dimension_weight = 0.3 / len(dimension_embeddings)
+
+                # Weighted centroid
+                rq_embedding = 0.7 * rq_embedding + dimension_weight * np.mean(dimension_embeddings, axis=0)
+                self.callback(f"Query centroid weighted: 70% RQ + 30% dimensions", debug=True)
+
             screener.initialize_from_research_question(rq_embedding)
             self.callback(f"Research question embedding shape: {rq_embedding.shape}", debug=True)
 
         # Optionally bootstrap from keyword_screening results
-        if (
-            initialize_from_keyword
-            and screener.state.count_relevant == 0
-            and screener.state.count_irrelevant == 0
-        ):
+        if initialize_from_keyword and screener.state.count_relevant == 0 and screener.state.count_irrelevant == 0:
             self.callback("Bootstrapping centroids from keyword_screening results...", debug=True)
             accepted_embeddings = []
             rejected_embeddings = []
@@ -268,12 +282,12 @@ class RocchioScreeningStep(BaseStep):
                     # Combine title, abstract, and keywords for rich embedding
                     text_parts = []
                     if paper.title:
-                        text_parts.append(paper.title)
+                        text_parts.append(f"TITLE: {paper.title}\n")
                     if paper.abstract:
-                        text_parts.append(paper.abstract)
+                        text_parts.append(f"ABSTRACT: {paper.abstract}\n")
                     if paper.keywords:
                         keywords_str = " ".join(paper.keywords)
-                        text_parts.append(keywords_str)
+                        text_parts.append(f"KEYWORDS: {keywords_str}\n")
 
                     text = " ".join(text_parts)
                     if not text:
@@ -281,32 +295,38 @@ class RocchioScreeningStep(BaseStep):
 
                     emb = embedder.encode(text, convert_to_numpy=True)
 
-                    if paper.screening.keyword_screening.passed:
+                    if paper.screening.keyword_screening.screening_decision == ScreeningDecision.INCLUDED:
                         # This paper passed keyword screening (accepted)
                         accepted_embeddings.append(emb)
-                    else:
+                    elif paper.screening.keyword_screening.screening_decision == ScreeningDecision.EXCLUDED:
                         # This paper failed keyword screening (rejected)
                         rejected_embeddings.append(emb)
+                    ## Forget pending and manual review for bootstrapping
 
             if accepted_embeddings or rejected_embeddings:
-                screener.bootstrap_from_seeds(accepted_embeddings, rejected_embeddings)
                 self.callback(
-                    f"Bootstrapped with {len(accepted_embeddings)} accepted, "
+                    f"Bootstrapping with {len(accepted_embeddings)} accepted, "
                     f"{len(rejected_embeddings)} rejected papers",
-                    debug=True
+                    debug=True,
                 )
+                screener.bootstrap_from_seeds(accepted_embeddings, rejected_embeddings)
                 results["centroids_initialized"] = True
             else:
                 self.callback(
-                    "No keyword_screening results found for bootstrapping. "
-                    "Using research question embedding only.",
-                    debug=True
+                    "No keyword_screening results found for bootstrapping. Using research question embedding only.",
+                    debug=True,
                 )
+
+        if screener.state.centroid_relevant is not None and screener.state.centroid_irrelevant is not None:
+            relevant = np.array(screener.state.centroid_relevant)
+            irrelevant = np.array(screener.state.centroid_irrelevant)
+            sim = np.dot(relevant, irrelevant) / (np.linalg.norm(relevant) * np.linalg.norm(irrelevant))
+            self.callback(f"Centroid Similarity: {sim:.6f}", debug=True)
 
         # Screen papers not semantically screened and labeled yet
         all_papers = self.db.find(
             predicate=lambda p: not p.screening.semantic_screening and not p.is_excluded and not p.is_included,
-            primary_only=True
+            primary_only=True,
         )
 
         self.callback(f"Rocchio screening {len(all_papers)} papers...", debug=True)
@@ -316,12 +336,12 @@ class RocchioScreeningStep(BaseStep):
                 # Combine title, abstract, and keywords for rich embedding
                 text_parts = []
                 if paper.title:
-                    text_parts.append(paper.title)
+                    text_parts.append(f"TITLE: {paper.title}\n")
                 if paper.abstract:
-                    text_parts.append(paper.abstract)
+                    text_parts.append(f"ABSTRACT: {paper.abstract}\n")
                 if paper.keywords:
                     keywords_str = " ".join(paper.keywords)
-                    text_parts.append(keywords_str)
+                    text_parts.append(f"KEYWORDS: {keywords_str}\n")
 
                 text = " ".join(text_parts)
                 if not text:
@@ -342,15 +362,11 @@ class RocchioScreeningStep(BaseStep):
                 semantic_screening = SemanticScreening(
                     passed=classification["decision"] in ("ACCEPT", "UNCERTAIN"),
                     similarity_score=classification["score"],
-                    threshold=(
-                        accept_threshold
-                        if classification["decision"] == "ACCEPT"
-                        else reject_threshold
-                    ),
+                    threshold=(accept_threshold if classification["decision"] == "ACCEPT" else reject_threshold),
                     decision=decision_map[classification["decision"]],
                     confidence=classification["score"],
                     reason=(
-                        f"Rocchio score: {classification['score']:.3f}. "
+                        f"Decision: {classification['decision']}, Rocchio score: {classification['score']:.3f}. "
                         f"Accept threshold: {accept_threshold}, Reject threshold: {reject_threshold}"
                     ),
                     metadata=ProcessingMetadata(
@@ -396,7 +412,7 @@ class RocchioScreeningStep(BaseStep):
                 f"Saved Rocchio state: iteration={updated_state.iteration}, "
                 f"relevant_count={updated_state.count_relevant}, "
                 f"irrelevant_count={updated_state.count_irrelevant}",
-                debug=True
+                debug=True,
             )
 
         return StepResult(
@@ -408,5 +424,5 @@ class RocchioScreeningStep(BaseStep):
                 f"Uncertain {results['uncertain']}"
             ),
             step="rocchio_screening",
-            stats=results
+            stats=results,
         )

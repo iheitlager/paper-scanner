@@ -501,6 +501,7 @@ class Normalizer:
         caps_only = {
             'usa', 'uk', 'eu', 'un',
             'nasa', 'nato',
+            "oem", "r&d",
             'ai', 'ml', 'it',
             'b2b', 'b2c', 'b2g'
             'ibm', 'hp', 'amd', 'sap',

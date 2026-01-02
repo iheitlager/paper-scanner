@@ -623,7 +623,7 @@ class ReplController(AbstractController):
         elif args[0] == "help":
             self.controller_reporter.log("\n[bold]📋 Show Options:[/bold]")
             for option, (description, _) in options.items():
-                self.controller_reporter.log(f"  • [cyan]{option}[/cyan] - {description}")
+                self.controller_reporter.log(f"  • [cyan]{option:<12}[/cyan] - {description}")
             self.controller_reporter.log("")
             return StepResult(status=StepStatus.SUCCESS)
         elif len(args) == 1:

@@ -534,6 +534,9 @@ def _display_source_results(db: PapersDatabase) -> None:
                 "uncertain": 0,
                 "manual_review": 0,
                 "included": 0,
+                "keyword_detail_included": 0,
+                "keyword_detail_excluded": 0,
+                "keyword_detail_manual": 0,
             }
 
         papers_by_type[source_type]["total"] += 1
@@ -559,12 +562,25 @@ def _display_source_results(db: PapersDatabase) -> None:
         elif paper.is_included:
             papers_by_type[source_type]["included"] += 1
 
+        # Keyword screening detail
+        if paper.screening.keyword_screening:
+            if paper.screening.keyword_screening.screening_decision == ScreeningDecision.INCLUDED:
+                papers_by_type[source_type]["keyword_detail_included"] += 1
+            elif paper.screening.keyword_screening.screening_decision == ScreeningDecision.EXCLUDED:
+                papers_by_type[source_type]["keyword_detail_excluded"] += 1
+            elif paper.screening.keyword_screening.screening_decision == ScreeningDecision.MANUAL_REVIEW:
+                papers_by_type[source_type]["keyword_detail_manual"] += 1
+
+
     # Create comprehensive table
     table = Table(title="Screening Results Progression")
     table.add_column("Paper Type", style="cyan", width=18)
     table.add_column("Total", justify="right", style="bold")
     table.add_column("Metadata\nExcluded", justify="right", style="yellow")
     table.add_column("Keyword\nExcluded", justify="right", style="yellow")
+    table.add_column("Keyword\nDetail\nIncluded", justify="right", style="blue")
+    table.add_column("Keyword\nDetail\nExcluded", justify="right", style="blue")
+    table.add_column("Keyword\nDetail\nManual", justify="right", style="blue")
     table.add_column("Semantic\nExcluded", justify="right", style="yellow")
     table.add_column("Uncertain", justify="right", style="yellow")
     table.add_column("Manual\nReview", justify="right", style="blue")
@@ -574,6 +590,9 @@ def _display_source_results(db: PapersDatabase) -> None:
     total_primary = 0
     total_metadata_excl = 0
     total_kw_excl = 0
+    total_kw_detail_incl = 0
+    total_kw_detail_excl = 0
+    total_kw_detail_manual = 0
     total_sem_excl = 0
     total_uncertain = 0
     total_manual = 0
@@ -586,6 +605,9 @@ def _display_source_results(db: PapersDatabase) -> None:
         total_primary += counts["total"]
         total_metadata_excl += counts["metadata_excluded"]
         total_kw_excl += counts["keyword_excluded"]
+        total_kw_detail_incl += counts["keyword_detail_included"]
+        total_kw_detail_excl += counts["keyword_detail_excluded"]
+        total_kw_detail_manual += counts["keyword_detail_manual"]
         total_sem_excl += counts["semantic_excluded"]
         total_uncertain += counts["uncertain"]
         total_manual += counts["manual_review"]
@@ -596,6 +618,9 @@ def _display_source_results(db: PapersDatabase) -> None:
             str(counts["total"]),
             str(counts["metadata_excluded"]),
             str(counts["keyword_excluded"]),
+            str(counts["keyword_detail_included"]),
+            str(counts["keyword_detail_excluded"]),
+            str(counts["keyword_detail_manual"]),
             str(counts["semantic_excluded"]),
             str(counts["uncertain"]),
             str(counts["manual_review"]),
@@ -612,6 +637,9 @@ def _display_source_results(db: PapersDatabase) -> None:
             "[dim]-[/dim]",
             "[dim]-[/dim]",
             "[dim]-[/dim]",
+            "[dim]-[/dim]",
+            "[dim]-[/dim]",
+            "[dim]-[/dim]",
         )
 
     # Add total row (only counting primary papers in screening totals)
@@ -621,6 +649,9 @@ def _display_source_results(db: PapersDatabase) -> None:
         f"[bold]{total_all}[/bold]",
         f"[bold yellow]{total_metadata_excl}[/bold yellow]",
         f"[bold yellow]{total_kw_excl}[/bold yellow]",
+        f"[bold blue]{total_kw_detail_incl}[/bold blue]",
+        f"[bold blue]{total_kw_detail_excl}[/bold blue]",
+        f"[bold blue]{total_kw_detail_manual}[/bold blue]",
         f"[bold yellow]{total_sem_excl}[/bold yellow]",
         f"[bold yellow]{total_uncertain}[/bold yellow]",
         f"[bold blue]{total_manual}[/bold blue]",

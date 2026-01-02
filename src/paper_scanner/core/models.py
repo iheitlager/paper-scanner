@@ -242,7 +242,8 @@ class KeywordScreening(BaseModel):
     """Keyword-based screening results"""
 
     passed: bool
-
+    screening_decision: ScreeningDecision
+    
     study_type: Optional[StudyType] = StudyType.UNKNOWN
 
     # Matched keywords
