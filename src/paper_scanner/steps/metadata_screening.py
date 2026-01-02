@@ -153,6 +153,7 @@ class MetadataScreeningStep(BaseStep):
         """
         # Parse configuration
         exclude_logic = self._extract_exclude_logic(config.get("exclude", {}))
+        exclude_no_doi = config.get("exclude_no_doi", True)
 
         self.callback(
             "Metadata Screening"
@@ -190,6 +191,7 @@ class MetadataScreeningStep(BaseStep):
                     paper.screening.final_decision_by = "automated:metadata_screening"
 
                 # Update paper in database
+                # TODO: this is only for SQL, not in-memory
                 self.db.update(paper)
 
             results["screened"] += 1

@@ -301,7 +301,7 @@ class RocchioScreeningStep(BaseStep):
                     elif paper.screening.keyword_screening.screening_decision == ScreeningDecision.EXCLUDED:
                         # This paper failed keyword screening (rejected)
                         rejected_embeddings.append(emb)
-                    ## Forget pending and manual review for bootstrapping
+                    ## Forget pending, uncertain and manual review for bootstrapping
 
             if accepted_embeddings or rejected_embeddings:
                 self.callback(
@@ -323,13 +323,16 @@ class RocchioScreeningStep(BaseStep):
             sim = np.dot(relevant, irrelevant) / (np.linalg.norm(relevant) * np.linalg.norm(irrelevant))
             self.callback(f"Centroid Similarity: {sim:.6f}", debug=True)
 
-        # Screen papers not semantically screened and labeled yet
+        # Screen only UNCERTAIN papers (skip already INCLUDED/EXCLUDED)
         all_papers = self.db.find(
-            predicate=lambda p: not p.screening.semantic_screening and not p.is_excluded and not p.is_included,
+            predicate=lambda p: (
+                not p.screening.semantic_screening 
+                and p.screening.final_decision in [ScreeningDecision.UNCERTAIN, ScreeningDecision.PENDING, ScreeningDecision.MANUAL_REVIEW]  
+            ),
             primary_only=True,
         )
 
-        self.callback(f"Rocchio screening {len(all_papers)} papers...", debug=True)
+        self.callback(f"Rocchio screening {len(all_papers)} open papers...", debug=True)
 
         for i, paper in enumerate(all_papers):
             try:
@@ -379,11 +382,21 @@ class RocchioScreeningStep(BaseStep):
                     # Update paper with semantic screening result
                     paper.screening.semantic_screening = semantic_screening
 
-                    # Update final decision if not already decided
-                    if paper.screening.final_decision == ScreeningDecision.PENDING:
+                    # Update final decision - replace UNCERTAIN/PENDING/MANUAL_REVIEW with Rocchio decision
+                    if paper.screening.final_decision in (
+                        ScreeningDecision.PENDING, 
+                        ScreeningDecision.UNCERTAIN, 
+                        ScreeningDecision.MANUAL_REVIEW
+                    ):
+
                         paper.screening.final_decision = semantic_screening.decision
                         paper.screening.final_decision_by = "automated:rocchio_screening"
 
+                        self.callback(
+                            f"Paper {paper.doi}: score={classification['score']:.4f}, "
+                            f"decision={paper.screening.final_decision}",
+                            debug=True,
+                        )
                     paper.screening.current_stage = "rocchio_screening_complete"
                     self.db.update(paper)
 

@@ -344,12 +344,12 @@ class PapersDatabase:
         if paper.doi != existing.doi:
             self._update_doi_index(paper, existing.doi)
 
-        # Replace in list (find and update) and in ID index
-        for i, p in enumerate(self.papers):
-            if p.id == paper.id:
-                self.papers[i] = paper
-                self._id_index[paper.id] = paper
-                break
+        # # Replace in list (find and update) and in ID index
+        # for i, p in enumerate(self.papers):
+        #     if p.id == paper.id:
+        #         self.papers[i] = paper
+        #         self._id_index[paper.id] = paper
+        #         break
 
     def update_many(self, papers: List[Paper]) -> None:
         """

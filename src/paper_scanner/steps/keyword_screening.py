@@ -178,6 +178,9 @@ class StudyTypeDetector:
         "systematic literature review",
         "literature review",
         "scoping review",
+        "scopus",
+        "web of science",
+        "bibliometric analysis",
         "narrative review",
         "meta-analysis",
         "metaanalysis",
@@ -296,6 +299,8 @@ class StudyTypeDetector:
         # These words in the title is always decisive for literature review
         if "systematic literature review" in title or "systematic review" in title or "literature review" in title:
             return StudyType.LITERATURE_REVIEW
+        elif "bibliometric" in abstract or "bibliometric" in title:
+            return StudyType.LITERATURE_REVIEW
 
         combined_text = " ".join(filter(None, [title, abstract, " ".join(keywords or [])]))
 
@@ -317,6 +322,7 @@ class StudyTypeDetector:
         # indicators exist AND total empirical score is weak (≤3), classify as LITERATURE_REVIEW.
         # This avoids misclassifying bibliometric analyses as empirical research.
         has_explicit_lit_review = any(cls._has_indicator(text_lower, ind) for ind in cls.LITERATURE_REVIEW_INDICATORS)
+            
         if has_explicit_lit_review and empirical_info["total_score"] <= 2:
             return StudyType.LITERATURE_REVIEW
 
@@ -509,7 +515,6 @@ class KeywordScreener:
         # 2. DETECT STUDY TYPE (implicit)
         # CHECK FOR SYSTEMATIC/LITERATURE REVIEW (priority over all other screening)
         # If title contains review-type keywords, automatically include with high confidence
-        # Matches: "systematic literature review", "systematic review", "literature review"
 
         # If abstract is missing, force UNKNOWN study type
         detected_study_type = StudyTypeDetector.detect_study_type(title, abstract, keywords)
@@ -546,18 +551,16 @@ class KeywordScreener:
         # 5. DETERMINE SCREENING DECISION
         should_include = True
         final_exclusion_reason = None
+        screening_decision = ScreeningDecision.UNCERTAIN
 
         if study_type_exclusion:
             final_exclusion_reason = exclusion_reason
             screening_decision = ScreeningDecision.EXCLUDED
         elif self.mode == "soft":
             should_include = True
-        elif matched_exclusion_keywords:
-            should_include = False
-            final_exclusion_reason = exclusion_reason
-            screening_decision = ScreeningDecision.EXCLUDED
+            screening_decision = ScreeningDecision.PENDING
         elif self.mode == "inclusion_required":
-            if inclusion_score == 0 or not self.inclusion_keywords:
+            if inclusion_score == 0 or not self.inclusion_keywords and matched_exclusion_keywords:
                 should_include = False
                 final_exclusion_reason = "no inclusion keywords matched"
                 screening_decision = ScreeningDecision.EXCLUDED
@@ -571,6 +574,10 @@ class KeywordScreener:
                 should_include = False
                 final_exclusion_reason = "inclusion score below threshold"
                 screening_decision = ScreeningDecision.EXCLUDED
+        elif matched_exclusion_keywords:
+            should_include = False
+            final_exclusion_reason = exclusion_reason
+            screening_decision = ScreeningDecision.EXCLUDED
     
         # 6. BUILD KEYWORD SCREENING MODEL
         duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()

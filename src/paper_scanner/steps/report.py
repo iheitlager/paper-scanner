@@ -35,6 +35,7 @@ class ReportStep(BaseStep):
         "citations": None,
         "bibliography": None,
         "histogram": None,
+        "debug": None,
         # "tabulate": None,
     }
 
@@ -122,6 +123,7 @@ class ReportStep(BaseStep):
         show_bibliography = config.get("bibliography", False)
         show_histogram = config.get("histogram", False)
         show_source = config.get("source", False)
+        show_debug = config.get("debug", False)
         show_dump_citations = config.get("dump_citations", False)
 
         # Support both old and new configuration format
@@ -169,6 +171,10 @@ class ReportStep(BaseStep):
         if verbose and show_histogram:
             reports.append("histogram")
             _display_histogram(self.db)
+
+        if verbose and show_debug:
+            reports.append("debug")
+            _display_debug_info(self.db)
 
         if verbose and tabulate_configs:
             reports.append("tabulate")
@@ -413,17 +419,16 @@ def _display_screening_results(db: PapersDatabase) -> None:
         if paper.screening.metadata_screening and not paper.screening.metadata_screening.passed:
             papers_by_type[paper_type]["metadata_excluded"] += 1
         # Check keyword screening exclusion
-        elif paper.screening.keyword_screening and not paper.screening.keyword_screening.passed:
+        if paper.screening.keyword_screening and not paper.screening.keyword_screening.passed:
             papers_by_type[paper_type]["keyword_excluded"] += 1
         # Check semantic screening exclusion
-        elif paper.screening.semantic_screening and not paper.screening.semantic_screening.passed:
+        if paper.screening.semantic_screening and not paper.screening.semantic_screening.passed:
             papers_by_type[paper_type]["semantic_excluded"] += 1
-        elif final_decision == ScreeningDecision.UNCERTAIN:
+        if final_decision == ScreeningDecision.UNCERTAIN:
             papers_by_type[paper_type]["uncertain"] += 1
         # Check manual review flag
         elif final_decision == ScreeningDecision.MANUAL_REVIEW:
             papers_by_type[paper_type]["manual_review"] += 1
-        # Included
         elif paper.is_included:
             papers_by_type[paper_type]["included"] += 1
 
@@ -669,7 +674,84 @@ def _display_source_results(db: PapersDatabase) -> None:
     if duplicate_papers:
         console.print(f"  [dim]Duplicate records: {len(duplicate_papers)}[/dim]")
 
+def _display_debug_info(db: PapersDatabase) -> None:
+    """
+    Display results breakdown by source_database  with stage progression
+    
+    Args:
+        db: PapersDatabase instance to analyze
+    """
 
+    # Separate primary papers from duplicates
+    primary_papers = db.to_list(primary_only=True)
+    duplicate_papers = [p for p in db.to_list(primary_only=False) if p.is_duplicate]
+
+    # Group primary papers by paper_type and track through screening stages
+    papers_by_type = {}
+
+    for paper in primary_papers:
+        source_type = paper.discovery.source_database or "Unknown"
+        
+        if source_type not in papers_by_type:
+            papers_by_type[source_type] = {
+                "total": 0,
+            }
+
+
+        papers_by_type[source_type]["total"] += 1
+
+        # Keyword screening detail
+        if paper.screening.keyword_screening:
+            papers_by_type[source_type][paper.screening.keyword_screening.screening_decision] = papers_by_type[source_type].get(paper.screening.keyword_screening.screening_decision, 0) + 1
+
+
+    screening_decisions = set()
+    for decision in papers_by_type.values():
+        screening_decisions.update(decision.keys())
+
+    screening_decisions.discard("total")
+    screening_decisions = sorted(screening_decisions, key=lambda x: x.value)
+
+    totals = {decision: 0 for decision in screening_decisions}
+    totals["total"] = 0
+
+    # Create comprehensive table
+    table = Table(title="Screening Results Progression")
+    table.add_column("Paper Type", style="cyan", width=18)
+    table.add_column("Total", justify="right", style="bold")
+    for decision in screening_decisions:
+        table.add_column(f"{decision.name.replace('_', ' ')}", justify="right", style="yellow")
+
+    # Add rows for each paper type
+    for paper_type in sorted(papers_by_type.keys()):
+        counts = papers_by_type[paper_type]
+        totals["total"] += counts["total"]
+        for decision in screening_decisions:
+            totals[decision] += counts.get(decision, 0)
+
+        table.add_row(
+            paper_type,
+            str(counts["total"]),
+            *[str(counts.get(decision, 0)) for decision in screening_decisions],
+        )
+
+    # Add duplicates row if any exist
+    if duplicate_papers:
+        table.add_row(
+            "[dim]Duplicates[/dim]",
+            f"[dim]{len(duplicate_papers)}[/dim]",
+            *["[dim]-[/dim]" for _ in screening_decisions],
+        )
+
+    # Add total row (only counting primary papers in screening totals)
+    total_all = totals['total'] + len(duplicate_papers)
+    table.add_row(
+        "[bold]Total[/bold]",
+        f"[bold]{total_all}[/bold]",
+        *[f"[bold yellow]{totals[decision]}[/bold yellow]" for decision in screening_decisions]
+    )
+
+    console.print(table)
 
 def _display_citations_histogram(db: PapersDatabase) -> None:
     """
