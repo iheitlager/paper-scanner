@@ -128,6 +128,7 @@ Backward compatibility: `StepResult` supports dict-like access via `__getitem__`
 
 ## Important: Pre-Alpha Status
 - Breaking changes may occur between minor versions
+- For debugging you can always use `icecream` (`ic()`) to temporarily inspect the code and variables. The package is already included.
 - Limited to Claude API (Anthropic integration in `src/paper_scanner/core/llm.py`)
 - Test coverage critical before merging (`pytest` with coverage tracking)
 - Always update CHANGELOG.md with changes

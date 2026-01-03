@@ -2,7 +2,7 @@
 LLM-based paper classification step.
 
 Uses Claude to classify papers based on research dimensions defined in general_config.
-Classifies papers according to enumerated research dimensions and updates the 
+Classifies papers according to enumerated research dimensions and updates the
 SemanticScreening model with classification results.
 
 Configuration options:
@@ -30,8 +30,6 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-
-from rich.console import Console
 
 from paper_scanner.core.enum import ScreeningDecision, StepStatus
 from paper_scanner.core.exceptions import ConfigurationError, StepFatalError
@@ -80,10 +78,10 @@ Be strict and only include dimensions that clearly apply to the paper."""
     def validate(config: Dict) -> Tuple[bool, List[str]]:
         """
         Validate LLM classification configuration.
-        
+
         Args:
             config: Step configuration
-            
+
         Returns:
             Tuple of (is_valid, error_messages)
         """
@@ -112,7 +110,7 @@ Be strict and only include dimensions that clearly apply to the paper."""
     def execute(self, config: Dict, verbose: bool = False, dry_run: bool = False, debug: bool = False) -> Dict:
         """
         Execute LLM classification step.
-        
+
         Args:
             config: Step configuration with options:
                 - model: str (default: "claude-opus-4-20250514")
@@ -120,29 +118,27 @@ Be strict and only include dimensions that clearly apply to the paper."""
             verbose: Enable verbose output
             dry_run: Don't actually modify papers
             debug: Enable debug output
-            
+
         Returns:
             StepResult with execution results
         """
-        console = Console()
-        
         # Get research question and dimensions from general config
         research_question = self.general_config.get("research_question", "")
         research_dimensions = self.general_config.get("research_dimensions", [])
-        
+
         if not research_question:
             raise ConfigurationError("research_question must be set in project configuration")
-        
+
         if not research_dimensions:
             raise ConfigurationError("research_dimensions must be set in project configuration")
-        
+
         # Get model and thresholds
         model_name = config.get("model", "claude-opus-4-20250514")
         api_key = os.environ.get("ANTHROPIC_API_KEY")
-        
+
         if not api_key:
             raise ConfigurationError("ANTHROPIC_API_KEY environment variable is not set")
-        
+
         thresholds = config.get("thresholds", {})
         auto_include = thresholds.get("auto_include", 0.75)
         manual_review = thresholds.get("manual_review", 0.55)
@@ -170,7 +166,7 @@ Be strict and only include dimensions that clearly apply to the paper."""
             f"Model: '{model_name}'\n"
             f"Research question: '{research_question[:80]}...'\n"
             f"Dimensions: {len(research_dimensions)}",
-            debug=True
+            debug=True,
         )
 
         # Initialize classifier
@@ -187,13 +183,15 @@ Be strict and only include dimensions that clearly apply to the paper."""
         except Exception as e:
             raise StepFatalError(f"Failed to initialize LLM classifier: {e}", e)
 
+        def predicate(p: Paper) -> bool:
+            """Predicate to select papers needing classification."""
+            return p.screening.final_decision not in [ScreeningDecision.INCLUDED, ScreeningDecision.EXCLUDED]
+
         # Classify papers
-        all_papers = self.db.find(
-            predicate=lambda p: not p.screening.semantic_screening,
-            primary_only=True
-        )
-        
+        all_papers = self.db.find(predicate=predicate, primary_only=True)
+
         paper_count = len(all_papers)
+
         if paper_count == 0:
             return StepResult(
                 status=StepStatus.SUCCESS,
@@ -203,51 +201,45 @@ Be strict and only include dimensions that clearly apply to the paper."""
             )
 
         for i, paper in enumerate(all_papers, 1):
-            try:
-                if verbose and i % 10 == 0:
-                    self.callback(f"Classifying paper {i}/{paper_count}: {paper.cite_key}")
+            if i % 10 == 1:
+                self.callback(f"Classifying paper {i}/{paper_count}: {paper.cite_key}")
 
-                semantic_screening, raw_data = classifier.classify_paper(paper)
+            semantic_screening, raw_data = classifier.classify_paper(paper)
 
-                if not dry_run:
-                    # Set semantic screening in screening model
-                    paper.screening.semantic_screening = semantic_screening
-                    
-                    # Update final decision if not already decided
-                    if paper.screening.final_decision in (ScreeningDecision.PENDING, ScreeningDecision.UNCERTAIN):
-                        paper.screening.final_decision = semantic_screening.decision
-                        paper.screening.final_decision_by = "automated:llm_classification"
+            if not dry_run:
+                # Set semantic screening in screening model
+                paper.screening.semantic_screening = semantic_screening
 
-                    paper.screening.current_stage = "llm_classification_complete"
-                    
-                    # Update paper in database
-                    self.db.update(paper)
+                # Update final decision if not already decided
+                if paper.screening.final_decision in (ScreeningDecision.PENDING, ScreeningDecision.UNCERTAIN):
+                    paper.screening.final_decision = semantic_screening.decision
+                    paper.screening.final_decision_by = "automated:llm_classification"
 
-                results["classified"] += 1
+                paper.screening.current_stage = "llm_classification_complete"
 
-                if semantic_screening.decision == ScreeningDecision.INCLUDED:
-                    results["included"] += 1
-                elif semantic_screening.decision == ScreeningDecision.EXCLUDED:
-                    results["excluded"] += 1
-                elif semantic_screening.decision == ScreeningDecision.MANUAL_REVIEW:
-                    results["manual_review"] += 1
+                # Update paper in database
+                self.db.update(paper)
 
-                # Track tokens and cost
-                if raw_data.get("token_usage"):
-                    results["total_tokens"] += raw_data["token_usage"].get("output_tokens", 0)
-                    # Haiku costs roughly $0.80 per million input tokens, $2.40 per million output tokens
-                    results["total_cost"] += (raw_data["token_usage"].get("output_tokens", 0) / 1_000_000) * 2.40
+            results["classified"] += 1
 
-            except Exception as e:
-                if debug:
-                    raise
-                self.callback(f"[red]✗ Error classifying paper {paper.cite_key}: {e}[/red]")
+            if semantic_screening.decision == ScreeningDecision.INCLUDED:
+                results["included"] += 1
+            elif semantic_screening.decision == ScreeningDecision.EXCLUDED:
+                results["excluded"] += 1
+            elif semantic_screening.decision == ScreeningDecision.MANUAL_REVIEW:
+                results["manual_review"] += 1
+
+            # Track tokens and cost
+            if raw_data.get("token_usage"):
+                results["total_tokens"] += raw_data["token_usage"].get("output_tokens", 0)
+                # Haiku costs roughly $0.80 per million input tokens, $2.40 per million output tokens
+                results["total_cost"] += (raw_data["token_usage"].get("output_tokens", 0) / 1_000_000) * 2.40
 
         return StepResult(
             status=StepStatus.SUCCESS,
             message=f"LLM classification completed: Included {results['included']}, Excluded {results['excluded']}, Manual Review {results['manual_review']}",
             step="llm_classification",
-            stats=results
+            stats=results,
         )
 
 
@@ -274,46 +266,44 @@ class _LLMClassifier:
 
         if not api_key:
             api_key = os.environ.get("ANTHROPIC_API_KEY")
-        
+
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-        
+
         self.claude = ClaudeHandler(api_key=api_key, model=model_name)
 
     def _format_paper_text(self, paper: Paper) -> str:
         """Format paper details for LLM input."""
         lines = []
-        
+
         if paper.title:
             lines.append(f"TITLE: {paper.title}")
-        
+
         if paper.abstract:
             lines.append(f"ABSTRACT: {paper.abstract}")
-        
+
         if paper.keywords:
             keywords_str = ", ".join(paper.keywords) if isinstance(paper.keywords, list) else str(paper.keywords)
             lines.append(f"KEYWORDS: {keywords_str}")
-        
+
         if paper.year:
             lines.append(f"YEAR: {paper.year}")
-        
+
         if paper.authors and len(paper.authors) > 0:
-            author_names = [a.full_name if hasattr(a, 'full_name') else str(a) for a in paper.authors[:5]]
+            author_names = [a.full_name if hasattr(a, "full_name") else str(a) for a in paper.authors[:5]]
             authors_str = ", ".join(author_names)
             if len(paper.authors) > 5:
                 authors_str += f", and {len(paper.authors) - 5} more"
             lines.append(f"AUTHORS: {authors_str}")
-        
+
         return "\n".join(lines)
 
     def _build_prompt(self, paper: Paper) -> str:
         """Build the classification prompt for a single paper."""
-        dimensions_text = "\n".join(
-            f"- {i+1}. {dim}" for i, dim in enumerate(self.research_dimensions)
-        )
-        
+        dimensions_text = "\n".join(f"- {i + 1}. {dim}" for i, dim in enumerate(self.research_dimensions))
+
         paper_text = self._format_paper_text(paper)
-        
+
         prompt = f"""RESEARCH QUESTION:
 {self.research_question}
 
@@ -324,66 +314,66 @@ PAPER TO CLASSIFY:
 {paper_text}
 
 Please classify this paper according to the research dimensions listed above."""
-        
+
         return prompt
 
     def classify_paper(self, paper: Paper, max_tokens: int = 1024) -> Tuple[SemanticScreening, Dict]:
         """
         Classify a single paper.
-        
+
         Returns:
             Tuple of (SemanticScreening model, raw classification dict)
         """
         start_time = datetime.now(timezone.utc)
-        
+
         try:
             # Build prompt
             prompt = self._build_prompt(paper)
-            
+
             # Call Claude
             parsed_response, token_usage = self.claude.call(
                 text=prompt,
                 system_prompt=LLMClassificationStep.SYSTEM_PROMPT_TEMPLATE,
                 max_tokens=max_tokens,
             )
-            
+
             if not parsed_response:
                 raise ValueError("Claude API returned no response")
-            
+
             # Extract classification results
             classifications = parsed_response.get("classifications", {})
             overall_decision_str = parsed_response.get("overall_decision", "review").lower()
             summary = parsed_response.get("summary", "")
-            
+
             # Build classification vector and labels
             classification_vector = []
             classification_labels = []
             applies_count = 0
-            
+
             for dimension in self.research_dimensions:
                 if dimension in classifications:
                     dim_data = classifications[dimension]
                     confidence = float(dim_data.get("confidence", 0.0))
                     applies = dim_data.get("applies", False)
-                    
+
                     classification_vector.append(confidence)
-                    
+
                     if applies:
                         classification_labels.append(dimension)
                         applies_count += 1
                 else:
                     classification_vector.append(0.0)
-            
+
             # Determine decision based on average confidence
             avg_confidence = sum(classification_vector) / len(classification_vector) if classification_vector else 0.0
-            
+
             if overall_decision_str == "include" or avg_confidence >= self.auto_include_threshold:
                 decision = ScreeningDecision.INCLUDED
             elif overall_decision_str == "exclude" or avg_confidence < self.auto_exclude_threshold:
                 decision = ScreeningDecision.EXCLUDED
             else:
                 decision = ScreeningDecision.MANUAL_REVIEW
-            
+
             # Create SemanticScreening result
             metadata = ProcessingMetadata(
                 timestamp=start_time,
@@ -392,7 +382,7 @@ Please classify this paper according to the research dimensions listed above."""
                 tokens_used=token_usage.get("output_tokens", 0),
                 success=True,
             )
-            
+
             screening_result = SemanticScreening(
                 passed=decision != ScreeningDecision.EXCLUDED,
                 similarity_score=avg_confidence,
@@ -405,7 +395,7 @@ Please classify this paper according to the research dimensions listed above."""
                 reason=summary,
                 metadata=metadata,
             )
-            
+
             raw_data = {
                 "classifications": classifications,
                 "overall_decision": overall_decision_str,
@@ -416,9 +406,9 @@ Please classify this paper according to the research dimensions listed above."""
                 "dimension_count": len(self.research_dimensions),
                 "token_usage": token_usage,
             }
-            
+
             return screening_result, raw_data
-            
+
         except Exception as e:
             # Return a failed classification
             metadata = ProcessingMetadata(
@@ -428,7 +418,7 @@ Please classify this paper according to the research dimensions listed above."""
                 success=False,
                 error=str(e),
             )
-            
+
             screening_result = SemanticScreening(
                 passed=False,
                 similarity_score=0.0,
@@ -441,5 +431,5 @@ Please classify this paper according to the research dimensions listed above."""
                 reason=f"Classification error: {e}",
                 metadata=metadata,
             )
-            
+
             return screening_result, {"error": str(e), "token_usage": {}}
