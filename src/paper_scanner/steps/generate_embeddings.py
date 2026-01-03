@@ -43,10 +43,10 @@ class GenerateEmbeddingsStep(BaseStep):
     def __init__(
         self,
         general_config: Optional[Dict[str, Any]] = None,
-        executor = None,
-        db = None,
+        executor=None,
+        db=None,
         cache_dir: Optional[str] = None,
-        on_event = None,
+        on_event=None,
     ):
         """Initialize embedding step with extraction tools."""
         super().__init__(
@@ -125,6 +125,9 @@ class GenerateEmbeddingsStep(BaseStep):
         Returns:
             StepResult with execution status and statistics
         """
+        included_only = config.get("included_only", True)
+        min_year = config.get("min_year", None)
+
         try:
             # Parse configuration
             model_name = config.get("model", self.DEFAULT_MODEL)
@@ -145,14 +148,21 @@ class GenerateEmbeddingsStep(BaseStep):
                     stats={"papers_count": 0},
                 )
 
-            # Get papers from database
-            papers = self.db.all(primary_only=False)
+            def predicate(p: Paper) -> bool:
+                if p.pdf_info is None or p.pdf_info.file_path is None:
+                    return False
+                if included_only and not p.is_included:
+                    return False
+                if min_year and p.year < min_year:
+                    return False
 
-            # Apply filters
-            filtered_papers = self._apply_filters(papers, filter_config)
+                return True
+
+            # Get papers from database
+            papers = self.db.find(predicate=predicate, primary_only=True)
 
             # PASS 1: Create hierarchical TextChunk structure
-            self.callback("PASS 1: Creating hierarchical chunk structure...")
+            self.callback("PASS 1: Creating hierarchical chunk structure...", debug=True)
             chunks_by_paper = {}
             pass1_stats = {
                 "papers_processed": 0,
@@ -160,7 +170,10 @@ class GenerateEmbeddingsStep(BaseStep):
                 "chunks_created": 0,
             }
 
-            for idx, paper in enumerate(filtered_papers, 1):
+            for idx, paper in enumerate(papers, 1):
+                if idx % 10 == 1:
+                    self.callback(f"Chunking paper {idx}/{len(papers)}: {paper.cite_key}")
+
                 try:
                     if not paper.pdf_info or not paper.pdf_info.file_path:
                         continue
@@ -176,7 +189,7 @@ class GenerateEmbeddingsStep(BaseStep):
                         self.callback(f"Failed to create chunks for {paper.source_key}: {e}", debug=True)
 
             # PASS 2: Generate embeddings
-            self.callback("PASS 2: Generating embeddings for chunks...")
+            self.callback("PASS 2: Generating embeddings for chunks...", debug=True)
             pass2_stats = {
                 "sections_embedded": 0,
                 "paragraphs_embedded": 0,
@@ -184,16 +197,24 @@ class GenerateEmbeddingsStep(BaseStep):
                 "errors": 0,
             }
 
+            idx = 0
             for paper_id, chunks in chunks_by_paper.items():
+                if idx % 10 == 1:
+                    self.callback(f"Embedding paper {idx}/{len(papers)}: {paper.cite_key}")
+                idx += 1
+
                 try:
+                    # Get the paper object
+                    paper = next((p for p in papers if p.id == paper_id), None)
+                    if not paper:
+                        continue
+
                     # Generate embeddings for Level 1 (sections) and Level 2 (paragraphs)
                     embeddable = [c for c in chunks if c.hierarchy_level in (1, 2)]
-                    
+
                     for chunk in embeddable:
                         if chunk.text and len(chunk.text) > 5:
-                            embedding = self._generate_embedding(
-                                chunk.text, model, batch_size, model_name
-                            )
+                            embedding = self._generate_embedding(chunk.text, model, batch_size, model_name)
                             if embedding:
                                 chunk.embedding = embedding
                                 if chunk.hierarchy_level == 1:
@@ -204,6 +225,13 @@ class GenerateEmbeddingsStep(BaseStep):
                     # Aggregate: Create section embeddings from paragraph embeddings
                     section_aggs = self._aggregate_embeddings(chunks)
                     pass2_stats["section_aggregations"] += section_aggs
+
+                    # Attach chunks to paper
+                    paper.text_chunks = chunks
+
+                    # Update paper in database
+                    if not dry_run:
+                        self.db.update(paper)
 
                 except Exception as e:
                     pass2_stats["errors"] += 1
@@ -280,23 +308,6 @@ class GenerateEmbeddingsStep(BaseStep):
             return "cuda"
         else:
             return "cpu"
-
-    def _apply_filters(
-        self, papers: List[Paper], filter_config: Dict[str, Any]
-    ) -> List[Paper]:
-        """Apply filters to paper list."""
-        filtered = papers
-
-        # Filter by inclusion status
-        if filter_config.get("included_only", False):
-            filtered = [p for p in filtered if p.is_included]
-
-        # Filter by year
-        min_year = filter_config.get("min_year")
-        if min_year:
-            filtered = [p for p in filtered if p.year and p.year >= min_year]
-
-        return filtered
 
     def _create_chunks(self, paper: Paper) -> List[TextChunk]:
         """
@@ -414,9 +425,7 @@ class GenerateEmbeddingsStep(BaseStep):
 
         try:
             # Encode the text
-            vector = model.encode(
-                text, convert_to_tensor=False, batch_size=batch_size
-            )
+            vector = model.encode(text, convert_to_tensor=False, batch_size=batch_size)
 
             # Convert to list
             if isinstance(vector, np.ndarray):
