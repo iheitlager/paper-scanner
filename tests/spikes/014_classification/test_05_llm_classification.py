@@ -28,6 +28,10 @@ from datetime import datetime, timezone
 import re
 
 import pytest
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 # Paper Scanner imports
 from paper_scanner.core.models import (
