@@ -770,11 +770,13 @@ class StepExecutor:
                 result = self._execute_builtin_step(step_name, step_params, step_desc, dry_run)
 
             template_results.append(result)
-            total_count += result.stats.get("paper_count", 0) if result.stats else 0
+            total_count += result.stats.get("count", 0) if result.stats else 0
 
             if result.status == StepStatus.ERROR:
                 error_msg = f"Template '{template_name}' failed at step {step_name}: {result.get('error')}"
                 raise PipelineExecutionError(error_msg)
+
+            self.step_reporter.on_step_event(f"Template step: '{step_name}' - {result.message} (Status: {result.status.value})", debug=True)
 
         return StepResult(
             step="run-template",
@@ -783,12 +785,10 @@ class StepExecutor:
             status=StepStatus.SUCCESS,
             step_results=template_results,
             stats = {
-                "paper_count": total_count,
+                "count": total_count,
                 "steps_executed": len(template_results),
             },
-            details = [
-                f"template: {template_name}",
-            ]
+            details = [],
         )
 
     def run_all(

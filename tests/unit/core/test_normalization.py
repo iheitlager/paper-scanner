@@ -32,12 +32,12 @@ class TestNormalizerTitle:
     def test_title_whitespace(self):
         """Collapse multiple spaces"""
         result = Normalizer.normalize_title("  title  with   spaces  ")
-        assert result == "Title With Spaces"
+        assert result == "Title with Spaces"
 
     def test_title_latex_braces(self):
         """Remove LaTeX braces"""
         result = Normalizer.normalize_title("Title {with} {braces}")
-        assert result == "Title With Braces"
+        assert result == "Title with Braces"
 
     def test_title_none(self):
         """Handle None input"""
@@ -225,7 +225,7 @@ class TestNormalizerJournal:
         """Apply titlecase to journal name"""
         result = Normalizer.normalize_journal("the journal of machine learning")
         # Note: Uses standard titlecase, not smart titlecase
-        assert result == "The Journal Of Machine Learning"
+        assert result == "The Journal of Machine Learning"
 
     def test_journal_ampersands(self):
         """Normalize ampersands in journal name"""
@@ -586,6 +586,20 @@ class TestNormalizerIntegration:
         assert normalized['authors'] == []
         assert normalized['keywords'] == []
 
+class TestSentenceNormalization:
+    """Placeholder for future sentence normalization tests"""
+    title = [
+        ("Exploring the Academic-industry Collaboration In Knowledge Sharing For Supplier Selection: Digitalizing the Oem.", \
+            "Exploring the Academic-Industry Collaboration in Knowledge Sharing for Supplier Selection: Digitalizing the OEM."),
+        ("How Digital Transformation Improve Government Performance: the Mediating Role of Partnering Agility.", \
+            "How Digital Transformation Improve Government Performance: The Mediating Role of Partnering Agility."),
+    ]
+
+    def test_title_normalization(self):
+        """Test title normalization cases"""
+        for raw, expected in self.title :
+            normalized = Normalizer.normalize_title(raw)
+            assert normalized == expected
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -51,7 +51,7 @@ class TestCrossrefHandlerWithNormalizer:
 
         # Verify Normalizer would titlecase and collapse whitespace
         normalized_title = Normalizer.normalize_title(title)
-        assert normalized_title == "All Caps Title With Excessive Spacing"
+        assert normalized_title == "All Caps Title with Excessive Spacing"
 
     def test_crossref_abstract_extraction_with_markup(self, handler):
         """Test that Crossref abstract handles markup and normalization."""
@@ -387,12 +387,12 @@ class TestHandlerConsistencyWithNormalizer:
         paper = crossref_handler._translate_to_paper("10.1234/test", api_data)
 
         # Verify normalization was applied
-        assert paper.title == "Deep Learning For Computer Vision"
+        assert paper.title == "Deep Learning for Computer Vision"
         assert len(paper.authors) == 2
         # Authors are Author objects, verify the names are properly formatted
         assert paper.authors[0].full_name == "John Doe"
         assert paper.authors[1].full_name == "Jane Smith"
-        assert paper.journal == "IEEE Transactions On Neural Networks"
+        assert paper.journal == "IEEE Transactions on Neural Networks"
         assert len(paper.keywords) == 2
 
 

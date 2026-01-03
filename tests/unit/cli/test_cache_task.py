@@ -135,10 +135,16 @@ class TestCacheInfo:
         result = execute_cache_info(cache_dir=cache_dir, verbose=True)
         assert result == 0
 
-    def test_cache_info_default_cache_dir(self, monkeypatch):
+    def test_cache_info_default_cache_dir(self, tmp_path, monkeypatch):
         """Test cache info uses default cache directory"""
-        # This test would expand ~/.paper-scanner
-        monkeypatch.delenv("CACHE_DIR", raising=False)
+        # Create test cache directory structure
+        cache_dir = tmp_path / ".paper-scanner"
+        cache_dir.mkdir()
+        (cache_dir / "checkpoints").mkdir()
+        (cache_dir / "crossref").mkdir()
+        
+        # Mock HOME to use temp directory instead of actual user home
+        monkeypatch.setenv("HOME", str(tmp_path))
 
         result = execute_cache_info(cache_dir=None, verbose=False)
         assert result == 0

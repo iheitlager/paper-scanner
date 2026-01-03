@@ -49,11 +49,11 @@ class TestNormalizerPhase1:
         # Keywords: Split by semicolon (highest priority) + lowercase + deduplicate
         assert normalized['keywords'] == ['machine learning', 'deep learning', 'nlp']
         
-        # Journal: titlecase + normalize ampersands
-        assert normalized['journal'] == 'Journal Of Artificial Intelligence Research'
+        # Journal: titlecase + normalize ampersands (prepositions lowercase)
+        assert normalized['journal'] == 'Journal of Artificial Intelligence Research'
         
-        # Publisher: titlecase + normalize ampersands
-        assert normalized['publisher'] == 'Association For Computational Linguistics'
+        # Publisher: titlecase + normalize ampersands (prepositions lowercase)
+        assert normalized['publisher'] == 'Association for Computational Linguistics'
         
         # Year: parse string to int + validate range
         assert normalized['year'] == 2024
@@ -84,8 +84,8 @@ class TestNormalizerPhase1:
         
         normalized = Normalizer.normalize(raw_paper)
         
-        # Title: titlecase (already good, verify it stays)
-        assert normalized['title'] == 'The Impact Of Transformer Models On Natural Language Understanding'
+        # Title: titlecase (prepositions lowercase)
+        assert normalized['title'] == 'The Impact of Transformer Models on Natural Language Understanding'
         
         # Abstract: collapse whitespace + normalize ampersands
         assert normalized['abstract'] == 'This article surveys recent developments in transformer-based models & their applications.'
@@ -201,10 +201,10 @@ class TestNormalizerPhase1:
         
         normalized = Normalizer.normalize(raw_paper)
         
-        # Colon preserved, hyphen preserved
+        # Colon preserved, hyphen preserved (prepositions lowercase)
         assert ':' in normalized['title']
         assert '-' in normalized['title']
-        assert normalized['title'] == 'Bert: Pre-Training Of Deep Bidirectional Transformers For Language Understanding'
+        assert normalized['title'] == 'Bert: Pre-Training of Deep Bidirectional Transformers for Language Understanding'
 
     def test_normalize_doi_multiple_formats(self):
         """Test DOI normalization from various formats"""
@@ -338,8 +338,8 @@ class TestNormalizerIntegration:
         result_bibtex = Normalizer.normalize(paper_from_bibtex)
         result_api = Normalizer.normalize(paper_from_api)
         
-        # Titles should normalize identically
-        assert result_bibtex['title'] == result_api['title'] == 'Study Of Machine Learning'
+        # Titles should normalize identically (prepositions lowercase)
+        assert result_bibtex['title'] == result_api['title'] == 'Study of Machine Learning'
         
         # Authors should normalize identically (both titlecased)
         assert 'John' in result_bibtex['authors'][0]

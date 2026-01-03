@@ -505,13 +505,39 @@ class Normalizer:
             'ai', 'ml', 'it',
             'b2b', 'b2c', 'b2g'
             'ibm', 'hp', 'amd', 'sap',
-            'sql', 'html', 'css', 'json', 'xml'
+            'sql', 'html', 'css', 'json', 'xml', 
+            'erp', 'esg', 'it', 'ict',
+        }
+        # Lowercase prepositions, conjunctions and articles to preserve
+        # Location/Direction: in, on, at, by, to, from, into, onto, through, across, above, below, under, over, between, among, around, behind, before, after, inside, outside, near, beside, against
+        # Time: during, before, after, since, until, throughout, within
+        # Relationship: of, with, without, for, about, regarding, concerning, except, besides, like, unlike
+        # Other: as, than, or, and, but, yet, so, because, if, unless, while, when
+        # APA Style Guide official source:
+        # Publication: Publication Manual of the American Psychological Association (7th edition, 2020)
+        # Section: Chapter 4, "Formatting and Organization" → Capitalization rules for titles
+        # Online: https://apastyle.apa.org/style-grammar-guidelines/capitalization/title-case
+        lowercase = {
+            # Articles
+            'a', 'an', 'the',
+            # Conjunctions
+            'and', 'or', 'nor', 'but', 'yet', 'so',
+            # Location/Direction prepositions
+            'in', 'on', 'at', 'by', 'to', 'from', 'into', 'onto', 'through', 'across',
+            'above', 'below', 'under', 'over', 'between', 'among', 'around', 'behind',
+            'before', 'after', 'inside', 'outside', 'near', 'beside', 'against',
+            # Time prepositions
+            'during', 'since', 'until', 'throughout', 'within',
+            # Relationship prepositions
+            'of', 'with', 'without', 'for', 'about', 'regarding', 'concerning',
+            'except', 'besides', 'like', 'unlike',
+            # Other prepositions/conjunctions
+            'as', 'than', 'because', 'if', 'unless', 'while', 'when',
         }
 
         # Acronyms: map lowercase to proper case
         # Business entities (English, Dutch, French, German)
         # Scientific/academic acronyms
-        # Tech company acronyms
         acronyms = {
             # English
             'ltd': 'Ltd',
@@ -558,8 +584,11 @@ class Normalizer:
         
         words = text_processed.split()
         result = []
-        
+
+        first_word = False
         for i, word in enumerate(words):
+            if i == 0 or first_word:
+                first_word = True
             # Handle words that contain the placeholder
             if et_al_placeholder in word:
                 # Restore "et al" and preserve any attached punctuation
@@ -567,6 +596,8 @@ class Normalizer:
                 result.append(restored)
                 continue
             
+            if '–' in word:
+                word = word.replace('–', '-')
             # Handle hyphenated words
             if '-' in word:
                 parts = word.split('-')
@@ -580,35 +611,31 @@ class Normalizer:
                     elif part_clean in caps_only:
                         titlecased.append(part.upper())
                     # Capitalize unless it's a particle (and not first word overall)
-                    elif i == 0 or part_clean not in particles:
-                        titlecased.append(part.capitalize())
                     else:
-                        titlecased.append(part)
+                        titlecased.append(part.capitalize())
                 result.append('-'.join(titlecased))
             else:
                 word_clean = word.rstrip('.,;:').lower()
-                
                 # Check if word is an acronym (preserve original trailing punctuation)
                 if word_clean in acronyms:
                     # Preserve trailing punctuation
                     punct = word[len(word_clean):]
                     result.append(acronyms[word_clean] + punct)
-                # First word: capitalize unless it's a lowercase acronym
-                elif i == 0:
-                    if word_clean in lowercase_acronyms:
-                        result.append(word)
-                    else:
+                elif word_clean in lowercase:
+                    if first_word:
                         result.append(word.capitalize())
+                    else:
+                        result.append(word)
+                elif word_clean in caps_only:
+                    result.append(word.upper())
+                # First word: capitalize unless it's a lowercase acronym
                 # Check if word is a particle (minus trailing punctuation)
-                elif word_clean in particles:
-                    result.append(word)
-                # Check if word is a lowercase acronym
-                elif word_clean in lowercase_acronyms:
+                elif word_clean in particles and not first_word:
                     result.append(word)
                 # Regular word: capitalize
                 else:
                     result.append(word.capitalize())
-        
+            first_word = word[-1] == ":"
         return ' '.join(result)
 
     @staticmethod

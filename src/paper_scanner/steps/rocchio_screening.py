@@ -203,7 +203,7 @@ class RocchioScreeningStep(BaseStep):
             "centroids_initialized": False,
         }
 
-        self.callback(f"Model: '{model_name}'\nResearch question: '{research_question[:80]}...'", debug=True)
+        self.callback(f"Model: '{model_name}'\n Research question: '{research_question[:80]}...'", debug=True)
 
         # Initialize embedder
         try:
@@ -392,11 +392,6 @@ class RocchioScreeningStep(BaseStep):
                         paper.screening.final_decision = semantic_screening.decision
                         paper.screening.final_decision_by = "automated:rocchio_screening"
 
-                        self.callback(
-                            f"Paper {paper.doi}: score={classification['score']:.4f}, "
-                            f"decision={paper.screening.final_decision}",
-                            debug=True,
-                        )
                     paper.screening.current_stage = "rocchio_screening_complete"
                     self.db.update(paper)
 
@@ -410,9 +405,6 @@ class RocchioScreeningStep(BaseStep):
                     results["rejected"] += 1
                 else:
                     results["uncertain"] += 1
-
-                if verbose and (i + 1) % 10 == 0:
-                    self.callback(f"Classified {i + 1}/{len(all_papers)} papers", debug=False)
 
             except Exception as e:
                 self.callback(f"[red]✗ Error classifying paper {paper.cite_key}: {e}[/red]")

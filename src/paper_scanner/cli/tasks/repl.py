@@ -156,7 +156,13 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
     def on_step_end(self, idx: int, step_config: Dict, result: StepResult) -> None:
         # TODO: fix if this makes sense or propagates correctly
         if result.details:
-            self.log_debug(f"{'\n'.join(result.details)}")
+            self.log_debug(" Step result details:")
+            if isinstance(result.details, str):
+                self.log_debug(f"  • [{','.join(result.details)}]")
+            elif isinstance(result.details, dict):
+                for key, value in result.details.items():
+                    self.log_debug(f"  • {key}: {value}")
+
         if result.status == StepStatus.SKIPPED:
             self.log_info(" - Step skipped")
         elif result.status == StepStatus.SUCCESS and not self.in_macro_task:

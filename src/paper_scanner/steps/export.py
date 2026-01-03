@@ -12,16 +12,16 @@ from typing import Any, Dict, List, Tuple
 from rich.console import Console
 
 from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.exceptions import ConfigurationError
+from paper_scanner.core.step_result import StepResult
 
 from ..io.bibtex import papers_to_bibtex
 from ..io.json import papers_to_jsonl
 from .base import BaseStep
 
-# Initialize rich console
-console = Console(file=sys.stderr)
 
-VALID_FORMATS = {"jsonl", "bibtex"}
-VALID_DUPLICATES = {False, True, "only"}
+VALID_FORMATS = {"json", "jsonl", "bibtex"}
+VALID_FLAGS = {"true", "false", "only", "all", "no"}
 
 
 class ExportStep(BaseStep):
@@ -64,20 +64,31 @@ class ExportStep(BaseStep):
         # Check boolean fields
         if "exclude_none" in config and not isinstance(config["exclude_none"], bool):
             errors.append("'exclude_none' must be a boolean")
-
         if "overwrite" in config and not isinstance(config["overwrite"], bool):
             errors.append("'overwrite' must be a boolean")
 
-        if "doi" in config and config['doi']not in ('only', 'true', 'false', 'none'):
-            errors.append("'doi' must be either only, true, false, or none")
-
-        # Check duplicates option
+        # Check flag options
+        if "doi" in config:
+            c = config["doi"]
+            if c not in VALID_FLAGS:
+                errors.append(f"'doi' must be one of {VALID_FLAGS}, got {c}")
         if "duplicates" in config:
-            dup = config["duplicates"]
-            if dup not in VALID_DUPLICATES:
-                errors.append(f"'duplicates' must be one of {VALID_DUPLICATES}, got {dup}")
+            c = config["duplicates"]
+            if c not in VALID_FLAGS:
+                errors.append(f"'duplicates' must be one of {VALID_FLAGS}, got {c}")
+        if "includes" in config:
+            c = config["includes"]
+            if c not in VALID_FLAGS:
+                errors.append(f"'includes' must be one of {VALID_FLAGS}, got {c}")
 
         return len(errors) == 0, errors
+
+    @staticmethod
+    def _translate_flag(flag: Any) -> str:
+        """Translate boolean flag to string representation."""
+        if isinstance(flag, bool):
+            return "true" if flag else "false"
+        return str(flag).lower()
 
     def execute(
         self,
@@ -99,176 +110,131 @@ class ExportStep(BaseStep):
             Dictionary with execution results
         """
 
-        output_format = config.get("format", "jsonl").lower()
+        self.output_format = config.get("format", "jsonl").lower()
+        self.exclude_none = config.get("exclude_none", True)
+        self.overwrite = config.get("overwrite", False)  # Default to False - fail on existing files
 
         # Support both 'output' (new) and 'output_path' (legacy)
         output_target = config.get("output") or config.get("output_path")
-        is_stdout = output_target == "stdout"
+        self.is_stdout = output_target == "stdout"
 
-        exclude_none = config.get("exclude_none", True)
-        duplicates_option = config.get("duplicates", False)  # false, true, or "only"
-        overwrite = config.get("overwrite", False)  # Default to False - fail on existing files
-        doi_flag = config.get("doi", "false").lower()  # 'only', 'true', 'false', 'none'
+        duplicates_flag = self._translate_flag(config.get("duplicates", "no"))  # false, true, or "only"
+        includes_flag = self._translate_flag(config.get("includes", "only")) # 'only', 'all', 'none'
+        doi_flag = self._translate_flag(config.get("doi", "only"))  # 'only', 'true', 'false', 'none'
+
+        if not output_target:
+            raise ConfigurationError("Either 'output' or 'output_path' is required")
+        if self.output_format not in ("jsonl", "bibtex", "json"):
+            raise ConfigurationError(f"Unsupported format: {self.output_format}. Supported: jsonl, json, bibtex")
 
         # Expand tilde and resolve the path (only if not stdout)
         output_path = None
-        if output_target and not is_stdout:
-            output_path = str(Path(output_target).expanduser().resolve())
-
-        # Filter papers based on duplicates option
-        if duplicates_option == "only":
-            # Export only duplicates
-            papers_to_export = self.db.find(lambda p: p.duplicate_of is not None, primary_only=False)
-            duplicates_label = "duplicate papers only"
-        elif duplicates_option is True:
-            # Export all papers (with duplicates)
-            papers_to_export = self.db.to_list(primary_only=False)
-            duplicates_label = "all papers (including duplicates)"
-        else:
-            # Export only unique papers (no duplicates)
-            papers_to_export = self.db.to_list(primary_only=True)
-            duplicates_label = "unique papers only"
-
-        if doi_flag == "only" or doi_flag == "true":
-            papers_to_export = [p for p in papers_to_export if p.doi]
-        elif doi_flag == "none":
-            papers_to_export = [p for p in papers_to_export if not p.doi]
-
-        results = {
-            "step": "export",
-            "format": output_format,
-            "papers_exported": len(papers_to_export),
-            "papers_total": self.db.count(primary_only=False),
-            "duplicates_option": duplicates_option,
-            "output_path": output_path or "stdout",
-            "status": StepStatus.SUCCESS,
-            "error": None
-        }
-
-        if not output_target:
-            error_msg = "Either 'output' or 'output_path' is required"
-            results["status"] = StepStatus.ERROR
-            results["error"] = error_msg
-            if verbose:
-                console.print(f"  [red]✗ Error: {error_msg}[/red]")
-            return results
-
-        if output_format not in ("jsonl", "bibtex", "json"):
-            error_msg = f"Unsupported format: {output_format}. Supported: jsonl, json, bibtex"
-            results["status"] = StepStatus.ERROR
-            results["error"] = error_msg
-            if verbose:
-                console.print(f"  [red]✗ Error: {error_msg}[/red]")
-            return results
-
-        try:
+        if output_target and not self.is_stdout:
+            self.output_path = str(Path(output_target).expanduser().resolve())
             # Create output directory if needed (only for file output)
-            if not is_stdout and output_path:
-                path = Path(output_path)
+            if not self.is_stdout and self.output_path:
+                path = Path(self.output_path)
                 path.parent.mkdir(parents=True, exist_ok=True)
 
                 # Check if file exists and overwrite is False
-                if path.exists() and not overwrite:
-                    error_msg = f"File already exists and overwrite=False: {output_path}"
-                    results["status"] = StepStatus.ERROR
-                    results["error"] = error_msg
-                    if verbose:
-                        console.print(f"  [red]✗ Error: {error_msg}[/red]")
-                    return results
-            else:
-                path = None
+                if path.exists() and not self.overwrite:
+                    raise ConfigurationError(f"File already exists and overwrite=False: {self.output_path}")
 
-            if verbose:
-                # Build descriptive message based on duplicates option
-                total_count = self.db.count(primary_only=False)
-                if duplicates_option == "only":
-                    export_desc = f"[cyan]duplicate papers[/cyan] ({len(papers_to_export)}/{total_count})"
-                elif duplicates_option is True:
-                    export_desc = f"[cyan]all papers[/cyan] ({len(papers_to_export)}/{total_count})"
-                else:
-                    export_desc = f"[cyan]unique papers[/cyan] ({len(papers_to_export)}/{total_count})"
+        def predicate(p) -> bool:
+            """Predicate to filter papers based on DOI flag."""
+            c = True
+            if doi_flag in ["only", "true", True]:
+                # export if doi is set or 'only' if doi is set
+                c &= p.doi is not None
+            elif doi_flag in ["false", False]:
+                # export if doi is not set
+                c &= p.doi is None
+            # else do not care about doi
 
-                console.print(f"\n  [bold cyan]Exporting {export_desc} to {output_format}[/bold cyan]")
-                console.print(f"    [yellow]Papers:[/yellow] {duplicates_label} ({len(papers_to_export)}/{total_count})")
-                console.print(f"    [yellow]Output path:[/yellow] {output_path}")
+            if duplicates_flag in ["only", "true", True]:
+                # export only duplicates
+                c &= p.duplicate_of is not None
+            elif duplicates_flag is ["no", "false", False]:
+                # export only unique papers (default)
+                c &= p.duplicate_of is None
+            # else do not care
 
-            if not dry_run:
-                if output_format == "jsonl":
-                    # Export to JSONL format
-                    jsonl_content = papers_to_jsonl(papers_to_export, exclude_none=exclude_none)
+            if includes_flag in ["only", "true", True]:
+                # export only papers that were included
+                c &= p.is_included is True
+            elif includes_flag == ["no", "false", False]:
+                # export only papers that were excluded
+                c &= p.is_included is False
+            # else export all papers
 
-                    if is_stdout:
-                        sys.stdout.write(jsonl_content)
-                    else:
-                        with open(path, 'w', encoding='utf-8') as f:
-                            f.write(jsonl_content)
+            return c
 
-                    # Count lines
-                    line_count = len(papers_to_export)
-                    results["output_format"] = "JSONL (one JSON object per line)"
-                    results["file_size_bytes"] = len(jsonl_content.encode('utf-8'))
+        papers_to_export = self.db.find(predicate)
 
-                    if verbose:
-                        console.print(f"    [green]✓ Exported {line_count} papers to JSONL[/green]")
-                        console.print(f"    [cyan]File size:[/cyan] {results['file_size_bytes']} bytes")
+        results = {
+            "format": self.output_format,
+            "duplicates": duplicates_flag,
+            "includes": includes_flag,
+            "doi": doi_flag,
+            "output_path": "<stdout>" if self.is_stdout else self.output_path,
+        }
 
-                elif output_format == "json":
-                    # Export to JSON format (array of papers)
-                    papers_dicts = [p.model_dump(mode='json', exclude_none=exclude_none) for p in papers_to_export]
-                    json_content = json.dumps(papers_dicts, indent=2, default=str)
+        stats = {
+            "count": len(papers_to_export),
+        }
 
-                    if is_stdout:
-                        sys.stdout.write(json_content)
-                    else:
-                        with open(path, 'w', encoding='utf-8') as f:
-                            f.write(json_content)
+        if not dry_run:
+            if self.output_format == "jsonl":
+                self._export_to_jsonl(papers_to_export)
 
-                    results["output_format"] = "JSON (array of papers)"
-                    results["file_size_bytes"] = len(json_content.encode('utf-8'))
+            elif self.output_format == "json":
+                self._export_json(papers_to_export)
 
-                    if verbose:
-                        console.print(f"    [green]✓ Exported {len(papers_to_export)} papers to JSON array[/green]")
-                        console.print(f"    [cyan]File size:[/cyan] {results['file_size_bytes']} bytes")
+            elif self.output_format == "bibtex":
+                self._export_bibtex(papers_to_export)
 
-                elif output_format == "bibtex":
-                    # Export to BibTeX format
-                    bibtex_content = papers_to_bibtex(papers_to_export)
+            message = f"Exported {len(papers_to_export)} papers to {self.output_format} at {output_path or 'stdout'}"
+        else:
+            message = f"Dry run: would export {len(papers_to_export)} papers to {self.output_format} at {output_path or 'stdout'}"
 
-                    if is_stdout:
-                        sys.stdout.write(bibtex_content)
-                    else:
-                        with open(path, 'w', encoding='utf-8') as f:
-                            f.write(bibtex_content)
+        return StepResult(
+            status=StepStatus.SUCCESS,
+            step=self.name,
+            message=message,
+            stats=stats,
+            details=results,
+        )
 
-                    results["output_format"] = "BibTeX"
-                    results["file_size_bytes"] = len(bibtex_content.encode('utf-8'))
 
-                    if verbose:
-                        console.print(f"    [green]✓ Exported {len(papers_to_export)} papers to BibTeX[/green]")
-                        console.print(f"    [cyan]File size:[/cyan] {results['file_size_bytes']} bytes")
+    def _export_bibtex(self, papers: List[Any]) -> None:
+        """Export papers to BibTeX file."""
 
-            else:
-                # Dry run - just show what would happen
-                if output_format == "jsonl":
-                    results["output_format"] = "JSONL (one JSON object per line)"
-                    if verbose:
-                        console.print(f"    [yellow][DRY RUN] Would export {len(papers_to_export)} papers to JSONL[/yellow]")
-                elif output_format == "json":
-                    results["output_format"] = "JSON (array of papers)"
-                    if verbose:
-                        console.print(f"    [yellow][DRY RUN] Would export {len(papers_to_export)} papers to JSON array[/yellow]")
-                elif output_format == "bibtex":
-                    results["output_format"] = "BibTeX"
-                    if verbose:
-                        console.print(f"    [yellow][DRY RUN] Would export {len(papers_to_export)} papers to BibTeX[/yellow]")
+        bibtex_content = papers_to_bibtex(papers)
 
-            results["status"] = StepStatus.SUCCESS
-            return results
+        if self.is_stdout:
+            with Console(file=sys.stdout, force_terminal=True) as console:
+                console.print(bibtex_content)
+        with open(self.output_path, 'w', encoding='utf-8') as f:
+            f.write(bibtex_content)
 
-        except Exception as e:
-            error_msg = f"Failed to export database: {str(e)}"
-            results["status"] = StepStatus.ERROR
-            results["error"] = error_msg
-            if verbose:
-                console.print(f"  [red]✗ Error exporting database: {str(e)}[/red]")
-            return results
+    def _export_jsonl(self, papers: List[Any]) -> None:    
+        """Export papers to JSONL file."""
+
+        jsonl_content = papers_to_jsonl(papers, exclude_none=self.exclude_none)
+
+        if self.is_stdout:
+            with Console(file=sys.stdout, force_terminal=True) as console:
+                console.print(jsonl_content)
+        with open(self.output_path, 'w', encoding='utf-8') as f:
+            f.write(jsonl_content)
+
+    def _export_json(self, papers: List[Any]) -> None:
+        """Export papers to JSON file."""
+        papers_dicts = [p.model_dump(mode='json', exclude_none=self.exclude_none) for p in papers]
+        json_content = json.dumps(papers_dicts, indent=2, default=str)
+
+        if self.is_stdout:
+            with Console(file=sys.stdout, force_terminal=True) as console:
+                console.print(json_content)
+        with open(self.output_path, 'w', encoding='utf-8') as f:
+            f.write(json_content)
