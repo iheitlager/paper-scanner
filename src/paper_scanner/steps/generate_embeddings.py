@@ -21,19 +21,13 @@ Configuration example:
 import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer
+from typing import Any, Dict, List, Optional, Tuple
 
-from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import StepStatus
-from paper_scanner.core.exceptions import ConfigurationError
 from paper_scanner.core.models import Embedding, Paper, TextChunk
 from paper_scanner.core.step_result import StepResult
 from paper_scanner.tools.embedding.citation_remover import CitationRemover
 from paper_scanner.tools.embedding.extractor import PDFExtractor
-from paper_scanner.tools.embedding.sections import (
-    detect_sections,
-    group_sections_hierarchically,
-    normalize_section_name,
-)
 
 from .base import BaseStep
 

@@ -33,10 +33,6 @@ from sentence_transformers import SentenceTransformer
 from paper_scanner.core.models import Embedding, Paper, TextChunk
 from paper_scanner.tools.embedding.citation_remover import CitationRemover
 from paper_scanner.tools.embedding.extractor import PDFExtractor
-from paper_scanner.tools.embedding.sections import (
-    detect_sections,
-    group_sections_hierarchically,
-)
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
@@ -45,11 +41,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
-# Suppress debug logging from external libraries
+# Suppress debug logging from external libraries we actually use
 logging.getLogger("pdfplumber").setLevel(logging.WARNING)
-logging.getLogger("fitz").setLevel(logging.WARNING)
-logging.getLogger("pymupdf").setLevel(logging.WARNING)
-logging.getLogger("PIL").setLevel(logging.WARNING)
 logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 
 
