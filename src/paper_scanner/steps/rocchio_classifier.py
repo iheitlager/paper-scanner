@@ -175,7 +175,6 @@ class RocchioClassifierStep(BaseStep):
                 research_dimensions=research_dimensions,
                 model_name=model_name,
                 initialize_from_rq=initialize_from_rq,
-                logger=self.callback,
             )
         except Exception as e:
             raise StepFatalError(f"Failed to initialize Rocchio classifier: {e}", e)
@@ -250,7 +249,6 @@ class _RocchioClassifier:
         research_dimensions: List[str],
         model_name: str = "all-mpnet-base-v2",
         initialize_from_rq: bool = True,
-        logger=None,
     ):
         """
         Initialize Rocchio classifier.
@@ -260,13 +258,11 @@ class _RocchioClassifier:
             research_dimensions: List of dimension names (each becomes a centroid)
             model_name: Sentence transformer model to use
             initialize_from_rq: Initialize centroids from research question
-            logger: Optional logging callback function
         """
         self.research_question = research_question
         self.research_dimensions = research_dimensions
         self.model_name = model_name
         self.initialize_from_rq = initialize_from_rq
-        self.logger = logger or (lambda msg, debug=False: None)
 
         # Load embedding model
         if SentenceTransformer is None:
@@ -290,18 +286,12 @@ class _RocchioClassifier:
         if self.initialize_from_rq:
             self._initialize_from_research_question()
 
-        self.logger(
-            f"Rocchio classifier initialized with {len(research_dimensions)} dimensions",
-            debug=True,
-        )
-
     def _initialize_from_research_question(self):
         """Initialize centroids from research question + dimension name."""
         for dimension in self.research_dimensions:
             text = f"{self.research_question}. {dimension}."
             embedding = self.compute_embedding(text)
             self.dimension_centroids[dimension] = embedding
-        self.logger("Initialized centroids from research question", debug=True)
 
     def compute_embedding(self, text: str) -> List[float]:
         """
@@ -455,8 +445,6 @@ class _RocchioClassifier:
             return screening_result, raw_data
 
         except Exception as e:
-            self.logger(f"Error classifying paper {paper.cite_key}: {e}", debug=True)
-
             metadata = ProcessingMetadata(
                 timestamp=start_time,
                 duration_seconds=(datetime.now(timezone.utc) - start_time).total_seconds(),
