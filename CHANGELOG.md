@@ -5,15 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.6.0] - TBD
+## [3.6.0] - 2026-01-03
 
 ### Added
 
+- **RIS File Import Step** (`ris_import`): Support for importing papers from RIS format files
+  - Compatible with ProQuest and other RIS exporters
+  - Automatic DOI extraction and paper metadata normalization
+  - Bidirectional journal name harmonization using ISO4 abbreviations
+
+- **Journal Screening Step** (`journal_screening`): Quality-based journal filtering
+  - Configurable journal tiers (A, B, C, Other) with inclusive/exclusive lists
+  - Automatic journal name harmonization to handle variant names
+  - ISO4 abbreviation support for journal identification
+  - Marks papers with excluded journals as EXCLUDED_JOURNAL
+
+- **Step Enable/Disable Feature**: Control pipeline execution dynamically
+  - Configurable via YAML with `enabled: true/false` for each step
+  - Allows flexible pipeline composition without code changes
+  - Maintains checkpoint compatibility
+
 ### Changed
+
+- **Normalization System**: Complete refactor and standardization
+  - Extracted normalization logic into centralized `src/paper_scanner/core/normalization.py`
+  - Applied consistently across bibtex_import, ris_import, and all screening steps
+  - Removed duplicate normalization code throughout the codebase
+  - Improved whitespace handling and special character processing
+
+- **BibTeX Export**: Refactored with improved organization and error handling
+  - Better handling of papers with missing required fields
+  - Improved special character escaping and ampersand normalization
+  - Cleaner code structure with better separation of concerns
+
+- **Cite Key Generation**: Refactored for better maintainability
+  - Moved DOI-based and collision-detection logic to dedicated `cite_key.py`
+  - Improved handling of cite key collisions in deduplication
+  - Better support for papers with varying metadata availability
+
+- **Paper Model**: Enhanced database schema and model
+  - Improved tracking of screening decision origins
+  - Better support for journal metadata and ISO4 abbreviations
 
 ### Fixed
 
+- **Unit Tests**: Comprehensive test suite updates and fixes
+  - Removed backward compatibility functions (fully migrated to new APIs)
+  - Fixed all remaining warnings and test issues
+  - Updated spike tests for normalization and journal screening
+
+- **Export Step**: Bug fixes for edge cases
+  - Proper handling of papers with incomplete metadata
+  - Improved robustness in BibTeX generation
+  - Fixed issues with special character handling
+
+- **Rocchio Screening**: Improved algorithm implementation
+  - Fixed edge cases in centroid calculation
+  - Better handling of uncertain classifications
+  - Enhanced documentation and examples
+
 ### Removed
+
+- **Backward Compatibility Functions**: Deprecated old normalization APIs
+  - Fully migrated to centralized normalization system
+  - Cleaned up legacy code paths
 
 ## [3.5.0] - 2025-12-30
 
