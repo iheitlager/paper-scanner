@@ -260,6 +260,56 @@ class PaperToRowConverter:
         return paper
 
 
+class EmbeddingToRowConverter:
+    """Converts Pydantic Embedding model to SQL row format for pgvector storage"""
+
+    @staticmethod
+    def embedding_to_row(
+        embedding,
+        paper_id: str,
+        embedding_method: str = "title",
+        embedding_version: int = 1,
+    ) -> Dict[str, Any]:
+        """
+        Convert Embedding model to PostgreSQL row dictionary.
+        
+        Maps Embedding fields to paper_embeddings table columns:
+        - vector (List[float]) → pgvector format (array of floats)
+        - model → model_name column
+        - text_source → embedding_method if not provided
+        - created_at → created_at timestamp
+        
+        Args:
+            embedding: Embedding model instance
+            paper_id: UUID of paper being embedded
+            embedding_method: What was embedded (title, abstract, keywords, full_text, etc.)
+            embedding_version: Version of embedding algorithm
+            
+        Returns:
+            Dictionary with SQL column names and serialized values
+            
+        Raises:
+            ValueError: If embedding vector is not 768 dimensions
+        """
+        # Validate vector dimensions
+        if len(embedding.vector) != 768:
+            raise ValueError(
+                f"Embedding vector must be 768 dimensions, got {len(embedding.vector)}"
+            )
+
+        # Convert vector to pgvector format (Python list works directly with psycopg2-binary)
+        row = {
+            "paper_id": paper_id,
+            "embedding": embedding.vector,  # psycopg2 with pgvector support handles lists
+            "model_name": embedding.model,
+            "embedding_method": embedding_method,
+            "embedding_version": embedding_version,
+            "created_at": embedding.created_at,
+        }
+
+        return row
+
+
 class PaperUploader:
     """Handles bulk paper uploads with conflict resolution"""
 
@@ -370,6 +420,146 @@ class PaperUploader:
             raise
 
         return stats
+
+    def insert_embeddings(
+        self,
+        papers: List[Paper],
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Insert embeddings from papers into paper_embeddings table.
+        
+        For each paper with title_abstract_embedding, creates a row in paper_embeddings
+        with the 768-dimensional vector and metadata.
+        
+        Uses UPSERT (ON CONFLICT) to handle re-embeddings of the same paper with
+        the same model and embedding_method.
+        
+        Args:
+            papers: List of Paper models with embeddings
+            dry_run: If True, don't actually insert
+            
+        Returns:
+            Dictionary with insertion statistics:
+            {
+                "inserted": int,      # New embeddings
+                "upserted": int,      # Updated existing embeddings
+                "skipped": int,       # Papers without embeddings
+                "errors": List[str],
+                "error_count": int,
+            }
+        """
+        stats = {
+            "inserted": 0,
+            "upserted": 0,
+            "skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        if not papers:
+            logger.info("No papers to embed")
+            return stats
+
+        # Filter papers with embeddings
+        papers_with_embeddings = [
+            p for p in papers
+            if p.title_abstract_embedding is not None
+        ]
+
+        if not papers_with_embeddings:
+            logger.info("No papers with embeddings to insert")
+            stats["skipped"] = len(papers)
+            return stats
+
+        if dry_run:
+            logger.info(f"DRY RUN: Would insert {len(papers_with_embeddings)} embeddings")
+            stats["inserted"] = len(papers_with_embeddings)
+            stats["skipped"] = len(papers) - len(papers_with_embeddings)
+            return stats
+
+        try:
+            with self.pool.get_connection() as conn:
+                with self.transaction(conn):
+                    cursor = conn.cursor()
+
+                    for paper in papers_with_embeddings:
+                        try:
+                            self._insert_single_embedding(cursor, paper)
+                            stats["upserted"] += 1
+                        except Exception as e:
+                            error_msg = f"Embedding for {paper.cite_key}: {str(e)}"
+                            logger.error(error_msg)
+                            stats["errors"].append(error_msg)
+                            stats["error_count"] += 1
+
+                    cursor.close()
+                    stats["skipped"] = len(papers) - len(papers_with_embeddings)
+                    
+                    logger.info(
+                        f"Inserted/updated {stats['upserted']} embeddings, "
+                        f"skipped {stats['skipped']}, errors: {stats['error_count']}"
+                    )
+
+        except Exception as e:
+            logger.error(f"Bulk embedding insert failed: {e}")
+            raise
+
+        return stats
+
+    def _insert_single_embedding(
+        self,
+        cursor,
+        paper: Paper,
+    ) -> None:
+        """
+        Insert or update a single embedding.
+        
+        Uses ON CONFLICT (paper_id, model_name, embedding_method, embedding_version)
+        to update if already exists.
+        
+        Args:
+            cursor: psycopg2 cursor
+            paper: Paper model with embedding
+        """
+        if paper.title_abstract_embedding is None:
+            return
+
+        embedding = paper.title_abstract_embedding
+
+        # Convert embedding to row format
+        row = EmbeddingToRowConverter.embedding_to_row(
+            embedding,
+            paper_id=paper.id,
+            embedding_method="title",  # Default to title for title_abstract_embedding
+            embedding_version=1,
+        )
+
+        # Build INSERT ... ON CONFLICT query
+        columns = list(row.keys())
+        values_placeholders = sql.SQL(', ').join(
+            sql.Placeholder(name=col) for col in columns
+        )
+
+        insert_sql = sql.SQL(
+            "INSERT INTO paper_embeddings ({}) VALUES ({})"
+        ).format(
+            sql.SQL(', ').join(map(sql.Identifier, columns)),
+            values_placeholders
+        )
+
+        # Update on conflict: update embedding, created_at on conflict
+        update_clause = sql.SQL(', ').join([
+            sql.SQL('embedding = EXCLUDED.embedding'),
+            sql.SQL('created_at = EXCLUDED.created_at'),
+        ])
+        
+        insert_sql += sql.SQL(
+            " ON CONFLICT (paper_id, model_name, embedding_method, embedding_version) "
+            "DO UPDATE SET "
+        ) + update_clause
+
+        cursor.execute(insert_sql, row)
 
     def _insert_single_paper(
         self,

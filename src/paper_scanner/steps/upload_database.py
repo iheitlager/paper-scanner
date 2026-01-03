@@ -212,6 +212,11 @@ class UploadDatabaseStep(BaseStep):
                 "citation_edges": {
                     "edges_inserted": 0,
                     "edges_skipped": 0,
+                },
+                "embeddings": {
+                    "upserted": 0,
+                    "skipped": 0,
+                    "errors": 0,
                 }
             }
 
@@ -249,6 +254,26 @@ class UploadDatabaseStep(BaseStep):
                         f"{stats['error_count']} errors[/yellow]"
                     )
 
+            # Upload embeddings for all papers
+            if verbose:
+                console.print("[cyan]Uploading embeddings[/cyan]")
+
+            embedding_stats = uploader.insert_embeddings(papers, dry_run=False)
+            all_stats["embeddings"]["upserted"] = embedding_stats["upserted"]
+            all_stats["embeddings"]["skipped"] = embedding_stats["skipped"]
+            all_stats["embeddings"]["errors"] = embedding_stats["error_count"]
+            
+            if embedding_stats["error_count"] > 0:
+                all_stats["errors"].extend(embedding_stats["errors"])
+                all_stats["error_count"] += embedding_stats["error_count"]
+
+            if verbose:
+                if embedding_stats["upserted"] > 0:
+                    console.print(
+                        f"[cyan]Embeddings: {embedding_stats['upserted']} upserted, "
+                        f"{embedding_stats['skipped']} skipped[/cyan]"
+                    )
+
             # Determine status based on results
             if all_stats["error_count"] == total_papers:
                 # All papers failed
@@ -278,6 +303,9 @@ class UploadDatabaseStep(BaseStep):
                     "conflict_strategy": conflict_strategy,
                     "citation_edges_inserted": all_stats["citation_edges"]["edges_inserted"],
                     "citation_edges_skipped": all_stats["citation_edges"]["edges_skipped"],
+                    "embeddings_upserted": all_stats["embeddings"]["upserted"],
+                    "embeddings_skipped": all_stats["embeddings"]["skipped"],
+                    "embeddings_errors": all_stats["embeddings"]["errors"],
                 },
                 details=details
             )
@@ -332,9 +360,12 @@ class UploadDatabaseStep(BaseStep):
         if stats["citation_edges"]["edges_inserted"] > 0:
             parts.append(f"citation edges: {stats['citation_edges']['edges_inserted']}")
 
+        # Add embeddings info
+        if stats["embeddings"]["upserted"] > 0:
+            parts.append(f"embeddings: {stats['embeddings']['upserted']}")
+
         summary = ", ".join(parts) if parts else "no changes"
         return f"Upload complete: {summary} (strategy: {strategy})"
-
     def _get_database_url(self, config: Dict[str, Any]) -> Optional[str]:
         """
         Construct or retrieve database URL from configuration.
