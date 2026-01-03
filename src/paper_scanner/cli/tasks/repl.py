@@ -473,8 +473,8 @@ class ReplController(AbstractController):
     # Macro REPL step implementations
     # ================================================================
 
-    @macro_step("step", "n", "\\")
-    def step_cmd(self, args: list[str]) -> StepResult:
+    @macro_step("next", "n", "\\\\")
+    def next_cmd(self, args: list[str]) -> StepResult:
         """Execute next step"""
         if not self.executor.has_next_step:
             return StepResult(status=StepStatus.WARNING, message="Step: All steps done")
@@ -506,6 +506,18 @@ class ReplController(AbstractController):
                 return result
         return StepResult(status=StepStatus.SUCCESS)
 
+    @macro_step("step", "s")
+    def step_cmd(self, args: list[str]) -> StepResult:
+        """Step management"""
+        if args[0] == "enable" and args[1].isdigit():
+            self.executor.enable_step(int(args[1]) - 1)
+            return StepResult(status=StepStatus.SUCCESS, message=f"Step {args[1]} enabled")
+        elif args[0] == "disable" and args[1].isdigit():
+            self.executor.disable_step(int(args[1]) - 1)
+            return StepResult(status=StepStatus.SUCCESS, message=f"Step {args[1]} disabled")
+        else:
+            raise ValueError("Usage: \\step [enable|disable] <step_number>")
+
     @macro_step("steps", "ls")
     def list_steps_cmd(self, args: list[str]) -> StepResult:
         """List all steps"""
@@ -523,8 +535,12 @@ class ReplController(AbstractController):
             steps = self.executor.steps
             for idx, step in enumerate(steps):
                 status = "✓" if idx < self.executor.current_step_index else " "
+                command = step.get("command", "unknown")
                 description = step.get("step", "No description")
-                self.controller_reporter.log(f"[{status}] Step {idx + 1}: [blue]{description}[/blue] ([dim]{step['command']}[/dim])")
+                if step.get("enabled", True) == False:
+                    command = f"[red]{command}[/red]"
+                    description = f"[strike][red]{description}[/red][/strike]"
+                self.controller_reporter.log(f"[{status}] Step {idx + 1}: [blue]{description}[/blue] ([dim]{command}[/dim])")
 
         self.controller_reporter.log("")
         return StepResult(status=StepStatus.SUCCESS)

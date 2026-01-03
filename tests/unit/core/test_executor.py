@@ -469,7 +469,7 @@ class TestStepExecution:
         """Test executing step with overridden config"""
         executor.load_definition(sample_definition_file)
 
-        override_config = {"step": "Override", "enable": False, "builtin.echo": {"message": "overridden"}}
+        override_config = {"step": "Override", "enabled": False, "builtin.echo": {"message": "overridden"}}
 
         result = executor.execute_step(0, step_config=override_config)
 
@@ -479,7 +479,7 @@ class TestStepExecution:
         """Test executing step with overridden config"""
         executor.load_definition(sample_definition_file)
 
-        override_config = {"step": "Override", "enable": True, "builtin.echo": {"message": "overridden"}}
+        override_config = {"step": "Override", "enabled": True, "builtin.echo": {"message": "overridden"}}
         result = executor.execute_step(0, step_config=override_config)
 
         assert result.status == StepStatus.SUCCESS

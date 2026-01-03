@@ -401,6 +401,41 @@ class StepExecutor:
 
         return step_name, step_params, description
 
+    def enable_step(self, step_index: int) -> None:
+        """
+        Enable a disabled step by index.
+
+        Args:
+            step_index: Index of the step to enable
+
+        Raises:
+            IndexError: If step_index is out of range
+        """
+        if step_index < 0 or step_index >= len(self.steps):
+            raise IndexError(f"Step index out of range: {step_index}")
+
+        step_config = self.steps[step_index]
+        step_config["enabled"] = True
+
+    def disable_step(self, step_index: int) -> None:
+        """
+        Disable a step by index.
+
+        Args:
+            step_index: Index of the step to disable
+
+        Raises:
+            IndexError: If step_index is out of range
+        """
+        if step_index < 0 or step_index >= len(self.steps):
+            raise IndexError(f"Step index out of range: {step_index}")
+
+        step_config = self.steps[step_index]
+        step_config["enabled"] = False
+    # ========================================================================
+    # Definition Loading and Validation
+    # ========================================================================
+
     def load_definition(self, definition_file: Path) -> bool:
         """
         Load and validate a YAML definition file.
@@ -441,7 +476,7 @@ class StepExecutor:
         # Load main steps section
         self.steps = self.definition.get("steps", [])
         for step in self.steps:
-            step['command'] = tuple(set(step.keys()) - {"step", "description", "enable"})[0]
+            step['command'] = tuple(set(step.keys()) - {"step", "description", "enabled"})[0]
 
         # Validate all template references (fail early)
         self._validate_template_references()
@@ -478,6 +513,14 @@ class StepExecutor:
         for step in self.steps:
             check_step_templates(step)
 
+    def _get_project_hash(self) -> str:
+        """Get deterministic project hash for checkpoint naming"""
+        project_name = self.general_config.get("project_name", "unknown")
+        return hashlib.md5(project_name.encode()).hexdigest()[:8]
+
+    # =========================================================================
+    # Checkpoint Management
+    # =========================================================================
     def load_checkpoint(self, skip_checkpoint: bool = False, clear_checkpoint: bool = False) -> None:
         """
         Manage checkpoint state (load, skip, or clear).
@@ -565,11 +608,9 @@ class StepExecutor:
             except (TypeError, ValueError) as e:
                 raise CheckpointError(f"Invalid paper data in checkpoint: {checkpoint_file}") from e
 
-    def _get_project_hash(self) -> str:
-        """Get deterministic project hash for checkpoint naming"""
-        project_name = self.general_config.get("project_name", "unknown")
-        return hashlib.md5(project_name.encode()).hexdigest()[:8]
-
+    # =========================================================================
+    # Step Execution
+    # =========================================================================
     def execute_step(
         self,
         step_index: int,
@@ -613,7 +654,7 @@ class StepExecutor:
             if self.step_reporter:
                 self.step_reporter.on_step_start(self.current_step_index, step_config, total=len(self.steps))
 
-            if step_config.get("enable", True) != False:
+            if step_config.get("enabled", True) != False:
                 # Handle run-template: recursively execute template steps
                 if step_name == "run-template":
                     result = self._execute_template(step_params, description, dry_run)
@@ -634,7 +675,7 @@ class StepExecutor:
                 {
                     "index": step_index,
                     "step": step_name,
-                    "enabled": step_config.get("enable", True),
+                    "enabledd": step_config.get("enabled", True),
                     "status": result.get("status", "unknown"),
                     "duration_ms": int(duration * 1000),
                 }
