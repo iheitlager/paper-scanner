@@ -146,7 +146,7 @@ class GenerateEmbeddingsStep(BaseStep):
                 )
 
             # Get papers from database
-            papers = self.db.list_papers(limit=None)
+            papers = self.db.all(primary_only=False)
 
             # Apply filters
             filtered_papers = self._apply_filters(papers, filter_config)
