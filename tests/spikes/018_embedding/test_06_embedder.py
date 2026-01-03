@@ -144,8 +144,8 @@ class EmbeddingGenerator:
             text = result["text"]
             hierarchical = result["hierarchical_sections"]
 
-            # Create chunks hierarchy
-            chunks = self._build_chunk_hierarchy(paper.id, hierarchical)
+            # Create chunks hierarchy with paper reference
+            chunks = self._build_chunk_hierarchy(paper, hierarchical)
             return chunks
 
         except Exception as e:
@@ -153,21 +153,20 @@ class EmbeddingGenerator:
             return []
 
     def _build_chunk_hierarchy(
-        self, paper_id: str, hierarchical_sections: dict
+        self, paper: Paper, hierarchical_sections: dict
     ) -> List[TextChunk]:
-        """Build TextChunk hierarchy from sections."""
+        """Build TextChunk hierarchy from sections with proper references."""
         chunks = []
         chunk_index = 0
 
         # Root chunk for the paper (Level 0)
         paper_chunk = TextChunk(
-            id=paper_id,
             chunk_index=chunk_index,
             text="[Paper root]",
             section=None,
             hierarchy_level=0,
-            parent_id=None,
-            parent_type=None,
+            paper=paper,  # Direct reference to paper
+            parent_chunk=None,
             word_count=0,
         )
         chunks.append(paper_chunk)
@@ -192,12 +191,12 @@ class EmbeddingGenerator:
                     text=section_content[:100] + "..." if len(section_content) > 100 else section_content,
                     section=section_name,
                     hierarchy_level=1,
-                    parent_id=paper_id,
-                    parent_type="paper",
+                    paper=paper,  # Direct reference to paper
+                    parent_chunk=paper_chunk,  # Direct reference to parent
                     word_count=len(section_content.split()),
                 )
                 chunks.append(section_chunk)
-                section_id = section_chunk.id
+                paper_chunk.children_chunks.append(section_chunk)  # Add to parent's children
                 chunk_index += 1
 
                 # Create paragraph chunks (Level 2)
@@ -208,11 +207,12 @@ class EmbeddingGenerator:
                         text=paragraph.strip(),
                         section=section_name,
                         hierarchy_level=2,
-                        parent_id=section_id,
-                        parent_type="section",
+                        paper=paper,  # Direct reference to paper
+                        parent_chunk=section_chunk,  # Direct reference to parent section
                         word_count=len(paragraph.split()),
                     )
                     chunks.append(para_chunk)
+                    section_chunk.children_chunks.append(para_chunk)  # Add to parent's children
                     chunk_index += 1
 
         return chunks

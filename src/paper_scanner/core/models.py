@@ -144,14 +144,15 @@ class TextChunk(BaseModel):
     """Chunk of paper text with embedding"""
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    paper: Optional['Paper'] = None  # Back-reference to paper
     chunk_index: int
     text: str
     section: Optional[str] = None  # "introduction", "methods", "results", etc.
 
     # Hierarchy support
     hierarchy_level: int = Field(default=0, description="0=paper, 1=section, 2=paragraph, 3=sentence")
-    parent_id: Optional[str] = None  # ID of parent chunk (paper or section)
-    parent_type: Optional[str] = None  # "paper", "section", "paragraph"
+    parent_chunk: Optional['TextChunk'] = None  # ID of parent chunk (paper or section)
+    children_chunks: List['TextChunk'] = Field(default_factory=list)
 
     # Boundaries
     start_char: Optional[int] = None

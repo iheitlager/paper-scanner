@@ -227,10 +227,10 @@ class GenerateEmbeddingsStep(BaseStep):
                     pass2_stats["section_aggregations"] += section_aggs
 
                     # Attach chunks to paper
-                    paper.text_chunks = chunks
 
                     # Update paper in database
                     if not dry_run:
+                        paper.text_chunks = chunks
                         self.db.update(paper)
 
                 except Exception as e:
@@ -328,13 +328,12 @@ class GenerateEmbeddingsStep(BaseStep):
 
             # Root chunk (Level 0)
             paper_chunk = TextChunk(
-                id=paper.id,
                 chunk_index=chunk_index,
                 text="[Paper root]",
                 section=None,
                 hierarchy_level=0,
-                parent_id=None,
-                parent_type=None,
+                paper=paper,  # Direct reference to paper
+                parent_chunk=None,
                 word_count=0,
             )
             chunks.append(paper_chunk)
@@ -362,12 +361,12 @@ class GenerateEmbeddingsStep(BaseStep):
                         text=cleaned_content[:100] + "..." if len(cleaned_content) > 100 else cleaned_content,
                         section=section_name,
                         hierarchy_level=1,
-                        parent_id=paper.id,
-                        parent_type="paper",
+                        paper=paper,  # Direct reference to paper
+                        parent_chunk=paper_chunk,  # Direct reference to parent
                         word_count=len(cleaned_content.split()),
                     )
                     chunks.append(section_chunk)
-                    section_id = section_chunk.id
+                    paper_chunk.children_chunks.append(section_chunk)  # Build hierarchy
                     chunk_index += 1
 
                     # Paragraph chunks (Level 2)
@@ -378,11 +377,12 @@ class GenerateEmbeddingsStep(BaseStep):
                             text=paragraph.strip(),
                             section=section_name,
                             hierarchy_level=2,
-                            parent_id=section_id,
-                            parent_type="section",
+                            paper=paper,  # Direct reference to paper
+                            parent_chunk=section_chunk,  # Direct reference to parent section
                             word_count=len(paragraph.split()),
                         )
                         chunks.append(para_chunk)
+                        section_chunk.children_chunks.append(para_chunk)  # Build hierarchy
                         chunk_index += 1
 
             return chunks
@@ -453,18 +453,15 @@ class GenerateEmbeddingsStep(BaseStep):
         """
         count = 0
 
-        # Build hierarchy
-        sections = {c.id: c for c in chunks if c.hierarchy_level == 1}
-        paragraphs = [c for c in chunks if c.hierarchy_level == 2]
+        # Get all section chunks
+        sections = [c for c in chunks if c.hierarchy_level == 1]
 
-        # Group paragraphs by parent section
-        for section_id, section in sections.items():
-            section_paragraphs = [p for p in paragraphs if p.parent_id == section_id]
-
-            # Get paragraph embeddings
+        # For each section, aggregate its paragraph embeddings
+        for section in sections:
+            # Get paragraph embeddings from section's children
             para_embeddings = [
                 np.array(p.embedding.vector)
-                for p in section_paragraphs
+                for p in section.children_chunks
                 if p.embedding and hasattr(p.embedding, "vector")
             ]
 
