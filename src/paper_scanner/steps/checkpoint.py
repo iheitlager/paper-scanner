@@ -52,7 +52,7 @@ class CheckpointStep(BaseStep):
         verbose: bool = False,
         dry_run: bool = False,
         debug: bool = False
-    ) -> Dict[str, Any]:
+    ) -> StepResult:
         """
         Execute checkpoint step
         
@@ -63,7 +63,7 @@ class CheckpointStep(BaseStep):
             debug: Enable debug output
         
         Returns:
-            Result dictionary
+            StepResult with checkpoint file path and paper count
         """
 
         # Get step index and project name from config
@@ -96,7 +96,6 @@ class CheckpointStep(BaseStep):
             console.print(f"[cyan]Checkpoint saved[/cyan]: {checkpoint_file.name} ({self.db.count(primary_only=False)} papers)")
 
         return StepResult(
-            step="checkpoint",
             status=StepStatus.SUCCESS,
             message="Checkpoint saved",
             description=f"Checkpoint at step {step_index} for project '{project_name}'",

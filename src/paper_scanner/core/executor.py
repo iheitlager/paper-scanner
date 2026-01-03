@@ -599,12 +599,12 @@ class StepExecutor:
             except (TypeError, ValueError) as e:
                 raise CheckpointError(f"Invalid paper data in checkpoint: {checkpoint_file}") from e
 
-    def checkpoint(self) -> Dict[str, Any]:
+    def checkpoint(self) -> StepResult:
         """
         Save current database state as checkpoint.
 
         Returns:
-            Checkpoint result dictionary
+            StepResult with checkpoint metadata in stats dict
         """
         try:
             checkpoints_dir = self.cache_dir / CHECKPOINT_DIR
@@ -639,11 +639,9 @@ class StepExecutor:
             return StepResult(
                 status=StepStatus.SUCCESS,
                 message="Checkpoint saved successfully",
-                details={
-                   "checkpoint_file": str(checkpoint_file),
-                },
                 stats={
-                    "count": len(self.papers_db.papers),
+                    "checkpoint_file": str(checkpoint_file),
+                    "papers_count": len(self.papers_db.papers),
                 },
             )
 

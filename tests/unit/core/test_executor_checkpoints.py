@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.executor import StepExecutor
 from paper_scanner.core.models import Paper
 from paper_scanner.core.reporter import NoOpReporter
@@ -103,15 +104,12 @@ class TestCheckpointManagement:
 
         result = executor.checkpoint()
 
-        if result["status"] != "ok":
-            print(f"Checkpoint error: {result}")
-
-        assert result["status"] == "ok"
-        assert "checkpoint_file" in result
-        assert result["papers_count"] == 1
+        assert result.status == StepStatus.SUCCESS
+        assert "checkpoint_file" in result.stats
+        assert result.stats["papers_count"] == 1
 
         # Verify file exists
-        checkpoint_file = Path(result["checkpoint_file"])
+        checkpoint_file = Path(result.stats["checkpoint_file"])
         assert checkpoint_file.exists()
 
     def test_checkpoint_file_format(self, executor, sample_definition_file, temp_cache_dir):
@@ -130,7 +128,7 @@ class TestCheckpointManagement:
         executor.current_step_index = 1
 
         result = executor.checkpoint()
-        checkpoint_file = Path(result["checkpoint_file"])
+        checkpoint_file = Path(result.stats["checkpoint_file"])
 
         with open(checkpoint_file) as f:
             data = json.load(f)
@@ -201,8 +199,8 @@ class TestCheckpointManagement:
 
         result = executor.checkpoint()
 
-        assert result["status"] == "ok"
-        assert result["papers_count"] == 0
+        assert result.status == StepStatus.SUCCESS
+        assert result.stats["papers_count"] == 0
 
 
 if __name__ == "__main__":

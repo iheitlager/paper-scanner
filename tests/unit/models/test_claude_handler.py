@@ -2,7 +2,10 @@
 
 """Unit tests for Claude handler functionality."""
 
-from unittest.mock import Mock, patch
+import base64
+import tempfile
+from pathlib import Path
+from unittest.mock import Mock, patch, MagicMock
 
 from paper_scanner.models.anthropic import ClaudeHandler
 
@@ -116,3 +119,270 @@ class TestClaudeHandler:
 
         assert hasattr(handler, "client")
         assert handler.client is not None
+
+    @patch("paper_scanner.models.anthropic.parse_json_response")
+    @patch("paper_scanner.models.anthropic.Anthropic")
+    def test_call_with_text_input(self, mock_anthropic_class, mock_parse_json):
+        """Test calling Claude with plain text input."""
+        # Setup mock
+        mock_client = Mock()
+        mock_anthropic_class.return_value = mock_client
+        
+        mock_response = Mock()
+        mock_response.content = [Mock(text="{'result': 'success'}")]
+        mock_response.usage = Mock(input_tokens=100, output_tokens=50)
+        mock_client.messages.create.return_value = mock_response
+        
+        # Mock the JSON parser
+        expected_result = {"result": "success"}
+        mock_parse_json.return_value = expected_result
+        
+        # Execute
+        handler = ClaudeHandler(api_key="test_key", model="claude-3-opus-20240229")
+        result, token_usage = handler.call(
+            text="Hello Claude",
+            system_prompt="You are helpful",
+            max_tokens=1000
+        )
+        
+        # Verify
+        assert result == expected_result
+        assert token_usage["input_tokens"] == 100
+        assert token_usage["output_tokens"] == 50
+        mock_client.messages.create.assert_called_once()
+
+    @patch("paper_scanner.models.anthropic.parse_json_response")
+    @patch("paper_scanner.models.anthropic.Anthropic")
+    def test_call_with_pdf_file(self, mock_anthropic_class, mock_parse_json):
+        """Test calling Claude with PDF file input."""
+        # Create a temporary PDF file
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".pdf", delete=False) as f:
+            f.write(b"PDF content")
+            pdf_path = f.name
+        
+        try:
+            # Setup mock
+            mock_client = Mock()
+            mock_anthropic_class.return_value = mock_client
+            
+            mock_response = Mock()
+            mock_response.content = [Mock(text='{"pdf": "analyzed"}')]
+            mock_response.usage = Mock(input_tokens=150, output_tokens=75)
+            mock_client.messages.create.return_value = mock_response
+            
+            # Mock JSON parser
+            expected_result = {"pdf": "analyzed"}
+            mock_parse_json.return_value = expected_result
+            
+            # Execute
+            handler = ClaudeHandler(api_key="test_key")
+            result, token_usage = handler.call(
+                text=pdf_path,
+                system_prompt="Analyze this PDF",
+                max_tokens=2000
+            )
+            
+            # Verify
+            assert result == expected_result
+            assert token_usage["input_tokens"] == 150
+            assert token_usage["output_tokens"] == 75
+            
+            # Verify that messages.create was called with document content
+            call_args = mock_client.messages.create.call_args
+            messages = call_args.kwargs["messages"]
+            assert len(messages) == 1
+            assert len(messages[0]["content"]) == 1
+            assert messages[0]["content"][0]["type"] == "document"
+        finally:
+            Path(pdf_path).unlink()
+
+    @patch("paper_scanner.models.anthropic.parse_json_response")
+    @patch("paper_scanner.models.anthropic.Anthropic")
+    def test_call_with_pdf_that_fails_to_open(self, mock_anthropic_class, mock_parse_json):
+        """Test calling Claude with PDF that can't be opened - falls back to text."""
+        # Setup mock
+        mock_client = Mock()
+        mock_anthropic_class.return_value = mock_client
+        
+        mock_response = Mock()
+        mock_response.content = [Mock(text='{"fallback": "text"}')]
+        mock_response.usage = Mock(input_tokens=100, output_tokens=50)
+        mock_client.messages.create.return_value = mock_response
+        
+        # Mock JSON parser
+        expected_result = {"fallback": "text"}
+        mock_parse_json.return_value = expected_result
+        
+        logged = []
+        def log_fn(msg):
+            logged.append(msg)
+        
+        # Execute with non-existent PDF path
+        handler = ClaudeHandler(api_key="test_key", logger=log_fn)
+        result, token_usage = handler.call(
+            text="/nonexistent/file.pdf",
+            system_prompt="Test",
+            max_tokens=1000
+        )
+        
+        # Verify - should treat as text since file doesn't exist
+        assert result == expected_result
+        assert token_usage["input_tokens"] == 100
+        
+        # Verify the text content was used
+        call_args = mock_client.messages.create.call_args
+        messages = call_args.kwargs["messages"]
+        assert messages[0]["content"][0]["type"] == "text"
+
+    @patch("paper_scanner.models.anthropic.parse_json_response")
+    @patch("paper_scanner.models.anthropic.time.sleep")
+    @patch("paper_scanner.models.anthropic.Anthropic")
+    def test_call_with_rate_limit_error_and_retry(self, mock_anthropic_class, mock_sleep, mock_parse_json):
+        """Test that rate limit errors trigger retry logic."""
+        from anthropic import RateLimitError
+        
+        # Setup mock
+        mock_client = Mock()
+        mock_anthropic_class.return_value = mock_client
+        
+        # First call raises RateLimitError, second succeeds
+        mock_response = Mock()
+        mock_response.content = [Mock(text='{"retry": "success"}')]
+        mock_response.usage = Mock(input_tokens=100, output_tokens=50)
+        
+        # Create instances that will trigger isinstance checks
+        mock_client.messages.create.side_effect = [
+            RateLimitError(message="Rate limited", response=Mock(status_code=429), body={}),
+            mock_response
+        ]
+        
+        # Mock JSON parser
+        expected_result = {"retry": "success"}
+        mock_parse_json.return_value = expected_result
+        
+        logged = []
+        def log_fn(msg):
+            logged.append(msg)
+        
+        # Execute
+        handler = ClaudeHandler(api_key="test_key", logger=log_fn)
+        result, token_usage = handler.call(
+            text="Test",
+            system_prompt="Test",
+            max_tokens=1000
+        )
+        
+        # Verify
+        assert result == expected_result
+        mock_sleep.assert_called_once_with(61)  # RATE_LIMIT_WAIT
+        assert any("Rate limit" in msg for msg in logged)
+
+    @patch("paper_scanner.models.anthropic.time.sleep")
+    @patch("paper_scanner.models.anthropic.Anthropic")
+    def test_call_with_max_retries_exceeded(self, mock_anthropic_class, mock_sleep):
+        """Test that max retries are respected."""
+        from anthropic import RateLimitError
+        
+        # Setup mock to always raise RateLimitError
+        mock_client = Mock()
+        mock_anthropic_class.return_value = mock_client
+        
+        # Create real RateLimitError instances
+        rate_limit_error = RateLimitError(message="Rate limited", response=Mock(status_code=429), body={})
+        
+        mock_client.messages.create.side_effect = rate_limit_error
+        
+        logged = []
+        def log_fn(msg):
+            logged.append(msg)
+        
+        # Execute
+        handler = ClaudeHandler(api_key="test_key", logger=log_fn)
+        result, token_usage = handler.call(
+            text="Test",
+            system_prompt="Test",
+            max_tokens=1000
+        )
+        
+        # Verify
+        assert result is None
+        assert token_usage["input_tokens"] == 0
+        assert token_usage["output_tokens"] == 0
+        assert mock_sleep.call_count == 5  # MAX_RETRIES
+        assert any("Max retries" in msg for msg in logged)
+
+    @patch("paper_scanner.models.anthropic.Anthropic")
+    def test_call_with_generic_error(self, mock_anthropic_class):
+        """Test that generic errors are caught."""
+        # Setup mock
+        mock_client = Mock()
+        mock_anthropic_class.return_value = mock_client
+        mock_client.messages.create.side_effect = ValueError("Some error")
+        
+        logged = []
+        def log_fn(msg):
+            logged.append(msg)
+        
+        # Execute
+        handler = ClaudeHandler(api_key="test_key", logger=log_fn)
+        result, token_usage = handler.call(
+            text="Test",
+            system_prompt="Test",
+            max_tokens=1000
+        )
+        
+        # Verify
+        assert result is None
+        assert token_usage["input_tokens"] == 0
+        assert any("Error calling Claude API" in msg for msg in logged)
+
+    @patch("paper_scanner.models.anthropic.parse_json_response")
+    @patch("paper_scanner.models.anthropic.Anthropic")
+    def test_call_with_pdf_file_read_error(self, mock_anthropic_class, mock_parse_json):
+        """Test calling Claude with PDF file that fails to read."""
+        # Create a temporary PDF file
+        with tempfile.NamedTemporaryFile(mode="wb", suffix=".pdf", delete=False) as f:
+            f.write(b"PDF content")
+            pdf_path = f.name
+        
+        try:
+            # Setup mock
+            mock_client = Mock()
+            mock_anthropic_class.return_value = mock_client
+            
+            mock_response = Mock()
+            mock_response.content = [Mock(text='{"fallback": "text_mode"}')]
+            mock_response.usage = Mock(input_tokens=100, output_tokens=50)
+            mock_client.messages.create.return_value = mock_response
+            
+            # Mock JSON parser
+            expected_result = {"fallback": "text_mode"}
+            mock_parse_json.return_value = expected_result
+            
+            logged = []
+            def log_fn(msg):
+                logged.append(msg)
+            
+            # Patch open to raise an exception
+            with patch("builtins.open", side_effect=PermissionError("Cannot read file")):
+                # Execute
+                handler = ClaudeHandler(api_key="test_key", logger=log_fn)
+                result, token_usage = handler.call(
+                    text=pdf_path,
+                    system_prompt="Test",
+                    max_tokens=1000
+                )
+            
+            # Verify - should fall back to text mode
+            assert result == expected_result
+            assert token_usage["input_tokens"] == 100
+            
+            # Verify warning was logged
+            assert any("Could not encode PDF" in msg for msg in logged)
+            
+            # Verify text content was used
+            call_args = mock_client.messages.create.call_args
+            messages = call_args.kwargs["messages"]
+            assert messages[0]["content"][0]["type"] == "text"
+        finally:
+            Path(pdf_path).unlink()
