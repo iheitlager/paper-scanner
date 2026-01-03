@@ -278,6 +278,12 @@ class SemanticScreening(BaseModel):
     similarity_score: float = Field(ge=0, le=1)
     threshold: float = Field(ge=0, le=1)
 
+    # Classification details
+    classification_vector: Optional[List[float]] = None
+    classification_labels: Optional[List[str]] = None
+    classification: Optional[str] = None  # e.g., "include", "exclude", "maybe"
+
+    # Screening Decision
     decision: Optional[ScreeningDecision] = None
     confidence: Optional[float] = Field(ge=0, le=1, default=None)
     reason: Optional[str] = None

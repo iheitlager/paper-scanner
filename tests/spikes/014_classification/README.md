@@ -190,14 +190,21 @@ uv run pytest tests/spikes/014_classification/test_02_metadata_screening_screen_
 # Keyword screening tests
 uv run pytest tests/spikes/014_classification/test_03_keyword_screening.py -v
 
+# LLM classification tests (requires ANTHROPIC_API_KEY)
+uv run pytest tests/spikes/014_classification/test_05_llm_classification.py -v
+
 # Manual demos (with output)
 uv run python tests/spikes/014_classification/test_03_keyword_screening.py --manual
-# Screening logic tests only
-uv run pytest tests/spikes/014_classification/test_02_metadata_screening_screen_files.py -v
-
-# Manual test with output
-uv run python tests/spikes/014_classification/test_01_metadata_screening_parse.py --manual
 ```
+
+### Test Files Summary
+
+| File | Purpose | Tests |
+|------|---------|-------|
+| `test_01_metadata_screening_parse.py` | YAML parsing & validation | 24 |
+| `test_02_metadata_screening_screen_files.py` | Metadata filtering logic | 17 |
+| `test_03_keyword_screening.py` | Keyword pattern matching & study type detection | 21 |
+| `test_05_llm_classification.py` | Claude-based paper classification | ✓ |
 
 ---
 
