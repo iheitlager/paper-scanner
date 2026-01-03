@@ -553,12 +553,12 @@ def _display_source_results(db: PapersDatabase) -> None:
         if paper.screening.metadata_screening and not paper.screening.metadata_screening.passed:
             papers_by_type[source_type]["metadata_excluded"] += 1
         # Check keyword screening exclusion
-        elif paper.screening.keyword_screening and not paper.screening.keyword_screening.passed:
+        if paper.screening.keyword_screening and not paper.screening.keyword_screening.passed:
             papers_by_type[source_type]["keyword_excluded"] += 1
         # Check semantic screening exclusion
-        elif paper.screening.semantic_screening and not paper.screening.semantic_screening.passed:
+        if paper.screening.semantic_screening and not paper.screening.semantic_screening.passed:
             papers_by_type[source_type]["semantic_excluded"] += 1
-        elif final_decision == ScreeningDecision.UNCERTAIN:
+        if final_decision == ScreeningDecision.UNCERTAIN:
             papers_by_type[source_type]["uncertain"] += 1
         # Check manual review flag
         elif final_decision == ScreeningDecision.MANUAL_REVIEW:

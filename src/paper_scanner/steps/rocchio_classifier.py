@@ -282,14 +282,14 @@ class _RocchioClassifier:
         }
         self.dimension_paper_counts: Dict[str, int] = {dim: 0 for dim in research_dimensions}
 
-        # Initialize centroids if requested
-        if self.initialize_from_rq:
-            self._initialize_from_research_question()
+        self._initialize_embedding()
 
-    def _initialize_from_research_question(self):
+    def _initialize_embedding(self):
         """Initialize centroids from research question + dimension name."""
         for dimension in self.research_dimensions:
-            text = f"{self.research_question}. {dimension}."
+            text = f"{dimension}."
+            if self.initialize_from_rq:
+                text = f"{self.research_question}. {text}"
             embedding = self.compute_embedding(text)
             self.dimension_centroids[dimension] = embedding
 

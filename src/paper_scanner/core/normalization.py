@@ -509,7 +509,7 @@ class Normalizer:
             'nfv',
             'erp', 'ocr',
             'esg', 'ict', 'cpu', 'gpu', 'ram',
-            '3G', '4G', '5G', '6G',
+            '3g', '4g', '5g', '6g',
             'uav',
         }
         # Lowercase prepositions, conjunctions and articles to preserve
