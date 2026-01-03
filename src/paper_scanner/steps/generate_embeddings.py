@@ -143,7 +143,6 @@ class GenerateEmbeddingsStep(BaseStep):
             logger.info(f"Loading embedding model: {model_name}")
             try:
                 model = SentenceTransformer(model_name, device=device)
-                logger.info(f"✓ Model loaded successfully (device: {device})")
             except Exception as e:
                 return StepResult(
                     status=StepStatus.ERROR,
@@ -153,13 +152,10 @@ class GenerateEmbeddingsStep(BaseStep):
                 )
 
             # Get papers from database
-            logger.info("Fetching papers from database...")
             papers = self.db.list_papers(limit=None)
-            logger.info(f"Found {len(papers)} papers total")
 
             # Apply filters
             filtered_papers = self._apply_filters(papers, filter_config)
-            logger.info(f"After filtering: {len(filtered_papers)} papers")
 
             # Generate embeddings
             stats = {
@@ -174,7 +170,6 @@ class GenerateEmbeddingsStep(BaseStep):
                 try:
                     # Check if we should skip
                     if skip_existing and self._has_embeddings(paper):
-                        logger.debug(f"Skipping {paper.cite_key} (already has embeddings)")
                         stats["embeddings_skipped"] += 1
                         continue
 
@@ -211,18 +206,9 @@ class GenerateEmbeddingsStep(BaseStep):
                         if not dry_run:
                             self.db.update_paper(paper)
                         stats["embeddings_generated"] += embeddings_created
-                        logger.debug(
-                            f"{i}/{len(filtered_papers)}: {paper.cite_key} "
-                            f"({embeddings_created} embeddings)"
-                        )
-                    else:
-                        logger.debug(f"{i}/{len(filtered_papers)}: {paper.cite_key} (no text)")
 
                 except Exception as e:
-                    logger.error(f"Error processing {paper.cite_key}: {e}")
                     stats["errors"] += 1
-                    if debug:
-                        raise
 
             # Prepare result message
             message = (
@@ -256,7 +242,6 @@ class GenerateEmbeddingsStep(BaseStep):
             )
 
         except Exception as e:
-            logger.error(f"Embedding generation failed: {e}", exc_info=debug)
             return StepResult(
                 status=StepStatus.ERROR,
                 message="Embedding generation failed",
@@ -311,10 +296,6 @@ class GenerateEmbeddingsStep(BaseStep):
 
             # Validate dimensions
             if len(vector) != self.VECTOR_DIM:
-                logger.warning(
-                    f"Vector has {len(vector)} dimensions, expected {self.VECTOR_DIM}. "
-                    "Padding/truncating."
-                )
                 if len(vector) < self.VECTOR_DIM:
                     vector = vector + [0.0] * (self.VECTOR_DIM - len(vector))
                 else:
@@ -323,5 +304,4 @@ class GenerateEmbeddingsStep(BaseStep):
             return Embedding(vector=vector, model=model_name, text_source=text_source)
 
         except Exception as e:
-            logger.warning(f"Failed to generate embedding: {e}")
             return None

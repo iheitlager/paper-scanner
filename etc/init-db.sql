@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS papers (
     topics TEXT[],  -- Array of topic tags
     year INTEGER,
     journal VARCHAR(500),
-    journal _acronym VARCHAR(100),
+    journal_acronym VARCHAR(100),
     journal_iso4 VARCHAR(255),
     booktitle VARCHAR(500),  -- For conference papers
     publisher VARCHAR(255),
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS papers (
     -- ========================================
     -- PDF & FILE INFO
     -- ========================================
-    pdf_info JSONB,  -- {file_path, file_name, file_size_bytes, file_hash, download_source, download_url, downloaded_at}
+    pdf_info JSONB,  -- {file_path, file_name, file_size_bytes, file_hash, download_source, download_url}
     
     file_path VARCHAR(500),
     file_name VARCHAR(255),
@@ -295,30 +295,39 @@ CREATE INDEX IF NOT EXISTS idx_analysis_summary_fts ON paper_analysis
     USING gin(to_tsvector('english', COALESCE(summary, '')));
 
 -- ============================================================================
--- PAPER CHUNKS TABLE (For chunking strategy)
+-- PAPER CHUNKS TABLE (Aligned with TextChunk model in models.py)
+-- ============================================================================
+--
+-- Stores chunks of paper text extracted from PDFs with embedding support.
+-- Each chunk maps to a TextChunk model instance.
+-- Embeddings are stored separately in chunk_embeddings table.
+--
+-- Key design:
+-- - id (VARCHAR UUID): Unique identifier from Python TextChunk model
+-- - chunk_index: Sequential index within paper
+-- - text (TEXT): Actual chunk content
+-- - section: Detected section name (introduction, methods, results, etc.)
+-- - start_char/end_char: Character boundaries in original PDF text
+-- - word_count: Number of words in chunk (computed)
+-- - created_at: Timestamp of chunk creation
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS paper_chunks (
-    id SERIAL PRIMARY KEY,
+    id VARCHAR(36) PRIMARY KEY UNIQUE NOT NULL,  -- UUID from TextChunk model
     paper_id INTEGER NOT NULL REFERENCES papers(db_id) ON DELETE CASCADE,
     
-    chunk_index INTEGER NOT NULL,
-    chunk_type VARCHAR(50),
+    chunk_index INTEGER NOT NULL,  -- Sequential index within paper
+    text TEXT NOT NULL,  -- Actual chunk content
     
-    content TEXT NOT NULL,
-    content_length INTEGER,
-    token_count INTEGER,
+    -- Section detection
+    section VARCHAR(255),  -- e.g., "introduction", "methods", "results"
     
-    section_title TEXT,
-    page_numbers INTEGER[],
-    line_start INTEGER,
-    line_end INTEGER,
+    -- Boundaries in original text
+    start_char INTEGER,
+    end_char INTEGER,
     
-    chunking_strategy VARCHAR(50),
-    chunk_size_target INTEGER,
-    overlap_size INTEGER,
-    
-    metadata JSONB,
+    -- Metadata
+    word_count INTEGER DEFAULT 0,
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
@@ -326,18 +335,26 @@ CREATE TABLE IF NOT EXISTS paper_chunks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chunks_paper ON paper_chunks(paper_id);
-CREATE INDEX IF NOT EXISTS idx_chunks_type ON paper_chunks(chunk_type);
-CREATE INDEX IF NOT EXISTS idx_chunks_section ON paper_chunks(section_title);
-CREATE INDEX IF NOT EXISTS idx_chunks_content_fts ON paper_chunks 
-    USING gin(to_tsvector('english', content));
+CREATE INDEX IF NOT EXISTS idx_chunks_section ON paper_chunks(section);
+CREATE INDEX IF NOT EXISTS idx_chunks_text_fts ON paper_chunks 
+    USING gin(to_tsvector('english', text));
 
 -- ============================================================================
 -- EMBEDDINGS TABLES
 -- ============================================================================
 
+-- ============================================================================
+-- CHUNK EMBEDDINGS TABLE (Vectors for paper chunks)
+-- ============================================================================
+--
+-- Stores embedding vectors for text chunks.
+-- Each chunk can have embeddings from different models.
+-- Uses pgvector extension for similarity search.
+-- ============================================================================
+
 CREATE TABLE IF NOT EXISTS chunk_embeddings (
     id SERIAL PRIMARY KEY,
-    chunk_id INTEGER NOT NULL REFERENCES paper_chunks(id) ON DELETE CASCADE,
+    chunk_id VARCHAR(36) NOT NULL REFERENCES paper_chunks(id) ON DELETE CASCADE,
     
     embedding vector(768),
     

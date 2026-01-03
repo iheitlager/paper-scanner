@@ -392,18 +392,29 @@ def main():
     )
     parser.add_argument(
         "--device",
-        default="cpu",
-        choices=["cpu", "cuda"],
-        help="Device to use (default: cpu)"
+        default=None,  # Will auto-detect
+        choices=["cpu", "mps", "cuda"],
+        help="Device to use (default: auto-detect—mps for Apple Silicon, cuda for NVIDIA, cpu fallback)"
     )
     parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose logging"
     )
-    
+
     args = parser.parse_args()
-    
+
+    # Auto-detect device if not specified
+    if args.device is None:
+        if torch.backends.mps.is_available():
+            args.device = "mps"
+        elif torch.cuda.is_available():
+            args.device = "cuda"
+        else:
+            args.device = "cpu"
+
+    logger.info(f"Using device: {args.device}")
+
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 

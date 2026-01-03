@@ -378,7 +378,6 @@ class BaseFetcherHandler(ABC):
                     file_size_bytes=pdf_path.stat().st_size,
                     download_source=self.name,
                     download_url=download_url,
-                    downloaded_at=datetime.now(),
                 )
         except Exception as e:
             if self.debug:
@@ -549,6 +548,9 @@ class BaseFetcherHandler(ABC):
 
         if (overwrite or not target.volume) and source.volume:
             target.volume = source.volume
+
+        if (overwrite or not target.issue) and source.issue:
+            target.issue = source.issue
 
         if (overwrite or not target.number) and source.number:
             target.number = source.number

@@ -160,14 +160,12 @@ class ConsoleViewer:
 [bold cyan]Paper Details (Detail Mode)[/bold cyan]
 [dim]{position}[/dim]
 
+[bold]Cite key:[/bold] {paper.cite_key or "N/A"}
 [bold]Title:[/bold] {paper.title or "N/A"} [dim]({(paper.language or "N/A")})[/dim]
 [bold]Authors:[/bold] {", ".join(a.full_name for a in paper.authors) if paper.authors else "N/A"}
-[bold]Year:[/bold] {paper.year or "N/A"}
 [bold]Journal:[/bold] [italic]{paper.journal or "N/A"}[/italic]
-[bold]Volume/Issue:[/bold] {paper.volume or "N/A"}/{paper.number or "N/A"}
-[bold]Pages:[/bold] {paper.pages or "N/A"}
+[bold]Year:[/bold] {paper.year or "N/A"} [bold]Volume/Issue:[/bold] {paper.volume or "N/A"}/{paper.issue or "N/A"} [bold]Pages:[/bold] {paper.pages or "N/A"}
 [bold]DOI:[/bold] {paper.doi or "N/A"}
-[bold]Cite key:[/bold] {paper.cite_key or "N/A"}
 [bold]URL:[/bold] {paper.url or "N/A"}
 [bold]Source:[/bold] [cyan]{paper.discovery.source_database or "N/A"}[/cyan] {iteration}
 [bold]Screening Decision:[/bold] [{excl_color}]{screening_decision}[/{excl_color}] - {screening_stage}

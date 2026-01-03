@@ -144,18 +144,6 @@ class UploadDatabaseStep(BaseStep):
         conflict_strategy = config.get("conflict_strategy", "skip")
         batch_size = int(config.get("batch_size", 100))
 
-        if verbose:
-            console.print("[cyan]Uploading papers to PostgreSQL[/cyan]")
-            console.print(
-                f"[dim]Database: {database_url.split('@')[-1] if '@' in database_url else 'unknown'}[/dim]"
-            )
-            console.print(
-                f"[dim]Conflict strategy: {conflict_strategy}[/dim]"
-            )
-            console.print(
-                f"[dim]Dry-run: {dry_run}[/dim]"
-            )
-
         # Get papers from in-memory database
         papers = self.db.all(primary_only=False)
         total_papers = len(papers)
@@ -167,11 +155,6 @@ class UploadDatabaseStep(BaseStep):
                 stats={"total_papers": 0}
             )
 
-        if verbose:
-            console.print(
-                f"[cyan]Found {total_papers} papers to upload[/cyan]"
-            )
-
         # Dry-run mode: just validate conversion
         if dry_run:
             errors = self._validate_papers(papers, verbose)
@@ -180,10 +163,10 @@ class UploadDatabaseStep(BaseStep):
                     status=StepStatus.WARNING,
                     message=f"Validation errors in {len(errors)} papers",
                     stats={
-                        "total_papers": total_papers,
+                        "count": total_papers,
                         "validation_errors": len(errors),
                     },
-                    details="\n".join(errors[:10])  # Show first 10 errors
+                    error="\n".join(errors[:10])  # Show first 10 errors
                 )
             return StepResult(
                 status=StepStatus.SUCCESS,
@@ -225,12 +208,6 @@ class UploadDatabaseStep(BaseStep):
                 batch_num = i // batch_size + 1
                 total_batches = (total_papers + batch_size - 1) // batch_size
 
-                if verbose:
-                    console.print(
-                        f"[cyan]Uploading batch {batch_num}/{total_batches} "
-                        f"({len(batch)} papers)[/cyan]"
-                    )
-
                 # Upload batch
                 stats = uploader.insert_papers(
                     batch,
@@ -254,48 +231,39 @@ class UploadDatabaseStep(BaseStep):
                         f"{stats['error_count']} errors[/yellow]"
                     )
 
-            # Upload embeddings for all papers
-            if verbose:
-                console.print("[cyan]Uploading embeddings[/cyan]")
+            all_stats["total_batches"] = total_batches
 
             embedding_stats = uploader.insert_embeddings(papers, dry_run=False)
             all_stats["embeddings"]["upserted"] = embedding_stats["upserted"]
             all_stats["embeddings"]["skipped"] = embedding_stats["skipped"]
             all_stats["embeddings"]["errors"] = embedding_stats["error_count"]
-            
+
             if embedding_stats["error_count"] > 0:
                 all_stats["errors"].extend(embedding_stats["errors"])
                 all_stats["error_count"] += embedding_stats["error_count"]
-
-            if verbose:
-                if embedding_stats["upserted"] > 0:
-                    console.print(
-                        f"[cyan]Embeddings: {embedding_stats['upserted']} upserted, "
-                        f"{embedding_stats['skipped']} skipped[/cyan]"
-                    )
 
             # Determine status based on results
             if all_stats["error_count"] == total_papers:
                 # All papers failed
                 status = StepStatus.ERROR
                 message = "All papers failed to upload"
-                details = "\n".join(all_stats["errors"][:10])
+                errors = "\n".join(all_stats["errors"][:10])
             elif all_stats["error_count"] > 0:
                 # Partial success
                 status = StepStatus.WARNING
                 message = self._build_message(all_stats, conflict_strategy)
-                details = f"Upload errors ({all_stats['error_count']} papers):\n" + "\n".join(all_stats["errors"][:5])
+                errors = f"Upload errors ({all_stats['error_count']} papers):\n" + "\n".join(all_stats["errors"][:5])
             else:
                 # Complete success
                 status = StepStatus.SUCCESS
                 message = self._build_message(all_stats, conflict_strategy)
-                details = None
+                errors = None
 
             return StepResult(
                 status=status,
                 message=message,
                 stats={
-                    "total_papers": total_papers,
+                    "count": total_papers,
                     "inserted": all_stats["inserted"],
                     "updated": all_stats["updated"],
                     "skipped": all_stats["skipped"],
@@ -307,7 +275,11 @@ class UploadDatabaseStep(BaseStep):
                     "embeddings_skipped": all_stats["embeddings"]["skipped"],
                     "embeddings_errors": all_stats["embeddings"]["errors"],
                 },
-                details=details
+                error=errors,
+                details=[
+                    f"Upload complete: {total_papers} papers",
+                    f"Total batches: {all_stats['total_batches']}"
+                ]
             )
 
         finally:

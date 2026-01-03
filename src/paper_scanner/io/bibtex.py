@@ -288,6 +288,7 @@ def bibtex_entry_to_paper(
 
     # Volume/Issue/Pages
     volume = entry.get('volume', '').strip() or None
+    issue = entry.get('issue', '').strip() or None
     number = entry.get('number', '').strip() or None
     pages = entry.get('pages', '').strip() or None
 
@@ -318,6 +319,7 @@ def bibtex_entry_to_paper(
         booktitle=booktitle,
         publisher=publisher,
         volume=volume,
+        issue=issue,
         number=number,
         pages=pages,
         paper_type=paper_type,

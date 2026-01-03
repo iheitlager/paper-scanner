@@ -137,7 +137,7 @@ class PaperToRowConverter:
             'booktitle': paper.booktitle,
             'publisher': paper.publisher,
             'volume': paper.volume,
-            'issue': paper.number,  # maps to 'issue' in SQL
+            'issue': paper.issue,
             'pages': paper.pages,
             'paper_type': paper.paper_type.value if paper.paper_type else None,
             'doi': paper.doi,
@@ -165,7 +165,7 @@ class PaperToRowConverter:
             row['file_path'] = paper.pdf_info.file_path
             row['file_name'] = paper.pdf_info.file_name
             row['size_bytes'] = paper.pdf_info.file_size_bytes
-            row['created_time'] = paper.pdf_info.downloaded_at
+            row['created_time'] = paper.created_at
 
 
         return row

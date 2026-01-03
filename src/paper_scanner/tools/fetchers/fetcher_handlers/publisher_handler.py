@@ -359,7 +359,6 @@ class PublisherHandler(BaseFetcherHandler):
                     file_size_bytes=pdf_path.stat().st_size,
                     download_source=self.name,
                     download_url=pdf_url,
-                    downloaded_at=datetime.now(),
                 )
 
         except Exception as e:
