@@ -471,6 +471,21 @@ class TestNormalizerCleanMarkup:
         result = Normalizer._clean_markup("text {latex} and <html> markup")
         assert result == "text latex and  markup"
 
+    def test_clean_latex_math_mode_escape_percent(self):
+        """Unwrap LaTeX math-mode escaped percent sign"""
+        text = "accuracy of 97.65$%$ during testing"
+        assert Normalizer._clean_markup(text) == "accuracy of 97.65% during testing"
+
+    def test_clean_latex_math_mode_escape_ampersand(self):
+        """Unwrap LaTeX math-mode escaped ampersand"""
+        text = "Smith $&$ Sons Company"
+        assert Normalizer._clean_markup(text) == "Smith & Sons Company"
+
+    def test_clean_latex_math_mode_escape_multiple(self):
+        """Unwrap multiple LaTeX math-mode escaped characters"""
+        text = "Results at 44$%$ to 95$%$ with scores 50$_$100"
+        assert Normalizer._clean_markup(text) == "Results at 44% to 95% with scores 50_100"
+
     def test_clean_none(self):
         """Handle None"""
         assert Normalizer._clean_markup(None) is None

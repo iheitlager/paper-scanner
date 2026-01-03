@@ -503,10 +503,14 @@ class Normalizer:
             'nasa', 'nato',
             "oem", "r&d",
             'ai', 'ml', 'it',
-            'b2b', 'b2c', 'b2g'
+            'b2b', 'b2c', 'b2g',
             'ibm', 'hp', 'amd', 'sap',
-            'sql', 'html', 'css', 'json', 'xml', 
-            'erp', 'esg', 'it', 'ict',
+            'sql', 'html', 'css', 'json', 'xml', 'soap', 'rest', 'soa','esb'
+            'nfv',
+            'erp', 'ocr',
+            'esg', 'ict', 'cpu', 'gpu', 'ram',
+            '3G', '4G', '5G', '6G',
+            'uav',
         }
         # Lowercase prepositions, conjunctions and articles to preserve
         # Location/Direction: in, on, at, by, to, from, into, onto, through, across, above, below, under, over, between, among, around, behind, before, after, inside, outside, near, beside, against
@@ -568,6 +572,7 @@ class Normalizer:
             'ieee': 'IEEE',
             'aims': 'AIMS',
             'acm': 'ACM',
+            'iot': 'IoT',
         }
 
         # Acronyms that should stay lowercase (even at word start)
@@ -713,9 +718,14 @@ class Normalizer:
         Example:
             >>> Normalizer._clean_markup("Title {with} braces <b>and</b> HTML")
             'Title with braces and HTML'
+            >>> Normalizer._clean_markup("accuracy of 97.65$%$ during testing")
+            'accuracy of 97.65% during testing'
         """
         if not text:
             return text
+        # Remove LaTeX math-mode escape patterns (e.g., $%$ -> %, $&$ -> &)
+        # These are used to escape special characters that have special meaning in LaTeX
+        text = re.sub(r'\$([%&_#])\$', r'\1', text)
         # Remove LaTeX braces
         text = re.sub(r'[{}]', '', text)
         # Remove HTML tags
