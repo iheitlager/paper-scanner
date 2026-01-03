@@ -21,6 +21,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "load_files": "paper_scanner.steps.load_files:LoadFilesStep",
     "llm_classification": "paper_scanner.steps.llm_classification:LLMClassificationStep",
     "metadata_screening": "paper_scanner.steps.metadata_screening:MetadataScreeningStep",
+    "rocchio_classifier": "paper_scanner.steps.rocchio_classifier:RocchioClassifierStep",
     "patch": "paper_scanner.steps.patch:PatchStep",
     "retrieve_metadata": "paper_scanner.steps.retrieve_metadata:RetrieveMetadataStep",
     "run-template": "paper_scanner.steps.run_template:RunTemplateStep",
