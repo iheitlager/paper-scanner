@@ -135,8 +135,8 @@ class GenerateEmbeddingsStep(BaseStep):
             batch_size = config.get("batch_size", self.DEFAULT_BATCH_SIZE)
             filter_config = config.get("filter", {})
 
-            self.callback(f"Loading embedding model: {model_name}")
-            self.callback(f"Device: {device}")
+            self.callback(f"Loading embedding model: {model_name}", debug=True)
+            self.callback(f"Device: {device}", debug=True)
             try:
                 model = SentenceTransformer(model_name)
                 model.to(device)
@@ -163,7 +163,6 @@ class GenerateEmbeddingsStep(BaseStep):
 
             # PASS 1: Create hierarchical TextChunk structure
             self.callback("PASS 1: Creating hierarchical chunk structure...", debug=True)
-            chunks_by_paper = {}
             pass1_stats = {
                 "papers_processed": 0,
                 "papers_failed": 0,
@@ -180,9 +179,15 @@ class GenerateEmbeddingsStep(BaseStep):
 
                     chunks = self._create_chunks(paper)
                     if chunks:
-                        chunks_by_paper[paper.id] = chunks
+                        # Attach chunks to paper immediately
+                        paper.text_chunks = chunks
                         pass1_stats["papers_processed"] += 1
                         pass1_stats["chunks_created"] += len(chunks)
+
+                        # Save paper with chunks
+                        if not dry_run:
+                            self.db.update(paper)
+
                 except Exception as e:
                     pass1_stats["papers_failed"] += 1
                     if verbose:
@@ -197,17 +202,16 @@ class GenerateEmbeddingsStep(BaseStep):
                 "errors": 0,
             }
 
-            idx = 0
-            for paper_id, chunks in chunks_by_paper.items():
+            for idx, paper in enumerate(papers, 1):
                 if idx % 10 == 1:
                     self.callback(f"Embedding paper {idx}/{len(papers)}: {paper.cite_key}")
-                idx += 1
 
                 try:
-                    # Get the paper object
-                    paper = next((p for p in papers if p.id == paper_id), None)
-                    if not paper:
+                    # Skip papers without chunks
+                    if not paper.text_chunks:
                         continue
+
+                    chunks = paper.text_chunks
 
                     # Generate embeddings for Level 1 (sections) and Level 2 (paragraphs)
                     embeddable = [c for c in chunks if c.hierarchy_level in (1, 2)]
@@ -226,17 +230,14 @@ class GenerateEmbeddingsStep(BaseStep):
                     section_aggs = self._aggregate_embeddings(chunks)
                     pass2_stats["section_aggregations"] += section_aggs
 
-                    # Attach chunks to paper
-
-                    # Update paper in database
+                    # Save paper with embedded chunks
                     if not dry_run:
-                        paper.text_chunks = chunks
                         self.db.update(paper)
 
                 except Exception as e:
                     pass2_stats["errors"] += 1
                     if verbose:
-                        self.callback(f"Error processing paper {paper_id}: {e}", debug=True)
+                        self.callback(f"Error processing paper {paper.source_key}: {e}", debug=True)
 
             # Combine statistics
             total_stats = {
