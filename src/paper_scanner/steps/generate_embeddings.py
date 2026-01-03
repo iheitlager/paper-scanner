@@ -353,8 +353,10 @@ class GenerateEmbeddingsStep(BaseStep):
                     if not section_content:
                         continue
 
-                    # Remove citations using library function
-                    cleaned_content = self.citation_remover.remove_citations(section_content)
+                    # Remove citations using library function (returns tuple)
+                    cleaned_content, _ = self.citation_remover.remove_citations(section_content)
+                    if not cleaned_content:
+                        cleaned_content = section_content
 
                     # Section chunk (Level 1)
                     section_chunk = TextChunk(
