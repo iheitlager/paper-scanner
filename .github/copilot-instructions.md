@@ -51,8 +51,9 @@ pipeline = Definition("Review").bibtex_import(...).export(...).run()
 1. Create `src/paper_scanner/steps/my_step.py` extending `BaseStep`
 2. Implement `validate(config)` → returns (bool, List[str] errors)
 3. Implement `execute(config, verbose, dry_run, debug)` → returns StepResult with status, message, stats dict
-4. Register in `src/paper_scanner/cli/tasks/run.py` StepExecutor.BUILTIN_STEPS
-5. Document in `docs/steps/my_step.md` (automatically included in MkDocs)
+4. **Update `src/paper_scanner/cli/__init__.py`** with step registration in STEP_REGISTRY_PATHS dict
+5. Register in `src/paper_scanner/cli/tasks/run.py` StepExecutor.BUILTIN_STEPS if needed
+6. DO NOT create extra markdown documentation files unless specifically requested
 
 ## Project-Specific Patterns
 
@@ -130,4 +131,7 @@ Backward compatibility: `StepResult` supports dict-like access via `__getitem__`
 - Always update CHANGELOG.md with changes
 - Always use `uv` when testing/running commands
 - Documentation is built with MkDocs and deployed to ReadTheDocs
-- Do not write extra markdown documentation unless asked (docs are auto-generated in MkDocs)
+- **NEVER generate extra markdown documentation files unless explicitly requested by the user**
+  - Do not create summary files, implementation guides, or reference docs
+  - User-facing documentation goes in `docs/` only (and only if requested)
+  - Focus on code implementation, testing, and git commits
