@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - TBD
+
+### Added
+
+- **Rocchio Classifier Step** (`rocchio_classifier`): Alternative LLM-free classification using dimension-based vector similarity
+  - Semantic embedding-based classification using SentenceTransformers
+  - Dimension centroid calculation for multi-dimensional paper evaluation
+  - Supports research question-driven paper filtering
+  - Decision mapping: include (confidence ≥ 0.75) | exclude (< 0.55) | manual_review (0.55-0.75)
+
+- **Enhanced Test Coverage**: Comprehensive test suite improvements
+  - LLMClassificationStep: 8 spike tests + full production tests
+  - RocchioClassifierStep: Integration tests and validation
+  - Checkpoint management: 12 tests covering save/load/resume functionality
+  - ClaudeHandler (anthropic.py): 20 tests improving coverage from 32% to 98%
+
+- **Checkpoint System Improvements**: Refactored to use StepResult for consistency
+  - Stats dict integration for checkpoint metadata
+  - Duplicate reference restoration in checkpoint loading
+  - Enhanced error handling and logging
+
+### Changed
+
+- **Production Code Priority**: Refactored test expectations to align with StepResult production pattern
+  - ClaudeHandler and CheckpointStep now return proper StepResult objects
+  - Tests updated to work with production code structure
+
+### Fixed
+
+- **Missing time import**: Added `import time` to anthropic.py for rate limit retry delays
+- **SemanticScreening Type Annotations**: Fixed Pydantic List syntax in core/models.py
+- **RocchioClassifier Cleanup**: Removed redundant logging infrastructure, simplified initialization
+
+### Removed
+
 ## [3.7.0] - TBD
 
 ### Added

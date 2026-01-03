@@ -2,7 +2,7 @@
 
 **paper-scanner** is a Python LLM-powered literature review tool for analyzing academic PDFs. It uses Claude API to extract structured information (metadata, research questions, findings) and organize papers via PostgreSQL backend with a web UI.
 
-**Version:** 3.7.0 (pre-alpha)
+**Version:** 3.8.0 (pre-alpha)
 
 !!! warning "Pre-alpha Notice"
     This project is in pre-alpha stage. Breaking changes may occur between minor versions. Feedback and contributions are welcome!
