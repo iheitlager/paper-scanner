@@ -105,7 +105,7 @@ class GenerateEmbeddingsStep(BaseStep):
 
     def execute(
         self,
-        step_config: Dict[str, Any],
+        config: Dict[str, Any],
         verbose: bool = False,
         dry_run: bool = False,
         debug: bool = False,
@@ -117,7 +117,7 @@ class GenerateEmbeddingsStep(BaseStep):
         Pass 2: Generate embeddings for sections (Level 1) and paragraphs (Level 2)
 
         Args:
-            step_config: Step-specific configuration
+            config: Step-specific configuration
             verbose: Enable verbose logging
             dry_run: If True, don't modify database
             debug: Enable debug logging
@@ -127,10 +127,10 @@ class GenerateEmbeddingsStep(BaseStep):
         """
         try:
             # Parse configuration
-            model_name = step_config.get("model", self.DEFAULT_MODEL)
-            device = self._select_device(step_config.get("device"))
-            batch_size = step_config.get("batch_size", self.DEFAULT_BATCH_SIZE)
-            filter_config = step_config.get("filter", {})
+            model_name = config.get("model", self.DEFAULT_MODEL)
+            device = self._select_device(config.get("device"))
+            batch_size = config.get("batch_size", self.DEFAULT_BATCH_SIZE)
+            filter_config = config.get("filter", {})
 
             self.callback(f"Loading embedding model: {model_name}")
             self.callback(f"Device: {device}")
