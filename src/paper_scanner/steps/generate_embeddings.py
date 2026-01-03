@@ -40,9 +40,22 @@ class GenerateEmbeddingsStep(BaseStep):
     DEFAULT_BATCH_SIZE = 32
     VECTOR_DIM = 768  # all-mpnet-base-v2 output dimension
 
-    def __init__(self):
+    def __init__(
+        self,
+        general_config: Optional[Dict[str, Any]] = None,
+        executor = None,
+        db = None,
+        cache_dir: Optional[str] = None,
+        on_event = None,
+    ):
         """Initialize embedding step with extraction tools."""
-        super().__init__()
+        super().__init__(
+            general_config=general_config,
+            executor=executor,
+            db=db,
+            cache_dir=cache_dir,
+            on_event=on_event,
+        )
         self.extractor = PDFExtractor()
         self.citation_remover = CitationRemover()
 
