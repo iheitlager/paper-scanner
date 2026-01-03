@@ -599,6 +599,59 @@ class StepExecutor:
             except (TypeError, ValueError) as e:
                 raise CheckpointError(f"Invalid paper data in checkpoint: {checkpoint_file}") from e
 
+    def checkpoint(self) -> Dict[str, Any]:
+        """
+        Save current database state as checkpoint.
+
+        Returns:
+            Checkpoint result dictionary
+        """
+        try:
+            checkpoints_dir = self.cache_dir / CHECKPOINT_DIR
+            checkpoints_dir.mkdir(parents=True, exist_ok=True)
+
+            project_hash = self._get_project_hash()
+            checkpoint_name = f"checkpoint_{project_hash}_step_{self.current_step_index:03d}.json"
+            checkpoint_file = checkpoints_dir / checkpoint_name
+
+            # Serialize papers to JSON - use model_dump() for proper Pydantic serialization
+            papers_data = []
+            for p in self.papers_db.papers:
+                paper_dict = p.model_dump(mode="json")
+                papers_data.append(paper_dict)
+
+            checkpoint_data = {
+                "project_name": self.general_config.get("project_name"),
+                "step_index": self.current_step_index,
+                "timestamp": datetime.now().isoformat(),
+                "papers_count": len(self.papers_db.papers),
+                "papers": papers_data,
+            }
+
+            try:
+                with open(checkpoint_file, "w") as f:
+                    json.dump(checkpoint_data, f, indent=2)
+            except (IOError, OSError) as e:
+                raise CheckpointError(f"Cannot write checkpoint to {checkpoint_file}: {e}") from e
+            except (TypeError, ValueError) as e:
+                raise CheckpointError(f"Cannot serialize checkpoint data: {e}") from e
+
+            return StepResult(
+                status=StepStatus.SUCCESS,
+                message="Checkpoint saved successfully",
+                details={
+                   "checkpoint_file": str(checkpoint_file),
+                },
+                stats={
+                    "count": len(self.papers_db.papers),
+                },
+            )
+
+        except CheckpointError:
+            raise
+        except Exception as e:
+            raise CheckpointError(f"Checkpoint operation failed: {e}") from e
+
     # =========================================================================
     # Step Execution
     # =========================================================================
@@ -892,54 +945,6 @@ class StepExecutor:
             results_summary.timings = {"total_duration_seconds": round(time.time() - self.start_time, 2)}
 
         return results_summary
-
-    def checkpoint(self) -> Dict[str, Any]:
-        """
-        Save current database state as checkpoint.
-
-        Returns:
-            Checkpoint result dictionary
-        """
-        try:
-            checkpoints_dir = self.cache_dir / CHECKPOINT_DIR
-            checkpoints_dir.mkdir(parents=True, exist_ok=True)
-
-            project_hash = self._get_project_hash()
-            checkpoint_name = f"checkpoint_{project_hash}_step_{self.current_step_index:03d}.json"
-            checkpoint_file = checkpoints_dir / checkpoint_name
-
-            # Serialize papers to JSON - use model_dump() for proper Pydantic serialization
-            papers_data = []
-            for p in self.papers_db.papers:
-                paper_dict = p.model_dump(mode="json")
-                papers_data.append(paper_dict)
-
-            checkpoint_data = {
-                "project_name": self.general_config.get("project_name"),
-                "step_index": self.current_step_index,
-                "timestamp": datetime.now().isoformat(),
-                "papers_count": len(self.papers_db.papers),
-                "papers": papers_data,
-            }
-
-            try:
-                with open(checkpoint_file, "w") as f:
-                    json.dump(checkpoint_data, f, indent=2)
-            except (IOError, OSError) as e:
-                raise CheckpointError(f"Cannot write checkpoint to {checkpoint_file}: {e}") from e
-            except (TypeError, ValueError) as e:
-                raise CheckpointError(f"Cannot serialize checkpoint data: {e}") from e
-
-            return {
-                "status": "ok",
-                "checkpoint_file": str(checkpoint_file),
-                "papers_count": len(self.papers_db.papers),
-            }
-
-        except CheckpointError:
-            raise
-        except Exception as e:
-            raise CheckpointError(f"Checkpoint operation failed: {e}") from e
 
     def get_stats(self) -> Dict[str, Any]:
         """

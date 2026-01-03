@@ -19,6 +19,9 @@ This directory contains hypothesis-driven exploratory tests for evaluating new t
 | [012_empirical_qualification](012_empirical_qualification/README.md) | Claude Sonnet achieves 75% study classification accuracy on PDFs | 2025-12-24 | Complete | ✅ Confirmed |
 | [013_citations](013_citations/README.md) | Manual handler + improved caching reduces citation processing errors | 2025-12-24 | Complete | ✅ Confirmed |
 | [014_classification](014_classification/README.md) | Multi-pass screening with confidence thresholds scales to 27K papers | 2025-12-24 | In Progress | ⏳ Testing |
+| [015_journal_screening](015_journal_screening/README.md) | Fuzzy journal matching with harmonization achieves 85%+ coverage | 2026-01-01 | Complete | ✅ Confirmed |
+| [016_RIS_import](016_RIS_import/README.md) | RIS file format support provides feature parity with BibTeX import | 2026-01-02 | In Progress | ⏳ Testing |
+| [017_normalization](017_normalization/README.md) | Centralized Normalizer consolidates 16+ duplicated functions (189 tests) | 2026-01-01 | Complete | ✅ Confirmed |
 
 ## Methodology: Hypothesis-Driven Experimentation
 

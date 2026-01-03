@@ -11,11 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **REPL CLI Step Enablement**: Interactive REPL now supports per-step `enabled:` flag configuration to dynamically control which steps execute within a pipeline session.
 
+- **LLM Classification Dominance Scoring**: Enhanced classification system with refined dimension scoring (Claude only atm)
+  - Updated LLM prompt template to use dominance scores (1.0 = dominant, 0.5 = addressed, 0.0 = not addressed) instead of raw confidence scores
+  - Improved classification_vector to reflect dimension prominence in papers for better filtering decisions
+  - Added comprehensive execution test suite (16 tests) covering dominance scoring, decision logic, error handling, and metadata tracking
+
 ### Changed
 
 - **Step Enable/Disable Naming**: Standardized flag from `enable:` to `enabled:` to reflect state-based YAML conventions (adjective describing "what is" rather than verb commanding "what to do").
 
 - **General Config Loading Refactored**: Extracted config loading logic into dedicated `GeneralConfigLoader` class with comprehensive test coverage (34 tests).
+
+
 
 ### Fixed
 

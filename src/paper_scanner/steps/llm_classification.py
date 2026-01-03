@@ -56,15 +56,15 @@ You will be provided with:
 
 For each paper, you must:
 1. Determine which research dimensions apply (binary classification)
-2. Assign a confidence score (0-1) for each dimension
-3. Provide a brief reasoning
+2. Assign a dominance score (0.0 = not addressed, 0.5 = addressed, 1.0 = dominant)
+3. Provide a brief reasoning explaining which dimensions are covered and which are dominant
 
 Output ONLY valid JSON with this structure:
 {{
     "classifications": {{
         "dimension_name": {{
             "applies": true/false,
-            "confidence": 0.0-1.0,
+            "dominance": 0.0 or 0.5 or 1.0,
             "reasoning": "Brief explanation"
         }}
     }},
@@ -72,7 +72,12 @@ Output ONLY valid JSON with this structure:
     "summary": "Overall classification summary"
 }}
 
-Be strict and only include dimensions that clearly apply to the paper."""
+Scoring guide:
+- 1.0: Dimension is a PRIMARY FOCUS or explicitly dominant in the paper
+- 0.5: Dimension is ADDRESSED or discussed but not dominant
+- 0.0: Dimension is NOT addressed or not relevant to this paper
+
+Be strict and only score dimensions that clearly apply to the paper."""
 
     @staticmethod
     def validate(config: Dict) -> Tuple[bool, List[str]]:
@@ -346,25 +351,37 @@ Please classify this paper according to the research dimensions listed above."""
             summary = parsed_response.get("summary", "")
 
             # Build classification vector and labels
+            # Vector uses: 0.0 (not addressed), 0.5 (addressed), 1.0 (dominant)
             classification_vector = []
             classification_labels = []
             applies_count = 0
+            dominant_count = 0
 
             for dimension in self.research_dimensions:
                 if dimension in classifications:
                     dim_data = classifications[dimension]
-                    confidence = float(dim_data.get("confidence", 0.0))
+                    # Use dominance score if available, otherwise fall back to confidence
+                    dominance = float(dim_data.get("dominance", dim_data.get("confidence", 0.0)))
                     applies = dim_data.get("applies", False)
 
-                    classification_vector.append(confidence)
+                    # Normalize dominance to be one of: 0.0, 0.5, 1.0
+                    if dominance >= 0.75:
+                        dominance = 1.0
+                        dominant_count += 1
+                    elif dominance >= 0.25:
+                        dominance = 0.5
+                    else:
+                        dominance = 0.0
 
-                    if applies:
+                    classification_vector.append(dominance)
+
+                    if applies or dominance > 0.0:
                         classification_labels.append(dimension)
                         applies_count += 1
                 else:
                     classification_vector.append(0.0)
 
-            # Determine decision based on average confidence
+            # Determine decision based on average dominance score
             avg_confidence = sum(classification_vector) / len(classification_vector) if classification_vector else 0.0
 
             if overall_decision_str == "include" or avg_confidence >= self.auto_include_threshold:
@@ -403,6 +420,7 @@ Please classify this paper according to the research dimensions listed above."""
                 "classification_vector": classification_vector,
                 "classification_labels": classification_labels,
                 "applies_count": applies_count,
+                "dominant_count": dominant_count,
                 "dimension_count": len(self.research_dimensions),
                 "token_usage": token_usage,
             }
