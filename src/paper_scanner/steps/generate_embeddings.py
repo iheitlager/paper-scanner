@@ -18,10 +18,6 @@ Configuration example:
           min_year: 2020                        # Optional year filter
 """
 
-import logging
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-
 import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer
@@ -40,8 +36,6 @@ from paper_scanner.tools.embedding.sections import (
 )
 
 from .base import BaseStep
-
-logger = logging.getLogger(__name__)
 
 
 class GenerateEmbeddingsStep(BaseStep):
@@ -124,9 +118,6 @@ class GenerateEmbeddingsStep(BaseStep):
         Returns:
             StepResult with execution status and statistics
         """
-        if verbose or debug:
-            logger.setLevel(logging.DEBUG)
-
         try:
             # Parse configuration
             model_name = step_config.get("model", self.DEFAULT_MODEL)
@@ -134,8 +125,8 @@ class GenerateEmbeddingsStep(BaseStep):
             batch_size = step_config.get("batch_size", self.DEFAULT_BATCH_SIZE)
             filter_config = step_config.get("filter", {})
 
-            logger.info(f"Loading embedding model: {model_name}")
-            logger.info(f"Device: {device}")
+            self.callback(f"Loading embedding model: {model_name}")
+            self.callback(f"Device: {device}")
             try:
                 model = SentenceTransformer(model_name)
                 model.to(device)
@@ -154,7 +145,7 @@ class GenerateEmbeddingsStep(BaseStep):
             filtered_papers = self._apply_filters(papers, filter_config)
 
             # PASS 1: Create hierarchical TextChunk structure
-            logger.info("\nPASS 1: Creating hierarchical chunk structure...")
+            self.callback("PASS 1: Creating hierarchical chunk structure...")
             chunks_by_paper = {}
             pass1_stats = {
                 "papers_processed": 0,
@@ -175,10 +166,10 @@ class GenerateEmbeddingsStep(BaseStep):
                 except Exception as e:
                     pass1_stats["papers_failed"] += 1
                     if verbose:
-                        logger.error(f"  Failed to create chunks for {paper.source_key}: {e}")
+                        self.callback(f"Failed to create chunks for {paper.source_key}: {e}", debug=True)
 
             # PASS 2: Generate embeddings
-            logger.info("\nPASS 2: Generating embeddings for chunks...")
+            self.callback("PASS 2: Generating embeddings for chunks...")
             pass2_stats = {
                 "sections_embedded": 0,
                 "paragraphs_embedded": 0,
@@ -210,7 +201,7 @@ class GenerateEmbeddingsStep(BaseStep):
                 except Exception as e:
                     pass2_stats["errors"] += 1
                     if verbose:
-                        logger.error(f"  Error processing paper {paper_id}: {e}")
+                        self.callback(f"Error processing paper {paper_id}: {e}", debug=True)
 
             # Combine statistics
             total_stats = {
@@ -379,7 +370,7 @@ class GenerateEmbeddingsStep(BaseStep):
             return chunks
 
         except Exception as e:
-            logger.debug(f"Error creating chunks for paper {paper.id}: {e}")
+            self.callback(f"Error creating chunks for paper {paper.id}: {e}", debug=True)
             return []
 
     @staticmethod
@@ -434,7 +425,7 @@ class GenerateEmbeddingsStep(BaseStep):
             return Embedding(vector=vector, model=model_name, text_source="section")
 
         except Exception as e:
-            logger.debug(f"Error generating embedding: {e}")
+            self.callback(f"Error generating embedding: {e}", debug=True)
             return None
 
     def _aggregate_embeddings(self, chunks: List[TextChunk]) -> int:
