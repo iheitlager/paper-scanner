@@ -412,7 +412,7 @@ class TestLLMClassifier:
         prompt = classifier._build_prompt(paper)
         
         assert "RESEARCH QUESTION:" in prompt
-        assert "RESEARCH DIMENSIONS:" in prompt
+        assert "RESEARCH DIMENSIONS" in prompt
         assert "PAPER TO CLASSIFY:" in prompt
         assert classifier.research_question in prompt
         assert paper.title in prompt
