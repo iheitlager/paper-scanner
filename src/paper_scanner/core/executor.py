@@ -28,6 +28,7 @@ from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.exceptions import CheckpointError, ConfigurationError, PipelineExecutionError, StepError
 from paper_scanner.core.step_result import FINAL_STEP, StepResult
+from paper_scanner.core.general_config import GeneralConfigLoader
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
 from paper_scanner.core.reporter import NOOP
@@ -106,14 +107,6 @@ class StepExecutor:
 
     # Class-level lazy registry (created on first access)
     _step_registry: Optional[LazyStepRegistry] = None
-    _general_config = {
-        "project_name": "name",
-        "description": "description",
-        "created_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "researcher": "researcher",
-        "research_question": "research_question",
-        "email": "email",
-    }
 
     def __init__(
         self,
@@ -458,11 +451,9 @@ class StepExecutor:
         if not self.definition:
             raise ValueError("Definition file is empty")
 
-        # Update general config from definition
+        # Update general config from definition using GeneralConfigLoader
         project_config = self.definition.get("project", {})
-        for key, def_key in self._general_config.items():
-            if def_key in project_config:
-                self.general_config[key] = project_config[def_key]
+        GeneralConfigLoader.load(self.general_config, project_config)
 
         # Load templates section (optional, v1: static sequences only)
         self.templates = {}

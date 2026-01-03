@@ -15,6 +15,14 @@ Example:
     ...     .export(format="jsonl", output_path="~/output.jsonl")
     ... )
     >>> results = definition.run(verbose=True)
+
+
+The Fluent API is a design pattern, not from a specific source. It's a general software architecture concept.
+Origins:
+
+Popularized by Eric Evans and Martin Fowler in the early 2000s
+Fowler documented it: https://www.martinfowler.com/bliki/FluentInterface.html
+Evans used it in Domain-Driven Design patterns
 """
 
 from abc import ABC, abstractmethod

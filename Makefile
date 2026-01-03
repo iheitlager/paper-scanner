@@ -58,7 +58,11 @@ npm-test: ## Run frontend JavaScript tests
 
 py-test: ## Run Python tests with coverage
 	@echo "Running python tests..."
-	uv run pytest --cov=src/paper_scanner tests/
+	uv run pytest --cov=src/paper_scanner tests/unit
+
+py-test-all: ## Run Python tests with coverage
+	@echo "Running all python tests..."
+	uv run pytest tests/ -q
 
 lint: ## Lint code with ruff
 	@echo "Linting with ruff..."

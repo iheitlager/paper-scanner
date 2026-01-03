@@ -1,7 +1,7 @@
 # AI Coding Agent Instructions for paper-scanner
 
 ## Project Overview
-**paper-scanner** is a Python LLM-powered literature review tool (v2.4.0, pre-alpha). It uses Claude API to analyze academic PDFs, extract structured information (metadata, research questions, findings), and organize papers via PostgreSQL backend with a web UI.
+**paper-scanner** is a Python LLM-powered literature review tool (v3.7.0, pre-alpha). It uses Claude API to analyze academic PDFs, extract structured information (metadata, research questions, findings), and organize papers via PostgreSQL backend with a web UI.
 
 ## Architecture
 
@@ -11,10 +11,12 @@ PDF Input → Claude Analysis → Structured JSON → PostgreSQL DB → Web Inte
 ```
 
 ### Major Components
-- **Core**: `src/paper_scanner/core/` - Database, models, DOI handling, LLM interactions
+- **Core**: `src/paper_scanner/core/` - Database, models, DOI handling, normalization
+- **IO**: `src/paper_scanner/io/` - File handling (PDF, BibTeX, RIS, JSON)
+- **Models**: `src/paper_scanner/models/` - LLM interactions
 - **Definition API**: `src/paper_scanner/definition/` - Fluent Python API for building pipelines (alternative to YAML)
 - **Steps**: `src/paper_scanner/steps/` - Pipeline processors (bibtex_import, deduplication, export, etc.)
-- **CLI**: `src/paper_scanner/cli/paper_processor.py` - Main entry point with subcommands: run, validate, info, cache
+- **CLI**: `src/paper_scanner/cli/paper_processor.py` - Main entry point with subcommands: repl, run, validate, info, cache
 - **Web**: `src/paper_scanner/web/` - Flask UI with PDF viewer, analysis, references, tags
 
 ### Pipeline Architecture

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.0] - TBD
+
+### Added
+
+- **REPL CLI Step Enablement**: Interactive REPL now supports per-step `enabled:` flag configuration to dynamically control which steps execute within a pipeline session.
+
+### Changed
+
+- **Step Enable/Disable Naming**: Standardized flag from `enable:` to `enabled:` to reflect state-based YAML conventions (adjective describing "what is" rather than verb commanding "what to do").
+
+- **General Config Loading Refactored**: Extracted config loading logic into dedicated `GeneralConfigLoader` class with comprehensive test coverage (34 tests).
+
+### Fixed
+
+### Removed
+
 ## [3.6.0] - 2026-01-03
 
 ### Added
