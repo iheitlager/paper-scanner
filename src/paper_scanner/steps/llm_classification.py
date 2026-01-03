@@ -7,11 +7,13 @@ SemanticScreening model with classification results.
 
 Configuration options:
   - model: Claude model to use (default: claude-opus-4-20250514)
-  - api_key: Anthropic API key (optional, uses ANTHROPIC_API_KEY env var if not provided)
   - thresholds: dict with keys:
       - auto_include: float [0-1] - Classification confidence >= this triggers INCLUDED
       - manual_review: float [0-1] - Confidence in [manual_review, auto_include) triggers MANUAL_REVIEW
       - auto_exclude: float [0-1] - Confidence < this triggers EXCLUDED
+
+Environment:
+  - ANTHROPIC_API_KEY: Anthropic API key (loaded via dotenv at CLI startup)
 
 Example YAML:
   - step: "LLM Classification"
@@ -29,7 +31,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from dotenv import load_dotenv
 from rich.console import Console
 
 from paper_scanner.core.enum import ScreeningDecision, StepStatus
@@ -39,9 +40,6 @@ from paper_scanner.core.step_result import StepResult
 from paper_scanner.models.anthropic import ClaudeHandler
 
 from .base import BaseStep
-
-# Load environment variables
-load_dotenv()
 
 # Suppress verbose logging
 logging.getLogger("anthropic").setLevel(logging.WARNING)
@@ -118,7 +116,6 @@ Be strict and only include dimensions that clearly apply to the paper."""
         Args:
             config: Step configuration with options:
                 - model: str (default: "claude-opus-4-20250514")
-                - api_key: str (optional, uses ANTHROPIC_API_KEY env var)
                 - thresholds: dict with auto_include, manual_review, auto_exclude
             verbose: Enable verbose output
             dry_run: Don't actually modify papers
@@ -141,10 +138,10 @@ Be strict and only include dimensions that clearly apply to the paper."""
         
         # Get model and thresholds
         model_name = config.get("model", "claude-opus-4-20250514")
-        api_key = config.get("api_key") or os.environ.get("ANTHROPIC_API_KEY")
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
         
         if not api_key:
-            raise ConfigurationError("ANTHROPIC_API_KEY must be set or provided in config")
+            raise ConfigurationError("ANTHROPIC_API_KEY environment variable is not set")
         
         thresholds = config.get("thresholds", {})
         auto_include = thresholds.get("auto_include", 0.75)
