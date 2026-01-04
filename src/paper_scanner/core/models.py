@@ -165,6 +165,13 @@ class TextChunk(BaseModel):
     word_count: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+    # ====================================================================
+    # RELATIONS
+    # ====================================================================
+    def __repr__(self) -> str:
+        """Simplified repr to avoid infinite recursion with circular references"""
+        return f"Chunk(id={self.id!r}, index={self.chunk_index}, level={self.hierarchy_level})"
+
     # =====================================================================
     # COMPARISON MAGIC METHODS (for sorting/comparing by embedding)
     # =====================================================================

@@ -89,9 +89,9 @@ class JSONController:
     """Controller for JSON navigation and search."""
 
     def __init__(self, data: Any, title: str = "JSON Viewer"):
-        self.data = data
+        self.data = self._sanitize_data(data)
         self.title = title
-        self.root = JSONNode(None, data)
+        self.root = JSONNode(None, self.data)
         self.flat_nodes: List[JSONNode] = []
         self.cursor = 0
         self.scroll_offset = 0
@@ -101,6 +101,55 @@ class JSONController:
         self.status_message = ""
 
         self._rebuild_flat_list()
+
+    def _sanitize_data(self, data: Any) -> Any:
+        """
+        Sanitize data to prevent circular references in JSON serialization.
+        
+        Converts Pydantic models to dicts and breaks circular references:
+        - Replaces Paper objects with Paper.id
+        - Replaces TextChunk objects with chunk info (id, text_preview, level)
+        """
+        if isinstance(data, dict):
+            return {k: self._sanitize_data(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._sanitize_data(item) for item in data]
+        elif hasattr(data, 'model_dump'):  # Pydantic model
+            # Convert Pydantic model to dict first
+            dumped = data.model_dump(exclude_unset=False)
+            
+            # Check what type this is to handle appropriately
+            class_name = type(data).__name__
+            
+            if class_name == 'Paper':
+                # For Papers: replace text_chunks with placeholders
+                sanitized = {k: self._sanitize_data(v) for k, v in dumped.items()}
+                if 'text_chunks' in sanitized and sanitized['text_chunks']:
+                    # Keep only chunk IDs to prevent circular refs
+                    sanitized['text_chunks'] = [
+                        {'id': chunk['id'], 'hierarchy_level': chunk.get('hierarchy_level'), 'text_preview': chunk.get('text', '')[:50] + '...'}
+                        for chunk in sanitized['text_chunks']
+                    ]
+                return sanitized
+            elif class_name == 'TextChunk':
+                # For TextChunks: replace paper reference with ID, keep hierarchy but limit children
+                sanitized = {k: self._sanitize_data(v) for k, v in dumped.items()}
+                if 'paper' in sanitized and sanitized['paper']:
+                    # Replace paper object with just ID
+                    if isinstance(sanitized['paper'], dict):
+                        sanitized['paper'] = {'id': sanitized['paper'].get('id', 'unknown')}
+                # Limit children_chunks to prevent deep recursion
+                if 'children_chunks' in sanitized and sanitized['children_chunks']:
+                    sanitized['children_chunks'] = [
+                        {'id': chunk['id'], 'hierarchy_level': chunk.get('hierarchy_level')}
+                        for chunk in sanitized['children_chunks']
+                    ]
+                return sanitized
+            else:
+                # For other models, just recurse
+                return {k: self._sanitize_data(v) for k, v in sanitized.items()}
+        else:
+            return data
 
     def _rebuild_flat_list(self):
         """Rebuild flat list of visible nodes."""

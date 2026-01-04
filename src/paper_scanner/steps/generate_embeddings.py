@@ -171,7 +171,7 @@ class GenerateEmbeddingsStep(BaseStep):
 
             for idx, paper in enumerate(papers, 1):
                 if idx % 10 == 1:
-                    self.callback(f"Chunking paper {idx}/{len(papers)}: {paper.cite_key}")
+                    self.callback(f"Chunking paper {idx}/{len(papers)}: {paper.cite_key}", debug=True)
 
                 try:
                     if not paper.pdf_info or not paper.pdf_info.file_path:
@@ -204,7 +204,7 @@ class GenerateEmbeddingsStep(BaseStep):
 
             for idx, paper in enumerate(papers, 1):
                 if idx % 10 == 1:
-                    self.callback(f"Embedding paper {idx}/{len(papers)}: {paper.cite_key}")
+                    self.callback(f"Embedding paper {idx}/{len(papers)}: {paper.cite_key}", debug=True)
 
                 try:
                     # Skip papers without chunks
