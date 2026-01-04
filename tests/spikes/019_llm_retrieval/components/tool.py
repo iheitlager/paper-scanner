@@ -35,7 +35,7 @@ class Tool:
             RetrievalResult with retrieved chunks
         """
         # Embed the query
-        query_embedding = self.encoder.encode(query)
+        query_embedding = self.encoder.encode(query, show_progress_bar=False)
         query_embedding = query_embedding / np.linalg.norm(query_embedding)  # Normalize
         
         # Search pgvector

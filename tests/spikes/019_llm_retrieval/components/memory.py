@@ -68,14 +68,14 @@ class Memory:
         Returns:
             Cached result if found, None otherwise
         """
-        question_embedding = self.encoder.encode(question)
+        question_embedding = self.encoder.encode(question, show_progress_bar=False)
         question_embedding = question_embedding / np.linalg.norm(question_embedding)
         
         best_match = None
         best_similarity = 0
         
         for cached_question, cached_result in self.query_cache.items():
-            cached_embedding = self.encoder.encode(cached_question)
+            cached_embedding = self.encoder.encode(cached_question, show_progress_bar=False)
             cached_embedding = cached_embedding / np.linalg.norm(cached_embedding)
             
             # Cosine similarity
