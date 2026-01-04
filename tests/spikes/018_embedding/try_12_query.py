@@ -187,13 +187,27 @@ Most relevant findings:
 {results_context}
 
 Based on these findings, provide a synthesis answer to the user's question about "who says what".
-Format your response as:
-1. Direct answer to the question (what the papers say)
-2. Key findings from each paper (who says what)
-3. Any patterns or contradictions you notice
-4. Suggested follow-up questions for deeper exploration
 
-Be specific about which papers make which claims."""
+Format your response EXACTLY as follows (use [bold]...[/bold], [cyan]...[/cyan], [yellow]...[/yellow] for Rich markup - NO markdown):
+
+[bold]1. Direct Answer[/bold]
+<direct answer to the question>
+
+[bold]2. Key Findings by Paper[/bold]
+For each paper, format as:
+[cyan]<paper_cite_key> (<year>)[/cyan] - "<title>"
+  - <key finding>
+  - <another finding>
+
+[bold]3. Patterns and Contradictions[/bold]
+<observations about patterns or contradictions>
+
+[bold]4. Suggested Follow-Up Questions[/bold]
+- <question 1>
+- <question 2>
+
+Use [cyan]...[/cyan] for paper names, [yellow]...[/yellow] for important terms, [bold]...[/bold] for headings.
+NO markdown syntax (no #, ##, **, etc). Be specific about which papers make which claims."""
 
         # Use spinner while calling Claude
         spinner = Spinner("dots", text="[cyan]Claude is analyzing...[/cyan]")
