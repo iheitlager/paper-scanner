@@ -166,11 +166,27 @@ class TextChunk(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # ====================================================================
-    # RELATIONS
+    # Methods for serialization and representation
     # ====================================================================
     def __repr__(self) -> str:
         """Simplified repr to avoid infinite recursion with circular references"""
         return f"Chunk(id={self.id!r}, index={self.chunk_index}, level={self.hierarchy_level})"
+
+
+    @field_serializer('paper', when_used='always')
+    def serialize_parent_paper(self, v: 'Paper') -> Optional[str]:
+        """Convert Paper references to ID strings during serialization"""
+        return v.id if v else None
+
+    @field_serializer('parent_chunk', when_used='always')
+    def serialize_parent_chunk(self, v: Optional['TextChunk'])-> Optional[str]:
+        """Convert TextChunk references to ID strings during serialization"""
+        return v.id if v else None
+
+    @field_serializer('children_chunks', when_used='always')
+    def serialize_children_chunks(self, value: List['TextChunk']) -> List[str]:
+        """Convert TextChunk references to ID strings during serialization"""
+        return [chunk.id for chunk in value] if value else []
 
     # =====================================================================
     # COMPARISON MAGIC METHODS (for sorting/comparing by embedding)
