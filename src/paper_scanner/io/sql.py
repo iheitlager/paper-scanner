@@ -765,53 +765,6 @@ class PaperUploader:
             logger.error(f"Failed to count papers: {e}")
             raise
 
-
-class DOIDuplicateHandler:
-    """Handles DOI-based duplicate detection and management"""
-
-    @staticmethod
-    def normalize_doi(doi: Optional[str]) -> Optional[str]:
-        """
-        Normalize DOI for comparison.
-        
-        Removes leading/trailing spaces and converts to lowercase.
-        
-        Args:
-            doi: DOI string
-            
-        Returns:
-            Normalized DOI or None
-        """
-        if not doi:
-            return None
-        return doi.strip().lower()
-
-    @staticmethod
-    def mark_duplicate(
-        cursor,
-        duplicate_paper_id: str,
-        primary_paper_id: str,
-    ) -> None:
-        """
-        Mark a paper as duplicate of another.
-        
-        Updates duplicate_of field (stored as JSONB containing primary paper's ID).
-        
-        Args:
-            cursor: psycopg2 cursor
-            duplicate_paper_id: Paper to mark as duplicate
-            primary_paper_id: Paper it's a duplicate of
-        """
-        duplicate_info = json.dumps({
-            "id": primary_paper_id,
-            "marked_at": datetime.now(timezone.utc).isoformat(),
-        })
-
-        cursor.execute(
-            "UPDATE papers SET duplicate_of = %s WHERE id = %s",
-            (Json(json.loads(duplicate_info)), duplicate_paper_id)
-        )
-
     def insert_chunks(
         self,
         papers: List[Paper],
@@ -1053,4 +1006,52 @@ class DOIDuplicateHandler:
                 chunk.created_at,
             ),
         )
+
+
+class DOIDuplicateHandler:
+    """Handles DOI-based duplicate detection and management"""
+
+    @staticmethod
+    def normalize_doi(doi: Optional[str]) -> Optional[str]:
+        """
+        Normalize DOI for comparison.
+        
+        Removes leading/trailing spaces and converts to lowercase.
+        
+        Args:
+            doi: DOI string
+            
+        Returns:
+            Normalized DOI or None
+        """
+        if not doi:
+            return None
+        return doi.strip().lower()
+
+    @staticmethod
+    def mark_duplicate(
+        cursor,
+        duplicate_paper_id: str,
+        primary_paper_id: str,
+    ) -> None:
+        """
+        Mark a paper as duplicate of another.
+        
+        Updates duplicate_of field (stored as JSONB containing primary paper's ID).
+        
+        Args:
+            cursor: psycopg2 cursor
+            duplicate_paper_id: Paper to mark as duplicate
+            primary_paper_id: Paper it's a duplicate of
+        """
+        duplicate_info = json.dumps({
+            "id": primary_paper_id,
+            "marked_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+        cursor.execute(
+            "UPDATE papers SET duplicate_of = %s WHERE id = %s",
+            (Json(json.loads(duplicate_info)), duplicate_paper_id)
+        )
+
 
