@@ -172,7 +172,6 @@ class TextChunk(BaseModel):
         """Simplified repr to avoid infinite recursion with circular references"""
         return f"Chunk(id={self.id!r}, index={self.chunk_index}, level={self.hierarchy_level})"
 
-
     @field_serializer('paper', when_used='always')
     def serialize_parent_paper(self, v: 'Paper') -> Optional[str]:
         """Convert Paper references to ID strings during serialization"""

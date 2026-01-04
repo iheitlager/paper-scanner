@@ -319,6 +319,10 @@ CREATE TABLE IF NOT EXISTS paper_chunks (
     chunk_index INTEGER NOT NULL,  -- Sequential index within paper
     text TEXT NOT NULL,  -- Actual chunk content
     
+    -- Hierarchy support (3-level: paper, section, paragraph)
+    hierarchy_level INTEGER NOT NULL DEFAULT 0,  -- 0=paper, 1=section, 2=paragraph
+    parent_chunk_id VARCHAR(36) REFERENCES paper_chunks(id) ON DELETE CASCADE,  -- Parent chunk ID (NULL for root)
+    
     -- Section detection
     section VARCHAR(255),  -- e.g., "introduction", "methods", "results"
     

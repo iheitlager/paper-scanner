@@ -105,6 +105,8 @@ class PaperToRowConverter:
         - screening → stored as JSONB
         - pdf_info → stored as JSONB
         
+        NOTE: text_chunks are handled separately via insert_chunks()
+        
         Args:
             paper: Paper model instance
             
@@ -809,3 +811,246 @@ class DOIDuplicateHandler:
             "UPDATE papers SET duplicate_of = %s WHERE id = %s",
             (Json(json.loads(duplicate_info)), duplicate_paper_id)
         )
+
+    def insert_chunks(
+        self,
+        papers: List[Paper],
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Insert text chunks from papers into paper_chunks table with hierarchy.
+        
+        For each paper with text_chunks:
+        - Inserts all chunks with hierarchy_level and parent_chunk_id
+        - Maintains parent-child relationships
+        - Handles all 3 levels: 0=paper root, 1=sections, 2=paragraphs
+        
+        Args:
+            papers: List of Paper models with text_chunks
+            dry_run: If True, don't actually insert
+            
+        Returns:
+            Dictionary with insertion statistics:
+            {
+                "chunks_inserted": int,
+                "chunks_updated": int,
+                "chunks_skipped": int,
+                "errors": List[str],
+                "error_count": int,
+            }
+        """
+        stats = {
+            "chunks_inserted": 0,
+            "chunks_updated": 0,
+            "chunks_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        if not papers:
+            return stats
+
+        if dry_run:
+            total_chunks = sum(len(p.text_chunks) if p.text_chunks else 0 for p in papers)
+            logger.info(f"DRY RUN: Would insert {total_chunks} chunks")
+            return {"chunks_inserted": total_chunks, **{k: v for k, v in stats.items() if k != "chunks_inserted"}}
+
+        try:
+            with self.pool.get_connection() as conn:
+                with self.transaction(conn):
+                    cursor = conn.cursor()
+
+                    for paper in papers:
+                        if not paper.text_chunks:
+                            stats["chunks_skipped"] += 1
+                            continue
+
+                        try:
+                            # Get paper's db_id from database
+                            cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
+                            result = cursor.fetchone()
+                            if not result:
+                                stats["error_count"] += 1
+                                stats["errors"].append(f"Paper {paper.cite_key}: not found in database")
+                                continue
+
+                            paper_db_id = result[0]
+
+                            # Insert chunks with hierarchy
+                            for chunk in paper.text_chunks:
+                                try:
+                                    self._insert_single_chunk(cursor, chunk, paper_db_id)
+                                    stats["chunks_inserted"] += 1
+                                except Exception as e:
+                                    error_msg = f"Chunk {chunk.id}: {str(e)}"
+                                    logger.error(error_msg)
+                                    stats["errors"].append(error_msg)
+                                    stats["error_count"] += 1
+
+                        except Exception as e:
+                            error_msg = f"Paper {paper.cite_key} chunks: {str(e)}"
+                            logger.error(error_msg)
+                            stats["errors"].append(error_msg)
+                            stats["error_count"] += 1
+
+                    cursor.close()
+                    logger.info(f"Inserted {stats['chunks_inserted']} chunks, errors: {stats['error_count']}")
+
+        except Exception as e:
+            logger.error(f"Chunk insert failed: {e}")
+            raise
+
+        return stats
+
+    def _insert_single_chunk(self, cursor, chunk, paper_db_id: int) -> None:
+        """
+        Insert a single text chunk with hierarchy support.
+        
+        Args:
+            cursor: psycopg2 cursor
+            chunk: TextChunk model
+            paper_db_id: Database ID of parent paper
+        """
+        # Get parent_chunk_id (NULL for root chunks)
+        parent_chunk_id = chunk.parent_chunk.id if chunk.parent_chunk else None
+
+        insert_sql = sql.SQL(
+            "INSERT INTO paper_chunks "
+            "(id, paper_id, chunk_index, text, hierarchy_level, parent_chunk_id, section, "
+            "start_char, end_char, word_count, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (id) DO UPDATE SET "
+            "text = EXCLUDED.text, section = EXCLUDED.section"
+        )
+
+        cursor.execute(
+            insert_sql,
+            (
+                chunk.id,
+                paper_db_id,
+                chunk.chunk_index,
+                chunk.text,
+                chunk.hierarchy_level,
+                parent_chunk_id,
+                chunk.section,
+                chunk.start_char,
+                chunk.end_char,
+                chunk.word_count,
+                chunk.created_at,
+            ),
+        )
+
+    def insert_chunk_embeddings(
+        self,
+        papers: List[Paper],
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Insert embeddings for text chunks into chunk_embeddings table.
+        
+        For each paper's chunks with embeddings:
+        - Inserts 768-dimensional vectors
+        - Supports all hierarchy levels (sections and paragraphs)
+        - Uses UPSERT to handle re-embeddings
+        
+        Args:
+            papers: List of Paper models with text_chunks containing embeddings
+            dry_run: If True, don't actually insert
+            
+        Returns:
+            Dictionary with insertion statistics:
+            {
+                "embeddings_upserted": int,
+                "embeddings_skipped": int,
+                "errors": List[str],
+                "error_count": int,
+            }
+        """
+        stats = {
+            "embeddings_upserted": 0,
+            "embeddings_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        if not papers:
+            return stats
+
+        if dry_run:
+            total_embeddings = sum(
+                len([c for c in p.text_chunks if c.embedding])
+                if p.text_chunks else 0
+                for p in papers
+            )
+            logger.info(f"DRY RUN: Would insert {total_embeddings} chunk embeddings")
+            return {"embeddings_upserted": total_embeddings, **{k: v for k, v in stats.items() if k != "embeddings_upserted"}}
+
+        try:
+            with self.pool.get_connection() as conn:
+                with self.transaction(conn):
+                    cursor = conn.cursor()
+
+                    for paper in papers:
+                        if not paper.text_chunks:
+                            continue
+
+                        for chunk in paper.text_chunks:
+                            if not chunk.embedding:
+                                stats["embeddings_skipped"] += 1
+                                continue
+
+                            try:
+                                self._insert_chunk_embedding(cursor, chunk)
+                                stats["embeddings_upserted"] += 1
+                            except Exception as e:
+                                error_msg = f"Chunk {chunk.id} embedding: {str(e)}"
+                                logger.error(error_msg)
+                                stats["errors"].append(error_msg)
+                                stats["error_count"] += 1
+
+                    cursor.close()
+                    logger.info(
+                        f"Upserted {stats['embeddings_upserted']} chunk embeddings, "
+                        f"errors: {stats['error_count']}"
+                    )
+
+        except Exception as e:
+            logger.error(f"Chunk embedding insert failed: {e}")
+            raise
+
+        return stats
+
+    def _insert_chunk_embedding(self, cursor, chunk) -> None:
+        """
+        Insert embedding for a single chunk.
+        
+        Args:
+            cursor: psycopg2 cursor
+            chunk: TextChunk with embedding
+        """
+        if not chunk.embedding or not chunk.embedding.vector:
+            return
+
+        # Convert vector to pgvector format
+        vector = chunk.embedding.vector
+
+        insert_sql = sql.SQL(
+            "INSERT INTO chunk_embeddings "
+            "(chunk_id, embedding, model_name, model_dimension, embedding_version, created_at) "
+            "VALUES (%s, %s::vector, %s, %s, %s, %s) "
+            "ON CONFLICT (chunk_id, model_name, embedding_version) "
+            "DO UPDATE SET embedding = EXCLUDED.embedding"
+        )
+
+        cursor.execute(
+            insert_sql,
+            (
+                chunk.id,
+                f"[{','.join(str(v) for v in vector)}]",  # pgvector format
+                chunk.embedding.model,
+                768,  # all-mpnet-base-v2 dimension
+                1,    # embedding version
+                chunk.created_at,
+            ),
+        )
+

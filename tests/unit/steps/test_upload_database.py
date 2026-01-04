@@ -311,7 +311,7 @@ class TestExecuteDryRun:
         assert isinstance(result, StepResult)
         assert result.status == StepStatus.WARNING
         assert "Validation errors" in result.message
-        assert result.stats["total_papers"] == 1
+        assert result.stats["count"] == 1
         assert result.stats["validation_errors"] > 0
 
 
@@ -343,6 +343,28 @@ class TestExecuteRealUpload:
                 "edges_inserted": 0,
                 "edges_skipped": 0,
             },
+        }
+
+        # Mock new chunk insertion methods
+        mock_uploader.insert_chunks.return_value = {
+            "chunks_inserted": 100,
+            "chunks_updated": 0,
+            "chunks_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_chunk_embeddings.return_value = {
+            "embeddings_upserted": 95,
+            "embeddings_skipped": 5,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_embeddings.return_value = {
+            "upserted": 5,
+            "skipped": 0,
+            "error_count": 0,
         }
 
         # Create mock papers
@@ -385,6 +407,28 @@ class TestExecuteRealUpload:
                 "edges_inserted": 0,
                 "edges_skipped": 0,
             },
+        }
+
+        # Mock new chunk insertion methods
+        mock_uploader.insert_chunks.return_value = {
+            "chunks_inserted": 80,
+            "chunks_updated": 0,
+            "chunks_skipped": 20,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_chunk_embeddings.return_value = {
+            "embeddings_upserted": 75,
+            "embeddings_skipped": 5,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_embeddings.return_value = {
+            "upserted": 3,
+            "skipped": 2,
+            "error_count": 0,
         }
 
         # Create mock papers
@@ -470,6 +514,28 @@ class TestBatchProcessing:
 
         mock_uploader.insert_papers.side_effect = mock_insert
 
+        # Mock new chunk insertion methods
+        mock_uploader.insert_chunks.return_value = {
+            "chunks_inserted": 2500,
+            "chunks_updated": 0,
+            "chunks_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_chunk_embeddings.return_value = {
+            "embeddings_upserted": 2500,
+            "embeddings_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_embeddings.return_value = {
+            "upserted": 250,
+            "skipped": 0,
+            "error_count": 0,
+        }
+
         # Create 250 mock papers (should be 3 batches with batch_size=100)
         mock_papers = [Mock(spec=Paper) for _ in range(250)]
         mock_db.all.return_value = mock_papers
@@ -509,6 +575,28 @@ class TestBatchProcessing:
             },
         }
 
+        # Mock new chunk insertion methods
+        mock_uploader.insert_chunks.return_value = {
+            "chunks_inserted": 1000,
+            "chunks_updated": 0,
+            "chunks_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_chunk_embeddings.return_value = {
+            "embeddings_upserted": 1000,
+            "embeddings_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_embeddings.return_value = {
+            "upserted": 100,
+            "skipped": 0,
+            "error_count": 0,
+        }
+
         # Create 100 mock papers
         mock_papers = [Mock(spec=Paper) for _ in range(100)]
         mock_db.all.return_value = mock_papers
@@ -544,6 +632,28 @@ class TestBatchProcessing:
                 "edges_inserted": 25,
                 "edges_skipped": 3,
             },
+        }
+
+        # Mock new chunk insertion methods
+        mock_uploader.insert_chunks.return_value = {
+            "chunks_inserted": 100,
+            "chunks_updated": 0,
+            "chunks_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_chunk_embeddings.return_value = {
+            "embeddings_upserted": 95,
+            "embeddings_skipped": 5,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_embeddings.return_value = {
+            "upserted": 10,
+            "skipped": 0,
+            "error_count": 0,
         }
 
         # Create mock papers
@@ -586,6 +696,28 @@ class TestBatchProcessing:
                 "edges_inserted": 0,
                 "edges_skipped": 0,
             },
+        }
+
+        # Mock new chunk insertion methods
+        mock_uploader.insert_chunks.return_value = {
+            "chunks_inserted": 50,
+            "chunks_updated": 0,
+            "chunks_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_chunk_embeddings.return_value = {
+            "embeddings_upserted": 48,
+            "embeddings_skipped": 2,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        mock_uploader.insert_embeddings.return_value = {
+            "upserted": 5,
+            "skipped": 0,
+            "error_count": 0,
         }
 
         # Create mock papers

@@ -233,6 +233,27 @@ class UploadDatabaseStep(BaseStep):
 
             all_stats["total_batches"] = total_batches
 
+            # Insert text chunks with hierarchy
+            self.callback("Inserting text chunks...", debug=True)
+            chunks_stats = uploader.insert_chunks(papers, dry_run=False)
+            all_stats["chunks_inserted"] = chunks_stats["chunks_inserted"]
+            all_stats["chunks_skipped"] = chunks_stats["chunks_skipped"]
+            all_stats["chunks_errors"] = chunks_stats["error_count"]
+            if chunks_stats["error_count"] > 0:
+                all_stats["errors"].extend(chunks_stats["errors"])
+                all_stats["error_count"] += chunks_stats["error_count"]
+
+            # Insert chunk embeddings
+            self.callback("Inserting chunk embeddings...", debug=True)
+            chunk_embedding_stats = uploader.insert_chunk_embeddings(papers, dry_run=False)
+            all_stats["chunk_embeddings_upserted"] = chunk_embedding_stats["embeddings_upserted"]
+            all_stats["chunk_embeddings_skipped"] = chunk_embedding_stats["embeddings_skipped"]
+            all_stats["chunk_embeddings_errors"] = chunk_embedding_stats["error_count"]
+            if chunk_embedding_stats["error_count"] > 0:
+                all_stats["errors"].extend(chunk_embedding_stats["errors"])
+                all_stats["error_count"] += chunk_embedding_stats["error_count"]
+
+            # Insert paper-level embeddings
             embedding_stats = uploader.insert_embeddings(papers, dry_run=False)
             all_stats["embeddings"]["upserted"] = embedding_stats["upserted"]
             all_stats["embeddings"]["skipped"] = embedding_stats["skipped"]
@@ -271,6 +292,12 @@ class UploadDatabaseStep(BaseStep):
                     "conflict_strategy": conflict_strategy,
                     "citation_edges_inserted": all_stats["citation_edges"]["edges_inserted"],
                     "citation_edges_skipped": all_stats["citation_edges"]["edges_skipped"],
+                    "chunks_inserted": all_stats.get("chunks_inserted", 0),
+                    "chunks_skipped": all_stats.get("chunks_skipped", 0),
+                    "chunks_errors": all_stats.get("chunks_errors", 0),
+                    "chunk_embeddings_upserted": all_stats.get("chunk_embeddings_upserted", 0),
+                    "chunk_embeddings_skipped": all_stats.get("chunk_embeddings_skipped", 0),
+                    "chunk_embeddings_errors": all_stats.get("chunk_embeddings_errors", 0),
                     "embeddings_upserted": all_stats["embeddings"]["upserted"],
                     "embeddings_skipped": all_stats["embeddings"]["skipped"],
                     "embeddings_errors": all_stats["embeddings"]["errors"],
