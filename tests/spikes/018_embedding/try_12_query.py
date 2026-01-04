@@ -86,7 +86,7 @@ class PaperQueryEngine:
             """
             SELECT 
                 ce.id,
-                ce.paper_db_id,
+                p.db_id,
                 p.cite_key,
                 p.title,
                 p.year,
@@ -94,8 +94,8 @@ class PaperQueryEngine:
                 pc.text,
                 ce.embedding <=> %s::vector as distance
             FROM chunk_embeddings ce
-            JOIN paper_chunks pc ON ce.chunk_db_id = pc.db_id
-            JOIN papers p ON ce.paper_db_id = p.db_id
+            JOIN paper_chunks pc ON ce.chunk_id = pc.db_id
+            JOIN papers p ON pc.paper_db_id = p.db_id
             ORDER BY ce.embedding <=> %s::vector
             LIMIT %s
         """,
@@ -215,9 +215,9 @@ Commands:
                 try:
                     user_input = input("\n🔍 Your question: ").strip()
                 except EOFError:
-                    print("\n👋 End of input. Goodbye!")
+                    print("\n\n👋 End of input. Goodbye!")
                     break
-
+                
                 if not user_input:
                     continue
 
