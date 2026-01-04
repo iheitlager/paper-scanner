@@ -770,6 +770,92 @@ python test_02_pdf_chunking_embedding.py --device cpu    # Force CPU
 
 Just run normally on M2—no special setup required!
 
+## Paper Analysis & Clustering Tools (try_07 through try_11)
+
+### Standalone Test Infrastructure
+
+**try_07_sql.py** - Full pipeline test with fake data
+- Tests all 4 database upload operations without pytest
+- Verifies papers, chunks, chunk_embeddings, and paper_embeddings tables
+- Uses exact same `DatabaseConnectionPool` and `PaperUploader` as production code
+- Validates schema and foreign key relationships
+
+### Vector Similarity Analysis
+
+**try_08_compare_papers.py** - Compare two papers by embedding similarity
+```bash
+python try_08_compare_papers.py Hoessler2024 Piccoli2024
+```
+- Computes cosine similarity and Euclidean distance
+- Returns similarity percentage and assessment
+- Example: 90.9% similarity between Hoessler2024 & Piccoli2024
+
+**try_09_find_similar.py** - Find N most similar papers using pgvector
+```bash
+python try_09_find_similar.py Hoessler2024 5
+```
+- Uses pgvector distance operator (<=>)
+- Returns ranked list with distances and similarity percentages
+- Efficient SQL queries on paper_embeddings table
+
+**try_10_find_gaps.py** - Identify isolated papers (research gaps)
+```bash
+python try_10_find_gaps.py 0.7
+```
+- Finds papers with no similar neighbors above threshold
+- Indicates potential research gaps or understudied areas
+- Configurable similarity threshold (default 60%)
+
+### Clustering & Visualization
+
+**try_11_cluster_papers.py** - K-means clustering on paper embeddings
+```bash
+python try_11_cluster_papers.py 3      # Create 3 clusters
+```
+- Loads embeddings from paper_embeddings table
+- Runs K-means with configurable number of clusters
+- Calculates silhouette score for quality assessment
+- Stores results in paper_clusters and paper_cluster_assignments tables
+- Provides cluster statistics and membership analysis
+
+**try_11_visualize_clusters.py** - 2D/3D visualization of paper clusters
+```bash
+python try_11_visualize_clusters.py tsne 2    # t-SNE 2D (better visualization)
+python try_11_visualize_clusters.py pca 2     # PCA 2D (faster)
+python try_11_visualize_clusters.py tsne 3    # t-SNE 3D
+```
+- Reduces 768-dim embeddings to 2D/3D for visualization
+- Supports t-SNE (better structure, slower) and PCA (faster, linear)
+- Plots clusters with colors, centroids, and paper labels
+- Saves PNG files: `clusters_{method}_{dim}d.png`
+- Handles high-dimensional data with automatic preprocessing
+
+## Results from 7-Paper Dataset
+
+**Papers Loaded:**
+- Correani2020, GarciaMartin2024, Hoessler2024, Klos2023, Piccoli2024, Sharma2024, Volpentesta2023
+
+**Embedding Statistics:**
+- 1,548 text chunks total (7 root, 778 sections, 763 paragraphs)
+- 1,538 chunk embeddings (768-dim vectors)
+- 14 paper embeddings (7 papers × 2 methods each)
+
+**Clustering Results (3 clusters):**
+- Silhouette score: 0.496 (moderate separation)
+- Cluster 1: 10 embeddings (5 papers - main group)
+- Cluster 2: 2 embeddings (1 paper - Klos2023)
+- Cluster 3: 2 embeddings (1 paper - Volpentesta2023)
+
+**Similarity Analysis:**
+- Hoessler2024 ↔ Piccoli2024: 90.9% (very similar)
+- Hoessler2024 ↔ Sharma2024: 89.3% (very similar)
+- All 7 papers well-connected at 70% threshold (no isolated gaps)
+
+**Visualization Quality:**
+- t-SNE 2D: 100% variance explanation, optimal cluster separation
+- PCA 2D: 53.71% variance explanation, faster computation
+- Centroids properly positioned in reduced space
+
 ## References
 
 - Spike 004: `tests/spikes/004_embedding/` (previous embedding work)
