@@ -856,6 +856,46 @@ python try_11_visualize_clusters.py tsne 3    # t-SNE 3D
 - PCA 2D: 53.71% variance explanation, faster computation
 - Centroids properly positioned in reduced space
 
+### Interactive Query Tool: "Who Says What?"
+
+**try_12_query.py** - Interactive LLM-powered query engine
+```bash
+python try_12_query.py
+```
+- Natural language questions about paper findings
+- Vector similarity search for relevant sections
+- Claude LLM synthesis of findings
+- Commands: `papers`, `help`, `exit`
+
+**Features**:
+- Searches paper chunks using vector embeddings
+- Uses Claude to synthesize "who says what" across papers
+- Shows metadata for all loaded papers
+- Interactive session loop with error handling
+- Handles EOF gracefully for scripted input
+
+**Example Questions**:
+```
+Q: "What do papers say about digital transformation?"
+→ Finds relevant sections, shows synthesis from each paper
+
+Q: "Who discusses platform ecosystems?"
+→ Lists papers discussing platforms, synthesizes commonalities
+
+Q: "What methodologies are used?"
+→ Finds methodology sections, compares approaches
+
+Q: "Compare how papers view digitalization"
+→ Contrasts perspectives across papers
+```
+
+**Output**:
+1. Relevant papers & sections (with similarity %)
+2. Claude synthesis answering "who says what"
+3. Key findings from each paper
+4. Patterns and contradictions
+5. Suggested follow-up questions
+
 ## References
 
 - Spike 004: `tests/spikes/004_embedding/` (previous embedding work)
@@ -865,6 +905,7 @@ python try_11_visualize_clusters.py tsne 3    # t-SNE 3D
 - Sentence Transformers: https://www.sbert.net/
 - AllenAI SPECTER: https://github.com/allenai/specter
 - FAISS: https://github.com/facebookresearch/faiss
+- Anthropic Claude API: https://www.anthropic.com/
 
 ## Notes
 
@@ -874,3 +915,4 @@ python try_11_visualize_clusters.py tsne 3    # t-SNE 3D
 - Section detection uses 70+ regex patterns (see sections.py)
 - Chunk overlap improves context preservation (default 50 tokens)
 - Aggregation strategy (currently abstract) can be enhanced with weighted averaging
+- Claude API key required for LLM-powered query tool (try_12)
