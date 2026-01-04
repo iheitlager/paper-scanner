@@ -144,18 +144,6 @@ class UploadDatabaseStep(BaseStep):
         conflict_strategy = config.get("conflict_strategy", "skip")
         batch_size = int(config.get("batch_size", 100))
 
-        if verbose:
-            console.print("[cyan]Uploading papers to PostgreSQL[/cyan]")
-            console.print(
-                f"[dim]Database: {database_url.split('@')[-1] if '@' in database_url else 'unknown'}[/dim]"
-            )
-            console.print(
-                f"[dim]Conflict strategy: {conflict_strategy}[/dim]"
-            )
-            console.print(
-                f"[dim]Dry-run: {dry_run}[/dim]"
-            )
-
         # Get papers from in-memory database
         papers = self.db.all(primary_only=False)
         total_papers = len(papers)
@@ -167,11 +155,6 @@ class UploadDatabaseStep(BaseStep):
                 stats={"total_papers": 0}
             )
 
-        if verbose:
-            console.print(
-                f"[cyan]Found {total_papers} papers to upload[/cyan]"
-            )
-
         # Dry-run mode: just validate conversion
         if dry_run:
             errors = self._validate_papers(papers, verbose)
@@ -180,10 +163,10 @@ class UploadDatabaseStep(BaseStep):
                     status=StepStatus.WARNING,
                     message=f"Validation errors in {len(errors)} papers",
                     stats={
-                        "total_papers": total_papers,
+                        "count": total_papers,
                         "validation_errors": len(errors),
                     },
-                    details="\n".join(errors[:10])  # Show first 10 errors
+                    error="\n".join(errors[:10])  # Show first 10 errors
                 )
             return StepResult(
                 status=StepStatus.SUCCESS,
@@ -212,19 +195,22 @@ class UploadDatabaseStep(BaseStep):
                 "citation_edges": {
                     "edges_inserted": 0,
                     "edges_skipped": 0,
+                },
+                "embeddings": {
+                    "upserted": 0,
+                    "skipped": 0,
+                    "errors": 0,
                 }
             }
 
+            # ========================================
+            # STEP 1: Insert papers (in batches)
+            # ========================================
+            self.callback("Step 1/5: Inserting papers...", debug=True)
             for i in range(0, total_papers, batch_size):
                 batch = papers[i : i + batch_size]
                 batch_num = i // batch_size + 1
                 total_batches = (total_papers + batch_size - 1) // batch_size
-
-                if verbose:
-                    console.print(
-                        f"[cyan]Uploading batch {batch_num}/{total_batches} "
-                        f"({len(batch)} papers)[/cyan]"
-                    )
 
                 # Upload batch
                 stats = uploader.insert_papers(
@@ -249,28 +235,71 @@ class UploadDatabaseStep(BaseStep):
                         f"{stats['error_count']} errors[/yellow]"
                     )
 
+            all_stats["total_batches"] = total_batches
+
+            # ========================================
+            # STEP 2: Citation edges summary
+            # ========================================
+            self.callback("Step 2/5: Citation edges processed...", debug=True)
+
+            # ========================================
+            # STEP 3: Insert text chunks with hierarchy
+            # ========================================
+            self.callback("Step 3/5: Inserting text chunks with hierarchy...", debug=True)
+            chunks_stats = uploader.insert_chunks(papers, dry_run=False)
+            all_stats["chunks_inserted"] = chunks_stats["chunks_inserted"]
+            all_stats["chunks_skipped"] = chunks_stats["chunks_skipped"]
+            all_stats["chunks_errors"] = chunks_stats["error_count"]
+            if chunks_stats["error_count"] > 0:
+                all_stats["errors"].extend(chunks_stats["errors"])
+                all_stats["error_count"] += chunks_stats["error_count"]
+
+            # ========================================
+            # STEP 4: Insert chunk embeddings (768-dim vectors)
+            # ========================================
+            self.callback("Step 4/5: Inserting chunk embeddings (768-dim)...", debug=True)
+            chunk_embedding_stats = uploader.insert_chunk_embeddings(papers, dry_run=False)
+            all_stats["chunk_embeddings_upserted"] = chunk_embedding_stats["embeddings_upserted"]
+            all_stats["chunk_embeddings_skipped"] = chunk_embedding_stats["embeddings_skipped"]
+            all_stats["chunk_embeddings_errors"] = chunk_embedding_stats["error_count"]
+            if chunk_embedding_stats["error_count"] > 0:
+                all_stats["errors"].extend(chunk_embedding_stats["errors"])
+                all_stats["error_count"] += chunk_embedding_stats["error_count"]
+
+            # ========================================
+            # STEP 5: Insert paper-level embeddings (title_abstract_embedding)
+            # ========================================
+            self.callback("Step 5/5: Inserting paper-level embeddings...", debug=True)
+            paper_embedding_stats = uploader.insert_embeddings(papers, dry_run=False)
+            all_stats["paper_embeddings_upserted"] = paper_embedding_stats["upserted"]
+            all_stats["paper_embeddings_skipped"] = paper_embedding_stats["skipped"]
+            all_stats["paper_embeddings_errors"] = paper_embedding_stats["error_count"]
+            if paper_embedding_stats["error_count"] > 0:
+                all_stats["errors"].extend(paper_embedding_stats["errors"])
+                all_stats["error_count"] += paper_embedding_stats["error_count"]
+
             # Determine status based on results
             if all_stats["error_count"] == total_papers:
                 # All papers failed
                 status = StepStatus.ERROR
                 message = "All papers failed to upload"
-                details = "\n".join(all_stats["errors"][:10])
+                errors = "\n".join(all_stats["errors"][:10])
             elif all_stats["error_count"] > 0:
                 # Partial success
                 status = StepStatus.WARNING
                 message = self._build_message(all_stats, conflict_strategy)
-                details = f"Upload errors ({all_stats['error_count']} papers):\n" + "\n".join(all_stats["errors"][:5])
+                errors = f"Upload errors ({all_stats['error_count']} papers):\n" + "\n".join(all_stats["errors"][:5])
             else:
                 # Complete success
                 status = StepStatus.SUCCESS
                 message = self._build_message(all_stats, conflict_strategy)
-                details = None
+                errors = None
 
             return StepResult(
                 status=status,
                 message=message,
                 stats={
-                    "total_papers": total_papers,
+                    "count": total_papers,
                     "inserted": all_stats["inserted"],
                     "updated": all_stats["updated"],
                     "skipped": all_stats["skipped"],
@@ -278,8 +307,21 @@ class UploadDatabaseStep(BaseStep):
                     "conflict_strategy": conflict_strategy,
                     "citation_edges_inserted": all_stats["citation_edges"]["edges_inserted"],
                     "citation_edges_skipped": all_stats["citation_edges"]["edges_skipped"],
+                    "chunks_inserted": all_stats.get("chunks_inserted", 0),
+                    "chunks_skipped": all_stats.get("chunks_skipped", 0),
+                    "chunks_errors": all_stats.get("chunks_errors", 0),
+                    "chunk_embeddings_upserted": all_stats.get("chunk_embeddings_upserted", 0),
+                    "chunk_embeddings_skipped": all_stats.get("chunk_embeddings_skipped", 0),
+                    "chunk_embeddings_errors": all_stats.get("chunk_embeddings_errors", 0),
+                    "paper_embeddings_upserted": all_stats.get("paper_embeddings_upserted", 0),
+                    "paper_embeddings_skipped": all_stats.get("paper_embeddings_skipped", 0),
+                    "paper_embeddings_errors": all_stats.get("paper_embeddings_errors", 0),
                 },
-                details=details
+                error=errors,
+                details=[
+                    f"Upload complete: {total_papers} papers",
+                    f"Total batches: {all_stats['total_batches']}"
+                ]
             )
 
         finally:
@@ -331,6 +373,10 @@ class UploadDatabaseStep(BaseStep):
         # Add citation edges info
         if stats["citation_edges"]["edges_inserted"] > 0:
             parts.append(f"citation edges: {stats['citation_edges']['edges_inserted']}")
+
+        # Add embeddings info
+        if stats["embeddings"]["upserted"] > 0:
+            parts.append(f"embeddings: {stats['embeddings']['upserted']}")
 
         summary = ", ".join(parts) if parts else "no changes"
         return f"Upload complete: {summary} (strategy: {strategy})"

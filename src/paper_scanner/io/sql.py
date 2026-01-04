@@ -105,6 +105,8 @@ class PaperToRowConverter:
         - screening → stored as JSONB
         - pdf_info → stored as JSONB
         
+        NOTE: text_chunks are handled separately via insert_chunks()
+        
         Args:
             paper: Paper model instance
             
@@ -137,7 +139,7 @@ class PaperToRowConverter:
             'booktitle': paper.booktitle,
             'publisher': paper.publisher,
             'volume': paper.volume,
-            'issue': paper.number,  # maps to 'issue' in SQL
+            'issue': paper.issue,
             'pages': paper.pages,
             'paper_type': paper.paper_type.value if paper.paper_type else None,
             'doi': paper.doi,
@@ -165,7 +167,7 @@ class PaperToRowConverter:
             row['file_path'] = paper.pdf_info.file_path
             row['file_name'] = paper.pdf_info.file_name
             row['size_bytes'] = paper.pdf_info.file_size_bytes
-            row['created_time'] = paper.pdf_info.downloaded_at
+            row['created_time'] = paper.created_at
 
 
         return row
@@ -260,6 +262,57 @@ class PaperToRowConverter:
         return paper
 
 
+class EmbeddingToRowConverter:
+    """Converts Pydantic Embedding model to SQL row format for pgvector storage"""
+
+    @staticmethod
+    def embedding_to_row(
+        embedding,
+        paper_db_id: int,
+        embedding_method: str = "title",
+        embedding_version: int = 1,
+    ) -> Dict[str, Any]:
+        """
+        Convert Embedding model to PostgreSQL row dictionary.
+        
+        Maps Embedding fields to paper_embeddings table columns:
+        - vector (List[float]) → pgvector format (array of floats)
+        - model → model_name column
+        - text_source → embedding_method if not provided
+        - created_at → created_at timestamp
+        
+        Args:
+            embedding: Embedding model instance
+            paper_db_id: Database ID (integer, db_id from papers table)
+            embedding_method: What was embedded (title, abstract, keywords, full_text, etc.)
+            embedding_version: Version of embedding algorithm
+            
+        Returns:
+            Dictionary with SQL column names and serialized values
+            
+        Raises:
+            ValueError: If embedding vector is not 768 dimensions
+        """
+        # Validate vector dimensions
+        if len(embedding.vector) != 768:
+            raise ValueError(
+                f"Embedding vector must be 768 dimensions, got {len(embedding.vector)}"
+            )
+
+        # Convert vector to pgvector format (Python list works directly with psycopg2-binary)
+        row = {
+            "paper_id": paper_db_id,
+            "embedding": embedding.vector,  # psycopg2 with pgvector support handles lists
+            "model_name": embedding.model,
+            "model_dimension": 768,  # all-mpnet-base-v2 dimension
+            "embedding_method": embedding_method,
+            "embedding_version": embedding_version,
+            "created_at": embedding.created_at,
+        }
+
+        return row
+
+
 class PaperUploader:
     """Handles bulk paper uploads with conflict resolution"""
 
@@ -336,40 +389,208 @@ class PaperUploader:
 
         try:
             with self.pool.get_connection() as conn:
-                with self.transaction(conn):
-                    cursor = conn.cursor()
+                cursor = conn.cursor()
 
-                    for paper in papers:
-                        try:
-                            self._insert_single_paper(cursor, paper, conflict_strategy)
-                            stats["inserted"] += 1
-                        except Exception as e:
-                            error_msg = f"Paper {paper.cite_key}: {str(e)}"
-                            logger.error(error_msg)
-                            stats["errors"].append(error_msg)
-                            stats["error_count"] += 1
+                for paper in papers:
+                    try:
+                        self._insert_single_paper(cursor, paper, conflict_strategy)
+                        conn.commit()
+                        stats["inserted"] += 1
+                    except Exception as e:
+                        conn.rollback()  # Rollback just this insert
+                        error_msg = f"Paper {paper.cite_key}: {str(e)}"
+                        logger.error(error_msg)
+                        stats["errors"].append(error_msg)
+                        stats["error_count"] += 1
 
-                            if conflict_strategy == "raise":
-                                raise
+                        if conflict_strategy == "raise":
+                            raise
 
-                    # Insert citation edges after all papers
-                    edge_stats = self._insert_citation_edges(cursor, papers)
-                    stats["citation_edges"]["edges_inserted"] = edge_stats["edges_inserted"]
-                    stats["citation_edges"]["edges_skipped"] = edge_stats["edges_skipped"]
-                    if edge_stats["errors"]:
-                        stats["errors"].extend(edge_stats["errors"])
+                # Insert citation edges after all papers
+                edge_stats = self._insert_citation_edges(cursor, papers)
+                stats["citation_edges"]["edges_inserted"] = edge_stats["edges_inserted"]
+                stats["citation_edges"]["edges_skipped"] = edge_stats["edges_skipped"]
+                if edge_stats["errors"]:
+                    stats["errors"].extend(edge_stats["errors"])
 
-                    cursor.close()
-                    logger.info(
-                        f"Inserted {stats['inserted']} papers, {stats['citation_edges']['edges_inserted']} "
-                        f"citation edges, errors: {stats['error_count']}"
-                    )
+                cursor.close()
+                logger.info(
+                    f"Inserted {stats['inserted']} papers, {stats['citation_edges']['edges_inserted']} "
+                    f"citation edges, errors: {stats['error_count']}"
+                )
 
         except Exception as e:
             logger.error(f"Bulk insert failed: {e}")
             raise
 
         return stats
+
+    def insert_embeddings(
+        self,
+        papers: List[Paper],
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Insert embeddings from paper text_chunks into paper_embeddings table.
+        
+        For each paper, iterates through all text_chunks with embeddings and inserts
+        them to paper_embeddings. The embedding_method comes from chunk.embedding.text_source.
+        
+        Uses UPSERT (ON CONFLICT) to handle re-embeddings of the same paper with
+        the same model, embedding_method, and version.
+        
+        Args:
+            papers: List of Paper models with text_chunks containing embeddings
+            dry_run: If True, don't actually insert
+            
+        Returns:
+            Dictionary with insertion statistics:
+            {
+                "upserted": int,      # Inserted/updated embeddings
+                "skipped": int,       # Chunks without embeddings
+                "errors": List[str],
+                "error_count": int,
+            }
+        """
+        stats = {
+            "upserted": 0,
+            "skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        if not papers:
+            logger.info("No papers to process for embeddings")
+            return stats
+
+        total_chunks_processed = 0
+        
+        if dry_run:
+            # Count chunks that would be inserted
+            for paper in papers:
+                if paper.text_chunks:
+                    for chunk in paper.text_chunks:
+                        if chunk.embedding is not None:
+                            total_chunks_processed += 1
+            logger.info(f"DRY RUN: Would insert {total_chunks_processed} chunk embeddings from {len(papers)} papers")
+            stats["upserted"] = total_chunks_processed
+            return stats
+
+        try:
+            with self.pool.get_connection() as conn:
+                cursor = conn.cursor()
+
+                for paper in papers:
+                    if not paper.text_chunks:
+                        continue
+                    
+                    try:
+                        # Get paper's db_id from database
+                        cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
+                        result = cursor.fetchone()
+                        if not result:
+                            stats["error_count"] += 1
+                            stats["errors"].append(f"Paper {paper.cite_key}: not found in database")
+                            continue
+                        
+                        paper_db_id = result[0]
+                        
+                        for chunk in paper.text_chunks:
+                            if chunk.embedding is None:
+                                stats["skipped"] += 1
+                                continue
+                            
+                            try:
+                                self._insert_single_embedding(cursor, paper_db_id, chunk)
+                                conn.commit()
+                                stats["upserted"] += 1
+                                total_chunks_processed += 1
+                            except Exception as e:
+                                conn.rollback()
+                                error_msg = f"Embedding for {paper.cite_key} chunk {chunk.id}: {str(e)}"
+                                logger.error(error_msg)
+                                stats["errors"].append(error_msg)
+                                stats["error_count"] += 1
+                                # Continue to next chunk even if this one fails
+                                continue
+                    except Exception as e:
+                        conn.rollback()
+                        error_msg = f"Paper {paper.cite_key} embeddings: {str(e)}"
+                        logger.error(error_msg)
+                        stats["errors"].append(error_msg)
+                        stats["error_count"] += 1
+                        # Continue to next paper even if this one fails
+                        continue
+
+                cursor.close()
+                
+                logger.info(
+                    f"Inserted/updated {stats['upserted']} embeddings from chunks, "
+                    f"skipped {stats['skipped']}, errors: {stats['error_count']}"
+                )
+
+        except Exception as e:
+            logger.error(f"Bulk embedding insert failed: {e}")
+            raise
+
+        return stats
+
+    def _insert_single_embedding(
+        self,
+        cursor,
+        paper_db_id: int,
+        chunk: 'TextChunk',
+    ) -> None:
+        """
+        Insert or update a single chunk embedding to paper_embeddings table.
+        
+        Uses ON CONFLICT (paper_id, model_name, embedding_method, embedding_version)
+        to update if already exists.
+        
+        Args:
+            cursor: psycopg2 cursor
+            paper_db_id: Database ID (integer, db_id from papers table)
+            chunk: TextChunk model with embedding
+        """
+        if chunk.embedding is None:
+            return
+
+        embedding = chunk.embedding
+
+        # Convert embedding to row format
+        # text_source from embedding maps to embedding_method in DB
+        row = EmbeddingToRowConverter.embedding_to_row(
+            embedding,
+            paper_db_id=paper_db_id,
+            embedding_method=embedding.text_source,  # Maps text_source to embedding_method
+            embedding_version=1,
+        )
+
+        # Build INSERT ... ON CONFLICT query
+        columns = list(row.keys())
+        values_placeholders = sql.SQL(', ').join(
+            sql.Placeholder(name=col) for col in columns
+        )
+
+        insert_sql = sql.SQL(
+            "INSERT INTO paper_embeddings ({}) VALUES ({})"
+        ).format(
+            sql.SQL(', ').join(map(sql.Identifier, columns)),
+            values_placeholders
+        )
+
+        # Update on conflict: update embedding, created_at on conflict
+        update_clause = sql.SQL(', ').join([
+            sql.SQL('embedding = EXCLUDED.embedding'),
+            sql.SQL('created_at = EXCLUDED.created_at'),
+        ])
+        
+        insert_sql += sql.SQL(
+            " ON CONFLICT (paper_id, model_name, embedding_method, embedding_version) "
+            "DO UPDATE SET "
+        ) + update_clause
+
+        cursor.execute(insert_sql, row)
 
     def _insert_single_paper(
         self,
@@ -573,6 +794,252 @@ class PaperUploader:
             logger.error(f"Failed to count papers: {e}")
             raise
 
+    def insert_chunks(
+        self,
+        papers: List[Paper],
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Insert text chunks from papers into paper_chunks table with hierarchy.
+        
+        For each paper with text_chunks:
+        - Inserts all chunks with hierarchy_level and parent_chunk_id
+        - Maintains parent-child relationships
+        - Handles all 3 levels: 0=paper root, 1=sections, 2=paragraphs
+        
+        Args:
+            papers: List of Paper models with text_chunks
+            dry_run: If True, don't actually insert
+            
+        Returns:
+            Dictionary with insertion statistics:
+            {
+                "chunks_inserted": int,
+                "chunks_updated": int,
+                "chunks_skipped": int,
+                "errors": List[str],
+                "error_count": int,
+            }
+        """
+        stats = {
+            "chunks_inserted": 0,
+            "chunks_updated": 0,
+            "chunks_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        if not papers:
+            return stats
+
+        if dry_run:
+            total_chunks = sum(len(p.text_chunks) if p.text_chunks else 0 for p in papers)
+            logger.info(f"DRY RUN: Would insert {total_chunks} chunks")
+            return {"chunks_inserted": total_chunks, **{k: v for k, v in stats.items() if k != "chunks_inserted"}}
+
+        try:
+            with self.pool.get_connection() as conn:
+                cursor = conn.cursor()
+
+                for paper in papers:
+                    if not paper.text_chunks:
+                        stats["chunks_skipped"] += 1
+                        continue
+
+                    try:
+                        # Get paper's db_id from database
+                        cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
+                        result = cursor.fetchone()
+                        if not result:
+                            stats["error_count"] += 1
+                            stats["errors"].append(f"Paper {paper.cite_key}: not found in database")
+                            continue
+
+                        paper_db_id = result[0]
+
+                        # Insert chunks with hierarchy
+                        for chunk in paper.text_chunks:
+                            try:
+                                self._insert_single_chunk(cursor, chunk, paper_db_id)
+                                conn.commit()
+                                stats["chunks_inserted"] += 1
+                            except Exception as e:
+                                conn.rollback()
+                                error_msg = f"Chunk {chunk.id}: {str(e)}"
+                                logger.error(error_msg)
+                                stats["errors"].append(error_msg)
+                                stats["error_count"] += 1
+
+                    except Exception as e:
+                        conn.rollback()
+                        error_msg = f"Paper {paper.cite_key} chunks: {str(e)}"
+                        logger.error(error_msg)
+                        stats["errors"].append(error_msg)
+                        stats["error_count"] += 1
+
+                cursor.close()
+                logger.info(f"Inserted {stats['chunks_inserted']} chunks, errors: {stats['error_count']}")
+
+        except Exception as e:
+            logger.error(f"Chunk insert failed: {e}")
+            raise
+
+        return stats
+
+    def _insert_single_chunk(self, cursor, chunk, paper_db_id: int) -> None:
+        """
+        Insert a single text chunk with hierarchy support.
+        
+        Args:
+            cursor: psycopg2 cursor
+            chunk: TextChunk model
+            paper_db_id: Database ID of parent paper
+        """
+        # Get parent_chunk_id (NULL for root chunks)
+        parent_chunk_id = chunk.parent_chunk.id if chunk.parent_chunk else None
+
+        insert_sql = sql.SQL(
+            "INSERT INTO paper_chunks "
+            "(id, paper_id, chunk_index, text, hierarchy_level, parent_chunk_id, section, "
+            "start_char, end_char, word_count, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (id) DO UPDATE SET "
+            "text = EXCLUDED.text, section = EXCLUDED.section"
+        )
+
+        cursor.execute(
+            insert_sql,
+            (
+                chunk.id,
+                paper_db_id,
+                chunk.chunk_index,
+                chunk.text,
+                chunk.hierarchy_level,
+                parent_chunk_id,
+                chunk.section,
+                chunk.start_char,
+                chunk.end_char,
+                chunk.word_count,
+                chunk.created_at,
+            ),
+        )
+
+    def insert_chunk_embeddings(
+        self,
+        papers: List[Paper],
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Insert embeddings for text chunks into chunk_embeddings table.
+        
+        For each paper's chunks with embeddings:
+        - Inserts 768-dimensional vectors
+        - Supports all hierarchy levels (sections and paragraphs)
+        - Uses UPSERT to handle re-embeddings
+        
+        Args:
+            papers: List of Paper models with text_chunks containing embeddings
+            dry_run: If True, don't actually insert
+            
+        Returns:
+            Dictionary with insertion statistics:
+            {
+                "embeddings_upserted": int,
+                "embeddings_skipped": int,
+                "errors": List[str],
+                "error_count": int,
+            }
+        """
+        stats = {
+            "embeddings_upserted": 0,
+            "embeddings_skipped": 0,
+            "errors": [],
+            "error_count": 0,
+        }
+
+        if not papers:
+            return stats
+
+        if dry_run:
+            total_embeddings = sum(
+                len([c for c in p.text_chunks if c.embedding])
+                if p.text_chunks else 0
+                for p in papers
+            )
+            logger.info(f"DRY RUN: Would insert {total_embeddings} chunk embeddings")
+            return {"embeddings_upserted": total_embeddings, **{k: v for k, v in stats.items() if k != "embeddings_upserted"}}
+
+        try:
+            with self.pool.get_connection() as conn:
+                cursor = conn.cursor()
+
+                for paper in papers:
+                    if not paper.text_chunks:
+                        continue
+
+                    for chunk in paper.text_chunks:
+                        if not chunk.embedding:
+                            stats["embeddings_skipped"] += 1
+                            continue
+
+                        try:
+                            self._insert_chunk_embedding(cursor, chunk)
+                            conn.commit()
+                            stats["embeddings_upserted"] += 1
+                        except Exception as e:
+                            conn.rollback()
+                            error_msg = f"Chunk {chunk.id} embedding: {str(e)}"
+                            logger.error(error_msg)
+                            stats["errors"].append(error_msg)
+                            stats["error_count"] += 1
+
+                cursor.close()
+                logger.info(
+                    f"Upserted {stats['embeddings_upserted']} chunk embeddings, "
+                    f"errors: {stats['error_count']}"
+                )
+
+        except Exception as e:
+            logger.error(f"Chunk embedding insert failed: {e}")
+            raise
+
+        return stats
+
+    def _insert_chunk_embedding(self, cursor, chunk) -> None:
+        """
+        Insert embedding for a single chunk.
+        
+        Args:
+            cursor: psycopg2 cursor
+            chunk: TextChunk with embedding
+        """
+        if not chunk.embedding or not chunk.embedding.vector:
+            return
+
+        # Use psycopg2's built-in pgvector support (list of floats)
+        # The psycopg2-binary with pgvector support can handle Python lists directly
+        vector = chunk.embedding.vector
+
+        insert_sql = sql.SQL(
+            "INSERT INTO chunk_embeddings "
+            "(chunk_id, embedding, model_name, model_dimension, embedding_version, created_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (chunk_id, model_name, embedding_version) "
+            "DO UPDATE SET embedding = EXCLUDED.embedding"
+        )
+
+        cursor.execute(
+            insert_sql,
+            (
+                chunk.id,
+                vector,  # psycopg2 with pgvector support handles lists directly
+                chunk.embedding.model,
+                768,  # all-mpnet-base-v2 dimension
+                1,    # embedding version
+                chunk.created_at,
+            ),
+        )
+
 
 class DOIDuplicateHandler:
     """Handles DOI-based duplicate detection and management"""
@@ -619,3 +1086,5 @@ class DOIDuplicateHandler:
             "UPDATE papers SET duplicate_of = %s WHERE id = %s",
             (Json(json.loads(duplicate_info)), duplicate_paper_id)
         )
+
+

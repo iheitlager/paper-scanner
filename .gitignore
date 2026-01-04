@@ -185,4 +185,4 @@ cython_debug/
 
 
 # javascript
-node_modules/
+node_modules/clusters*.png

@@ -787,7 +787,7 @@ class StepExecutor:
                 # Map string to StepStatus enum
                 status_map = {s.value: s for s in StepStatus}
                 status = status_map.get(status, StepStatus.SUCCESS)
-            
+
             result = StepResult(
                 status=status,
                 message=result.get("message", ""),
@@ -915,16 +915,8 @@ class StepExecutor:
         total_steps = len(self.steps)
 
         for i in range(self.current_step_index, total_steps):
-            # Call on_step_start callback if provided
-            if on_step_start:
-                on_step_start(i, self.steps[i], total_steps)
-
             # Execute step - exceptions propagate to caller
             result = self.execute_step(i, dry_run=dry_run)
-
-            # Call on_step_end callback if provided
-            if on_step_end:
-                on_step_end(i, self.steps[i], result)
 
             results_summary.step_results.append(result)
 

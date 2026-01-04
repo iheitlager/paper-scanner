@@ -243,7 +243,6 @@ class LoadFilesStep(BaseStep):
                     file_size_bytes=file_info.get("file_size_bytes"),
                     download_source="file_path",
                     download_url="file://" + str(file_info.get("file_path", "")),
-                    downloaded_at=created_time,
                 )
 
                 # Success!

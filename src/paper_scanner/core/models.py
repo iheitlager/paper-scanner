@@ -144,9 +144,15 @@ class TextChunk(BaseModel):
     """Chunk of paper text with embedding"""
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    paper: Optional['Paper'] = None  # Back-reference to paper
     chunk_index: int
     text: str
     section: Optional[str] = None  # "introduction", "methods", "results", etc.
+
+    # Hierarchy support
+    hierarchy_level: int = Field(default=0, description="0=paper, 1=section, 2=paragraph, 3=sentence")
+    parent_chunk: Optional['TextChunk'] = None  # ID of parent chunk (paper or section)
+    children_chunks: List['TextChunk'] = Field(default_factory=list)
 
     # Boundaries
     start_char: Optional[int] = None
@@ -158,6 +164,87 @@ class TextChunk(BaseModel):
     # Metadata
     word_count: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # ====================================================================
+    # Methods for serialization and representation
+    # ====================================================================
+    def __repr__(self) -> str:
+        """Simplified repr to avoid infinite recursion with circular references"""
+        return f"Chunk(id={self.id!r}, index={self.chunk_index}, level={self.hierarchy_level})"
+
+    @field_serializer('paper', when_used='always')
+    def serialize_parent_paper(self, v: 'Paper') -> Optional[str]:
+        """Convert Paper references to ID strings during serialization"""
+        return v.id if v else None
+
+    @field_serializer('parent_chunk', when_used='always')
+    def serialize_parent_chunk(self, v: Optional['TextChunk'])-> Optional[str]:
+        """Convert TextChunk references to ID strings during serialization"""
+        return v.id if v else None
+
+    @field_serializer('children_chunks', when_used='always')
+    def serialize_children_chunks(self, value: List['TextChunk']) -> List[str]:
+        """Convert TextChunk references to ID strings during serialization"""
+        return [chunk.id for chunk in value] if value else []
+
+    # =====================================================================
+    # COMPARISON MAGIC METHODS (for sorting/comparing by embedding)
+    # =====================================================================
+
+    def _get_embedding_norm(self) -> float:
+        """Get L2 norm of embedding vector for comparison."""
+        if not self.embedding or not self.embedding.vector:
+            return 0.0
+        import numpy as np
+        return float(np.linalg.norm(self.embedding.vector))
+
+    def __lt__(self, other: 'TextChunk') -> bool:
+        """Less than comparison based on embedding vector norm."""
+        if not isinstance(other, TextChunk):
+            return NotImplemented
+        return self._get_embedding_norm() < other._get_embedding_norm()
+
+    def __le__(self, other: 'TextChunk') -> bool:
+        """Less than or equal comparison based on embedding vector norm."""
+        if not isinstance(other, TextChunk):
+            return NotImplemented
+        return self._get_embedding_norm() <= other._get_embedding_norm()
+
+    def __gt__(self, other: 'TextChunk') -> bool:
+        """Greater than comparison based on embedding vector norm."""
+        if not isinstance(other, TextChunk):
+            return NotImplemented
+        return self._get_embedding_norm() > other._get_embedding_norm()
+
+    def __ge__(self, other: 'TextChunk') -> bool:
+        """Greater than or equal comparison based on embedding vector norm."""
+        if not isinstance(other, TextChunk):
+            return NotImplemented
+        return self._get_embedding_norm() >= other._get_embedding_norm()
+
+    def __eq__(self, other: 'TextChunk') -> bool:
+        """Equality comparison based on ID."""
+        if not isinstance(other, TextChunk):
+            return NotImplemented
+        return self.id == other.id
+
+    def __hash__(self) -> int:
+        """Hash based on chunk ID for use in sets/dicts."""
+        return hash(self.id)
+
+    def similarity_to(self, other: 'TextChunk') -> Optional[float]:
+        """Calculate cosine similarity to another chunk."""
+        if not self.embedding or not other.embedding:
+            return None
+        if not self.embedding.vector or not other.embedding.vector:
+            return None
+
+        from scipy.spatial.distance import cosine
+
+        try:
+            return 1 - cosine(self.embedding.vector, other.embedding.vector)
+        except Exception:
+            return None
 
 
 # ============================================================================
@@ -535,6 +622,7 @@ class Paper(BaseModel):
 
     # Volume/issue
     volume: Optional[str] = None
+    issue: Optional[str] = None
     number: Optional[str] = None
     pages: Optional[str] = None
 
@@ -549,6 +637,7 @@ class Paper(BaseModel):
     # ========================================
 
     title_abstract_embedding: Optional[Embedding] = None  # Combined
+    text_chunks: Optional[List[TextChunk]] = None  # Full text chunks with embeddings
 
     # ========================================
     # DISCOVERY

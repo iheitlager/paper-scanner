@@ -6,6 +6,10 @@ import tty
 import os
 from typing import Any, Optional
 
+# Disable tokenizers parallelism to avoid fork deadlocks
+# (happens when viewing papers with text chunks that use embedding models)
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 from rich.console import Console
 from rich.syntax import Syntax
 

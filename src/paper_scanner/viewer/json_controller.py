@@ -1,8 +1,13 @@
 """JSON tree controller - manages navigation and manipulation of JSON data."""
 
 import json
+import os
 import subprocess
 from typing import Any, List, Optional
+
+# Disable tokenizers parallelism to avoid fork deadlocks
+# (happens when viewing papers with text chunks that use embedding models)
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 
 class JSONNode:

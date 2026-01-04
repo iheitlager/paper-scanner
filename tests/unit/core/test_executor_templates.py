@@ -17,6 +17,7 @@ import yaml
 
 from paper_scanner.core.exceptions import PipelineExecutionError
 from paper_scanner.core.executor import StepExecutor
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.reporter import NoOpReporter
 
 # ============================================================================
@@ -296,71 +297,24 @@ class TestRunAll:
 # ============================================================================
 
 class TestRunAllCallbacks:
-    """Tests for run_all callback functionality"""
+    """Tests for run_all functionality with templates"""
 
-    def test_on_step_start_called_for_each_step(self, executor, sample_definition_file):
-        """Test that on_step_start is called for each step"""
+    def test_run_all_executes_all_template_steps(self, executor, sample_definition_file):
+        """Test that run_all executes all steps including template expansions"""
         executor.load_definition(sample_definition_file)
 
         mock_step = Mock()
         mock_step.execute.return_value = {"status": "ok", "count": 1}
 
-        start_calls = []
-        def on_start(idx, config, total):
-            start_calls.append((idx, config, total))
-
         with patch.object(executor, 'get_step', return_value=mock_step):
-            executor.run_all(on_step_start=on_start)
+            result = executor.run_all()
 
-        # Should be called for each of the 3 steps
-        assert len(start_calls) == 3
-        assert start_calls[0][0] == 0  # first step index
-        assert start_calls[0][2] == 3  # total steps
-        assert start_calls[1][0] == 1
-        assert start_calls[2][0] == 2
+        # Should execute all steps
+        assert result.status == StepStatus.SUCCESS
+        assert result.stats["steps_executed"] > 0
 
-    def test_on_step_end_called_for_each_step(self, executor, sample_definition_file):
-        """Test that on_step_end is called for each step with result"""
-        executor.load_definition(sample_definition_file)
-
-        mock_step = Mock()
-        mock_step.execute.return_value = {"status": "ok", "count": 5}
-
-        end_calls = []
-        def on_end(idx, config, result):
-            end_calls.append((idx, config, result))
-
-        with patch.object(executor, 'get_step', return_value=mock_step):
-            executor.run_all(on_step_end=on_end)
-
-        # Should be called for each step
-        assert len(end_calls) == 3
-        # Each call should have the result
-        for idx, config, result in end_calls:
-            assert result["status"] == "ok"
-
-    def test_callbacks_called_in_order(self, executor, sample_definition_file):
-        """Test that callbacks are called in correct order: start, execute, end"""
-        executor.load_definition(sample_definition_file)
-
-        mock_step = Mock()
-        mock_step.execute.return_value = {"status": "ok", "count": 1}
-
-        call_order = []
-        def on_start(idx, config, total):
-            call_order.append(f"start_{idx}")
-        def on_end(idx, config, result):
-            call_order.append(f"end_{idx}")
-
-        with patch.object(executor, 'get_step', return_value=mock_step):
-            executor.run_all(on_step_start=on_start, on_step_end=on_end)
-
-        # Should alternate: start_0, end_0, start_1, end_1, start_2, end_2
-        expected = ["start_0", "end_0", "start_1", "end_1", "start_2", "end_2"]
-        assert call_order == expected
-
-    def test_callbacks_stop_on_error(self, executor, sample_definition_file):
-        """Test that exception halts callbacks on template step error"""
+    def test_run_all_stops_on_template_error(self, executor, sample_definition_file):
+        """Test that run_all stops when a template step returns error"""
         executor.load_definition(sample_definition_file)
 
         call_count = [0]
@@ -373,17 +327,9 @@ class TestRunAllCallbacks:
                 mock_step.execute.return_value = {"status": "ok", "count": 1}
             return mock_step
 
-        end_calls = []
-        def on_end(idx, config, result):
-            end_calls.append((idx, result["status"]))
-
         with patch.object(executor, 'get_step', side_effect=mock_get_step):
             with pytest.raises(PipelineExecutionError):
-                executor.run_all(on_step_end=on_end)
-
-        # Only first step's callback is called; exception prevents second callback
-        assert len(end_calls) == 1
-        assert end_calls[0][1] == "ok"
+                executor.run_all()
 
 
 if __name__ == "__main__":

@@ -158,6 +158,8 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
         if result.details:
             self.log_debug(" Step result details:")
             if isinstance(result.details, str):
+                self.log_debug(f"  • {result.details}")
+            elif isinstance(result.details, list):
                 self.log_debug(f"  • [{','.join(result.details)}]")
             elif isinstance(result.details, dict):
                 for key, value in result.details.items():
@@ -167,6 +169,7 @@ class ConsoleReporter(AbstractControllerReporter, AbstractStepReporter, ConsoleL
             self.log_info(" - Step skipped")
         elif result.status == StepStatus.SUCCESS and not self.in_macro_task:
             count = result.stats.get("count", result.stats.get("processed", 0))
+            self.log_debug(result.message)
             self.log_success(f" ✓ ({count} items)")
         elif result.status == StepStatus.ERROR:
             self.log_error(f" ✗ {result.error}")

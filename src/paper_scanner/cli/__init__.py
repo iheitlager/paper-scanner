@@ -29,6 +29,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "semantic_screening": "paper_scanner.steps.semantic_screening:SemanticScreeningStep",
     "report": "paper_scanner.steps.report:ReportStep",
     "citations": "paper_scanner.steps.citations:CitationsStep",
+    "generate_embeddings": "paper_scanner.steps.generate_embeddings:GenerateEmbeddingsStep",
     "upload_database": "paper_scanner.steps.upload_database:UploadDatabaseStep",
 }
 
