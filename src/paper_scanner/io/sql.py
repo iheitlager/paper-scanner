@@ -476,6 +476,16 @@ class PaperUploader:
 
         try:
             with self.pool.get_connection() as conn:
+                # Test connection state before proceeding
+                try:
+                    test_cursor = conn.cursor()
+                    test_cursor.execute("SELECT 1")
+                    test_cursor.close()
+                except Exception as e:
+                    # Connection is in bad state, reset it
+                    conn.rollback()
+                    logger.warning(f"Connection was in bad state, rolled back: {e}")
+                
                 with self.transaction(conn):
                     cursor = conn.cursor()
 
@@ -483,30 +493,40 @@ class PaperUploader:
                         if not paper.text_chunks:
                             continue
                         
-                        # Get paper's db_id from database
-                        cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
-                        result = cursor.fetchone()
-                        if not result:
-                            stats["error_count"] += 1
-                            stats["errors"].append(f"Paper {paper.cite_key}: not found in database")
-                            continue
-                        
-                        paper_db_id = result[0]
-                        
-                        for chunk in paper.text_chunks:
-                            if chunk.embedding is None:
-                                stats["skipped"] += 1
+                        try:
+                            # Get paper's db_id from database
+                            cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
+                            result = cursor.fetchone()
+                            if not result:
+                                stats["error_count"] += 1
+                                stats["errors"].append(f"Paper {paper.cite_key}: not found in database")
                                 continue
                             
-                            try:
-                                self._insert_single_embedding(cursor, paper_db_id, chunk)
-                                stats["upserted"] += 1
-                                total_chunks_processed += 1
-                            except Exception as e:
-                                error_msg = f"Embedding for {paper.cite_key} chunk {chunk.id}: {str(e)}"
-                                logger.error(error_msg)
-                                stats["errors"].append(error_msg)
-                                stats["error_count"] += 1
+                            paper_db_id = result[0]
+                            
+                            for chunk in paper.text_chunks:
+                                if chunk.embedding is None:
+                                    stats["skipped"] += 1
+                                    continue
+                                
+                                try:
+                                    self._insert_single_embedding(cursor, paper_db_id, chunk)
+                                    stats["upserted"] += 1
+                                    total_chunks_processed += 1
+                                except Exception as e:
+                                    error_msg = f"Embedding for {paper.cite_key} chunk {chunk.id}: {str(e)}"
+                                    logger.error(error_msg)
+                                    stats["errors"].append(error_msg)
+                                    stats["error_count"] += 1
+                                    # Continue to next chunk even if this one fails
+                                    continue
+                        except Exception as e:
+                            error_msg = f"Paper {paper.cite_key} embeddings: {str(e)}"
+                            logger.error(error_msg)
+                            stats["errors"].append(error_msg)
+                            stats["error_count"] += 1
+                            # Continue to next paper even if this one fails
+                            continue
 
                     cursor.close()
                     
@@ -999,13 +1019,14 @@ class PaperUploader:
         if not chunk.embedding or not chunk.embedding.vector:
             return
 
-        # Convert vector to pgvector format
+        # Use psycopg2's built-in pgvector support (list of floats)
+        # The psycopg2-binary with pgvector support can handle Python lists directly
         vector = chunk.embedding.vector
 
         insert_sql = sql.SQL(
             "INSERT INTO chunk_embeddings "
             "(chunk_id, embedding, model_name, model_dimension, embedding_version, created_at) "
-            "VALUES (%s, %s::vector, %s, %s, %s, %s) "
+            "VALUES (%s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (chunk_id, model_name, embedding_version) "
             "DO UPDATE SET embedding = EXCLUDED.embedding"
         )
@@ -1014,7 +1035,7 @@ class PaperUploader:
             insert_sql,
             (
                 chunk.id,
-                f"[{','.join(str(v) for v in vector)}]",  # pgvector format
+                vector,  # psycopg2 with pgvector support handles lists directly
                 chunk.embedding.model,
                 768,  # all-mpnet-base-v2 dimension
                 1,    # embedding version
