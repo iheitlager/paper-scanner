@@ -11,6 +11,7 @@ from .evaluator import Evaluator
 from .synthesizer import Synthesizer
 from .memory import Memory
 from .common import PipelineMetrics, SearchPlan
+from .logger import Logger, DefaultLogger
 
 
 class Router:
@@ -22,7 +23,8 @@ class Router:
                  evaluator: Evaluator,
                  synthesizer: Synthesizer,
                  memory: Memory,
-                 verbose: bool = False):
+                 verbose: bool = False,
+                 logger: Optional[Logger] = None):
         """
         Initialize Router with components.
         
@@ -33,6 +35,7 @@ class Router:
             synthesizer: Answer generator
             memory: Cache and history
             verbose: Print verbose output
+            logger: Optional Logger instance (uses DefaultLogger if None and verbose=True)
         """
         self.planner = planner
         self.tool = tool
@@ -40,6 +43,18 @@ class Router:
         self.synthesizer = synthesizer
         self.memory = memory
         self.verbose = verbose
+        
+        # Setup logger
+        if logger is not None:
+            self.logger = logger
+        elif verbose:
+            self.logger = DefaultLogger()
+        else:
+            # Use a no-op logger when not verbose
+            from .logger import SilentLogger
+            self.logger = SilentLogger()
+        
+        # Keep console for backward compatibility with print_results
         self.console = Console() if verbose else None
 
     def _validate_question(self, question: str) -> Optional[Dict[str, Any]]:
@@ -75,59 +90,44 @@ class Router:
         # Validate input quality
         validation_error = self._validate_question(question)
         if validation_error:
+            self.logger.on_error(validation_error['error'], validation_error.get('message'))
             return validation_error
+        
+        # Log question
+        self.logger.on_question(question)
         
         start_time = time.time()
         metrics = PipelineMetrics()
         
-        if self.verbose:
-            self.console.print(f"\n[bold cyan]─────────────────────────────────────[/bold cyan]")
-            self.console.print(f"[bold cyan]Question:[/bold cyan] {question}")
-            self.console.print(f"[bold cyan]─────────────────────────────────────[/bold cyan]\n")
-        
         # === Stage 1: Get ===
-        if self.verbose:
-            self.console.print(f"[bold blue]→ Stage 1: Initialization[/bold blue]")
+        self.logger.on_log("→ Stage 1: Initialization")
         papers = self._stage_get()
-        if self.verbose:
-            self.console.print(f"[green]  ✓ Papers loaded[/green]")
+        self.logger.on_log("  ✓ Papers loaded")
         
         # Check memory for cached result
-        if self.verbose:
-            self.console.print(f"[dim]  Checking memory for similar queries...[/dim]")
+        self.logger.on_log("  Checking memory for similar queries...")
         cached = self.memory.find_similar_query(question)
         if cached:
-            if self.verbose:
-                self.console.print(f"[yellow]  ⚡ Cache hit! Using similar cached result[/yellow]")
+            self.logger.on_log("  ⚡ Cache hit! Using similar cached result")
             return {
                 'answer': cached['answer'],
                 'source': 'cache',
                 'metrics': metrics
             }
-        if self.verbose:
-            self.console.print(f"[dim]  No cache hit, proceeding with full pipeline[/dim]\n")
+        self.logger.on_log("  No cache hit, proceeding with full pipeline\n")
         
         # === Stage 2: Plan ===
         plan, plan_metrics = self._stage_plan(question, papers)
         metrics.plan_tokens = plan_metrics[0]
         metrics.plan_time_ms = plan_metrics[1]
         
-        if self.verbose:
-            self.console.print()
-        
         # === Stage 3: Query ===
         retrieval_result, query_metrics = self._stage_query(plan)
         metrics.search_time_ms = query_metrics[0]
         metrics.chunks_found = len(retrieval_result.chunks)
         
-        if self.verbose:
-            self.console.print()
-        
         # === Stage 4: Evaluate ===
         quality_score = self._stage_evaluate(retrieval_result, question, papers)
-        
-        if self.verbose:
-            self.console.print()
         
         # === Stage 5: Finalize (Synthesize) ===
         synthesis_result, synthesis_metrics = self._stage_finalize(question, retrieval_result)
@@ -146,14 +146,19 @@ class Router:
         )
         
         # Finalize metrics
+        # Finalize metrics
         metrics.total_tokens = metrics.plan_tokens + metrics.synthesis_tokens
         metrics.total_time_ms = time.time() - start_time
         
-        if self.verbose:
-            self.console.print(f"\n[bold green]─────────────────────────────────────[/bold green]")
-            self.console.print(f"[bold green]✓ PIPELINE COMPLETE[/bold green]")
-            self.console.print(f"[green]Total: {metrics.total_tokens} tokens in {metrics.total_time_ms:.0f}ms[/green]")
-            self.console.print(f"[bold green]─────────────────────────────────────[/bold green]\n")
+        # Log answer with metrics
+        self.logger.on_answer(synthesis_result.answer_text)
+        self.logger.on_metrics({
+            'Plan Tokens': metrics.plan_tokens,
+            'Synthesis Tokens': metrics.synthesis_tokens,
+            'Total Tokens': metrics.total_tokens,
+            'Search Time (ms)': metrics.search_time_ms,
+            'Total Time (ms)': metrics.total_time_ms,
+        })
         
         return {
             'answer': synthesis_result.answer_text,
@@ -173,35 +178,31 @@ class Router:
 
     def _stage_plan(self, question: str, papers: List[Dict[str, Any]]) -> tuple:
         """Stage 2: Generate retrieval plan."""
-        if self.verbose:
-            self.console.print(f"[bold blue]→ Stage 2: Planning[/bold blue]")
-            self.console.print(f"[dim]  Calling Claude to formalize query strategy...[/dim]")
+        self.logger.on_log("→ Stage 2: Planning")
+        self.logger.on_log("  Calling Claude to formalize query strategy...")
         
         start_time = time.time()
         plan = self.planner.formalize(question, papers)
         plan_time = (time.time() - start_time) * 1000
         plan_tokens = self.planner.plan_tokens
         
-        if self.verbose:
-            self.console.print(f"[green]  ✓ Plan created ({plan_tokens} tokens, {plan_time:.0f}ms): {plan.plan_type.value}[/green]")
-            if plan.reasoning:
-                self.console.print(f"[dim]    Reasoning: {plan.reasoning}[/dim]")
+        self.logger.on_log(f"  ✓ Plan created ({plan_tokens} tokens, {plan_time:.0f}ms): {plan.plan_type.value}")
+        if plan.reasoning:
+            self.logger.on_log(f"    Reasoning: {plan.reasoning}")
         
         return plan, (plan_tokens, plan_time)
 
     def _stage_query(self, plan: SearchPlan) -> tuple:
         """Stage 3: Execute retrieval based on plan."""
-        if self.verbose:
-            self.console.print(f"[bold blue]→ Stage 3: Retrieval[/bold blue]")
-            self.console.print(f"[dim]  Executing {len(plan.queries)} search query/queries from plan...[/dim]")
+        self.logger.on_log("→ Stage 3: Retrieval")
+        self.logger.on_log(f"  Executing {len(plan.queries)} search query/queries from plan...")
         
         start_time = time.time()
         
         # Execute queries using specified tool methods
         results = []
         for i, (query, method) in enumerate(zip(plan.queries, plan.tool_methods), 1):
-            if self.verbose:
-                self.console.print(f"[dim]  [{i}/{len(plan.queries)}] {method}: {query[:60]}...[/dim]")
+            self.logger.on_log(f"  [{i}/{len(plan.queries)}] {method}: {query[:60]}...")
             
             if method == 'vector_search':
                 result = self.tool.vector_search(query)
@@ -216,16 +217,15 @@ class Router:
         
         # Merge results if multiple
         if len(results) > 1:
-            if self.verbose:
-                self.console.print(f"[dim]  Deduplicating results from {len(results)} queries...[/dim]")
+            self.logger.on_log(f"  Deduplicating results from {len(results)} queries...")
             retrieval_result = self.tool.deduplicate_results(results)
         else:
             retrieval_result = results[0] if results else None
         
         query_time = (time.time() - start_time) * 1000
         
-        if self.verbose and retrieval_result:
-            self.console.print(f"[green]  ✓ Retrieved {len(retrieval_result.chunks)} chunks from {retrieval_result.paper_count} papers ({query_time:.0f}ms)[/green]")
+        if retrieval_result:
+            self.logger.on_log(f"  ✓ Retrieved {len(retrieval_result.chunks)} chunks from {retrieval_result.paper_count} papers ({query_time:.0f}ms)")
         
         return retrieval_result, (query_time,)
 
@@ -234,9 +234,8 @@ class Router:
                        question: str,
                        papers: List[Dict[str, Any]]) -> Any:
         """Stage 4: Assess result quality."""
-        if self.verbose:
-            self.console.print(f"[bold blue]→ Stage 4: Evaluation[/bold blue]")
-            self.console.print(f"[dim]  Assessing retrieval quality...[/dim]")
+        self.logger.on_log("→ Stage 4: Evaluation")
+        self.logger.on_log("  Assessing retrieval quality...")
         
         quality_score = self.evaluator.evaluate(
             retrieval_result,
@@ -244,18 +243,16 @@ class Router:
             papers
         )
         
-        if self.verbose:
-            self.console.print(f"[green]  ✓ Coverage {quality_score.coverage:.0f}%, "
-                              f"Relevance {quality_score.relevance:.0f}%, "
-                              f"Freshness {quality_score.freshness:.0f}%[/green]")
+        self.logger.on_log(f"  ✓ Coverage {quality_score.coverage:.0f}%, "
+                          f"Relevance {quality_score.relevance:.0f}%, "
+                          f"Freshness {quality_score.freshness:.0f}%")
         
         return quality_score
 
     def _stage_finalize(self, question: str, retrieval_result) -> tuple:
         """Stage 5: Generate and format final answer."""
-        if self.verbose:
-            self.console.print(f"[bold blue]→ Stage 5: Synthesis[/bold blue]")
-            self.console.print(f"[dim]  Calling Claude to synthesize answer from {len(retrieval_result.chunks)} chunks...[/dim]")
+        self.logger.on_log("→ Stage 5: Synthesis")
+        self.logger.on_log(f"  Calling Claude to synthesize answer from {len(retrieval_result.chunks)} chunks...")
         
         synthesis_result = self.synthesizer.synthesize(
             question,
@@ -263,10 +260,9 @@ class Router:
             verbose=self.verbose
         )
         
-        if self.verbose:
-            self.console.print(f"[green]  ✓ Answer generated ({synthesis_result.tokens_used} tokens, {synthesis_result.latency_ms:.0f}ms)[/green]")
-            if synthesis_result.citations:
-                self.console.print(f"[green]  ✓ Extracted {len(synthesis_result.citations)} citations[/green]")
+        self.logger.on_log(f"  ✓ Answer generated ({synthesis_result.tokens_used} tokens, {synthesis_result.latency_ms:.0f}ms)")
+        if synthesis_result.citations:
+            self.logger.on_log(f"  ✓ Extracted {len(synthesis_result.citations)} citations")
         
         return synthesis_result, ()
 

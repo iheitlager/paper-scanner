@@ -12,6 +12,7 @@ from .evaluator import Evaluator
 from .synthesizer import Synthesizer
 from .memory import Memory
 from .router import Router
+from .logger import Logger, DefaultLogger, SilentLogger
 
 __all__ = [
     # Common types
@@ -20,5 +21,7 @@ __all__ = [
     # Components
     'Tool', 'BasePlanner', 'NullPlanner', 'SimplifyingPlanner',
     'RouterPlanner', 'DecompositionPlanner', 'HyDEPlanner', 'IterativePlanner',
-    'Evaluator', 'Synthesizer', 'Memory', 'Router'
+    'Evaluator', 'Synthesizer', 'Memory', 'Router',
+    # Logging
+    'Logger', 'DefaultLogger', 'SilentLogger'
 ]
