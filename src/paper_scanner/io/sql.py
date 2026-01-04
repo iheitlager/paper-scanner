@@ -304,6 +304,7 @@ class EmbeddingToRowConverter:
             "paper_id": paper_db_id,
             "embedding": embedding.vector,  # psycopg2 with pgvector support handles lists
             "model_name": embedding.model,
+            "model_dimension": 768,  # all-mpnet-base-v2 dimension
             "embedding_method": embedding_method,
             "embedding_version": embedding_version,
             "created_at": embedding.created_at,
