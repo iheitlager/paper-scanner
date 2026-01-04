@@ -21,6 +21,9 @@ import os
 import sys
 from dotenv import load_dotenv
 
+# Disable tokenizer parallelism warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import numpy as np
 import psycopg2
 from pgvector.psycopg2 import register_vector
@@ -56,7 +59,7 @@ class PaperQueryEngine:
         self.conn = psycopg2.connect(get_db_url())
         register_vector(self.conn)
         self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        self.model = "claude-3-5-sonnet-20241022"
+        self.model = "claude-haiku-4-5-20251001"
         self.load_papers()
 
     def load_papers(self):
