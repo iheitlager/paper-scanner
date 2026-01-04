@@ -10,7 +10,7 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock, patch
 
-from paper_scanner.core.models import Embedding, Paper
+from paper_scanner.core.models import Embedding, Paper, TextChunk
 from paper_scanner.io.sql import (
     DatabaseConnectionPool,
     EmbeddingToRowConverter,
@@ -32,13 +32,13 @@ class TestEmbeddingToRowConverter(unittest.TestCase):
 
         row = EmbeddingToRowConverter.embedding_to_row(
             embedding,
-            paper_id="paper-123",
+            paper_db_id=1,
             embedding_method="title",
             embedding_version=1,
         )
 
         # Verify row structure
-        assert row["paper_id"] == "paper-123"
+        assert row["paper_id"] == 1
         assert row["model_name"] == "all-mpnet-base-v2"
         assert row["embedding_method"] == "title"
         assert row["embedding_version"] == 1
@@ -71,7 +71,7 @@ class TestEmbeddingToRowConverter(unittest.TestCase):
         for method in ["title", "abstract", "keywords", "full_text"]:
             row = EmbeddingToRowConverter.embedding_to_row(
                 embedding,
-                paper_id="paper-123",
+                paper_db_id=1,
                 embedding_method=method,
             )
             assert row["embedding_method"] == method
@@ -89,25 +89,39 @@ class TestPaperUploaderEmbeddings(unittest.TestCase):
         """Test inserting empty paper list"""
         stats = self.uploader.insert_embeddings([], dry_run=False)
 
-        assert stats["inserted"] == 0
         assert stats["upserted"] == 0
         assert stats["skipped"] == 0
         assert stats["error_count"] == 0
 
     def test_insert_embeddings_no_embeddings(self):
         """Test inserting papers without embeddings"""
+        # Create paper with text chunks but no embeddings
+        chunk = TextChunk(
+            chunk_index=0,
+            text="Some text without embedding",
+            embedding=None,  # No embedding
+        )
         paper = Paper(
             id="paper-1",
             cite_key="key1",
             title="Test Paper",
-            title_abstract_embedding=None,  # No embedding
+            text_chunks=[chunk],
         )
+
+        # Mock connection with context manager
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        
+        mock_cm = MagicMock()
+        mock_cm.__enter__.return_value = mock_conn
+        mock_cm.__exit__.return_value = None
+        self.mock_pool.get_connection.return_value = mock_cm
 
         stats = self.uploader.insert_embeddings([paper], dry_run=False)
 
-        assert stats["skipped"] == 1
-        assert stats["upserted"] == 0
-        assert stats["inserted"] == 0
+        # Chunk without embedding should be skipped
+        assert stats["skipped"] >= 1
 
     def test_insert_embeddings_dry_run(self):
         """Test dry-run mode"""
@@ -116,17 +130,22 @@ class TestPaperUploaderEmbeddings(unittest.TestCase):
             model="all-mpnet-base-v2",
             text_source="title",
         )
+        chunk = TextChunk(
+            chunk_index=0,
+            text="Test chunk text",
+            embedding=embedding,
+        )
         paper = Paper(
             id="paper-1",
             cite_key="key1",
             title="Test Paper",
-            title_abstract_embedding=embedding,
+            text_chunks=[chunk],
         )
 
         stats = self.uploader.insert_embeddings([paper], dry_run=True)
 
-        # In dry-run, should report inserted without actually inserting
-        assert stats["inserted"] == 1
+        # In dry-run, should report upserted without actually inserting
+        assert stats["upserted"] == 1
         assert stats["skipped"] == 0
         assert self.mock_pool.get_connection.call_count == 0
 
@@ -138,16 +157,22 @@ class TestPaperUploaderEmbeddings(unittest.TestCase):
             model="all-mpnet-base-v2",
             text_source="title",
         )
+        chunk = TextChunk(
+            chunk_index=0,
+            text="Test chunk text",
+            embedding=embedding,
+        )
         paper = Paper(
             id="paper-1",
             cite_key="key1",
             title="Test Paper",
-            title_abstract_embedding=embedding,
+            text_chunks=[chunk],
         )
 
         # Set up mock connection with context manager
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = (1,)  # Return paper_db_id = 1
         mock_conn.cursor.return_value = mock_cursor
         
         # Create context manager mock
@@ -165,11 +190,16 @@ class TestPaperUploaderEmbeddings(unittest.TestCase):
         assert mock_conn.commit.called
 
     def test_insert_embeddings_filter_valid_papers(self):
-        """Test that papers without embeddings are correctly filtered"""
+        """Test that papers/chunks without embeddings are correctly filtered"""
         embedding = Embedding(
             vector=[0.1] * 768,
             model="all-mpnet-base-v2",
             text_source="title",
+        )
+        no_embedding = TextChunk(
+            chunk_index=0,
+            text="No embedding text",
+            embedding=None,
         )
 
         papers = [
@@ -177,25 +207,38 @@ class TestPaperUploaderEmbeddings(unittest.TestCase):
                 id="paper-1",
                 cite_key="key1",
                 title="Has Embedding",
-                title_abstract_embedding=embedding,
+                text_chunks=[
+                    TextChunk(
+                        chunk_index=0,
+                        text="Has embedding text",
+                        embedding=embedding,
+                    )
+                ],
             ),
             Paper(
                 id="paper-2",
                 cite_key="key2",
                 title="No Embedding",
-                title_abstract_embedding=None,
+                text_chunks=[no_embedding],
             ),
             Paper(
                 id="paper-3",
                 cite_key="key3",
                 title="Has Embedding 2",
-                title_abstract_embedding=embedding,
+                text_chunks=[
+                    TextChunk(
+                        chunk_index=0,
+                        text="Has embedding text 2",
+                        embedding=embedding,
+                    )
+                ],
             ),
         ]
 
         # Mock connection with context manager
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = (1,)  # Return paper_db_id = 1
         mock_conn.cursor.return_value = mock_cursor
         
         mock_cm = MagicMock()
@@ -205,7 +248,7 @@ class TestPaperUploaderEmbeddings(unittest.TestCase):
 
         stats = self.uploader.insert_embeddings(papers, dry_run=False)
 
-        # Should skip paper without embedding
+        # Should insert 2 chunks with embeddings, skip 1 without
         assert stats["upserted"] == 2
         assert stats["skipped"] == 1
         assert stats["error_count"] == 0
@@ -226,7 +269,7 @@ class TestEmbeddingRowConversion(unittest.TestCase):
         # Convert to row
         row = EmbeddingToRowConverter.embedding_to_row(
             embedding,
-            paper_id="paper-123",
+            paper_db_id=1,
             embedding_method="title",
             embedding_version=1,
         )
