@@ -233,8 +233,10 @@ class UploadDatabaseStep(BaseStep):
 
             all_stats["total_batches"] = total_batches
 
-            # Insert text chunks with hierarchy
-            self.callback("Inserting text chunks...", debug=True)
+            # ========================================
+            # STEP 3: Insert text chunks with hierarchy
+            # ========================================
+            self.callback("Step 3/5: Inserting text chunks with hierarchy...", debug=True)
             chunks_stats = uploader.insert_chunks(papers, dry_run=False)
             all_stats["chunks_inserted"] = chunks_stats["chunks_inserted"]
             all_stats["chunks_skipped"] = chunks_stats["chunks_skipped"]
@@ -243,8 +245,10 @@ class UploadDatabaseStep(BaseStep):
                 all_stats["errors"].extend(chunks_stats["errors"])
                 all_stats["error_count"] += chunks_stats["error_count"]
 
-            # Insert chunk embeddings
-            self.callback("Inserting chunk embeddings...", debug=True)
+            # ========================================
+            # STEP 4: Insert chunk embeddings (768-dim vectors)
+            # ========================================
+            self.callback("Step 4/5: Inserting chunk embeddings (768-dim)...", debug=True)
             chunk_embedding_stats = uploader.insert_chunk_embeddings(papers, dry_run=False)
             all_stats["chunk_embeddings_upserted"] = chunk_embedding_stats["embeddings_upserted"]
             all_stats["chunk_embeddings_skipped"] = chunk_embedding_stats["embeddings_skipped"]
@@ -253,15 +257,17 @@ class UploadDatabaseStep(BaseStep):
                 all_stats["errors"].extend(chunk_embedding_stats["errors"])
                 all_stats["error_count"] += chunk_embedding_stats["error_count"]
 
-            # Insert paper-level embeddings
-            embedding_stats = uploader.insert_embeddings(papers, dry_run=False)
-            all_stats["embeddings"]["upserted"] = embedding_stats["upserted"]
-            all_stats["embeddings"]["skipped"] = embedding_stats["skipped"]
-            all_stats["embeddings"]["errors"] = embedding_stats["error_count"]
-
-            if embedding_stats["error_count"] > 0:
-                all_stats["errors"].extend(embedding_stats["errors"])
-                all_stats["error_count"] += embedding_stats["error_count"]
+            # ========================================
+            # STEP 5: Insert paper-level embeddings (title_abstract_embedding)
+            # ========================================
+            self.callback("Step 5/5: Inserting paper-level embeddings...", debug=True)
+            paper_embedding_stats = uploader.insert_embeddings(papers, dry_run=False)
+            all_stats["paper_embeddings_upserted"] = paper_embedding_stats["upserted"]
+            all_stats["paper_embeddings_skipped"] = paper_embedding_stats["skipped"]
+            all_stats["paper_embeddings_errors"] = paper_embedding_stats["error_count"]
+            if paper_embedding_stats["error_count"] > 0:
+                all_stats["errors"].extend(paper_embedding_stats["errors"])
+                all_stats["error_count"] += paper_embedding_stats["error_count"]
 
             # Determine status based on results
             if all_stats["error_count"] == total_papers:
@@ -298,9 +304,9 @@ class UploadDatabaseStep(BaseStep):
                     "chunk_embeddings_upserted": all_stats.get("chunk_embeddings_upserted", 0),
                     "chunk_embeddings_skipped": all_stats.get("chunk_embeddings_skipped", 0),
                     "chunk_embeddings_errors": all_stats.get("chunk_embeddings_errors", 0),
-                    "embeddings_upserted": all_stats["embeddings"]["upserted"],
-                    "embeddings_skipped": all_stats["embeddings"]["skipped"],
-                    "embeddings_errors": all_stats["embeddings"]["errors"],
+                    "paper_embeddings_upserted": all_stats.get("paper_embeddings_upserted", 0),
+                    "paper_embeddings_skipped": all_stats.get("paper_embeddings_skipped", 0),
+                    "paper_embeddings_errors": all_stats.get("paper_embeddings_errors", 0),
                 },
                 error=errors,
                 details=[
@@ -365,6 +371,7 @@ class UploadDatabaseStep(BaseStep):
 
         summary = ", ".join(parts) if parts else "no changes"
         return f"Upload complete: {summary} (strategy: {strategy})"
+
     def _get_database_url(self, config: Dict[str, Any]) -> Optional[str]:
         """
         Construct or retrieve database URL from configuration.
