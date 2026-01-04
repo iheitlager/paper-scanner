@@ -20,8 +20,7 @@ class Synthesizer:
 
     def synthesize(self,
                    question: str,
-                   retrieval_result: RetrievalResult,
-                   verbose: bool = False) -> SynthesisResult:
+                   retrieval_result: RetrievalResult) -> SynthesisResult:
         """
         Generate final answer from question and retrieved chunks.
         
@@ -68,9 +67,6 @@ ANSWER:"""
         
         # Extract citations from answer
         citations = self._extract_citations(answer_text, retrieval_result)
-        
-        if verbose:
-            print(f"\n[Synthesizer] Generated answer with {tokens_used} tokens in {latency_ms:.0f}ms")
         
         return SynthesisResult(
             answer_text=answer_text,
