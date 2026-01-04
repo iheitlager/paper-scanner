@@ -22,6 +22,7 @@ This directory contains hypothesis-driven exploratory tests for evaluating new t
 | [015_journal_screening](015_journal_screening/README.md) | Fuzzy journal matching with harmonization achieves 85%+ coverage | 2026-01-01 | Complete | ✅ Confirmed |
 | [016_RIS_import](016_RIS_import/README.md) | RIS file format support provides feature parity with BibTeX import | 2026-01-02 | In Progress | ⏳ Testing |
 | [017_normalization](017_normalization/README.md) | Centralized Normalizer consolidates 16+ duplicated functions (189 tests) | 2026-01-01 | Complete | ✅ Confirmed |
+| [018_embedding_infrastructure](018_embedding_infrastructure/README.md) | Text chunk embeddings with pgvector enable semantic search at scale | 2026-01-04 | Complete | ✅ Confirmed |
 
 ## Methodology: Hypothesis-Driven Experimentation
 
