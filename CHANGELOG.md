@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.8.0] - TBD
+## [3.8.0] - 2026-01-04
 
 ### Added
 
@@ -26,17 +26,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Duplicate reference restoration in checkpoint loading
   - Enhanced error handling and logging
 
+- **Interactive "Who Says What?" Query Tool** (`try_12_query.py`): LLM-powered interactive CLI for interrogating paper database with natural language questions
+  - Vector similarity search using SentenceTransformers embeddings
+  - Claude Haiku synthesis of findings across multiple papers
+  - Rich console styling with colored output and spinner for LLM analysis
+  - List loaded papers, context-aware follow-up capabilities
+
+- **Paper Clustering System**: K-means clustering of papers with visualization
+  - Vector-based clustering on full-text embeddings
+  - Automated cluster visualization and analysis
+  - Paper similarity analysis scripts
+
+- **Spike 018 Vector Search Infrastructure**: Complete embedding pipeline for structured paper analysis
+  - Standalone SQL upload test script with embedding support
+  - Step 1/5 and Step 2/5 callback messages in upload pipeline
+  - Vector similarity analysis and paper comparison tools
+
 ### Changed
 
 - **Production Code Priority**: Refactored test expectations to align with StepResult production pattern
   - ClaudeHandler and CheckpointStep now return proper StepResult objects
   - Tests updated to work with production code structure
 
+- **Simplified Architecture**: Removed batch transaction logic for single-user use case
+
 ### Fixed
 
-- **Missing time import**: Added `import time` to anthropic.py for rate limit retry delays
-- **SemanticScreening Type Annotations**: Fixed Pydantic List syntax in core/models.py
-- **RocchioClassifier Cleanup**: Removed redundant logging infrastructure, simplified initialization
+- Missing time import in anthropic.py for rate limit retry delays
+- SemanticScreening Type Annotations: Fixed Pydantic List syntax in core/models.py
+- RocchioClassifier Cleanup: Removed redundant logging infrastructure, simplified initialization
+- SQL column references in vector search queries (chunk_id, paper_id mappings)
+- Tokenizer parallelism warnings (HuggingFace tokenizer fork issue)
+- Claude API model compatibility (updated to claude-haiku-4-5-20251001)
 
 ### Removed
 
