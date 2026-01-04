@@ -64,7 +64,12 @@ def markdown_to_rich(text: str) -> str:
     
     # Code: `text` -> [cyan]text[/cyan]
     text = re.sub(r'`(.*?)`', r'[cyan]\1[/cyan]', text)
-    
+    text = re.sub(r'"(.*?)"', r'[cyan]\1[/cyan]', text)
+    text = re.sub(r'\'(.*?)\'', r'[cyan]\1[/cyan]', text)
+
+    # Numbers
+    text = re.sub(r'(\d+)', r'[green]\1[/green]', text)
+        
     return text
 
 
@@ -183,14 +188,14 @@ class TextualLogger(Logger):
         content = f"\n❓ QUESTION:\n{text}\n"
         self.answer_panel.write(content)
         self.app.answer_text_buffer.append(f"❓ QUESTION:\n{text}")
-    
+
     def on_answer(self, text: str):
         """Log answer with markdown rendering."""
         rich_text = markdown_to_rich(text)
         content = f"\n💡 ANSWER:\n{rich_text}\n"
         self.answer_panel.write(content)
         self.app.answer_text_buffer.append(f"💡 ANSWER:\n{text}")
-    
+
     def on_log(self, text: str):
         """Log debug messages."""
         for line in text.split("\n"):
@@ -400,7 +405,7 @@ class QueryApp(App):
         
         if command == "papers":
             papers_list = list(self.papers.values())[:10]
-            papers_text = "\n".join([f"• {p.cite_key}: {p.title}" for p in papers_list])
+            papers_text = "\n".join([f"• {p.cite_key}: {p.apa}" for p in papers_list])
             self.answer_panel.write(f"[bold cyan]Available Papers:[/bold cyan]\n{papers_text}\n")
             return
         
@@ -415,7 +420,7 @@ class QueryApp(App):
         
         if command == "memory":
             stats = self.router.memory.get_statistics()
-            stats_text = "\n".join([f"{k}: {v}" for k, v in stats.items()])
+            stats_text = "\n".join([f"{k}: {v}" if isinstance(v, (int, str)) else f"{k}: {v:.2f}" for k, v in stats.items()])
             self.answer_panel.write(f"[bold cyan]Cache Statistics:[/bold cyan]\n{stats_text}\n")
             return
         
