@@ -216,3 +216,4 @@ Example for BibTeX Import:
 ## Decisions
 - Store all STEP documentation records in `./docs/steps`
 - All STEP documentation records have the filename `step_name.md`
+- An overview of all step documentation is kept in `./docs/steps/overview.md`
