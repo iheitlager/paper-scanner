@@ -151,7 +151,7 @@ steps:
       enabled: true
 
   - step: "Summary statistics"
-    builtin.summarize:
+    builtin.report:
       summary: true
       tabulate:
         - field: "paper_type"

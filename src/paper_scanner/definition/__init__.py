@@ -341,14 +341,14 @@ class LoadFilesStep(Step):
         }
 
 
-class SummarizeStep(Step):
-    """Summarize step"""
+class ReportStep(Step):
+    """Report step (formerly summarize)"""
 
     def __init__(self, config: SummarizeConfig):
         self.config = config
 
     def get_name(self) -> str:
-        return "summarize"
+        return "report"
 
     def get_description(self) -> str:
         return "Display database statistics and summary"
@@ -356,7 +356,7 @@ class SummarizeStep(Step):
     def to_dict(self) -> Dict[str, Any]:
         return {
             "step": self.get_description(),
-            "builtin.summarize": asdict(self.config)
+            "builtin.report": asdict(self.config)
         }
 
 
@@ -510,14 +510,22 @@ class Definition:
         )))
         return self
 
+    def report(
+        self,
+        summary: bool = True,
+        tabulate: Optional[List[Dict[str, Any]]] = None
+    ) -> "Definition":
+        """Add report step"""
+        self.steps.append(ReportStep(SummarizeConfig(summary, tabulate)))
+        return self
+
     def summarize(
         self,
         summary: bool = True,
         tabulate: Optional[List[Dict[str, Any]]] = None
     ) -> "Definition":
-        """Add summarize step"""
-        self.steps.append(SummarizeStep(SummarizeConfig(summary, tabulate)))
-        return self
+        """Alias for report() - deprecated, use report() instead"""
+        return self.report(summary=summary, tabulate=tabulate)
 
     def export(
         self,

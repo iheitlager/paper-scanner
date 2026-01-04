@@ -25,10 +25,6 @@ steps:
           - crossref
         continue_on_not_found: true
 
-  - step: "Dump database contents"
-    builtin.dump_db:
-      format: "table"
-      limit: 30
 
   - step: "Display screening results"
     builtin.keyword_screening:

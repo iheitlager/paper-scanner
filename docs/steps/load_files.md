@@ -115,7 +115,7 @@ Common errors and how to resolve them:
 
 # Display progress after loading
 - step: Check papers loaded from PDFs
-  builtin.summarize:
+  builtin.report:
     screening: false
 ```
 

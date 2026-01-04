@@ -294,6 +294,6 @@ Typical performance:
 
 ## See Also
 
-- [Database Architecture](../STEP_ARCHITECTURE.md#database-design)
+- [Step Architecture (ADR-0002)](../adr/0002-step-architecture.md)
 - [PostgreSQL Setup](../../README.md#postgresql)
 - [sql.py Module](../../src/paper_scanner/io/sql.py) - Database abstraction layer

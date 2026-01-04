@@ -211,3 +211,8 @@ Example for BibTeX Import:
 - **Large files (>10MB)** may take several minutes to process
 - **Progress is reported every 100 papers** for large imports
 - **Source type affects how metadata is extracted** from the BibTeX entry
+
+
+## Decisions
+- Store all STEP documentation records in `./docs/steps`
+- All STEP documentation records have the filename `step_name.md`

@@ -34,6 +34,9 @@ Records are listed below in reverse chronological order:
 
 | # | Title | Status | Date |
 |---|-------|--------|------|
+| [0004](0004-source-setup.md) | Source Code Structure & Test Organization | Accepted | 2025-01-04 |
+| [0003](0003-executor-setup.md) | Unified StepExecutor Architecture | Accepted | 2025-12-22 |
+| [0002](0002-step-architecture.md) | Class-Based Step Architecture with Explicit Configuration | Accepted | 2025-12-20 |
 | [0001](0001-pipeline-architecture.md) | Pipeline Architecture with Three-Level Config | Accepted | 2025-01-01 |
 
 ## References

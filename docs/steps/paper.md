@@ -156,7 +156,7 @@ This step creates "skeleton" `Paper` objects meant for enhancement by downstream
 2. **`builtin.categorization`**: Enhance with paper type, study type, quality tier
 3. **`builtin.keyword_screening`**: Screen papers by keywords
 4. **`builtin.semantic_screening`**: Screen papers by semantic similarity
-5. **`builtin.summarize`**: Generate summaries
+5. **`builtin.report`**: Generate reports and statistics
 
 ## Examples
 

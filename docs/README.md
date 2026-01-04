@@ -6,42 +6,51 @@ This directory contains comprehensive documentation for all steps in the paper s
 
 The paper scanner processes papers through a configurable pipeline of steps. Each step performs specific operations and can be combined to create flexible screening workflows.
 
-**18 built-in steps** organized into 6 categories:
-- 3 Data Import steps
-- 1 Data Maintenance step
-- 2 Data Quality steps
+**26 built-in steps** organized into 8 categories:
+- 5 Data Import steps
+- 2 Data Maintenance steps
+- 3 Data Quality steps
 - 2 Citation Management steps
-- 3 Screening & Filtering steps
-- 3 Checkpoint & Control Flow steps
+- 6 Screening & Classification steps
 - 2 Output & Reporting steps
-- 2 Utility steps (dump_db, paper)
+- 1 Analysis step
+- 3 Advanced/Utility steps
 
 ### Main Steps (Documented)
 
 | # | Step | File | Purpose |
 |---|------|------|---------|
 | 1 | `bibtex_import` | [bibtex_import.md](./steps/bibtex_import.md) | Multi-source BibTeX import |
-| 2 | `input` | [input.md](./steps/input.md) | JSON Lines or stdin import |
-| 3 | `load_files` | [load_files.md](./steps/load_files.md) | PDF scanning with Crossref metadata |
-| 4 | `patch` | [patch.md](./steps/patch.md) | Update papers by DOI |
-| 5 | `deduplication` | [deduplication.md](./steps/deduplication.md) | Duplicate detection |
-| 6 | `categorization` | [categorization.md](./steps/categorization.md) | Filter by publication type |
-| 7 | `citations` | [citations.md](./steps/citations.md) | Backward citation extraction |
-| 8 | `retrieve_metadata` | [retrieve_metadata.md](./steps/retrieve_metadata.md) | Metadata enrichment from APIs |
-| 9 | `keyword_screening` | [keyword_screening.md](./steps/keyword_screening.md) | Keyword-based filtering |
-| 10 | `semantic_screening` | [semantic_screening.md](./steps/semantic_screening.md) | Embedding-based filtering |
-| 11 | `rocchio_screening` | [rocchio_screening.md](./steps/rocchio_screening.md) | Adaptive Rocchio classification |
-| 12 | `checkpoint` | [checkpoint.md](./steps/checkpoint.md) | Save pipeline state |
-| 13 | `echo` | [echo.md](./steps/echo.md) | Display messages |
-| 14 | `halt` | [halt.md](./steps/halt.md) | Conditional halt |
-| 15 | `summarize` | [summarize.md](./steps/summarize.md) | Statistics & reporting |
-| 16 | `export` | [export.md](./steps/export.md) | Multi-format export |
+| 2 | `ris_import` | [ris_import.md](./steps/ris_import.md) | RIS file import |
+| 3 | `input` | [input.md](./steps/input.md) | JSON Lines or stdin import |
+| 4 | `load_files` | [load_files.md](./steps/load_files.md) | PDF scanning with Crossref metadata |
+| 5 | `download_pdfs` | [download_pdfs.md](./steps/download_pdfs.md) | Multi-source PDF retrieval |
+| 6 | `patch` | [patch.md](./steps/patch.md) | Update papers by DOI |
+| 7 | `fix_cite_keys` | [fix_cite_keys.md](./steps/fix_cite_keys.md) | Fix citation keys |
+| 8 | `deduplication` | [deduplication.md](./steps/deduplication.md) | Duplicate detection |
+| 9 | `metadata_screening` | [metadata_screening.md](./steps/metadata_screening.md) | Filter by metadata |
+| 10 | `categorization` | [categorization.md](./steps/categorization.md) | Filter by publication type |
+| 11 | `citations` | [citations.md](./steps/citations.md) | Backward citation extraction |
+| 12 | `retrieve_metadata` | [retrieve_metadata.md](./steps/retrieve_metadata.md) | Metadata enrichment from APIs |
+| 13 | `keyword_screening` | [keyword_screening.md](./steps/keyword_screening.md) | Keyword-based filtering |
+| 14 | `semantic_screening` | [semantic_screening.md](./steps/semantic_screening.md) | Embedding-based filtering |
+| 15 | `rocchio_screening` | [rocchio_screening.md](./steps/rocchio_screening.md) | Adaptive Rocchio classification |
+| 16 | `journal_screening` | [journal_screening.md](./steps/journal_screening.md) | Journal-based filtering |
+| 17 | `llm_classification` | [llm_classification.md](./steps/llm_classification.md) | LLM-based classification |
+| 18 | `rocchio_classifier` | [rocchio_classifier.md](./steps/rocchio_classifier.md) | Rocchio-based classifier |
+| 19 | `report` | [report.md](./steps/report.md) | Statistics & reporting |
+| 20 | `export` | [export.md](./steps/export.md) | Multi-format export |
+| 21 | `generate_embeddings` | [generate_embeddings.md](./steps/generate_embeddings.md) | Generate text embeddings |
+| 22 | `checkpoint` | [checkpoint.md](./steps/checkpoint.md) | Save pipeline state |
+| 23 | `echo` | [echo.md](./steps/echo.md) | Display messages |
+| 24 | `halt` | [halt.md](./steps/halt.md) | Conditional halt |
+| 25 | `run_template` | [run_template.md](./steps/run_template.md) | Execute reusable template |
+| 26 | `upload_database` | [upload_database.md](./steps/upload_database.md) | Upload to external database |
 
 ### Utility Steps (Internal)
 
 | Step | Purpose |
 |------|---------|
-| `dump_db` | Debug: Print database contents and statistics |
 | `paper` | Utility: Create Paper objects from DOI specifications |
 
 ### Reference Documentation
@@ -54,33 +63,45 @@ The paper scanner processes papers through a configurable pipeline of steps. Eac
 
 #### **Data Import**
 - [**BibTeX Import**](./steps/bibtex_import.md) - Load papers from BibTeX files with batch tracking
+- [**RIS Import**](./steps/ris_import.md) - Load papers from RIS files
 - [**Input**](./steps/input.md) - Import papers from JSON Lines files or stdin
 - [**Load Files**](./steps/load_files.md) - Extract metadata from PDF files and fetch from Crossref
+- [**Download PDFs**](./steps/download_pdfs.md) - Retrieve PDF files from multiple sources
 
 #### **Data Maintenance**
 - [**Patch**](./steps/patch.md) - Update existing papers by DOI with field replacements and appends
+- [**Fix Cite Keys**](./steps/fix_cite_keys.md) - Fix and normalize citation keys
 
 #### **Data Quality**
 - [**Deduplication**](./steps/deduplication.md) - Remove duplicate papers using multi-method matching
+- [**Metadata Screening**](./steps/metadata_screening.md) - Filter by metadata characteristics
 - [**Categorization**](./steps/categorization.md) - Filter by publication type and quality
 
 #### **Citation Management**
 - [**Citations**](./steps/citations.md) - Extract and resolve backward citations, build citation graph
 - [**Retrieve Metadata**](./steps/retrieve_metadata.md) - Enrich papers with complete metadata from external APIs
 
-#### **Screening & Filtering**
+#### **Screening & Classification**
 - [**Keyword Screening**](./steps/keyword_screening.md) - Filter using inclusion/exclusion keywords
 - [**Semantic Screening**](./steps/semantic_screening.md) - Filter using embedding-based relevance
+- [**Journal Screening**](./steps/journal_screening.md) - Filter by journal quality tiers
 - [**Rocchio Screening**](./steps/rocchio_screening.md) - Adaptive Rocchio algorithm with persistent centroids
+- [**LLM Classification**](./steps/llm_classification.md) - Claude-based multi-category classification
+- [**Rocchio Classifier**](./steps/rocchio_classifier.md) - ML-based Rocchio classifier with training
 
-#### **Checkpoints & Control Flow**
+#### **Analysis & Embeddings**
+- [**Generate Embeddings**](./steps/generate_embeddings.md) - Generate vector embeddings for semantic search
+
+#### **Control Flow**
 - [**Checkpoint**](./steps/checkpoint.md) - Save pipeline state for resuming
 - [**Echo**](./steps/echo.md) - Display informational messages
 - [**Halt**](./steps/halt.md) - Conditionally stop pipeline execution
+- [**Run Template**](./steps/run_template.md) - Execute reusable step templates
 
 #### **Output & Reporting**
-- [**Summarize**](./steps/summarize.md) - Display statistics and screening results
+- [**Report**](./steps/report.md) - Display statistics and screening results
 - [**Export**](./steps/export.md) - Export papers in multiple formats (JSONL, BibTeX, CSV)
+- [**Upload Database**](./steps/upload_database.md) - Upload results to external databases
 
 #### **CLI Tools**
 - [**Validate Command**](./cli_validate_command.md) - Validate definition YAML before running
@@ -114,7 +135,7 @@ pipeline:
 
   # 3. Check baseline
   - step: Display after deduplication
-    builtin.summarize:
+    builtin.report:
       screening: false
 
   # 4. Filter to peer-reviewed research
@@ -151,7 +172,7 @@ pipeline:
 
   # 8. Display screening results
   - step: Display screening progression
-    builtin.summarize:
+    builtin.report:
       screening: true
 
   # 9. Export results
@@ -183,12 +204,12 @@ bibtex_import → deduplication → categorization → keyword_screening → exp
 
 ### Comprehensive Screening (High Quality)
 ```
-bibtex_import → deduplication → categorization → keyword_screening → semantic_screening → summarize → export
+bibtex_import → deduplication → categorization → keyword_screening → semantic_screening → report → export
 ```
 
 ### Incremental Update (Resume)
 ```
-checkpoint → keyword_screening → semantic_screening → summarize → export
+checkpoint → keyword_screening → semantic_screening → report → export
 ```
 
 ### Development & Testing
@@ -203,15 +224,31 @@ bibtex_import → checkpoint → categorization → halt (min_papers: 10) → ke
 | Step | Required Parameters | Optional Parameters |
 |------|-------------------|-------------------|
 | bibtex_import | batch_id, imports[] | - |
-| deduplication | - | method, title_author_threshold, title_threshold |
+| ris_import | batch_id, imports[] | - |
+| input | - | source |
+| load_files | file_path, store_path | source, download_details |
+| download_pdfs | store_path, sources[] | timeout, output_errors |
+| patch | updates[] | - |
+| fix_cite_keys | - | - |
+| deduplication | - | method, thresholds |
+| metadata_screening | - | filters |
 | categorization | - | exclude_types, exclude_reviews |
+| citations | - | - |
+| retrieve_metadata | - | sources, cache |
 | keyword_screening | - | inclusion_keywords[], exclusion_keywords[], thresholds |
 | semantic_screening | - | model, thresholds |
-| checkpoint | name | - |
+| journal_screening | - | journals_file |
+| rocchio_screening | - | centroids_file |
+| llm_classification | categories[] | confidence_threshold, batch_size |
+| rocchio_classifier | - | - |
+| generate_embeddings | - | model, chunk_size |
+| checkpoint | label | - |
 | echo | - | message |
 | halt | - | min_papers, message |
-| summarize | - | screening |
+| run_template | template | - |
+| report | - | summary, screening, citations |
 | export | format, output_file | include_status, exclude_duplicates |
+| upload_database | - | database_url |
 
 ## Validation
 
@@ -246,7 +283,7 @@ python -m paper_scanner.cli run definition.yml --db postgresql://user:pass@local
 2. **Add Screening Incrementally**: Add keyword screening, then semantic screening
 3. **Use Checkpoints**: Save state after expensive operations (deduplication, semantic screening)
 4. **Validate Early**: Run validate command before running full pipeline
-5. **Monitor Progress**: Use summarize steps to check data at different stages
+5. **Monitor Progress**: Use report steps to check data at different stages
 6. **Export Multiple Formats**: JSONL for analysis, BibTeX for reference managers
 7. **Review Manual Cases**: Always check papers marked for manual_review
 8. **Audit Trail**: Keep excluded papers for transparency in systematic reviews

@@ -122,14 +122,18 @@ Or for step categories:
 ### Dim (Grey)
 **Context**: Debug information and ancillary details  
 **Usage**:
-- Debug-mode-only output
+- **Debug-mode-only output** - ALL debug messages MUST use `[dim]` formatting
 - Internal state information
 - Metadata and context that may confuse casual users
 - Less important information in complex output
 
+**Rule**: When the `debug` flag is enabled, all debug messages are formatted with `[dim]` to visually indicate they are diagnostic output not intended for regular users.
+
 **Examples**:
 ```
 [dim]Debug: Executed from step 0 to 1 (1 step(s))[/dim]
+[dim]Debug: Paper ID: 12345, DOI: 10.1234/test[/dim]
+[dim]Debug: Cache hit for crossref lookup[/dim]
 [dim](template: my_template)[/dim]
 [dim](0.25s)[/dim]
 ```

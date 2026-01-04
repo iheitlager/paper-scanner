@@ -1,2 +1,34 @@
 nav:
-  - Overview: steps/overview.md
+  - Overview: steps/overview.md  - Input Steps:
+    - Bibtex Import: steps/bibtex_import.md
+    - RIS Import: steps/ris_import.md
+    - Load Files: steps/load_files.md
+    - Retrieve Metadata: steps/retrieve_metadata.md
+    - Input: steps/input.md
+    - Download PDFs: steps/download_pdfs.md
+  - Processing & Deduplication:
+    - Deduplication: steps/deduplication.md
+    - Checkpoint: steps/checkpoint.md
+  - Screening & Classification:
+    - Keyword Screening: steps/keyword_screening.md
+    - Metadata Screening: steps/metadata_screening.md
+    - Journal Screening: steps/journal_screening.md
+    - Semantic Screening: steps/semantic_screening.md
+    - LLM Classification: steps/llm_classification.md
+    - Rocchio Classifier: steps/rocchio_classifier.md
+    - Rocchio Screening: steps/rocchio_screening.md
+  - Analysis & Citation:
+    - Citations: steps/citations.md
+    - Generate Embeddings: steps/generate_embeddings.md
+  - Output & Reporting:
+    - Report: steps/report.md
+    - Export: steps/export.md
+  - Utilities:
+    - Echo: steps/echo.md
+    - Paper: steps/paper.md
+    - Patch: steps/patch.md
+    - Fix Cite Keys: steps/fix_cite_keys.md
+    - Halt: steps/halt.md
+  - Advanced:
+    - Run Template: steps/run_template.md
+    - Upload Database: steps/upload_database.md
