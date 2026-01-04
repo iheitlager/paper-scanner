@@ -203,6 +203,10 @@ class UploadDatabaseStep(BaseStep):
                 }
             }
 
+            # ========================================
+            # STEP 1: Insert papers (in batches)
+            # ========================================
+            self.callback("Step 1/5: Inserting papers...", debug=True)
             for i in range(0, total_papers, batch_size):
                 batch = papers[i : i + batch_size]
                 batch_num = i // batch_size + 1
@@ -232,6 +236,11 @@ class UploadDatabaseStep(BaseStep):
                     )
 
             all_stats["total_batches"] = total_batches
+
+            # ========================================
+            # STEP 2: Citation edges summary
+            # ========================================
+            self.callback("Step 2/5: Citation edges processed...", debug=True)
 
             # ========================================
             # STEP 3: Insert text chunks with hierarchy
