@@ -103,8 +103,8 @@ class PaperQueryEngine:
                 pc.text,
                 ce.embedding <=> %s::vector as distance
             FROM chunk_embeddings ce
-            JOIN paper_chunks pc ON ce.chunk_id = pc.db_id
-            JOIN papers p ON pc.paper_db_id = p.db_id
+            JOIN paper_chunks pc ON ce.chunk_id = pc.id
+            JOIN papers p ON pc.paper_id = p.db_id
             ORDER BY ce.embedding <=> %s::vector
             LIMIT %s
         """,
