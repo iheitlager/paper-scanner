@@ -268,7 +268,7 @@ class EmbeddingToRowConverter:
     @staticmethod
     def embedding_to_row(
         embedding,
-        paper_id: str,
+        paper_db_id: int,
         embedding_method: str = "title",
         embedding_version: int = 1,
     ) -> Dict[str, Any]:
@@ -283,7 +283,7 @@ class EmbeddingToRowConverter:
         
         Args:
             embedding: Embedding model instance
-            paper_id: UUID of paper being embedded
+            paper_db_id: Database ID (integer, db_id from papers table)
             embedding_method: What was embedded (title, abstract, keywords, full_text, etc.)
             embedding_version: Version of embedding algorithm
             
@@ -301,7 +301,7 @@ class EmbeddingToRowConverter:
 
         # Convert vector to pgvector format (Python list works directly with psycopg2-binary)
         row = {
-            "paper_id": paper_id,
+            "paper_id": paper_db_id,
             "embedding": embedding.vector,  # psycopg2 with pgvector support handles lists
             "model_name": embedding.model,
             "embedding_method": embedding_method,
@@ -483,13 +483,23 @@ class PaperUploader:
                         if not paper.text_chunks:
                             continue
                         
+                        # Get paper's db_id from database
+                        cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
+                        result = cursor.fetchone()
+                        if not result:
+                            stats["error_count"] += 1
+                            stats["errors"].append(f"Paper {paper.cite_key}: not found in database")
+                            continue
+                        
+                        paper_db_id = result[0]
+                        
                         for chunk in paper.text_chunks:
                             if chunk.embedding is None:
                                 stats["skipped"] += 1
                                 continue
                             
                             try:
-                                self._insert_single_embedding(cursor, paper, chunk)
+                                self._insert_single_embedding(cursor, paper_db_id, chunk)
                                 stats["upserted"] += 1
                                 total_chunks_processed += 1
                             except Exception as e:
@@ -514,7 +524,7 @@ class PaperUploader:
     def _insert_single_embedding(
         self,
         cursor,
-        paper: Paper,
+        paper_db_id: int,
         chunk: 'TextChunk',
     ) -> None:
         """
@@ -525,7 +535,7 @@ class PaperUploader:
         
         Args:
             cursor: psycopg2 cursor
-            paper: Paper model (provides paper_id)
+            paper_db_id: Database ID (integer, db_id from papers table)
             chunk: TextChunk model with embedding
         """
         if chunk.embedding is None:
@@ -537,7 +547,7 @@ class PaperUploader:
         # text_source from embedding maps to embedding_method in DB
         row = EmbeddingToRowConverter.embedding_to_row(
             embedding,
-            paper_id=paper.id,
+            paper_db_id=paper_db_id,
             embedding_method=embedding.text_source,  # Maps text_source to embedding_method
             embedding_version=1,
         )
