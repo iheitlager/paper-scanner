@@ -429,30 +429,28 @@ class PaperUploader:
         dry_run: bool = False,
     ) -> Dict[str, Any]:
         """
-        Insert embeddings from papers into paper_embeddings table.
+        Insert embeddings from paper text_chunks into paper_embeddings table.
         
-        For each paper with title_abstract_embedding, creates a row in paper_embeddings
-        with the 768-dimensional vector and metadata.
+        For each paper, iterates through all text_chunks with embeddings and inserts
+        them to paper_embeddings. The embedding_method comes from chunk.embedding.text_source.
         
         Uses UPSERT (ON CONFLICT) to handle re-embeddings of the same paper with
-        the same model and embedding_method.
+        the same model, embedding_method, and version.
         
         Args:
-            papers: List of Paper models with embeddings
+            papers: List of Paper models with text_chunks containing embeddings
             dry_run: If True, don't actually insert
             
         Returns:
             Dictionary with insertion statistics:
             {
-                "inserted": int,      # New embeddings
-                "upserted": int,      # Updated existing embeddings
-                "skipped": int,       # Papers without embeddings
+                "upserted": int,      # Inserted/updated embeddings
+                "skipped": int,       # Chunks without embeddings
                 "errors": List[str],
                 "error_count": int,
             }
         """
         stats = {
-            "inserted": 0,
             "upserted": 0,
             "skipped": 0,
             "errors": [],
@@ -460,24 +458,20 @@ class PaperUploader:
         }
 
         if not papers:
-            logger.info("No papers to embed")
+            logger.info("No papers to process for embeddings")
             return stats
 
-        # Filter papers with embeddings
-        papers_with_embeddings = [
-            p for p in papers
-            if p.title_abstract_embedding is not None
-        ]
-
-        if not papers_with_embeddings:
-            logger.info("No papers with embeddings to insert")
-            stats["skipped"] = len(papers)
-            return stats
-
+        total_chunks_processed = 0
+        
         if dry_run:
-            logger.info(f"DRY RUN: Would insert {len(papers_with_embeddings)} embeddings")
-            stats["inserted"] = len(papers_with_embeddings)
-            stats["skipped"] = len(papers) - len(papers_with_embeddings)
+            # Count chunks that would be inserted
+            for paper in papers:
+                if paper.text_chunks:
+                    for chunk in paper.text_chunks:
+                        if chunk.embedding is not None:
+                            total_chunks_processed += 1
+            logger.info(f"DRY RUN: Would insert {total_chunks_processed} chunk embeddings from {len(papers)} papers")
+            stats["upserted"] = total_chunks_processed
             return stats
 
         try:
@@ -485,21 +479,29 @@ class PaperUploader:
                 with self.transaction(conn):
                     cursor = conn.cursor()
 
-                    for paper in papers_with_embeddings:
-                        try:
-                            self._insert_single_embedding(cursor, paper)
-                            stats["upserted"] += 1
-                        except Exception as e:
-                            error_msg = f"Embedding for {paper.cite_key}: {str(e)}"
-                            logger.error(error_msg)
-                            stats["errors"].append(error_msg)
-                            stats["error_count"] += 1
+                    for paper in papers:
+                        if not paper.text_chunks:
+                            continue
+                        
+                        for chunk in paper.text_chunks:
+                            if chunk.embedding is None:
+                                stats["skipped"] += 1
+                                continue
+                            
+                            try:
+                                self._insert_single_embedding(cursor, paper, chunk)
+                                stats["upserted"] += 1
+                                total_chunks_processed += 1
+                            except Exception as e:
+                                error_msg = f"Embedding for {paper.cite_key} chunk {chunk.id}: {str(e)}"
+                                logger.error(error_msg)
+                                stats["errors"].append(error_msg)
+                                stats["error_count"] += 1
 
                     cursor.close()
-                    stats["skipped"] = len(papers) - len(papers_with_embeddings)
                     
                     logger.info(
-                        f"Inserted/updated {stats['upserted']} embeddings, "
+                        f"Inserted/updated {stats['upserted']} embeddings from chunks, "
                         f"skipped {stats['skipped']}, errors: {stats['error_count']}"
                     )
 
@@ -513,27 +515,30 @@ class PaperUploader:
         self,
         cursor,
         paper: Paper,
+        chunk: 'TextChunk',
     ) -> None:
         """
-        Insert or update a single embedding.
+        Insert or update a single chunk embedding to paper_embeddings table.
         
         Uses ON CONFLICT (paper_id, model_name, embedding_method, embedding_version)
         to update if already exists.
         
         Args:
             cursor: psycopg2 cursor
-            paper: Paper model with embedding
+            paper: Paper model (provides paper_id)
+            chunk: TextChunk model with embedding
         """
-        if paper.title_abstract_embedding is None:
+        if chunk.embedding is None:
             return
 
-        embedding = paper.title_abstract_embedding
+        embedding = chunk.embedding
 
         # Convert embedding to row format
+        # text_source from embedding maps to embedding_method in DB
         row = EmbeddingToRowConverter.embedding_to_row(
             embedding,
             paper_id=paper.id,
-            embedding_method="title",  # Default to title for title_abstract_embedding
+            embedding_method=embedding.text_source,  # Maps text_source to embedding_method
             embedding_version=1,
         )
 
