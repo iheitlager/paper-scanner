@@ -388,34 +388,35 @@ class PaperUploader:
 
         try:
             with self.pool.get_connection() as conn:
-                with self.transaction(conn):
-                    cursor = conn.cursor()
+                cursor = conn.cursor()
 
-                    for paper in papers:
-                        try:
-                            self._insert_single_paper(cursor, paper, conflict_strategy)
-                            stats["inserted"] += 1
-                        except Exception as e:
-                            error_msg = f"Paper {paper.cite_key}: {str(e)}"
-                            logger.error(error_msg)
-                            stats["errors"].append(error_msg)
-                            stats["error_count"] += 1
+                for paper in papers:
+                    try:
+                        self._insert_single_paper(cursor, paper, conflict_strategy)
+                        conn.commit()
+                        stats["inserted"] += 1
+                    except Exception as e:
+                        conn.rollback()  # Rollback just this insert
+                        error_msg = f"Paper {paper.cite_key}: {str(e)}"
+                        logger.error(error_msg)
+                        stats["errors"].append(error_msg)
+                        stats["error_count"] += 1
 
-                            if conflict_strategy == "raise":
-                                raise
+                        if conflict_strategy == "raise":
+                            raise
 
-                    # Insert citation edges after all papers
-                    edge_stats = self._insert_citation_edges(cursor, papers)
-                    stats["citation_edges"]["edges_inserted"] = edge_stats["edges_inserted"]
-                    stats["citation_edges"]["edges_skipped"] = edge_stats["edges_skipped"]
-                    if edge_stats["errors"]:
-                        stats["errors"].extend(edge_stats["errors"])
+                # Insert citation edges after all papers
+                edge_stats = self._insert_citation_edges(cursor, papers)
+                stats["citation_edges"]["edges_inserted"] = edge_stats["edges_inserted"]
+                stats["citation_edges"]["edges_skipped"] = edge_stats["edges_skipped"]
+                if edge_stats["errors"]:
+                    stats["errors"].extend(edge_stats["errors"])
 
-                    cursor.close()
-                    logger.info(
-                        f"Inserted {stats['inserted']} papers, {stats['citation_edges']['edges_inserted']} "
-                        f"citation edges, errors: {stats['error_count']}"
-                    )
+                cursor.close()
+                logger.info(
+                    f"Inserted {stats['inserted']} papers, {stats['citation_edges']['edges_inserted']} "
+                    f"citation edges, errors: {stats['error_count']}"
+                )
 
         except Exception as e:
             logger.error(f"Bulk insert failed: {e}")
@@ -476,64 +477,56 @@ class PaperUploader:
 
         try:
             with self.pool.get_connection() as conn:
-                # Test connection state before proceeding
-                try:
-                    test_cursor = conn.cursor()
-                    test_cursor.execute("SELECT 1")
-                    test_cursor.close()
-                except Exception as e:
-                    # Connection is in bad state, reset it
-                    conn.rollback()
-                    logger.warning(f"Connection was in bad state, rolled back: {e}")
-                
-                with self.transaction(conn):
-                    cursor = conn.cursor()
+                cursor = conn.cursor()
 
-                    for paper in papers:
-                        if not paper.text_chunks:
+                for paper in papers:
+                    if not paper.text_chunks:
+                        continue
+                    
+                    try:
+                        # Get paper's db_id from database
+                        cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
+                        result = cursor.fetchone()
+                        if not result:
+                            stats["error_count"] += 1
+                            stats["errors"].append(f"Paper {paper.cite_key}: not found in database")
                             continue
                         
-                        try:
-                            # Get paper's db_id from database
-                            cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
-                            result = cursor.fetchone()
-                            if not result:
-                                stats["error_count"] += 1
-                                stats["errors"].append(f"Paper {paper.cite_key}: not found in database")
+                        paper_db_id = result[0]
+                        
+                        for chunk in paper.text_chunks:
+                            if chunk.embedding is None:
+                                stats["skipped"] += 1
                                 continue
                             
-                            paper_db_id = result[0]
-                            
-                            for chunk in paper.text_chunks:
-                                if chunk.embedding is None:
-                                    stats["skipped"] += 1
-                                    continue
-                                
-                                try:
-                                    self._insert_single_embedding(cursor, paper_db_id, chunk)
-                                    stats["upserted"] += 1
-                                    total_chunks_processed += 1
-                                except Exception as e:
-                                    error_msg = f"Embedding for {paper.cite_key} chunk {chunk.id}: {str(e)}"
-                                    logger.error(error_msg)
-                                    stats["errors"].append(error_msg)
-                                    stats["error_count"] += 1
-                                    # Continue to next chunk even if this one fails
-                                    continue
-                        except Exception as e:
-                            error_msg = f"Paper {paper.cite_key} embeddings: {str(e)}"
-                            logger.error(error_msg)
-                            stats["errors"].append(error_msg)
-                            stats["error_count"] += 1
-                            # Continue to next paper even if this one fails
-                            continue
+                            try:
+                                self._insert_single_embedding(cursor, paper_db_id, chunk)
+                                conn.commit()
+                                stats["upserted"] += 1
+                                total_chunks_processed += 1
+                            except Exception as e:
+                                conn.rollback()
+                                error_msg = f"Embedding for {paper.cite_key} chunk {chunk.id}: {str(e)}"
+                                logger.error(error_msg)
+                                stats["errors"].append(error_msg)
+                                stats["error_count"] += 1
+                                # Continue to next chunk even if this one fails
+                                continue
+                    except Exception as e:
+                        conn.rollback()
+                        error_msg = f"Paper {paper.cite_key} embeddings: {str(e)}"
+                        logger.error(error_msg)
+                        stats["errors"].append(error_msg)
+                        stats["error_count"] += 1
+                        # Continue to next paper even if this one fails
+                        continue
 
-                    cursor.close()
-                    
-                    logger.info(
-                        f"Inserted/updated {stats['upserted']} embeddings from chunks, "
-                        f"skipped {stats['skipped']}, errors: {stats['error_count']}"
-                    )
+                cursor.close()
+                
+                logger.info(
+                    f"Inserted/updated {stats['upserted']} embeddings from chunks, "
+                    f"skipped {stats['skipped']}, errors: {stats['error_count']}"
+                )
 
         except Exception as e:
             logger.error(f"Bulk embedding insert failed: {e}")
@@ -845,44 +838,46 @@ class PaperUploader:
 
         try:
             with self.pool.get_connection() as conn:
-                with self.transaction(conn):
-                    cursor = conn.cursor()
+                cursor = conn.cursor()
 
-                    for paper in papers:
-                        if not paper.text_chunks:
-                            stats["chunks_skipped"] += 1
+                for paper in papers:
+                    if not paper.text_chunks:
+                        stats["chunks_skipped"] += 1
+                        continue
+
+                    try:
+                        # Get paper's db_id from database
+                        cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
+                        result = cursor.fetchone()
+                        if not result:
+                            stats["error_count"] += 1
+                            stats["errors"].append(f"Paper {paper.cite_key}: not found in database")
                             continue
 
-                        try:
-                            # Get paper's db_id from database
-                            cursor.execute("SELECT db_id FROM papers WHERE id = %s", (paper.id,))
-                            result = cursor.fetchone()
-                            if not result:
+                        paper_db_id = result[0]
+
+                        # Insert chunks with hierarchy
+                        for chunk in paper.text_chunks:
+                            try:
+                                self._insert_single_chunk(cursor, chunk, paper_db_id)
+                                conn.commit()
+                                stats["chunks_inserted"] += 1
+                            except Exception as e:
+                                conn.rollback()
+                                error_msg = f"Chunk {chunk.id}: {str(e)}"
+                                logger.error(error_msg)
+                                stats["errors"].append(error_msg)
                                 stats["error_count"] += 1
-                                stats["errors"].append(f"Paper {paper.cite_key}: not found in database")
-                                continue
 
-                            paper_db_id = result[0]
+                    except Exception as e:
+                        conn.rollback()
+                        error_msg = f"Paper {paper.cite_key} chunks: {str(e)}"
+                        logger.error(error_msg)
+                        stats["errors"].append(error_msg)
+                        stats["error_count"] += 1
 
-                            # Insert chunks with hierarchy
-                            for chunk in paper.text_chunks:
-                                try:
-                                    self._insert_single_chunk(cursor, chunk, paper_db_id)
-                                    stats["chunks_inserted"] += 1
-                                except Exception as e:
-                                    error_msg = f"Chunk {chunk.id}: {str(e)}"
-                                    logger.error(error_msg)
-                                    stats["errors"].append(error_msg)
-                                    stats["error_count"] += 1
-
-                        except Exception as e:
-                            error_msg = f"Paper {paper.cite_key} chunks: {str(e)}"
-                            logger.error(error_msg)
-                            stats["errors"].append(error_msg)
-                            stats["error_count"] += 1
-
-                    cursor.close()
-                    logger.info(f"Inserted {stats['chunks_inserted']} chunks, errors: {stats['error_count']}")
+                cursor.close()
+                logger.info(f"Inserted {stats['chunks_inserted']} chunks, errors: {stats['error_count']}")
 
         except Exception as e:
             logger.error(f"Chunk insert failed: {e}")
@@ -975,32 +970,33 @@ class PaperUploader:
 
         try:
             with self.pool.get_connection() as conn:
-                with self.transaction(conn):
-                    cursor = conn.cursor()
+                cursor = conn.cursor()
 
-                    for paper in papers:
-                        if not paper.text_chunks:
+                for paper in papers:
+                    if not paper.text_chunks:
+                        continue
+
+                    for chunk in paper.text_chunks:
+                        if not chunk.embedding:
+                            stats["embeddings_skipped"] += 1
                             continue
 
-                        for chunk in paper.text_chunks:
-                            if not chunk.embedding:
-                                stats["embeddings_skipped"] += 1
-                                continue
+                        try:
+                            self._insert_chunk_embedding(cursor, chunk)
+                            conn.commit()
+                            stats["embeddings_upserted"] += 1
+                        except Exception as e:
+                            conn.rollback()
+                            error_msg = f"Chunk {chunk.id} embedding: {str(e)}"
+                            logger.error(error_msg)
+                            stats["errors"].append(error_msg)
+                            stats["error_count"] += 1
 
-                            try:
-                                self._insert_chunk_embedding(cursor, chunk)
-                                stats["embeddings_upserted"] += 1
-                            except Exception as e:
-                                error_msg = f"Chunk {chunk.id} embedding: {str(e)}"
-                                logger.error(error_msg)
-                                stats["errors"].append(error_msg)
-                                stats["error_count"] += 1
-
-                    cursor.close()
-                    logger.info(
-                        f"Upserted {stats['embeddings_upserted']} chunk embeddings, "
-                        f"errors: {stats['error_count']}"
-                    )
+                cursor.close()
+                logger.info(
+                    f"Upserted {stats['embeddings_upserted']} chunk embeddings, "
+                    f"errors: {stats['error_count']}"
+                )
 
         except Exception as e:
             logger.error(f"Chunk embedding insert failed: {e}")
