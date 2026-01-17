@@ -1,0 +1,28 @@
+{
+  "corpus_size": 5,
+  "approaches": [
+    {
+      "name": "regex",
+      "description": "PyPDF + regex patterns",
+      "overall_accuracy": 0.5706666666666667,
+      "title_accuracy": 0.32,
+      "year_accuracy": 0.6,
+      "doi_accuracy": 0.96,
+      "cost_per_paper": 0.0,
+      "avg_time_seconds": 0.048315906524658205
+    },
+    {
+      "name": "claude_haiku",
+      "description": "Claude Haiku API",
+      "overall_accuracy": 1.0,
+      "title_accuracy": 1.0,
+      "year_accuracy": 1.0,
+      "doi_accuracy": 1.0,
+      "cost_per_paper": 0.015600599999999997,
+      "avg_time_seconds": 9.926000881195069
+    }
+  ],
+  "recommendations": [
+    "Regex accuracy is low. Consider Claude API for better results."
+  ]
+}

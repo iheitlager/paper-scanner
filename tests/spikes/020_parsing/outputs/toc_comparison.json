@@ -1,0 +1,51 @@
+{
+  "ground_truth": {
+    "5d418966-cc9b-6de7-1293-43eceb5f8106": {
+      "sections": 6,
+      "subsections": 14
+    },
+    "5f3b02b4-e497-39bf-2339-4c3c0a55968e": {
+      "sections": 6,
+      "subsections": 10
+    },
+    "3ae77a5c-091c-427f-7a98-dd072a87781e": {
+      "sections": 5,
+      "subsections": 9
+    },
+    "11e0f553-8a31-13e3-7144-2d6489219562": {
+      "sections": 6,
+      "subsections": 4
+    },
+    "5dbd37f5-ffb7-5f51-0c02-df901933832e": {
+      "sections": 6,
+      "subsections": 10
+    }
+  },
+  "markdown": {
+    "5d418966-cc9b-6de7-1293-43eceb5f8106": {
+      "sections": 11,
+      "match_ratio": 0.6666666666666666
+    },
+    "5f3b02b4-e497-39bf-2339-4c3c0a55968e": {
+      "sections": 8,
+      "match_ratio": 0.5
+    },
+    "3ae77a5c-091c-427f-7a98-dd072a87781e": {
+      "sections": 6,
+      "match_ratio": 0.6
+    },
+    "11e0f553-8a31-13e3-7144-2d6489219562": {
+      "sections": 4,
+      "match_ratio": 0.0
+    },
+    "5dbd37f5-ffb7-5f51-0c02-df901933832e": {
+      "sections": 2,
+      "match_ratio": 0.0
+    }
+  },
+  "summary": {
+    "markdown_avg_match": 0.3448275862068966,
+    "note": "Regex extractor does not extract TOC",
+    "recommendation": "Use Claude for TOC extraction - markdown approach picks up noise"
+  }
+}

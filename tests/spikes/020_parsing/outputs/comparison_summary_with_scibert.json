@@ -1,0 +1,686 @@
+{
+  "methods": [
+    "regex",
+    "claude_haiku",
+    "scibert"
+  ],
+  "results": {
+    "regex": {
+      "extractor": "regex",
+      "total_papers": 5,
+      "title_accuracy": 0.32,
+      "author_accuracy": 0.3333333333333333,
+      "year_accuracy": 0.6,
+      "journal_accuracy": 0.64,
+      "doi_accuracy": 0.96,
+      "overall_accuracy": 0.5706666666666667,
+      "total_cost_usd": 0.0,
+      "avg_duration_seconds": 0.04949054718017578,
+      "errors": [],
+      "raw_results": [
+        {
+          "paper_id": "5d418966-cc9b-6de7-1293-43eceb5f8106",
+          "metadata": {
+            "title": "Capability con\ufb01guration, ambidexterity and performance: Evidence from",
+            "authors": [],
+            "year": 2013,
+            "journal": "Production Economics",
+            "doi": "10.1016/j.ijpe.2018.04.001",
+            "volume": null,
+            "pages": "0925-5273"
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 0.09411096572875977
+        },
+        {
+          "paper_id": "5f3b02b4-e497-39bf-2339-4c3c0a55968e",
+          "metadata": {
+            "title": "A survey on incumbent digital",
+            "authors": [],
+            "year": 2010,
+            "journal": "European Journal of Innovation",
+            "doi": "10.1108/EJIM-01-2023-0081array",
+            "volume": 26,
+            "pages": "1460-1060"
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 0.029016733169555664
+        },
+        {
+          "paper_id": "3ae77a5c-091c-427f-7a98-dd072a87781e",
+          "metadata": {
+            "title": "Zooming out: actor engagement",
+            "authors": [
+              {
+                "name": "Matthew J. Alexander"
+              },
+              {
+                "name": "Linda D. Hollebeek"
+              }
+            ],
+            "year": 2017,
+            "journal": "Service Management",
+            "doi": "10.1108/JOSM-08-2016-0237",
+            "volume": 29,
+            "pages": "333-351"
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 0.031228065490722656
+        },
+        {
+          "paper_id": "11e0f553-8a31-13e3-7144-2d6489219562",
+          "metadata": {
+            "title": "California Management Review",
+            "authors": [
+              {
+                "name": "EcosystEm"
+              },
+              {
+                "name": "EvElopm"
+              },
+              {
+                "name": "Michael G. Jacobides"
+              }
+            ],
+            "year": 2022,
+            "journal": "Management Review",
+            "doi": "10.1177/00081256221083352",
+            "volume": 64,
+            "pages": "99-123"
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 0.03346109390258789
+        },
+        {
+          "paper_id": "5dbd37f5-ffb7-5f51-0c02-df901933832e",
+          "metadata": {
+            "title": "Journal of the Association for Information Systems Journal of the Association for Information Systems",
+            "authors": [],
+            "year": 2022,
+            "journal": "Systems Journal",
+            "doi": "10.17705/1jais.00764",
+            "volume": 23,
+            "pages": "1354-1385"
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 0.05963587760925293
+        }
+      ]
+    },
+    "claude_haiku": {
+      "extractor": "claude_haiku",
+      "total_papers": 5,
+      "title_accuracy": 1.0,
+      "author_accuracy": 1.0,
+      "year_accuracy": 1.0,
+      "journal_accuracy": 1.0,
+      "doi_accuracy": 1.0,
+      "overall_accuracy": 1.0,
+      "total_cost_usd": 0.07800299999999999,
+      "avg_duration_seconds": 9.926000881195069,
+      "raw_results": [
+        {
+          "paper_id": "5d418966-cc9b-6de7-1293-43eceb5f8106",
+          "metadata": {
+            "journal": "International Journal of Production Economics",
+            "title": "Capability configuration, ambidexterity and performance: Evidence from service outsourcing sector",
+            "authors": [
+              {
+                "name": "Yi Liu",
+                "affiliation": "Antai College of Economics and Management, Shanghai Jiao Tong University, Shanghai, China"
+              },
+              {
+                "name": "Yonghai Liao",
+                "affiliation": "Antai College of Economics and Management, Shanghai Jiao Tong University, Shanghai, China"
+              },
+              {
+                "name": "Yuan Li",
+                "affiliation": "Antai College of Economics and Management, Shanghai Jiao Tong University, Shanghai, China"
+              }
+            ],
+            "year": 2018,
+            "volume": 200,
+            "issue": null,
+            "pages": "343-352",
+            "doi": "10.1016/j.ijpe.2018.04.001",
+            "abstract": "How to resolve the dilemma of ambidexterity, or simultaneous alignment and adaption, is a vital issue in the operational field. Based on the resource management model, we argue that capability configurations could work as effective strategies for leveraging the potential of capabilities and benefit the pursuit of contradictory ambidexterity. This study explores how complementary and balance configurations of technological and marketing capabilities influence alignment and adaption and improve firm performance. Through regression analysis of data collected from service-outsourcing vendors in China, we provide evidence that both the complementary and balance configurations of these two capabilities can be used to achieve alignment and adaption, thereby improving firm performance.",
+            "keywords": [
+              "Technological capabilities",
+              "Marketing capabilities",
+              "Capability configuration",
+              "Ambidexterity"
+            ],
+            "table_of_contents": [
+              {
+                "section": "1. Introduction",
+                "subsections": []
+              },
+              {
+                "section": "2. Theory background",
+                "subsections": [
+                  "2.1. Capabilities and capability configurations",
+                  "2.2. The mediating role of ambidexterity"
+                ]
+              },
+              {
+                "section": "3. Hypothesis",
+                "subsections": [
+                  "3.1. Complementary configuration and ambidexterity",
+                  "3.2. Balance configuration and ambidexterity",
+                  "3.3. Ambidexterity and firm performance",
+                  "3.4. Complementary configurations and firm performance",
+                  "3.5. Balance configurations and firm performance"
+                ]
+              },
+              {
+                "section": "4. Methods",
+                "subsections": [
+                  "4.1. Sampling and data collection",
+                  "4.2. Measures",
+                  "4.3. Reliability and validity",
+                  "4.4. Common method bias test"
+                ]
+              },
+              {
+                "section": "5. Analysis and results",
+                "subsections": []
+              },
+              {
+                "section": "6. Discussion",
+                "subsections": [
+                  "6.1. Theoretical contributions",
+                  "6.2. Managerial implication",
+                  "6.3. Limitations and future study"
+                ]
+              }
+            ]
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 8.333212852478027,
+          "cost_usd": 0.00939575
+        },
+        {
+          "paper_id": "5f3b02b4-e497-39bf-2339-4c3c0a55968e",
+          "metadata": {
+            "journal": "European Journal of Innovation Management",
+            "title": "A survey on incumbent digital transformation: a paradoxical perspective and research agenda",
+            "authors": [
+              {
+                "name": "Tiziano Volpentesta",
+                "affiliation": "Luiss University, Rome, Italy"
+              },
+              {
+                "name": "Esli Spahiu",
+                "affiliation": "Luiss University, Rome, Italy"
+              },
+              {
+                "name": "Pietro De Giovanni",
+                "affiliation": "SDA Bocconi School of Management, Milan, Italy"
+              }
+            ],
+            "year": 2023,
+            "volume": 26,
+            "issue": 7,
+            "pages": "478-501",
+            "doi": "10.1108/EJIM-01-2023-0081",
+            "abstract": "Digital transformation (DT) is a major challenge for incumbent organisations, as research on this phenomenon has revealed a high failure rate. Given this consideration, this paper reviews the literature on DT in incumbent organisations to identify the main themes and research directions to be undertaken. The authors adopt a systematic literature review (SLR) and computational literature review (CLR) employing a machine learning algorithm for topic modelling (LDA) to surface the themes discussed in 103 peer-reviewed studies published between 2010 and 2022 in a multidisciplinary article sample. The authors identify and discuss the five main themes emerging from the studies, offering the state-of-the-art of DT in established firms' literature.",
+            "keywords": [
+              "Digital transformation",
+              "Incumbents",
+              "Paradox theory",
+              "Systematic literature review",
+              "Computational literature review"
+            ],
+            "table_of_contents": [
+              {
+                "section": "1. Introduction",
+                "subsections": []
+              },
+              {
+                "section": "2. Related works",
+                "subsections": [
+                  "2.1 Digital transformation",
+                  "2.2 The digital transformation of incumbents"
+                ]
+              },
+              {
+                "section": "3. Methodology",
+                "subsections": [
+                  "3.1 Systematic literature review (SLR)",
+                  "3.2 Computational literature review (CLR)"
+                ]
+              },
+              {
+                "section": "4. Findings",
+                "subsections": [
+                  "4.1 Topic 1: the digital transformation of the healthcare industry",
+                  "4.2 Topic 2: digital transformation's processes of renewal and change",
+                  "4.3 Topic 3: digital transformation's project management in industrial settings",
+                  "4.4 Topic 4: DT's effects on value, performances, consumers and capabilities",
+                  "4.5 Topic 5: DT's strategic consequences on product applications",
+                  "4.6 Topics for future research"
+                ]
+              },
+              {
+                "section": "5. Applying a paradox perspective in incumbents' DT",
+                "subsections": []
+              },
+              {
+                "section": "6. Conclusion and future research",
+                "subsections": []
+              }
+            ]
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 10.352646827697754,
+          "cost_usd": 0.01693425
+        },
+        {
+          "paper_id": "3ae77a5c-091c-427f-7a98-dd072a87781e",
+          "metadata": {
+            "journal": "Journal of Service Management",
+            "title": "Zooming out: actor engagement beyond the dyadic",
+            "authors": [
+              {
+                "name": "Matthew J. Alexander",
+                "affiliation": "Department of Marketing, Strathclyde Business School, University of Strathclyde, Glasgow, UK"
+              },
+              {
+                "name": "Elina Jaakkola",
+                "affiliation": "Department of Marketing, Turku School of Economics, University of Turku, Turku, Finland"
+              },
+              {
+                "name": "Linda D. Hollebeek",
+                "affiliation": "Montpellier Business School, Montpellier, France and NHH Norwegian School of Economics, Bergen, Norway"
+              }
+            ],
+            "year": 2017,
+            "volume": 29,
+            "issue": 3,
+            "pages": "333-351",
+            "doi": "10.1108/JOSM-08-2016-0237",
+            "abstract": "The purpose of this paper is to broaden extant understanding of actor engagement behavior beyond its currently dominant dyadic (micro-level) focus, by examining it from multiple levels of aggregation within a service ecosystem framework. By means of a stepwise exercise of \"zooming out,\" the paper introduces a multi-perspective (micro-, meso-, macro- and meta-level) view of actor engagement that develops understanding of multiple engagement contexts, and suggests that balancing multiple roles may result in actor disengagement behavior. The role of reference groups and role conflict associated with balancing multiple roles is critical to understanding why engaged actor proclivities may wax and wane between contexts.",
+            "keywords": [
+              "Service-dominant logic",
+              "Customer engagement",
+              "Roles",
+              "Service ecosystem",
+              "Structuration",
+              "Actor engagement"
+            ],
+            "table_of_contents": [
+              {
+                "section": "1. Introduction",
+                "subsections": []
+              },
+              {
+                "section": "2. Micro-level view of actor engagement",
+                "subsections": [
+                  "2.1 Engagement as a psychological state",
+                  "2.2 Behavioral manifestations of engagement"
+                ]
+              },
+              {
+                "section": "3. Zooming out beyond the dyadic: meso- and macro-level views of engagement",
+                "subsections": [
+                  "3.1 Service ecosystems, institutions and engagement",
+                  "3.2 Actor engagement institutions and interdependency"
+                ]
+              },
+              {
+                "section": "4. Meta-level view: multiple, parallel engagement contexts",
+                "subsections": [
+                  "4.1 Role conflict in multiple engagement contexts",
+                  "4.2 ADB and multiple parallel actor engagement contexts"
+                ]
+              },
+              {
+                "section": "5. Conclusions",
+                "subsections": [
+                  "5.1 Theoretical implications",
+                  "5.2 Managerial implications",
+                  "5.3 Future research implications"
+                ]
+              }
+            ]
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 9.416709899902344,
+          "cost_usd": 0.013386
+        },
+        {
+          "paper_id": "11e0f553-8a31-13e3-7144-2d6489219562",
+          "metadata": {
+            "journal": "California Management Review",
+            "title": "How to Compete When Industries Digitize and Collide: An Ecosystem Development Framework",
+            "authors": [
+              {
+                "name": "Michael G. Jacobides",
+                "affiliation": "London Business School, London, UK"
+              }
+            ],
+            "year": 2022,
+            "volume": 64,
+            "issue": 3,
+            "pages": "99-123",
+            "doi": "10.1177/00081256221083352",
+            "abstract": "As industry boundaries dissolve and digitalization grows apace, ecosystems are becoming increasingly important. Yet for all the excitement and Big-Tech envy, there is little guidance for how to create ecosystems. How should a firm best engage? Should it become a partner to someone else's ecosystem, or build its own? Should it focus on a broad range of digitally connected services, or narrow down? How should we think about ecosystem value proposition, governance, and complementor choice? And, what is the case for investment in ecosystems? Drawing on recent research and projects with leading firms, this article offers a framework for understanding, engaging in, and building business ecosystems.",
+            "keywords": [
+              "ecosystems",
+              "strategy",
+              "scope",
+              "alliances",
+              "disruption"
+            ],
+            "table_of_contents": [
+              {
+                "section": "Multi-product versus Multi-actor Ecosystems",
+                "subsections": []
+              },
+              {
+                "section": "Deciding Multi-product Scope and Experience Bundles: Thinking \"Outside-in\" and \"Inside-out\"",
+                "subsections": []
+              },
+              {
+                "section": "When and Why Should a Firm Engage with a Multi-actor Ecosystem?",
+                "subsections": []
+              },
+              {
+                "section": "Building an Ecosystem, Not an Ego-System\u2014And Why Prior Success Can Be a Trap",
+                "subsections": []
+              },
+              {
+                "section": "Bringing It All Together: A Seven-Step Framework for Building an Ecosystem",
+                "subsections": [
+                  "Steps A1 and A2: Scope, Ecosystem Competitive Landscape, and Topography",
+                  "Step B1: What Role Should You Play?",
+                  "Steps B2 to B4: Building and Governing the Multi-actor Ecosystem",
+                  "Step B5: Translating Strategic Intent into Measurable Objectives and Changing the Organization"
+                ]
+              },
+              {
+                "section": "Ecosystem Strategy: From Metaphor to Roadmap to Corporate Priority",
+                "subsections": []
+              }
+            ]
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 10.778479814529419,
+          "cost_usd": 0.0156345
+        },
+        {
+          "paper_id": "5dbd37f5-ffb7-5f51-0c02-df901933832e",
+          "metadata": {
+            "journal": "Journal of the Association for Information Systems",
+            "title": "From Product Platform Ecosystem to Innovation Platform Ecosystem: An Institutional Perspective on the Governance of Ecosystem Transformations",
+            "authors": [
+              {
+                "name": "Maximilian Schreieck",
+                "affiliation": "University of Innsbruck"
+              },
+              {
+                "name": "Manuel Wiesche",
+                "affiliation": "TU Dortmund University"
+              },
+              {
+                "name": "Helmut Krcmar",
+                "affiliation": "Technical University of Munich"
+              }
+            ],
+            "year": 2022,
+            "volume": 23,
+            "issue": 6,
+            "pages": "1354-1385",
+            "doi": "10.17705/1jais.00764",
+            "abstract": "Incumbent companies across industries such as banking, insurance, and enterprise software have begun transforming their existing product platform ecosystems into innovation platforms ecosystems to increase generativity in their ecosystems. Such ecosystem transformations not only entail technological challenges as the underlying platform technology changes but also organizational challenges in that ecosystem actors such as partners and customers need to become part of the transformed ecosystem. To study how incumbent companies can govern ecosystem transformations successfully, we interpret ecosystems as organizational fields and ecosystem transformations as changes to the fields' institutional infrastructure. Based on a multiyear, grounded theory study of the transformation of SAP's on-premises ERP system, we first identify institutionalization challenges that arise when institutional infrastructure is changed during an ecosystem transformation. We then show how field-level governance mechanisms address these challenges and how the new institutional infrastructure gains legitimacy among ecosystem actors, ultimately leading to the institutionalization of the transformed ecosystem.",
+            "keywords": [
+              "Product Platform",
+              "Innovation Platform",
+              "Digital Platform",
+              "Ecosystem Transformation",
+              "Platform Governance",
+              "Grounded Theory Methodology",
+              "Institutional Theory",
+              "Enterprise Software"
+            ],
+            "table_of_contents": [
+              {
+                "section": "1. Introduction",
+                "subsections": []
+              },
+              {
+                "section": "2. Theoretical Foundations",
+                "subsections": [
+                  "2.1 Product Platform Ecosystems and Innovation Platform Ecosystems",
+                  "2.2 An Institutional Theory Lens on Ecosystem Transformations"
+                ]
+              },
+              {
+                "section": "3. Empirical Approach",
+                "subsections": [
+                  "3.1 Data Collection",
+                  "3.2 Data Analysis"
+                ]
+              },
+              {
+                "section": "4. Findings",
+                "subsections": [
+                  "4.1 SAP's Ecosystem Transformation as Change of Institutional Infrastructure",
+                  "4.2 Institutionalization Challenges",
+                  "4.3 Field-Level Governance Mechanisms",
+                  "4.4 Legitimacy Gains of the New Institutional Infrastructure"
+                ]
+              },
+              {
+                "section": "5. Discussion",
+                "subsections": [
+                  "5.1 Contributions to Literature and Practice",
+                  "5.2 Boundary Conditions and Limitations"
+                ]
+              },
+              {
+                "section": "6. Conclusion",
+                "subsections": []
+              }
+            ]
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 10.748955011367798,
+          "cost_usd": 0.0226525
+        }
+      ]
+    },
+    "scibert": {
+      "extractor": "scibert",
+      "model": "allenai/scibert_scivocab_uncased",
+      "total_papers": 5,
+      "title_accuracy": 0.4,
+      "author_accuracy": 0.13333333333333333,
+      "year_accuracy": 0.6,
+      "journal_accuracy": 0.4,
+      "doi_accuracy": 1.0,
+      "overall_accuracy": 0.5066666666666666,
+      "total_cost_usd": 0.0,
+      "avg_duration_seconds": 0.07405734062194824,
+      "note": "SciBERT is a language model, not extraction model. Uses heuristics on top of tokenization.",
+      "errors": [],
+      "raw_results": [
+        {
+          "paper_id": "5d418966-cc9b-6de7-1293-43eceb5f8106",
+          "metadata": {
+            "title": "Antai College of Economics and Management, Shanghai Jiao Tong University, Shanghai, China",
+            "authors": [],
+            "year": 2013,
+            "journal": null,
+            "doi": "10.1016/j.ijpe.2018.04.001",
+            "abstract": "How to resolve the dilemma of ambidexterity, or simultaneous alignment and adaption, is a vital issue in the operational \ufb01eld. Based on the resource management model, we argue that capability con\ufb01gurations could work as effective strategies for leveraging the potential of capabilities and bene\ufb01t the pursuit of contradictory ambi- dexterity. This study explores how complementary and balance con\ufb01gurations of technological and marketing capabilities in\ufb02uence alignment and adaption and improve\ufb01rm pe",
+            "table_of_contents": [
+              {
+                "section": "1. Introduction",
+                "subsections": []
+              },
+              {
+                "section": "2. Theory background",
+                "subsections": []
+              },
+              {
+                "section": "3. Hypothesis",
+                "subsections": []
+              },
+              {
+                "section": "4. Methods",
+                "subsections": []
+              },
+              {
+                "section": "1. Firm age %",
+                "subsections": []
+              },
+              {
+                "section": "2. Location %",
+                "subsections": []
+              },
+              {
+                "section": "3. Number of employees %",
+                "subsections": []
+              },
+              {
+                "section": "5. Ownership of vendors %",
+                "subsections": []
+              },
+              {
+                "section": "6. Services provided by sampled companies %",
+                "subsections": []
+              }
+            ]
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 0.11672186851501465
+        },
+        {
+          "paper_id": "5f3b02b4-e497-39bf-2339-4c3c0a55968e",
+          "metadata": {
+            "title": "perspective and research agenda",
+            "authors": [],
+            "year": 2010,
+            "journal": "computational literature review",
+            "doi": "10.1108/EJIM-01-2023-0081",
+            "abstract": "Purpose \u2013 Digital transformation (DT) is a major challenge for incumbent organisations, as research on this phenomenon has revealed a high failure rate. Given this consideration, this paper reviews the literature on DT in incumbent organisations to identify the main themes and research directions to be undertaken. Design/methodology/approach \u2013 The authors adopt a systematic literature review (SLR) and computational literature review (CLR) employing a machine learning algorithm for topic modellin",
+            "table_of_contents": [
+              {
+                "section": "1. Introduction",
+                "subsections": []
+              },
+              {
+                "section": "2022. We identified 103 documents and employed an advanced computational algorithm for",
+                "subsections": []
+              },
+              {
+                "section": "2. Related works",
+                "subsections": [
+                  "2.1 Digital transformation",
+                  "2.2 The digital transformation of incumbents"
+                ]
+              },
+              {
+                "section": "3. Methodology",
+                "subsections": [
+                  "3.1 Systematic literature review (SLR)"
+                ]
+              }
+            ]
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 0.04502511024475098
+        },
+        {
+          "paper_id": "3ae77a5c-091c-427f-7a98-dd072a87781e",
+          "metadata": {
+            "title": "Department of Marketing, Turku School of Economics, University of Turku,",
+            "authors": [
+              {
+                "name": "Matthew J. Alexander"
+              },
+              {
+                "name": "Linda D. Hollebeek"
+              }
+            ],
+            "year": 2017,
+            "journal": null,
+            "doi": "10.1108/JOSM-08-2016-0237",
+            "abstract": "Purpose \u2013 The purpose of this paper is to broaden extant understanding of actor engagement behavior beyond its currently dominant dyadic (micro-level) focus, by examining it from multiple levels of aggregation within a service ecosystem framework. Design/methodology/approach \u2013 This conceptual paper draws on service-dominant logic and structuration theory as theoretical lenses to inform engagement research. Findings \u2013 By means of a stepwise exercise of\u201czooming out,\u201d the paper introduces a multi-p",
+            "table_of_contents": [
+              {
+                "section": "1. Introduction",
+                "subsections": []
+              },
+              {
+                "section": "2. Micro-level view of actor engagement",
+                "subsections": [
+                  "2.1 Engagement as a psychological state",
+                  "2.2 Behavioral manifestations of engagement"
+                ]
+              },
+              {
+                "section": "3. Zooming out beyond the dyadic: meso- and macro-level views of engagement",
+                "subsections": [
+                  "3.1 Service ecosystems, institutions and engagement"
+                ]
+              }
+            ]
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 0.05421710014343262
+        },
+        {
+          "paper_id": "11e0f553-8a31-13e3-7144-2d6489219562",
+          "metadata": {
+            "title": "Ecosystems and Open Innovation",
+            "authors": [
+              {
+                "name": "EcosystEm"
+              }
+            ],
+            "year": 2022,
+            "journal": "California Management Review",
+            "doi": "10.1177/00081256221083352",
+            "abstract": "As industry boundaries dissolve and digitalization grows apace, ecosystems are becoming increasingly important. Yet for all the excitement and Big-Tech envy, there is little guidance for how to create ecosystems. How should a firm best engage? Should it become a partner to someone else\u2019s ecosystem, or build its own? Should it focus on a broad range of digitally connected services, or narrow down? How should we think about ecosystem value proposition, governance, and complementor choice? And, wha",
+            "table_of_contents": []
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 0.040428876876831055
+        },
+        {
+          "paper_id": "5dbd37f5-ffb7-5f51-0c02-df901933832e",
+          "metadata": {
+            "title": "From Product Platform Ecosystem to Innovation Platform From Product Platform Ecosystem to Innovation Platform",
+            "authors": [],
+            "year": 2022,
+            "journal": "of the Association for Information Systems Journal",
+            "doi": "10.17705/1jais.00764",
+            "abstract": "Incumbent companies across industries such as banking, insurance, and enterprise software have begun transforming their existing product platform ecosystems into innovation platforms ecosystems to increase generativity in their ecosystems. Such ecosystem t ransformations not only entail technological challenges as the underlying platform technology changes but also organizational challenges in that ecosystem actors such as partners and customers need to become part of the transformed ecosystem. ",
+            "table_of_contents": []
+          },
+          "success": true,
+          "error": null,
+          "duration_seconds": 0.11389374732971191
+        }
+      ]
+    }
+  },
+  "winner": "claude_haiku",
+  "note": "SciBERT uses local model (no API cost) but requires ~400MB download"
+}

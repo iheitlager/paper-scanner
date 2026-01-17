@@ -1,0 +1,107 @@
+{
+  "extractor": "regex",
+  "total_papers": 5,
+  "title_accuracy": 0.32,
+  "author_accuracy": 0.3333333333333333,
+  "year_accuracy": 0.6,
+  "journal_accuracy": 0.64,
+  "doi_accuracy": 0.96,
+  "overall_accuracy": 0.5706666666666667,
+  "total_cost_usd": 0.0,
+  "avg_duration_seconds": 0.04949054718017578,
+  "errors": [],
+  "raw_results": [
+    {
+      "paper_id": "5d418966-cc9b-6de7-1293-43eceb5f8106",
+      "metadata": {
+        "title": "Capability con\ufb01guration, ambidexterity and performance: Evidence from",
+        "authors": [],
+        "year": 2013,
+        "journal": "Production Economics",
+        "doi": "10.1016/j.ijpe.2018.04.001",
+        "volume": null,
+        "pages": "0925-5273"
+      },
+      "success": true,
+      "error": null,
+      "duration_seconds": 0.09411096572875977
+    },
+    {
+      "paper_id": "5f3b02b4-e497-39bf-2339-4c3c0a55968e",
+      "metadata": {
+        "title": "A survey on incumbent digital",
+        "authors": [],
+        "year": 2010,
+        "journal": "European Journal of Innovation",
+        "doi": "10.1108/EJIM-01-2023-0081array",
+        "volume": 26,
+        "pages": "1460-1060"
+      },
+      "success": true,
+      "error": null,
+      "duration_seconds": 0.029016733169555664
+    },
+    {
+      "paper_id": "3ae77a5c-091c-427f-7a98-dd072a87781e",
+      "metadata": {
+        "title": "Zooming out: actor engagement",
+        "authors": [
+          {
+            "name": "Matthew J. Alexander"
+          },
+          {
+            "name": "Linda D. Hollebeek"
+          }
+        ],
+        "year": 2017,
+        "journal": "Service Management",
+        "doi": "10.1108/JOSM-08-2016-0237",
+        "volume": 29,
+        "pages": "333-351"
+      },
+      "success": true,
+      "error": null,
+      "duration_seconds": 0.031228065490722656
+    },
+    {
+      "paper_id": "11e0f553-8a31-13e3-7144-2d6489219562",
+      "metadata": {
+        "title": "California Management Review",
+        "authors": [
+          {
+            "name": "EcosystEm"
+          },
+          {
+            "name": "EvElopm"
+          },
+          {
+            "name": "Michael G. Jacobides"
+          }
+        ],
+        "year": 2022,
+        "journal": "Management Review",
+        "doi": "10.1177/00081256221083352",
+        "volume": 64,
+        "pages": "99-123"
+      },
+      "success": true,
+      "error": null,
+      "duration_seconds": 0.03346109390258789
+    },
+    {
+      "paper_id": "5dbd37f5-ffb7-5f51-0c02-df901933832e",
+      "metadata": {
+        "title": "Journal of the Association for Information Systems Journal of the Association for Information Systems",
+        "authors": [],
+        "year": 2022,
+        "journal": "Systems Journal",
+        "doi": "10.17705/1jais.00764",
+        "volume": 23,
+        "pages": "1354-1385"
+      },
+      "success": true,
+      "error": null,
+      "duration_seconds": 0.05963587760925293
+    }
+  ]
+}
