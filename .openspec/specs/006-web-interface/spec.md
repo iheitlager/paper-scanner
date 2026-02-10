@@ -626,17 +626,61 @@ CREATE TABLE paper_embeddings (
 
 ### Implementation Files
 
-- **Server**: [src/paper_scanner/web/server.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/web/server.py)
-- **Database Manager**: [src/paper_scanner/web/database.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/web/database.py)
-- **Configuration**: [src/paper_scanner/web/config.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/web/config.py)
-- **HTTP Handlers**: [src/paper_scanner/web/http_handlers.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/web/http_handlers.py)
-- **Exceptions**: [src/paper_scanner/web/exceptions.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/web/exceptions.py)
-- **SQL/IO Layer**: [src/paper_scanner/io/sql.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/io/sql.py)
-- **HTML Template**: [src/paper_scanner/web/templates/index.html](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/web/templates/index.html)
+- [src/paper_scanner/web/server.py](../../../src/paper_scanner/web/server.py) - HTTP server and routing
+- [src/paper_scanner/web/database.py](../../../src/paper_scanner/web/database.py) - Database manager for web interface
+- [src/paper_scanner/web/config.py](../../../src/paper_scanner/web/config.py) - Web configuration management
+- [src/paper_scanner/web/http_handlers.py](../../../src/paper_scanner/web/http_handlers.py) - HTTP request handlers
+- [src/paper_scanner/web/exceptions.py](../../../src/paper_scanner/web/exceptions.py) - Web-specific exceptions
+- [src/paper_scanner/io/sql.py](../../../src/paper_scanner/io/sql.py) - SQL database operations
+- [src/paper_scanner/web/templates/index.html](../../../src/paper_scanner/web/templates/index.html) - Main HTML template
 
 ### Test Coverage
 
-Test files for the web interface are located in `tests/unit/` directory (to be specified if tests exist).
+The following test files verify the requirements in this specification:
+
+**Web Application:**
+- [tests/unit/web/test_config.py](../../../tests/unit/web/test_config.py) - Web configuration management
+- [tests/unit/web/test_exceptions.py](../../../tests/unit/web/test_exceptions.py) - Exception handling
+- [tests/unit/web/test_http_handlers.py](../../../tests/unit/web/test_http_handlers.py) - HTTP request handlers
+
+**Viewers and Controllers:**
+- [tests/unit/viewer/test_console_controller.py](../../../tests/unit/viewer/test_console_controller.py) - Console controller logic
+- [tests/unit/viewer/test_console_viewer.py](../../../tests/unit/viewer/test_console_viewer.py) - Console viewer output
+- [tests/unit/viewer/test_json_controller.py](../../../tests/unit/viewer/test_json_controller.py) - JSON controller
+- [tests/unit/viewer/test_json_viewer.py](../../../tests/unit/viewer/test_json_viewer.py) - JSON viewer serialization
+
+**CLI Interface:**
+- [tests/unit/cli/test_repl.py](../../../tests/unit/cli/test_repl.py) - REPL interface
+- [tests/unit/cli/test_paper_processor.py](../../../tests/unit/cli/test_paper_processor.py) - Paper processing CLI
+- [tests/unit/cli/test_validate.py](../../../tests/unit/cli/test_validate.py) - Validation commands
+- [tests/unit/cli/test_cache_task.py](../../../tests/unit/cli/test_cache_task.py) - Cache management CLI
+- [tests/unit/cli/test_db_task.py](../../../tests/unit/cli/test_db_task.py) - Database CLI operations
+- [tests/unit/cli/test_info_task.py](../../../tests/unit/cli/test_info_task.py) - Information display CLI
+- [tests/unit/cli/test_run_task.py](../../../tests/unit/cli/test_run_task.py) - Pipeline execution CLI
+
+**Export and Reporting:**
+- [tests/unit/steps/test_export.py](../../../tests/unit/steps/test_export.py) - Export functionality
+- [tests/unit/steps/test_export_integration.py](../../../tests/unit/steps/test_export_integration.py) - Export integration tests
+- [tests/unit/steps/test_report.py](../../../tests/unit/steps/test_report.py) - Report generation
+- [tests/unit/steps/test_patch.py](../../../tests/unit/steps/test_patch.py) - Data patching
+- [tests/unit/steps/test_paper.py](../../../tests/unit/steps/test_paper.py) - Paper operations
+- [tests/unit/steps/test_fix_cite_keys.py](../../../tests/unit/steps/test_fix_cite_keys.py) - Citation key fixes
+
+**Tools and Utilities:**
+- [tests/unit/tools/test_abstract_parser.py](../../../tests/unit/tools/test_abstract_parser.py) - Abstract parsing
+- [tests/unit/tools/test_filereader.py](../../../tests/unit/tools/test_filereader.py) - File reading utilities
+- [tests/unit/tools/test_core_handler.py](../../../tests/unit/tools/test_core_handler.py) - Core handler logic
+- [tests/unit/tools/test_journals.py](../../../tests/unit/tools/test_journals.py) - Journal data handling
+- [tests/unit/core/test_iso4_comprehensive.py](../../../tests/unit/core/test_iso4_comprehensive.py) - ISO4 abbreviations
+
+**Model Handlers:**
+- [tests/unit/models/test_claude_handler.py](../../../tests/unit/models/test_claude_handler.py) - Claude API integration
+- [tests/unit/models/test_ollama_handler.py](../../../tests/unit/models/test_ollama_handler.py) - Ollama integration
+- [tests/unit/core/test_base_handler.py](../../../tests/unit/core/test_base_handler.py) - Base handler class
+
+**Database Operations:**
+- [tests/unit/steps/test_upload_database.py](../../../tests/unit/steps/test_upload_database.py) - Database upload
+- [tests/unit/steps/test_bibtex_paper_type.py](../../../tests/unit/steps/test_bibtex_paper_type.py) - BibTeX paper type handling
 
 ### Related Specifications
 

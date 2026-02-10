@@ -649,18 +649,34 @@ When a paper has 4+ citations, Rocchio-based classification MUST mark it for man
 
 ### Implementation Files
 
-- [deduplication.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/deduplication.py)
-- [journal_screening.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/journal_screening.py)
-- [metadata_screening.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/metadata_screening.py)
-- [keyword_screening.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/keyword_screening.py)
-- [semantic_screening.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/semantic_screening.py)
-- [rocchio_screening.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/rocchio_screening.py)
-- [rocchio_classifier.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/rocchio_classifier.py)
-- [llm_classification.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/llm_classification.py)
+- [src/paper_scanner/steps/deduplication.py](../../../src/paper_scanner/steps/deduplication.py) - Duplicate detection and marking
+- [src/paper_scanner/steps/journal_screening.py](../../../src/paper_scanner/steps/journal_screening.py) - Journal allowlist/blocklist screening
+- [src/paper_scanner/steps/metadata_screening.py](../../../src/paper_scanner/steps/metadata_screening.py) - Paper type and quality screening
+- [src/paper_scanner/steps/keyword_screening.py](../../../src/paper_scanner/steps/keyword_screening.py) - Keyword-based filtering
+- [src/paper_scanner/steps/semantic_screening.py](../../../src/paper_scanner/steps/semantic_screening.py) - Embedding-based semantic screening
+- [src/paper_scanner/steps/rocchio_screening.py](../../../src/paper_scanner/steps/rocchio_screening.py) - Rocchio-based screening step
+- [src/paper_scanner/steps/rocchio_classifier.py](../../../src/paper_scanner/steps/rocchio_classifier.py) - Rocchio algorithm implementation
+- [src/paper_scanner/steps/llm_classification.py](../../../src/paper_scanner/steps/llm_classification.py) - LLM-powered classification
 
 ### Test Coverage
 
-Tests located in `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/tests/unit/` (reference existing test patterns).
+The following test files verify the requirements in this specification:
+
+**Screening Steps:**
+- [tests/unit/steps/test_journal_screening.py](../../../tests/unit/steps/test_journal_screening.py) - Journal allowlist/blocklist screening
+- [tests/unit/steps/test_keyword_screening.py](../../../tests/unit/steps/test_keyword_screening.py) - Keyword-based filtering
+- [tests/unit/steps/test_metadata_screening.py](../../../tests/unit/steps/test_metadata_screening.py) - Paper type and quality screening
+- [tests/unit/steps/test_semantic_screening.py](../../../tests/unit/steps/test_semantic_screening.py) - Embedding-based semantic screening
+- [tests/unit/steps/test_llm_classification.py](../../../tests/unit/steps/test_llm_classification.py) - LLM-powered classification
+
+**Rocchio Classifier:**
+- [tests/unit/steps/test_rocchio_classifier.py](../../../tests/unit/steps/test_rocchio_classifier.py) - Rocchio algorithm implementation
+- [tests/unit/steps/test_rocchio_screening.py](../../../tests/unit/steps/test_rocchio_screening.py) - Rocchio-based screening step
+
+**Deduplication:**
+- [tests/unit/steps/test_deduplication.py](../../../tests/unit/steps/test_deduplication.py) - Duplicate detection and marking
+- [tests/unit/steps/test_deduplication_circular_fix.py](../../../tests/unit/steps/test_deduplication_circular_fix.py) - Circular reference handling
+- [tests/unit/steps/test_deduplication_performance.py](../../../tests/unit/steps/test_deduplication_performance.py) - Performance optimization tests
 
 ### Related Specifications
 

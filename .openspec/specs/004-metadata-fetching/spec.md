@@ -724,26 +724,61 @@ The metadata merging system MUST combine data from multiple handlers with field 
 
 ### Implementation Files
 
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/fetchers/fetcher.py` - Orchestrator
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/fetchers/fetcher_handlers/base.py` - Base handler
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/fetchers/fetcher_handlers/crossref_handler.py` - Crossref handler
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/fetchers/fetcher_handlers/openalex_handler.py` - OpenAlex handler
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/fetchers/fetcher_handlers/semantic_scholar_handler.py` - Semantic Scholar handler
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/fetchers/fetcher_handlers/manual_handler.py` - Manual handler
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/io/bibtex.py` - BibTeX import/export
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/io/ris.py` - RIS import
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/bibtex_import.py` - BibTeX import step
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/ris_import.py` - RIS import step
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/retrieve_metadata.py` - Metadata retrieval step
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/citations.py` - Citation extraction step
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/download_pdfs.py` - PDF download step
+- [src/paper_scanner/tools/fetchers/fetcher.py](../../../src/paper_scanner/tools/fetchers/fetcher.py) - Orchestrator for metadata fetching
+- [src/paper_scanner/tools/fetchers/fetcher_handlers/base.py](../../../src/paper_scanner/tools/fetchers/fetcher_handlers/base.py) - Base handler abstract class
+- [src/paper_scanner/tools/fetchers/fetcher_handlers/crossref_handler.py](../../../src/paper_scanner/tools/fetchers/fetcher_handlers/crossref_handler.py) - Crossref API handler
+- [src/paper_scanner/tools/fetchers/fetcher_handlers/openalex_handler.py](../../../src/paper_scanner/tools/fetchers/fetcher_handlers/openalex_handler.py) - OpenAlex API handler
+- [src/paper_scanner/tools/fetchers/fetcher_handlers/semantic_scholar_handler.py](../../../src/paper_scanner/tools/fetchers/fetcher_handlers/semantic_scholar_handler.py) - Semantic Scholar handler
+- [src/paper_scanner/tools/fetchers/fetcher_handlers/manual_handler.py](../../../src/paper_scanner/tools/fetchers/fetcher_handlers/manual_handler.py) - Manual metadata entry handler
+- [src/paper_scanner/io/bibtex.py](../../../src/paper_scanner/io/bibtex.py) - BibTeX import/export
+- [src/paper_scanner/io/ris.py](../../../src/paper_scanner/io/ris.py) - RIS import
+- [src/paper_scanner/steps/bibtex_import.py](../../../src/paper_scanner/steps/bibtex_import.py) - BibTeX import step
+- [src/paper_scanner/steps/ris_import.py](../../../src/paper_scanner/steps/ris_import.py) - RIS import step
+- [src/paper_scanner/steps/retrieve_metadata.py](../../../src/paper_scanner/steps/retrieve_metadata.py) - Metadata retrieval step
+- [src/paper_scanner/steps/citations.py](../../../src/paper_scanner/steps/citations.py) - Citation extraction step
+- [src/paper_scanner/steps/download_pdfs.py](../../../src/paper_scanner/steps/download_pdfs.py) - PDF download step
 
 ### Test Coverage
 
-- Unit tests for BibTeX/RIS parsing and field extraction
-- Integration tests for handler fallback and metadata merging
-- Citation resolution and graph building tests
-- PDF caching and download tests
+The following test files verify the requirements in this specification:
+
+**Metadata Handlers:**
+- [tests/unit/tools/test_crossref_handler.py](../../../tests/unit/tools/test_crossref_handler.py) - Crossref API integration
+- [tests/unit/tools/test_crossref_metadata.py](../../../tests/unit/tools/test_crossref_metadata.py) - Crossref metadata extraction
+- [tests/unit/tools/test_crossref_citations.py](../../../tests/unit/tools/test_crossref_citations.py) - Crossref citation data
+- [tests/unit/tools/test_openalex_handler.py](../../../tests/unit/tools/test_openalex_handler.py) - OpenAlex API integration
+- [tests/unit/tools/test_publisher_handler.py](../../../tests/unit/tools/test_publisher_handler.py) - Publisher API integration
+- [tests/unit/tools/test_manual_handler.py](../../../tests/unit/tools/test_manual_handler.py) - Manual metadata entry
+- [tests/unit/tools/test_manual_handler_authors.py](../../../tests/unit/tools/test_manual_handler_authors.py) - Manual author handling
+
+**Fetcher and Caching:**
+- [tests/unit/tools/test_fetcher.py](../../../tests/unit/tools/test_fetcher.py) - Core fetcher logic
+- [tests/unit/tools/test_fetcher_jsoncache_reading.py](../../../tests/unit/tools/test_fetcher_jsoncache_reading.py) - JSON cache reading
+- [tests/unit/tools/test_fetcher_metadata.py](../../../tests/unit/tools/test_fetcher_metadata.py) - Metadata fetching
+- [tests/unit/tools/test_fetcher_pdf.py](../../../tests/unit/tools/test_fetcher_pdf.py) - PDF downloading
+
+**Import/Export:**
+- [tests/unit/io/test_bibtex_parser.py](../../../tests/unit/io/test_bibtex_parser.py) - BibTeX parsing
+- [tests/unit/io/test_bibtex_with_normalizer.py](../../../tests/unit/io/test_bibtex_with_normalizer.py) - BibTeX with normalization
+- [tests/unit/io/test_ris.py](../../../tests/unit/io/test_ris.py) - RIS format parsing
+- [tests/unit/io/test_ris_with_normalizer.py](../../../tests/unit/io/test_ris_with_normalizer.py) - RIS with normalization
+- [tests/unit/io/test_json.py](../../../tests/unit/io/test_json.py) - JSON serialization
+- [tests/unit/io/test_serialization_validation.py](../../../tests/unit/io/test_serialization_validation.py) - Validation logic
+- [tests/unit/io/test_sql.py](../../../tests/unit/io/test_sql.py) - SQL database operations
+
+**Pipeline Steps:**
+- [tests/unit/steps/test_bibtex_import.py](../../../tests/unit/steps/test_bibtex_import.py) - BibTeX import step
+- [tests/unit/steps/test_ris_import.py](../../../tests/unit/steps/test_ris_import.py) - RIS import step
+- [tests/unit/steps/test_retrieve_metadata.py](../../../tests/unit/steps/test_retrieve_metadata.py) - Metadata retrieval step
+- [tests/unit/steps/test_download_pdfs.py](../../../tests/unit/steps/test_download_pdfs.py) - PDF download step
+- [tests/unit/steps/test_load_files.py](../../../tests/unit/steps/test_load_files.py) - File loading step
+
+**Citations:**
+- [tests/unit/steps/test_citations.py](../../../tests/unit/steps/test_citations.py) - Citation extraction
+- [tests/unit/steps/test_citations_backward.py](../../../tests/unit/steps/test_citations_backward.py) - Backward citations
+- [tests/unit/steps/test_citations_forward.py](../../../tests/unit/steps/test_citations_forward.py) - Forward citations
+- [tests/unit/tools/test_citations_integration.py](../../../tests/unit/tools/test_citations_integration.py) - Citation integration
+- [tests/unit/io/test_citation_edges_db.py](../../../tests/unit/io/test_citation_edges_db.py) - Citation graph database
 
 ### Related Specifications
 

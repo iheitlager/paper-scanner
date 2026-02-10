@@ -821,9 +821,23 @@ The system MUST provide shorthand methods for common query patterns without requ
 
 ### Test Coverage
 
-- Tests located in `tests/unit/` directory
-- Test file for advanced parser: `test_advanced_section_parser.py`
-- Additional model and database tests to be extended
+The following test files verify the requirements in this specification:
+
+**Core Data Models:**
+- [tests/unit/core/test_authors.py](../../../tests/unit/core/test_authors.py) - Author model validation and name handling
+- [tests/unit/core/test_basic_paper.py](../../../tests/unit/core/test_basic_paper.py) - Paper model structure and properties
+- [tests/unit/core/test_doi.py](../../../tests/unit/core/test_doi.py) - DOI validation and normalization
+- [tests/unit/core/test_enum.py](../../../tests/unit/core/test_enum.py) - Enumeration types (PaperType, StudyType, etc.)
+- [tests/unit/core/test_exceptions.py](../../../tests/unit/core/test_exceptions.py) - Exception handling
+- [tests/unit/core/test_open_access_status.py](../../../tests/unit/core/test_open_access_status.py) - Open access status tracking
+
+**Database Operations:**
+- [tests/unit/core/test_database.py](../../../tests/unit/core/test_database.py) - CRUD operations, indexing, duplicate handling
+- [tests/unit/core/test_query.py](../../../tests/unit/core/test_query.py) - Fluent query API and filtering
+
+**Normalization and Citation Keys:**
+- [tests/unit/core/test_normalization.py](../../../tests/unit/core/test_normalization.py) - Field normalization rules
+- [tests/unit/core/test_cite_key.py](../../../tests/unit/core/test_cite_key.py) - Citation key generation and collision resolution
 
 ### Related Specifications
 

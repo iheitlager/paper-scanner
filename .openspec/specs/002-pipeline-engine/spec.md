@@ -794,24 +794,32 @@ The system SHALL enforce orthogonal separation of project, step, and runtime con
 
 ### Implementation Files
 
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/core/executor.py` — StepExecutor class with definition loading, checkpoint management, step execution, and session state
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/core/cache.py` — JSONFileCache and PDFCache for API responses and PDF storage
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/core/general_config.py` — GeneralConfigLoader for project-level configuration
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/core/step_result.py` — StepResult dataclass and status enums
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/core/reporter.py` — AbstractStepReporter and AbstractControllerReporter callback interfaces
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/core/exceptions.py` — Exception hierarchy (ConfigurationError, StepError, CheckpointError, PipelineExecutionError)
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/cli/paper_processor.py` — CLI entry point with command handlers (run, validate, repl, info, cache, db)
-- `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/base.py` — BaseStep abstract class with lifecycle (validate, execute)
+- [src/paper_scanner/core/executor.py](../../../src/paper_scanner/core/executor.py) - StepExecutor class with definition loading, checkpoint management, step execution, and session state
+- [src/paper_scanner/core/cache.py](../../../src/paper_scanner/core/cache.py) - JSONFileCache and PDFCache for API responses and PDF storage
+- [src/paper_scanner/core/general_config.py](../../../src/paper_scanner/core/general_config.py) - GeneralConfigLoader for project-level configuration
+- [src/paper_scanner/core/step_result.py](../../../src/paper_scanner/core/step_result.py) - StepResult dataclass and status enums
+- [src/paper_scanner/core/reporter.py](../../../src/paper_scanner/core/reporter.py) - AbstractStepReporter and AbstractControllerReporter callback interfaces
+- [src/paper_scanner/core/exceptions.py](../../../src/paper_scanner/core/exceptions.py) - Exception hierarchy (ConfigurationError, StepError, CheckpointError, PipelineExecutionError)
+- [src/paper_scanner/cli/paper_processor.py](../../../src/paper_scanner/cli/paper_processor.py) - CLI entry point with command handlers (run, validate, repl, info, cache, db)
+- [src/paper_scanner/steps/base.py](../../../src/paper_scanner/steps/base.py) - BaseStep abstract class with lifecycle (validate, execute)
 
 ### Test Coverage
 
-Test coverage for the Pipeline Engine would include:
-- Unit tests for StepExecutor (definition loading, step parsing, checkpoint lifecycle)
-- Unit tests for LazyStepRegistry (lazy loading, caching, error cases)
-- Unit tests for template expansion (nesting, error propagation)
-- Unit tests for checkpoint I/O (save, load, corruption handling)
-- Integration tests for full workflow execution (run_all with multiple steps)
-- CLI integration tests (run, validate, repl, cache, db commands)
+The following test files verify the requirements in this specification:
+
+**Executor and Pipeline:**
+- [tests/unit/core/test_executor.py](../../../tests/unit/core/test_executor.py) - Core executor logic, definition loading, step execution
+- [tests/unit/core/test_executor_checkpoints.py](../../../tests/unit/core/test_executor_checkpoints.py) - Checkpoint lifecycle and persistence
+- [tests/unit/core/test_executor_templates.py](../../../tests/unit/core/test_executor_templates.py) - Template expansion and nesting
+- [tests/unit/core/test_general_config.py](../../../tests/unit/core/test_general_config.py) - Configuration loading and defaults
+- [tests/unit/core/test_step_result.py](../../../tests/unit/core/test_step_result.py) - StepResult dataclass and status enums
+
+**Step Implementations:**
+- [tests/unit/steps/test_checkpoint.py](../../../tests/unit/steps/test_checkpoint.py) - Checkpoint step execution
+- [tests/unit/steps/test_run_template.py](../../../tests/unit/steps/test_run_template.py) - Template execution step
+- [tests/unit/steps/test_echo.py](../../../tests/unit/steps/test_echo.py) - Echo step for debugging
+- [tests/unit/steps/test_halt.py](../../../tests/unit/steps/test_halt.py) - Halt step for workflow control
+- [tests/unit/steps/test_input.py](../../../tests/unit/steps/test_input.py) - Input step for user interaction
 
 ### Related Specifications
 

@@ -362,22 +362,27 @@ The system MUST split section content into paragraphs using double-newline delim
 
 ### Implementation Files
 
-- [embedder.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/embedding/embedder.py) — SentenceTransformers model initialization and embedding generation
-- [chunker.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/embedding/chunker.py) — PDF extraction, sentence-level chunking with overlap, section-aware hybrid chunking
-- [citation_remover.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/embedding/citation_remover.py) — Citation detection and removal with statistical tracking
-- [extractor.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/embedding/extractor.py) — PDF text extraction using pdfplumber with hierarchical section grouping
-- [sections.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/embedding/sections.py) — Canonical section detection (70+ patterns), section normalization, hierarchy validation
-- [rocchio.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/tools/documents/rocchio.py) — Rocchio algorithm implementation, persistent state management, incremental centroid updates
-- [generate_embeddings.py](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/src/paper_scanner/steps/generate_embeddings.py) — Pipeline step for multi-pass embedding generation, device selection, batch processing
+- [src/paper_scanner/tools/embedding/embedder.py](../../../src/paper_scanner/tools/embedding/embedder.py) - SentenceTransformers model initialization and embedding generation
+- [src/paper_scanner/tools/embedding/chunker.py](../../../src/paper_scanner/tools/embedding/chunker.py) - PDF extraction, sentence-level chunking with overlap, section-aware hybrid chunking
+- [src/paper_scanner/tools/embedding/citation_remover.py](../../../src/paper_scanner/tools/embedding/citation_remover.py) - Citation detection and removal with statistical tracking
+- [src/paper_scanner/tools/embedding/extractor.py](../../../src/paper_scanner/tools/embedding/extractor.py) - PDF text extraction using pdfplumber with hierarchical section grouping
+- [src/paper_scanner/tools/embedding/sections.py](../../../src/paper_scanner/tools/embedding/sections.py) - Canonical section detection (70+ patterns), section normalization, hierarchy validation
+- [src/paper_scanner/tools/documents/rocchio.py](../../../src/paper_scanner/tools/documents/rocchio.py) - Rocchio algorithm implementation, persistent state management, incremental centroid updates
+- [src/paper_scanner/steps/generate_embeddings.py](../../../src/paper_scanner/steps/generate_embeddings.py) - Pipeline step for multi-pass embedding generation, device selection, batch processing
 
 ### Test Coverage
 
-- Tests for embedding generation and model initialization
-- Tests for hierarchical chunking and chunk metadata
-- Tests for citation removal patterns and statistics tracking
-- Tests for section detection and normalization
-- Tests for Rocchio classification and centroid updates
-- See `tests/unit/` directory in repository
+The following test files verify the requirements in this specification:
+
+**Embedding Generation:**
+- [tests/unit/steps/test_generate_embeddings_hierarchical.py](../../../tests/unit/steps/test_generate_embeddings_hierarchical.py) - Hierarchical embedding generation
+- [tests/unit/io/test_embedding_persistence.py](../../../tests/unit/io/test_embedding_persistence.py) - Embedding storage and retrieval
+
+**Caching:**
+- [tests/unit/core/test_jsoncache.py](../../../tests/unit/core/test_jsoncache.py) - JSON cache implementation
+- [tests/unit/core/test_jsoncache_expire.py](../../../tests/unit/core/test_jsoncache_expire.py) - Cache expiration logic
+- [tests/unit/core/test_pdfcache.py](../../../tests/unit/core/test_pdfcache.py) - PDF cache management
+- [tests/unit/core/test_cache_404_marker.py](../../../tests/unit/core/test_cache_404_marker.py) - Cache miss handling
 
 ### Related Specifications
 
