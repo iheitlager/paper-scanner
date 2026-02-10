@@ -186,3 +186,4 @@ cython_debug/
 
 # javascript
 node_modules/clusters*.png
+AGENTS.md
