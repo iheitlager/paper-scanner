@@ -4,6 +4,7 @@
 **Version:** 1.0.0
 **Status:** Implemented
 **Date:** 2026-02-10
+**Owner:** Ilja Heitlager
 
 ## Overview
 
@@ -588,18 +589,19 @@ class Screening:
 **Idempotency**: Each step only processes papers where screening result is None (hasn't been run before).
 
 #### Scenario: Full Pipeline Decision Tracking
-- GIVEN new paper P, all screening steps enabled
-- STEP 1 (deduplication): P not duplicate → deduplication=null, final_decision=PENDING
-- STEP 2 (metadata): P language matches exclude list → metadata_screening created, final_decision=EXCLUDED
-- (Subsequent steps skipped since final_decision != PENDING)
-- RESULT: P.screening.final_decision=EXCLUDED, final_decision_by="automated:metadata_screening"
+- GIVEN a new paper P with all screening steps enabled
+- WHEN the pipeline executes deduplication (pass), then metadata screening detects P.language matches the exclude list
+- THEN P.screening.metadata_screening SHALL be created with exclusion reason
+- AND P.screening.final_decision SHALL be EXCLUDED
+- AND P.screening.final_decision_by SHALL be "automated:metadata_screening"
+- AND subsequent screening steps SHALL be skipped since final_decision != PENDING
 
 #### Scenario: Uncertain Paper to Manual Review
-- GIVEN paper P that passes keyword screening but low semantic similarity
-- STEP 1-3: deduplication/journal/metadata all pass → final_decision=PENDING
-- STEP 4 (keyword): inclusion_is_final=false, passes → final_decision stays PENDING
-- STEP 5 (semantic): similarity_score=0.57 (in [manual_review=0.55, auto_include=0.65]) → decision=MANUAL_REVIEW
-- RESULT: P.screening.final_decision=MANUAL_REVIEW, final_decision_by="automated:semantic_screening", current_stage="semantic_screening_complete"
+- GIVEN a paper P that passes deduplication, journal, and metadata screening with final_decision=PENDING
+- WHEN keyword screening passes (inclusion_is_final=false) and semantic screening computes similarity_score=0.57 (in range [manual_review=0.55, auto_include=0.65])
+- THEN P.screening.final_decision SHALL be MANUAL_REVIEW
+- AND P.screening.final_decision_by SHALL be "automated:semantic_screening"
+- AND P.screening.current_stage SHALL be "semantic_screening_complete"
 
 #### Scenario: Early Termination at Deduplication
 - GIVEN papers with 30% duplicates
@@ -663,7 +665,7 @@ Tests located in `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/tests/unit
 ### Related Specifications
 
 - [001-data-models](../001-data-models/spec.md) — Paper, Screening, ScreeningDecision models and data structures
-- [002-pipeline-execution](../002-pipeline-execution/spec.md) — Pipeline orchestration and step execution
+- [002-pipeline-engine](../002-pipeline-engine/spec.md) — Pipeline orchestration and step execution
 - [005-embedding-system](../005-embedding-system/spec.md) — Embedding models and sentence-transformers integration
 
 ---

@@ -4,6 +4,7 @@
 **Version:** 1.0.0
 **Status:** Implemented
 **Date:** 2026-02-10
+**Owner:** Ilja Heitlager
 
 ---
 
@@ -746,11 +747,11 @@ The metadata merging system MUST combine data from multiple handlers with field 
 
 ### Related Specifications
 
-- [001-data-models](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/.openspec/specs/001-data-models/spec.md) - Paper, Citation, Author, PDFInfo models
-- [002-pipeline-engine](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/.openspec/specs/002-pipeline-engine/spec.md) - StepResult, pipeline execution
-- [003-screening-logic](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/.openspec/specs/003-screening-logic/spec.md) - Paper filtering and decision logic
-- [005-embeddings](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/.openspec/specs/005-embeddings/spec.md) - Semantic search and embeddings (uses Paper models from metadata)
-- [006-web-interface](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/.openspec/specs/006-web-interface/spec.md) - API endpoints for metadata retrieval (consumes this spec)
+- [001-data-models](../001-data-models/spec.md) - Paper, Citation, Author, PDFInfo models
+- [002-pipeline-engine](../002-pipeline-engine/spec.md) - StepResult, pipeline execution
+- [003-screening-workflow](../003-screening-workflow/spec.md) - Paper filtering and decision logic
+- [005-embedding-system](../005-embedding-system/spec.md) - Semantic search and embeddings (uses Paper models from metadata)
+- [006-web-interface](../006-web-interface/spec.md) - API endpoints for metadata retrieval (consumes this spec)
 
 ---
 

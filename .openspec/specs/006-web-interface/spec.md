@@ -4,6 +4,7 @@
 **Version:** 1.0.0
 **Status:** Implemented
 **Date:** 2026-02-10
+**Owner:** Ilja Heitlager
 
 ## Overview
 
@@ -414,7 +415,8 @@ The system MUST provide a GET /api/pdf/<identifier> endpoint that serves PDFs fr
 The system MUST serve a single-page HTML application at GET / that provides a browser interface for paper discovery, PDF viewing, and data management.
 
 #### Scenario: Load HTML Interface
-- GIVEN a client sends `GET /`
+- GIVEN a running Flask server with templates configured
+- WHEN a client sends `GET /`
 - THEN the response MUST be HTTP 200 with HTML content
 - AND the response MUST include `<title>PDF Browser</title>`
 - AND the response MUST reference static assets: `style.css` and `script.js`
@@ -422,16 +424,13 @@ The system MUST serve a single-page HTML application at GET / that provides a br
 - AND the response MUST pass `pdf_base_dir` to the template for frontend use
 
 #### Scenario: Multi-Tab Interface
-- GIVEN the HTML interface is loaded
-- THEN the interface MUST contain tabs for:
-  - PDF: Native PDF viewer
-  - Analysis: Analysis data from database
-  - Details: Bibliographic details
-  - References: Cited papers
-  - Tags: Tag management interface
+- GIVEN the HTML interface is loaded in a browser
+- WHEN the user selects a paper from the list
+- THEN the interface MUST display tabs for: PDF (native viewer), Analysis (analysis data), Details (bibliographic details), References (cited papers), and Tags (tag management)
 
 #### Scenario: Overview Navigation
-- GIVEN the interface loads
+- GIVEN the HTML interface is loaded in a browser
+- WHEN the user navigates from the year overview
 - THEN the interface MUST initially show a year overview (histogram or network graph)
 - AND clicking on a year MUST show papers from that year
 - AND clicking on a paper MUST show its detail view
@@ -525,12 +524,14 @@ The system MUST support deeplinking with URL parameters of the form `?paper=<Cit
 The system MUST serve static CSS and JavaScript files from the `/static` directory. The HTML template MUST be served from Flask's templates directory.
 
 #### Scenario: Static CSS
-- GIVEN a client requests `GET /static/style.css`
+- GIVEN a running Flask server with static folder configured
+- WHEN a client requests `GET /static/style.css`
 - THEN the response MUST be HTTP 200 with MIME type "text/css"
 - AND the file MUST be served from `src/paper_scanner/web/static/style.css`
 
 #### Scenario: Static JavaScript
-- GIVEN a client requests `GET /static/script.js`
+- GIVEN a running Flask server with static folder configured
+- WHEN a client requests `GET /static/script.js`
 - THEN the response MUST be HTTP 200 with MIME type "application/javascript"
 - AND the file MUST be served from `src/paper_scanner/web/static/script.js`
 

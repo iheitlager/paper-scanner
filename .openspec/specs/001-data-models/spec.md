@@ -4,6 +4,7 @@
 **Version:** 1.0.0
 **Status:** Implemented
 **Date:** 2026-02-10
+**Owner:** Ilja Heitlager
 
 ## Overview
 
@@ -810,13 +811,13 @@ The system MUST provide shorthand methods for common query patterns without requ
 
 ### Implementation Files
 
-- [src/paper_scanner/core/models.py](../../src/paper_scanner/core/models.py) - Paper, Author, Citation, Embedding, TextChunk, Screening, and related models
-- [src/paper_scanner/core/database.py](../../src/paper_scanner/core/database.py) - PapersDatabase with indexing and CRUD operations
-- [src/paper_scanner/core/query.py](../../src/paper_scanner/core/query.py) - Fluent query builder (PapersQuery)
-- [src/paper_scanner/core/enum.py](../../src/paper_scanner/core/enum.py) - Enumeration types (PaperType, StudyType, etc.)
-- [src/paper_scanner/core/normalization.py](../../src/paper_scanner/core/normalization.py) - Centralised field normalisation (Normalizer)
-- [src/paper_scanner/core/cite_key.py](../../src/paper_scanner/core/cite_key.py) - Cite key generation and collision handling
-- [src/paper_scanner/core/doi.py](../../src/paper_scanner/core/doi.py) - DOI validation and normalisation
+- [src/paper_scanner/core/models.py](../../../src/paper_scanner/core/models.py) - Paper, Author, Citation, Embedding, TextChunk, Screening, and related models
+- [src/paper_scanner/core/database.py](../../../src/paper_scanner/core/database.py) - PapersDatabase with indexing and CRUD operations
+- [src/paper_scanner/core/query.py](../../../src/paper_scanner/core/query.py) - Fluent query builder (PapersQuery)
+- [src/paper_scanner/core/enum.py](../../../src/paper_scanner/core/enum.py) - Enumeration types (PaperType, StudyType, etc.)
+- [src/paper_scanner/core/normalization.py](../../../src/paper_scanner/core/normalization.py) - Centralised field normalisation (Normalizer)
+- [src/paper_scanner/core/cite_key.py](../../../src/paper_scanner/core/cite_key.py) - Cite key generation and collision handling
+- [src/paper_scanner/core/doi.py](../../../src/paper_scanner/core/doi.py) - DOI validation and normalisation
 
 ### Test Coverage
 
@@ -828,10 +829,9 @@ The system MUST provide shorthand methods for common query patterns without requ
 
 - [002-pipeline-engine](../002-pipeline-engine/spec.md) - Pipeline execution and step orchestration
 - [003-screening-workflow](../003-screening-workflow/spec.md) - Screening logic and decision rules
-- [004-io-handlers](../004-io-handlers/spec.md) - Import/export and serialisation
-- [005-fetchers](../005-fetchers/spec.md) - External data source integration
-- [006-embeddings](../006-embeddings/spec.md) - Embedding generation and indexing
-- [007-web-interface](../007-web-interface/spec.md) - User interface and API endpoints
+- [004-metadata-fetching](../004-metadata-fetching/spec.md) - Import/export and external data acquisition
+- [005-embedding-system](../005-embedding-system/spec.md) - Embedding generation and indexing
+- [006-web-interface](../006-web-interface/spec.md) - User interface and API endpoints
 
 ---
 

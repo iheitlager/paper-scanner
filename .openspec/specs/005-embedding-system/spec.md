@@ -4,6 +4,7 @@
 **Version:** 1.0.0
 **Status:** Implemented
 **Date:** 2026-02-10
+**Owner:** Ilja Heitlager
 
 ## Overview
 

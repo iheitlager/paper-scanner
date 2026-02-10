@@ -4,6 +4,7 @@
 **Version:** 1.0.0
 **Status:** Implemented
 **Date:** 2026-02-10
+**Owner:** Ilja Heitlager
 
 ## Overview
 
@@ -815,7 +816,8 @@ Test coverage for the Pipeline Engine would include:
 ### Related Specifications
 
 - [001-data-models](../001-data-models/spec.md) — Paper, Database, and core data models
-- [003-step-implementations](../003-step-implementations/spec.md) — Specific builtin step definitions (bibtex_import, checkpoint, etc.)
+- [003-screening-workflow](../003-screening-workflow/spec.md) — Screening workflow and step implementations
+- [004-metadata-fetching](../004-metadata-fetching/spec.md) — Metadata fetching and import steps
 
 ---
 
