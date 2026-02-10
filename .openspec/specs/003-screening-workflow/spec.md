@@ -668,6 +668,11 @@ Tests located in `/Users/iheitlager/wc/paper-scanner-worktree/agent-1/tests/unit
 - [002-pipeline-engine](../002-pipeline-engine/spec.md) — Pipeline orchestration and step execution
 - [005-embedding-system](../005-embedding-system/spec.md) — Embedding models and sentence-transformers integration
 
+### Architectural Decision Records
+
+- [ADR-0002: Step Architecture](../../../docs/adr/0002-step-architecture.md) — Class-based BaseStep with validate/execute, step registry used by screening steps
+- [ADR-0004: Source Structure & Test Organization](../../../docs/adr/0004-source-setup.md) — Module layout and three-tier test strategy
+
 ---
 
 ## References

@@ -646,6 +646,10 @@ Test files for the web interface are located in `tests/unit/` directory (to be s
 - **REST API Standard**: [RFC 7231 HTTP Semantics](https://datatracker.ietf.org/doc/html/rfc7231)
 - **JSON Web Standards**: [RFC 8259 JSON Data Interchange Format](https://datatracker.ietf.org/doc/html/rfc8259)
 
+### Architectural Decision Records
+
+- [ADR-0004: Source Structure & Test Organization](../../../docs/adr/0004-source-setup.md) — Module layout and three-tier test strategy
+
 ---
 
 ## API Endpoint Summary

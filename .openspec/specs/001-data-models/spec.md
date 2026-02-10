@@ -833,6 +833,10 @@ The system MUST provide shorthand methods for common query patterns without requ
 - [005-embedding-system](../005-embedding-system/spec.md) - Embedding generation and indexing
 - [006-web-interface](../006-web-interface/spec.md) - User interface and API endpoints
 
+### Architectural Decision Records
+
+- [ADR-0004: Source Structure & Test Organization](../../../docs/adr/0004-source-setup.md) — Module layout and three-tier test strategy
+
 ---
 
 ## References

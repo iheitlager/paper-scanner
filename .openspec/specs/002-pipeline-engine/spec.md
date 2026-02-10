@@ -819,6 +819,13 @@ Test coverage for the Pipeline Engine would include:
 - [003-screening-workflow](../003-screening-workflow/spec.md) — Screening workflow and step implementations
 - [004-metadata-fetching](../004-metadata-fetching/spec.md) — Metadata fetching and import steps
 
+### Architectural Decision Records
+
+- [ADR-0001: Pipeline Architecture](../../../docs/adr/0001-pipeline-architecture.md) — Three-level config model, YAML-based definitions, checkpointing
+- [ADR-0002: Step Architecture](../../../docs/adr/0002-step-architecture.md) — Class-based BaseStep with validate/execute, explicit step registry
+- [ADR-0003: Unified StepExecutor](../../../docs/adr/0003-executor-setup.md) — Unified executor for batch and REPL modes, template system
+- [ADR-0004: Source Structure & Test Organization](../../../docs/adr/0004-source-setup.md) — Module layout and three-tier test strategy
+
 ---
 
 ## References

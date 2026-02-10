@@ -753,6 +753,10 @@ The metadata merging system MUST combine data from multiple handlers with field 
 - [005-embedding-system](../005-embedding-system/spec.md) - Semantic search and embeddings (uses Paper models from metadata)
 - [006-web-interface](../006-web-interface/spec.md) - API endpoints for metadata retrieval (consumes this spec)
 
+### Architectural Decision Records
+
+- [ADR-0004: Source Structure & Test Organization](../../../docs/adr/0004-source-setup.md) — Module layout and three-tier test strategy
+
 ---
 
 ## References

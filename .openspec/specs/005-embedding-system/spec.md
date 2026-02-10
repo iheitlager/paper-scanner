@@ -381,10 +381,14 @@ The system MUST split section content into paragraphs using double-newline delim
 
 ### Related Specifications
 
-- [001-data-models](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/.openspec/specs/001-data-models/spec.md) — Core data structures: Paper, TextChunk, Embedding models
-- [002-pipeline-engine](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/.openspec/specs/002-pipeline-engine/spec.md) — Step execution framework, pipeline orchestration
-- [003-screening-workflow](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/.openspec/specs/003-screening-workflow/spec.md) — Screening pipeline using embeddings for adaptive classification
-- [004-metadata-fetching](/Users/iheitlager/wc/paper-scanner-worktree/agent-1/.openspec/specs/004-metadata-fetching/spec.md) — Metadata sources that provide paper titles and abstracts for embedding
+- [001-data-models](../001-data-models/spec.md) — Core data structures: Paper, TextChunk, Embedding models
+- [002-pipeline-engine](../002-pipeline-engine/spec.md) — Step execution framework, pipeline orchestration
+- [003-screening-workflow](../003-screening-workflow/spec.md) — Screening pipeline using embeddings for adaptive classification
+- [004-metadata-fetching](../004-metadata-fetching/spec.md) — Metadata sources that provide paper titles and abstracts for embedding
+
+### Architectural Decision Records
+
+- [ADR-0004: Source Structure & Test Organization](../../../docs/adr/0004-source-setup.md) — Module layout and three-tier test strategy
 
 ---
 
