@@ -97,7 +97,7 @@ class BibtexParser:
             lastchecked_str = entry.get("lastchecked", "").strip()
             studytype = entry.get("studytype", "").strip() or None
             entrytype = entry.get("ENTRYTYPE", "article").lower()
-            entry_key = entry.get("ID", "unknown")
+            entry.get("ID", "unknown")
         else:
             doi_str = entry.fields_dict.get("doi", "").strip()
             title = entry.fields_dict.get("title", "").strip()
@@ -113,7 +113,6 @@ class BibtexParser:
             lastchecked_str = entry.fields_dict.get("lastchecked", "").strip()
             studytype = entry.fields_dict.get("studytype", "").strip() or None
             entrytype = entry.entry_type.lower() if entry.entry_type else "article"
-            entry_key = entry.key
 
         if not doi_str:
             return None, "Missing DOI"
@@ -302,6 +301,7 @@ class BibtexParser:
         """
         # Try to load from bibtex_type_mapping.yaml
         from pathlib import Path
+
         import yaml
 
         mapping_file = Path(__file__).parents[4] / "etc" / "bibtex_type_mapping.yaml"

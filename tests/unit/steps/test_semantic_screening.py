@@ -359,7 +359,7 @@ class TestExecute:
                 None,
             )
 
-            result = step.execute(config, verbose=False, dry_run=False)
+            step.execute(config, verbose=False, dry_run=False)
 
         # Verify a paper was updated
         p1 = sample_db.get_by_id("p1")

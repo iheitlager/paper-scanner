@@ -2,8 +2,9 @@
 
 """Unit tests for base LLM handler functionality and registry."""
 
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 
 from paper_scanner.models.anthropic import ClaudeHandler
 from paper_scanner.models.base import (
@@ -17,6 +18,7 @@ from paper_scanner.models.base import (
     register_handler,
 )
 from paper_scanner.models.ollama import OllamaHandler
+
 
 class TestHandlerBase:
     """Tests for base LLM handler functionality."""

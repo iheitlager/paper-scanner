@@ -113,7 +113,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_authors(self, api_data: Dict[str, Any]) -> list:
         """
         Extract authors from OpenAlex format.
-        
+
         OpenAlex provides rich author data including ORCID and affiliations.
         """
         from paper_scanner.core.models import Author
@@ -156,7 +156,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_keywords(self, api_data: Dict[str, Any]) -> list:
         """
         Extract keywords from OpenAlex concepts.
-        
+
         OpenAlex provides 'concepts' field with scored topics.
         We take high-scoring concepts (score > 0.3) as keywords.
         """
@@ -176,7 +176,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_topics(self, api_data: Dict[str, Any]) -> list:
         """
         Extract topics from OpenAlex.
-        
+
         OpenAlex provides 'topics' field (newer feature).
         Falls back to broader 'concepts' if topics not available.
         """
@@ -206,7 +206,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_paper_type(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract paper type from OpenAlex 'type' field.
-        
+
         Maps OpenAlex types to PaperType enum.
         OpenAlex types: article, book, dataset, paratext, etc.
         """
@@ -235,7 +235,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_year(self, api_data: Dict[str, Any]) -> Optional[int]:
         """
         Extract publication year from OpenAlex.
-        
+
         OpenAlex provides 'publication_year' field directly.
         Falls back to 'publication_date' if needed.
         """
@@ -258,7 +258,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_journal(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract journal name from OpenAlex.
-        
+
         OpenAlex provides journal in 'primary_location.source.display_name'.
         """
         primary_location = api_data.get("primary_location")
@@ -278,7 +278,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_url(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract URL from OpenAlex.
-        
+
         OpenAlex provides multiple URL options:
         - primary_location.landing_page_url (preferred)
         - doi (as fallback, convert to URL)
@@ -307,7 +307,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_isbn(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract ISBN from OpenAlex.
-        
+
         OpenAlex doesn't directly provide ISBN in standard format.
         Would need to check ids field for isbn: prefix.
         """
@@ -317,7 +317,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_issn(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract ISSN from OpenAlex.
-        
+
         OpenAlex provides ISSN in primary_location.source.issn field.
         """
         primary_location = api_data.get("primary_location")
@@ -341,7 +341,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_pmid(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract PubMed ID from OpenAlex.
-        
+
         OpenAlex provides pmid in 'ids.pmid' field.
         Format: "https://pubmed.ncbi.nlm.nih.gov/12345678"
         """
@@ -360,7 +360,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_oa_status(self, api_data: Dict[str, Any]) -> Optional[OpenAccessStatus]:
         """
         Extract Open Access status from OpenAlex.
-        
+
         OpenAlex provides comprehensive OA information:
         - open_access.is_oa: boolean
         - open_access.oa_status: "gold", "green", "hybrid", "bronze", "closed"
@@ -417,7 +417,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _extract_source_key(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract source-specific key from OpenAlex.
-        
+
         Uses OpenAlex work ID (format: W1234567890).
         Falls back to DOI if work ID not available.
         """
@@ -490,7 +490,7 @@ class OpenAlexHandler(BaseFetcherHandler):
     def _find_download_url(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract PDF download URL from OpenAlex metadata.
-        
+
         OpenAlex API responses include:
         - "open_access" object with "pdf_url", "is_oa"
         - "has_fulltext" boolean

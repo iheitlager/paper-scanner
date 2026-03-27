@@ -1,6 +1,7 @@
 """Unit tests for JSONController"""
 
 import pytest
+
 from paper_scanner.viewer.json_controller import JSONController, JSONNode
 
 
@@ -180,9 +181,9 @@ class TestJSONController:
             if not node.is_leaf and not node.expanded:
                 dict_node = node
                 break
-        
+
         if dict_node:
-            initial_count = len(controller.flat_nodes)
+            len(controller.flat_nodes)
             dict_node.expanded = False
             controller._rebuild_flat_list()
             # Find and navigate to the node
@@ -211,7 +212,6 @@ class TestJSONController:
         controller = JSONController(sample_data)
         controller.search("name")
         if len(controller.search_results) > 0:
-            first_result = controller.cursor
             controller.next_search_result()
             # Should wrap around or move to next
             assert controller.search_index >= 0

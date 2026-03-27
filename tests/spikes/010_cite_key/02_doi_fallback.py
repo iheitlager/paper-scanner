@@ -13,7 +13,7 @@ from paper_scanner.core.doi import DOI
 def doi_to_slug(doi_str: str) -> str:
     """
     Convert DOI to a slug suitable for citation keys.
-    
+
     Example: "10.1287/isre.2017.0732" -> "10-1287-isre"
     """
     import re

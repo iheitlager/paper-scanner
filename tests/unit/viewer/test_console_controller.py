@@ -1,7 +1,8 @@
 """Unit tests for PaperListController"""
 
 import pytest
-from paper_scanner.core.models import Paper, Author
+
+from paper_scanner.core.models import Author, Paper
 from paper_scanner.viewer.console_controller import PaperListController
 
 
@@ -201,7 +202,7 @@ class TestPaperListController:
     def test_select_down_from_no_selection(self, sample_papers):
         """Test selecting down from no selection starts at top"""
         controller = PaperListController(sample_papers, page_size=10)
-        
+
         controller.select_down()
         assert controller.selected_index == 0
         assert controller.get_selected_paper() == sample_papers[0]
@@ -209,7 +210,7 @@ class TestPaperListController:
     def test_select_up_from_no_selection(self, sample_papers):
         """Test selecting up from no selection starts at bottom"""
         controller = PaperListController(sample_papers, page_size=10)
-        
+
         controller.select_up()
         # Should select last paper on page (10 papers on first page)
         assert controller.selected_index == 9
@@ -218,32 +219,32 @@ class TestPaperListController:
     def test_select_down_within_page(self, sample_papers):
         """Test selecting down within a page"""
         controller = PaperListController(sample_papers, page_size=10)
-        
+
         controller.selected_index = 3
         page_changed = controller.select_down()
-        
+
         assert page_changed is False
         assert controller.selected_index == 4
 
     def test_select_up_within_page(self, sample_papers):
         """Test selecting up within a page"""
         controller = PaperListController(sample_papers, page_size=10)
-        
+
         controller.selected_index = 5
         page_changed = controller.select_up()
-        
+
         assert page_changed is False
         assert controller.selected_index == 4
 
     def test_select_down_to_next_page(self, sample_papers):
         """Test selecting down at bottom scrolls to next page"""
         controller = PaperListController(sample_papers, page_size=10)
-        
+
         controller.current_page = 0
         controller.selected_index = 9  # Last item on page 1
-        
+
         page_changed = controller.select_down()
-        
+
         assert page_changed is True
         assert controller.current_page == 1
         assert controller.selected_index == 0
@@ -251,12 +252,12 @@ class TestPaperListController:
     def test_select_up_to_prev_page(self, sample_papers):
         """Test selecting up at top scrolls to previous page"""
         controller = PaperListController(sample_papers, page_size=10)
-        
+
         controller.current_page = 1
         controller.selected_index = 0  # First item on page 2
-        
+
         page_changed = controller.select_up()
-        
+
         assert page_changed is True
         assert controller.current_page == 0
         assert controller.selected_index == 9  # Last item on previous page
@@ -264,39 +265,39 @@ class TestPaperListController:
     def test_clear_selection(self, sample_papers):
         """Test clearing selection"""
         controller = PaperListController(sample_papers, page_size=10)
-        
+
         controller.selected_index = 5
         controller.clear_selection()
-        
+
         assert controller.selected_index is None
         assert controller.get_selected_paper() is None
 
     def test_next_page_clears_selection(self, sample_papers):
         """Test that next_page clears selection"""
         controller = PaperListController(sample_papers, page_size=10)
-        
+
         controller.selected_index = 5
         controller.next_page()
-        
+
         assert controller.selected_index is None
 
     def test_prev_page_clears_selection(self, sample_papers):
         """Test that prev_page clears selection"""
         controller = PaperListController(sample_papers, page_size=10)
-        
+
         controller.current_page = 1
         controller.selected_index = 3
         controller.prev_page()
-        
+
         assert controller.selected_index is None
 
     def test_get_selected_paper(self, sample_papers):
         """Test getting the selected paper"""
         controller = PaperListController(sample_papers, page_size=10)
-        
+
         # No selection
         assert controller.get_selected_paper() is None
-        
+
         # Select paper
         controller.selected_index = 2
         selected = controller.get_selected_paper()

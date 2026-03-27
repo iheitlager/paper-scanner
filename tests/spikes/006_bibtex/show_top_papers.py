@@ -99,7 +99,7 @@ def get_papers_status(db_url: str) -> Dict:
 
         # Check screening status
         cursor.execute("""
-        SELECT 
+        SELECT
             COUNT(CASE WHEN screening_stage IS NOT NULL THEN 1 END) as screened,
             COUNT(*) as total
         FROM paper_screening
@@ -134,7 +134,7 @@ def get_papers(db_url: str, verbose: bool = False) -> Dict[str, List[Dict]]:
                 print(f"{Color.DIM}No screening data found. Showing top 10 papers by year.{Color.END}\n")
 
             cursor.execute("""
-                SELECT 
+                SELECT
                     p.id,
                     p.citekey,
                     p.title,
@@ -156,7 +156,7 @@ def get_papers(db_url: str, verbose: bool = False) -> Dict[str, List[Dict]]:
         else:
             # Show papers that passed or need review (grouped)
             cursor.execute("""
-                SELECT 
+                SELECT
                     p.id,
                     p.citekey,
                     p.title,
@@ -175,8 +175,8 @@ def get_papers(db_url: str, verbose: bool = False) -> Dict[str, List[Dict]]:
                 LEFT JOIN paper_screening ps ON p.id = ps.paper_id
                 WHERE ps.screening_stage IN ('stage2_pass', 'stage2_review')
                    OR (ps.screening_stage = 'stage1_pass' AND ps.stage2_processed_at IS NULL)
-                ORDER BY 
-                    CASE 
+                ORDER BY
+                    CASE
                         WHEN ps.screening_stage = 'stage2_pass' THEN 1
                         WHEN ps.screening_stage = 'stage2_review' THEN 2
                         ELSE 3
@@ -205,7 +205,7 @@ def get_papers(db_url: str, verbose: bool = False) -> Dict[str, List[Dict]]:
 
 def get_reason(paper: Dict) -> str:
     """Get human-readable reason for inclusion."""
-    stage = paper.get('screening_stage')
+    paper.get('screening_stage')
     similarity = paper.get('semantic_similarity')
     manual_review_reason = paper.get('manual_review_reason')
 
@@ -226,7 +226,7 @@ def get_reason(paper: Dict) -> str:
 def display_paper(idx: int, paper: Dict, include_similarity: bool = True) -> None:
     """Display a single paper with formatting."""
     citekey = paper.get('citekey', 'N/A')
-    year = paper.get('year', 'n.d.')
+    paper.get('year', 'n.d.')
 
     # Print APA citation
     citation = format_apa_citation(paper)

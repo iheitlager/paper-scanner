@@ -17,7 +17,6 @@ from paper_scanner.steps.checkpoint import (
     _deserialize_papers,
     _get_checkpoint_name,
     _serialize_papers,
-    load_checkpoint,
 )
 
 
@@ -381,7 +380,7 @@ class TestCheckpointSelfReferenceIssue:
     """
     Tests specifically for the self-referencing issue where papers
     were being marked as duplicates of themselves.
-    
+
     This should not happen if:
     1. Deduplication only marks papers as duplicates against primary papers
     2. Serialization converts duplicate_of to ID strings (not nested objects)

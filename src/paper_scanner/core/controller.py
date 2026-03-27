@@ -1,14 +1,13 @@
 # paper_scanner/core/controller.py
 
 from abc import ABC, abstractmethod
-from typing import Optional, Any, Type, Dict, TYPE_CHECKING, Callable
 from pathlib import Path
-from functools import wraps
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type
 
 from .executor import StepExecutor
 
 if TYPE_CHECKING:
-    from .reporter import AbstractStepReporter, AbstractControllerReporter
+    from .reporter import AbstractControllerReporter, AbstractStepReporter
 
 
 def macro_step(*names: str) -> Callable:

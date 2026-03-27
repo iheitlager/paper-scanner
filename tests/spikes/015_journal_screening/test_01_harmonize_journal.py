@@ -3,10 +3,11 @@ Test 01: Journal Harmonization - Exact Match and Fuzzy Match
 Tests core journal matching logic against real bibliography data.
 """
 
-import pytest
 from pathlib import Path
+from typing import Dict
+
 import bibtexparser
-from typing import Dict, List, Tuple
+import pytest
 
 
 class TestJournalHarmonization:

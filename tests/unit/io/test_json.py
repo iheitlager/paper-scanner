@@ -542,7 +542,7 @@ class TestCompressionSupport:
     def test_json_gz_to_papers(self, paper_list, tmp_path):
         """Test reading papers from compressed JSON file."""
         try:
-            from paper_scanner.io.json import papers_to_json_gz, json_gz_to_papers
+            from paper_scanner.io.json import json_gz_to_papers, papers_to_json_gz
         except ImportError:
             pytest.skip("Compression support not available")
 
@@ -580,7 +580,7 @@ class TestBatchOperations:
     def test_merge_json_files(self, minimal_paper, tmp_path):
         """Test merging multiple JSON files."""
         try:
-            from paper_scanner.io.json import split_papers_to_files, merge_json_files
+            from paper_scanner.io.json import merge_json_files, split_papers_to_files
         except ImportError:
             pytest.skip("Batch operations not available")
 

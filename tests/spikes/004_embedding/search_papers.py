@@ -53,7 +53,7 @@ def search_papers(query, limit=5):
     # Find similar papers
     cursor.execute(
         """
-        SELECT 
+        SELECT
             p.citekey,
             p.title,
             p.year,

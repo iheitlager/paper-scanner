@@ -43,7 +43,7 @@ class HierarchicalStructureAnalysis:
 
     def analyze_papers(self, papers: list) -> None:
         """Analyze all papers with valid PDFs.
-        
+
         Args:
             papers: List of Paper objects
         """
@@ -58,7 +58,7 @@ class HierarchicalStructureAnalysis:
             return
 
         print(f"\n{'='*80}")
-        print(f"HIERARCHICAL STRUCTURE ANALYSIS")
+        print("HIERARCHICAL STRUCTURE ANALYSIS")
         print(f"{'='*80}")
         print(f"\nPapers to analyze: {len(papers_with_pdfs)}\n")
 
@@ -71,7 +71,7 @@ class HierarchicalStructureAnalysis:
 
     def analyze_single_paper(self, paper: Paper) -> None:
         """Analyze a single paper.
-        
+
         Args:
             paper: Paper object with PDF
         """
@@ -79,18 +79,18 @@ class HierarchicalStructureAnalysis:
             return
 
         pdf_path = paper.pdf_info.file_path
-        
+
         # Extract structure
         extraction = self.extractor.extract(pdf_path)
         if not extraction:
             return
 
         text = extraction['text']
-        coverage = extraction['coverage']
-        
+        extraction['coverage']
+
         # Remove citations
         cleaned_text, citation_stats = self.citation_remover.remove_citations(text)
-        
+
         # Store results
         result = {
             'paper': paper.cite_key,
@@ -100,7 +100,7 @@ class HierarchicalStructureAnalysis:
             'citation_stats': citation_stats,
         }
         self.results.append(result)
-        
+
         # Print paper results
         self.print_paper_result(result)
 
@@ -110,108 +110,108 @@ class HierarchicalStructureAnalysis:
         print(f"Title: {result['title']}")
         print(f"PDF: {result['pdf']}")
         print(f"\n{'-'*80}")
-        
+
         # Text statistics
         stats = result['citation_stats']
-        print(f"\nTEXT STATISTICS")
-        print(f"  ────────────────────────────────────────────────────────────────────────────")
+        print("\nTEXT STATISTICS")
+        print("  ────────────────────────────────────────────────────────────────────────────")
         print(f"  • Original size: {stats['original_chars']:,} chars ({stats['original_tokens']:,} tokens)")
         print(f"  • After citation removal: {stats['final_chars']:,} chars ({stats['final_tokens']:,} tokens)")
         print(f"  • Removed: {stats['removed_chars']:,} chars ({stats['removed_percentage_chars']}%)")
-        
+
         # Raw sections
         extraction = result['extraction']
         raw_sections = extraction['raw_sections']
-        print(f"\nRAW SECTION DETECTION")
-        print(f"  ────────────────────────────────────────────────────────────────────────────")
+        print("\nRAW SECTION DETECTION")
+        print("  ────────────────────────────────────────────────────────────────────────────")
         print(f"  • Raw sections found: {len(raw_sections)}")
-        
+
         # Canonical structure
         coverage = extraction['coverage']
         found = coverage['found']
         missing = coverage['missing']
         coverage_pct = round(100 * len(found) / 10, 1)
-        
-        print(f"\nCANONICAL STRUCTURE")
-        print(f"  ────────────────────────────────────────────────────────────────────────────")
+
+        print("\nCANONICAL STRUCTURE")
+        print("  ────────────────────────────────────────────────────────────────────────────")
         print(f"  • Coverage: {coverage_pct}% ({len(found)}/10 sections)")
-        
+
         if found:
             found_str = ", ".join(found)
             print(f"  • Found: {found_str}")
-        
+
         if missing:
             missing_str = ", ".join(missing)
             print(f"  • Missing: {missing_str}")
-        
+
         # Citation removal
-        print(f"\nCITATION REMOVAL")
-        print(f"  ────────────────────────────────────────────────────────────────────────────")
+        print("\nCITATION REMOVAL")
+        print("  ────────────────────────────────────────────────────────────────────────────")
         print(f"  • Citations found: {stats['citations_found']}")
         print(f"  • Chars removed: {stats['removed_chars']:,} ({stats['removed_percentage_chars']}%)")
         print(f"  • Tokens removed: {stats['removed_tokens']:,} ({stats['removed_percentage_tokens']}%)")
         print(f"  • Remaining tokens: {stats['final_tokens']:,}")
-        
+
         print(f"\n{'-'*80}\n")
 
     def print_summary(self) -> None:
         """Print summary of all analyzed papers."""
         if not self.results:
             return
-        
+
         print(f"\n{'='*80}")
-        print(f"ANALYSIS SUMMARY")
+        print("ANALYSIS SUMMARY")
         print(f"{'='*80}")
-        
+
         # Coverage statistics
         coverage_scores = [
             len(r['extraction']['coverage']['found']) / 10 * 100
             for r in self.results
         ]
         avg_coverage = sum(coverage_scores) / len(coverage_scores) if coverage_scores else 0
-        
+
         # Citation statistics
         citations = [r['citation_stats']['citations_found'] for r in self.results]
         avg_citations = sum(citations) / len(citations) if citations else 0
-        
+
         # Text statistics
         chars_removed = [r['citation_stats']['removed_chars'] for r in self.results]
         avg_chars_removed = sum(chars_removed) / len(chars_removed) if chars_removed else 0
-        
+
         print(f"\nPapers analyzed: {len(self.results)}")
-        print(f"\nCANONICAL STRUCTURE COVERAGE:")
+        print("\nCANONICAL STRUCTURE COVERAGE:")
         print(f"  • Average: {avg_coverage:.1f}%")
         print(f"  • Range: {min(coverage_scores):.1f}% - {max(coverage_scores):.1f}%")
-        
-        print(f"\nCITATION DETECTION:")
+
+        print("\nCITATION DETECTION:")
         print(f"  • Average citations found: {avg_citations:.0f}")
         print(f"  • Total citations: {sum(citations)}")
-        
-        print(f"\nTEXT CLEANING:")
+
+        print("\nTEXT CLEANING:")
         print(f"  • Average chars removed: {avg_chars_removed:,.0f}")
         print(f"  • Total chars removed: {sum(chars_removed):,}")
-        
+
         print(f"\n{'='*80}")
-        print(f"✓ Analysis completed!")
+        print("✓ Analysis completed!")
         print(f"{'='*80}\n")
 
 
 def load_papers_from_jsonl(jsonl_path: Path) -> list:
     """Load papers from JSONL file.
-    
+
     Args:
         jsonl_path: Path to JSONL file
-        
+
     Returns:
         List of Paper objects
     """
     import json
-    
+
     papers = []
     if not jsonl_path.exists():
         logger.error(f"File not found: {jsonl_path}")
         return papers
-    
+
     with open(jsonl_path) as f:
         for line in f:
             if line.strip():
@@ -221,7 +221,7 @@ def load_papers_from_jsonl(jsonl_path: Path) -> list:
                     papers.append(paper)
                 except Exception as e:
                     logger.warning(f"Could not load paper from JSON: {e}")
-    
+
     return papers
 
 
@@ -229,16 +229,16 @@ if __name__ == "__main__":
     # Find papers with PDFs
     this_dir = Path(__file__).parent
     jsonl_path = this_dir / "papers_with_pdfs.jsonl"
-    
+
     logger.info(f"Loading papers from: {jsonl_path}")
     papers = load_papers_from_jsonl(jsonl_path)
-    
+
     if not papers:
         logger.error("No papers found in JSONL file")
         sys.exit(1)
-    
+
     logger.info(f"✓ Loaded {len(papers)} papers")
-    
+
     # Run analysis
     analysis = HierarchicalStructureAnalysis()
     analysis.analyze_papers(papers)

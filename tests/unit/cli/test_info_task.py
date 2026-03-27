@@ -26,7 +26,7 @@ class MockStep(BaseStep):
 
 class AnotherMockStep(BaseStep):
     """Another test step
-    
+
     This step does something useful.
     It has multiple lines in the docstring.
     """
@@ -88,7 +88,7 @@ class TestExecuteInfoSteps:
         """Test that step docstrings are displayed"""
         class DocumentedStep(BaseStep):
             """This is a documented step
-            
+
             It has a comprehensive docstring explaining what it does.
             """
 

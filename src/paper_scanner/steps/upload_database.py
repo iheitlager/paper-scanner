@@ -42,7 +42,7 @@ console = Console(file=sys.stderr)
 class UploadDatabaseStep(BaseStep):
     """
     Upload papers from in-memory database to PostgreSQL.
-    
+
     Handles:
     - Connection pooling and transaction management
     - Conflict detection (cite_key, DOI duplicates)

@@ -11,9 +11,9 @@ This spike test validates that the Normalizer correctly:
 4. Preserves critical information (hyphens in names, particle handling, keyword deduplication)
 """
 
-from paper_scanner.core.normalization import Normalizer
-from paper_scanner.core.models import Author, Paper
 from paper_scanner.core.enum import PaperType
+from paper_scanner.core.models import Author
+from paper_scanner.core.normalization import Normalizer
 
 
 class TestNormalizerPhase1:
@@ -32,36 +32,36 @@ class TestNormalizerPhase1:
             'doi': '10.1234/example.2024.001',
             'paper_type': 'journal_article'
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Title: titlecase + collapse whitespace + remove braces
         # Verify it's titlecased and contains expected content
         assert 'Machine Learning' in normalized['title']
         assert 'Systematic Review' in normalized['title']
-        
+
         # Abstract: NO titlecase, just collapse whitespace + normalize ampersands
         assert normalized['abstract'] == 'We review advances in ML-based NLP systems & their performance.'
-        
+
         # Authors: Parse BibTeX "Last, First" format + titlecase names
         assert normalized['authors'] == ['Smith, John', 'Van der Doe, Jane']
-        
+
         # Keywords: Split by semicolon (highest priority) + lowercase + deduplicate
         assert normalized['keywords'] == ['machine learning', 'deep learning', 'nlp']
-        
+
         # Journal: titlecase + normalize ampersands (prepositions lowercase)
         assert normalized['journal'] == 'Journal of Artificial Intelligence Research'
-        
+
         # Publisher: titlecase + normalize ampersands (prepositions lowercase)
         assert normalized['publisher'] == 'Association for Computational Linguistics'
-        
+
         # Year: parse string to int + validate range
         assert normalized['year'] == 2024
         assert isinstance(normalized['year'], int)
-        
+
         # DOI: standardize format
         assert normalized['doi'] == '10.1234/example.2024.001'
-        
+
         # Paper Type: validate enum
         assert normalized['paper_type'] == PaperType.JOURNAL_ARTICLE
 
@@ -81,33 +81,33 @@ class TestNormalizerPhase1:
             'doi': 'https://doi.org/10.1038/s42256-024-00841-5',
             'paper_type': 'journal_article'
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Title: titlecase (prepositions lowercase)
         assert normalized['title'] == 'The Impact of Transformer Models on Natural Language Understanding'
-        
+
         # Abstract: collapse whitespace + normalize ampersands
         assert normalized['abstract'] == 'This article surveys recent developments in transformer-based models & their applications.'
-        
+
         # Authors: from dicts, combined to "First Family" format + titlecase
         assert normalized['authors'] == ['Alice Johnson', 'Bob Smith']
-        
+
         # Keywords: split by comma (second priority) + lowercase + deduplicate
         assert normalized['keywords'] == ['transformers', 'language models', 'attention mechanisms']
-        
+
         # Journal: titlecase
         assert normalized['journal'] == 'Nature Machine Intelligence'
-        
+
         # Publisher: titlecase
         assert normalized['publisher'] == 'Nature Publishing Group'
-        
+
         # Year: already int, validated
         assert normalized['year'] == 2024
-        
+
         # DOI: extract from URL format
         assert normalized['doi'] == '10.1038/s42256-024-00841-5'
-        
+
         # Paper Type: validate
         assert normalized['paper_type'] == PaperType.JOURNAL_ARTICLE
 
@@ -121,9 +121,9 @@ class TestNormalizerPhase1:
             ],
             'year': 2023,
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Authors from objects: titlecase applied
         assert normalized['authors'] == ['John Doe', 'Jane Smith']
         assert normalized['title'] == 'Deep Learning Fundamentals'
@@ -134,9 +134,9 @@ class TestNormalizerPhase1:
         raw_paper = {
             'authors': 'smith-jones, alice and van-der-waals, bob'
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Hyphens preserved in names
         assert normalized['authors'] == ['Smith-Jones, Alice', 'Van-Der-Waals, Bob']
 
@@ -147,9 +147,9 @@ class TestNormalizerPhase1:
             'year': 2024,
             # No abstract, authors, keywords, etc.
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         assert normalized['title'] == 'Incomplete Paper'
         assert normalized['year'] == 2024
         # Missing fields should be None or empty
@@ -162,9 +162,9 @@ class TestNormalizerPhase1:
         raw_paper = {
             'keywords': 'machine learning; ML; Deep Learning; deep learning; NEURAL NETWORKS'
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Deduplicated, lowercased
         assert 'machine learning' in normalized['keywords']
         assert 'ml' in normalized['keywords']
@@ -177,19 +177,19 @@ class TestNormalizerPhase1:
         """Test year range validation"""
         # Valid year
         assert Normalizer.normalize_year(2024) == 2024
-        
+
         # Valid year from string
         assert Normalizer.normalize_year('2024') == 2024
-        
+
         # Valid year from date
         assert Normalizer.normalize_year('2024-01-15') == 2024
-        
+
         # Out of range (too old)
         assert Normalizer.normalize_year(500) is None
-        
+
         # Out of range (too far future)
         assert Normalizer.normalize_year(2101) is None
-        
+
         # Invalid string
         assert Normalizer.normalize_year('not-a-year') is None
 
@@ -198,9 +198,9 @@ class TestNormalizerPhase1:
         raw_paper = {
             'title': 'bert: pre-training of deep bidirectional transformers for language understanding'
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Colon preserved, hyphen preserved (prepositions lowercase)
         assert ':' in normalized['title']
         assert '-' in normalized['title']
@@ -210,13 +210,13 @@ class TestNormalizerPhase1:
         """Test DOI normalization from various formats"""
         # Plain format
         assert Normalizer.normalize_doi('10.1234/example') == '10.1234/example'
-        
+
         # URL format
         assert Normalizer.normalize_doi('https://doi.org/10.1234/example') == '10.1234/example'
-        
+
         # Prefix format
         assert Normalizer.normalize_doi('doi:10.1234/example') == '10.1234/example'
-        
+
         # Invalid returns None
         assert Normalizer.normalize_doi('invalid-doi') is None
 
@@ -234,9 +234,9 @@ class TestNormalizerEdgeCases:
             'journal': None,
             'year': None
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Empty/None values handled appropriately
         assert normalized['title'] == '' or normalized['title'] is None
         assert normalized['abstract'] == '' or normalized['abstract'] is None
@@ -250,9 +250,9 @@ class TestNormalizerEdgeCases:
         raw_paper = {
             'title': 'a study of {LaTeX}, <HTML>, & special symbols!'
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Verify basic titlecase and ampersand normalization happened
         assert normalized['title'][0].isupper()  # First char uppercase
         assert '&' in normalized['title'] or 'and' in normalized['title'].lower()
@@ -264,9 +264,9 @@ class TestNormalizerEdgeCases:
             'title': 'étude de résolution étymologique',
             'authors': 'François, Jean and Müller, Hans'
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Unicode should be preserved or handled gracefully
         assert normalized['title']  # Non-empty
         assert len(normalized['authors']) == 2
@@ -277,9 +277,9 @@ class TestNormalizerEdgeCases:
         """Test handling of extremely long titles"""
         long_title = 'A ' + ' '.join(['very'] * 50) + ' long title'
         raw_paper = {'title': long_title}
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Should still normalize without truncation
         assert normalized['title']  # Non-empty result
         assert 'Long' in normalized['title']  # Contains titlecased portion
@@ -289,9 +289,9 @@ class TestNormalizerEdgeCases:
         raw_paper = {
             'keywords': 'ML;Deep Learning;Neural Networks'
         }
-        
+
         normalized = Normalizer.normalize(raw_paper)
-        
+
         # Should split by semicolon and lowercase
         assert all(kw.islower() for kw in normalized['keywords'])
         assert len(normalized['keywords']) >= 3
@@ -314,7 +314,7 @@ class TestNormalizerIntegration:
             'normalize_paper_type',
             'normalize'  # Main orchestration method
         ]
-        
+
         for method in required_methods:
             assert hasattr(Normalizer, method), f"Normalizer missing method: {method}"
             assert callable(getattr(Normalizer, method))
@@ -323,24 +323,24 @@ class TestNormalizerIntegration:
         """Demonstrate that Normalizer consolidates previously duplicated logic"""
         # This test shows the consolidation principle: instead of 16+ functions
         # scattered across IO handlers and fetchers, all normalization flows through one class
-        
+
         paper_from_bibtex = {
             'title': 'study of machine learning',
             'authors': 'Smith, John',
         }
-        
+
         paper_from_api = {
             'title': 'study of machine learning',
             'authors': [{'given_name': 'john', 'family_name': 'smith'}],
         }
-        
+
         # Different input formats, same normalization
         result_bibtex = Normalizer.normalize(paper_from_bibtex)
         result_api = Normalizer.normalize(paper_from_api)
-        
+
         # Titles should normalize identically (prepositions lowercase)
         assert result_bibtex['title'] == result_api['title'] == 'Study of Machine Learning'
-        
+
         # Authors should normalize identically (both titlecased)
         assert 'John' in result_bibtex['authors'][0]
         assert 'John' in result_api['authors'][0]

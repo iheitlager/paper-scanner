@@ -412,7 +412,7 @@ class TestExecute:
             )
             mock_fetcher.fetch_paper.return_value = (enriched_paper, False, "openalex")
 
-            result = step.execute(config, verbose=False, dry_run=False)
+            step.execute(config, verbose=False, dry_run=False)
 
             # Verify Fetcher was instantiated with correct methods
             mock_fetcher_class.assert_called_once()

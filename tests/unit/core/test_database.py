@@ -592,7 +592,7 @@ class TestStatistics:
         """Test getting stats with papers"""
         # Create db with resolve_duplicates=False to allow same DOI without marking as duplicate
         db = PapersDatabase(resolve_duplicates=False)
-        
+
         paper1 = Paper(
             id="p1",
             cite_key="key1",

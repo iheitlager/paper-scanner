@@ -15,8 +15,8 @@ from typing import Any, Dict, List, Tuple
 
 from rich.console import Console
 
-from paper_scanner.core.models import Paper
 from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.models import Paper
 from paper_scanner.core.step_result import StepResult
 from paper_scanner.io.json import paper_to_dict
 
@@ -32,10 +32,10 @@ class CheckpointStep(BaseStep):
     def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
         Validate checkpoint step configuration.
-        
+
         Args:
             config: Step configuration
-            
+
         Returns:
             Tuple of (is_valid, error_messages)
         """
@@ -55,13 +55,13 @@ class CheckpointStep(BaseStep):
     ) -> StepResult:
         """
         Execute checkpoint step
-        
+
         Args:
             config: Step configuration (may contain 'step_index')
             verbose: Enable verbose output
             dry_run: Don't actually save checkpoint
             debug: Enable debug output
-        
+
         Returns:
             StepResult with checkpoint file path and paper count
         """
@@ -132,13 +132,13 @@ def _deserialize_papers(data: List[Dict[str, Any]]) -> List[Paper]:
 def load_checkpoint(checkpoint_file: Path) -> tuple[List[Paper], int]:
     """
     Load papers from a checkpoint file with duplicate reference restoration.
-    
+
     The checkpoint JSON stores duplicate_of as ID strings. When papers are deserialized
     individually, these references are lost. This function restores them in a second pass.
-    
+
     Args:
         checkpoint_file: Path to checkpoint file
-    
+
     Returns:
         Tuple of (papers_list, step_index)
     """

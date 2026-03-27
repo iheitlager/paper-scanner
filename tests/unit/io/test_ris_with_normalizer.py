@@ -5,13 +5,9 @@ Tests verify that ris.py correctly uses the Normalizer class for all
 field normalization instead of duplicated functions.
 """
 
-import pytest
-from paper_scanner.io.ris import (
-    RISRecord,
-    ris_record_to_paper
-)
 from paper_scanner.core.models import Author, PaperType
 from paper_scanner.core.normalization import Normalizer
+from paper_scanner.io.ris import RISRecord, ris_record_to_paper
 
 
 class TestRISNormalizerIntegration:
@@ -21,7 +17,7 @@ class TestRISNormalizerIntegration:
         """Test ampersand normalization via Normalizer"""
         result = Normalizer._normalize_ampersands("Smith \\& Jones")
         assert result == "Smith & Jones"
-        
+
         result = Normalizer._normalize_ampersands("Art &amp; Design")
         assert result == "Art & Design"
 
@@ -34,7 +30,7 @@ class TestRISNormalizerIntegration:
         """Test author parsing and normalization via Normalizer"""
         authors_list = ["Smith, John", "Doe, Jane"]
         result = Normalizer.normalize_authors(authors_list)
-        
+
         assert len(result) == 2
         assert all(isinstance(a, str) for a in result)
 
@@ -42,7 +38,7 @@ class TestRISNormalizerIntegration:
         """Test keyword parsing and normalization via Normalizer"""
         keywords_list = ["Machine Learning", "Deep Learning", "NLP"]
         result = Normalizer.normalize_keywords(keywords_list)
-        
+
         assert len(result) == 3
         assert all(kw.islower() for kw in result)
 
@@ -60,9 +56,9 @@ class TestRISNormalizerIntegration:
         record.add_field('PB', 'nature publishing')
         record.add_field('PY', '2024')
         record.add_field('DO', '10.1234/example')
-        
+
         paper = ris_record_to_paper(record)
-        
+
         # Verify all fields are normalized
         assert paper.title  # Titlecased
         assert paper.abstract  # Whitespace collapsed, ampersands normalized
@@ -80,9 +76,9 @@ class TestRISNormalizerIntegration:
         record = RISRecord()
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'a study of deep learning')
-        
+
         paper = ris_record_to_paper(record)
-        
+
         # Title should be titlecased
         assert 'Study' in paper.title or 'study' in paper.title
 
@@ -92,9 +88,9 @@ class TestRISNormalizerIntegration:
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'Study')
         record.add_field('AB', 'We tested   &amp;   validated.   ')
-        
+
         paper = ris_record_to_paper(record)
-        
+
         # Abstract should be collapsed, not titlecased
         assert paper.abstract
         # Should have single spaces
@@ -109,9 +105,9 @@ class TestRISNormalizerIntegration:
         record.add_field('T1', 'Study')
         record.add_field('AU', 'smith, john')
         record.add_field('AU', 'van der doe, jane')
-        
+
         paper = ris_record_to_paper(record)
-        
+
         assert len(paper.authors) == 2
         assert all(isinstance(a, Author) for a in paper.authors)
 
@@ -123,9 +119,9 @@ class TestRISNormalizerIntegration:
         record.add_field('KW', 'Machine Learning')
         record.add_field('KW', 'MACHINE LEARNING')
         record.add_field('KW', 'Deep Learning')
-        
+
         paper = ris_record_to_paper(record)
-        
+
         # Should be deduplicated and lowercased
         assert all(kw.islower() for kw in paper.keywords)
 
@@ -135,9 +131,9 @@ class TestRISNormalizerIntegration:
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'Study')
         record.add_field('PY', '2024')
-        
+
         paper = ris_record_to_paper(record)
-        
+
         assert paper.year == 2024
         assert isinstance(paper.year, int)
 
@@ -147,9 +143,9 @@ class TestRISNormalizerIntegration:
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'Study')
         record.add_field('JF', 'nature & machine learning')
-        
+
         paper = ris_record_to_paper(record)
-        
+
         # Should be titlecased
         assert paper.journal
         assert 'Nature' in paper.journal or 'nature' in paper.journal
@@ -160,9 +156,9 @@ class TestRISNormalizerIntegration:
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'Study')
         record.add_field('PB', 'academic press & publishing')
-        
+
         paper = ris_record_to_paper(record)
-        
+
         # Should be titlecased and ampersand normalized
         assert paper.publisher
         assert '&' in paper.publisher
@@ -174,71 +170,71 @@ class TestRISNormalizerConsistency:
     def test_title_normalization_consistent(self):
         """Title normalization should match Normalizer.normalize_title()"""
         title_input = "the great study"
-        
+
         record = RISRecord()
         record.add_field('TY', 'JOUR')
         record.add_field('T1', title_input)
-        
+
         paper = ris_record_to_paper(record)
         expected_title = Normalizer.normalize_title(title_input)
-        
+
         assert paper.title == expected_title
 
     def test_abstract_normalization_consistent(self):
         """Abstract normalization should match Normalizer.normalize_abstract()"""
         abstract_input = "We   tested   &amp;   validated.   "
-        
+
         record = RISRecord()
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'Study')
         record.add_field('AB', abstract_input)
-        
+
         paper = ris_record_to_paper(record)
         expected_abstract = Normalizer.normalize_abstract(abstract_input)
-        
+
         assert paper.abstract == expected_abstract
 
     def test_keywords_normalization_consistent(self):
         """Keywords normalization should match Normalizer.normalize_keywords()"""
         keywords_input = "Machine Learning; Deep Learning"
-        
+
         record = RISRecord()
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'Study')
         record.add_field('KW', 'Machine Learning')
         record.add_field('KW', 'Deep Learning')
-        
+
         paper = ris_record_to_paper(record)
         expected_keywords = Normalizer.normalize_keywords(keywords_input)
-        
+
         assert paper.keywords == expected_keywords
 
     def test_journal_normalization_consistent(self):
         """Journal normalization should match Normalizer.normalize_journal()"""
         journal_input = "nature machine learning"
-        
+
         record = RISRecord()
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'Study')
         record.add_field('JF', journal_input)
-        
+
         paper = ris_record_to_paper(record)
         expected_journal = Normalizer.normalize_journal(journal_input)
-        
+
         assert paper.journal == expected_journal
 
     def test_publisher_normalization_consistent(self):
         """Publisher normalization should match Normalizer.normalize_publisher()"""
         publisher_input = "academic press"
-        
+
         record = RISRecord()
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'Study')
         record.add_field('PB', publisher_input)
-        
+
         paper = ris_record_to_paper(record)
         expected_publisher = Normalizer.normalize_publisher(publisher_input)
-        
+
         assert paper.publisher == expected_publisher
 
 
@@ -250,7 +246,7 @@ class TestRISPaperTypeInference:
         record = RISRecord()
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'Study')
-        
+
         paper = ris_record_to_paper(record)
         assert paper.paper_type == PaperType.JOURNAL_ARTICLE
 
@@ -259,7 +255,7 @@ class TestRISPaperTypeInference:
         record = RISRecord()
         record.add_field('TY', 'CONF')
         record.add_field('T1', 'Study')
-        
+
         paper = ris_record_to_paper(record)
         assert paper.paper_type == PaperType.CONFERENCE_PAPER
 
@@ -268,7 +264,7 @@ class TestRISPaperTypeInference:
         record = RISRecord()
         record.add_field('TY', 'BOOK')
         record.add_field('T1', 'Study')
-        
+
         paper = ris_record_to_paper(record)
         assert paper.paper_type == PaperType.BOOK
 
@@ -277,6 +273,6 @@ class TestRISPaperTypeInference:
         record = RISRecord()
         record.add_field('TY', 'THES')
         record.add_field('T1', 'Study')
-        
+
         paper = ris_record_to_paper(record)
         assert paper.paper_type == PaperType.THESIS

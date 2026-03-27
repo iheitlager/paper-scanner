@@ -112,7 +112,7 @@ class TestPaperUploaderEmbeddings(unittest.TestCase):
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
-        
+
         mock_cm = MagicMock()
         mock_cm.__enter__.return_value = mock_conn
         mock_cm.__exit__.return_value = None
@@ -174,7 +174,7 @@ class TestPaperUploaderEmbeddings(unittest.TestCase):
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = (1,)  # Return paper_db_id = 1
         mock_conn.cursor.return_value = mock_cursor
-        
+
         # Create context manager mock
         mock_cm = MagicMock()
         mock_cm.__enter__.return_value = mock_conn
@@ -240,7 +240,7 @@ class TestPaperUploaderEmbeddings(unittest.TestCase):
         mock_cursor = MagicMock()
         mock_cursor.fetchone.return_value = (1,)  # Return paper_db_id = 1
         mock_conn.cursor.return_value = mock_cursor
-        
+
         mock_cm = MagicMock()
         mock_cm.__enter__.return_value = mock_conn
         mock_cm.__exit__.return_value = None

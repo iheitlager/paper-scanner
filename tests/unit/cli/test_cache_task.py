@@ -142,7 +142,7 @@ class TestCacheInfo:
         cache_dir.mkdir()
         (cache_dir / "checkpoints").mkdir()
         (cache_dir / "crossref").mkdir()
-        
+
         # Mock HOME to use temp directory instead of actual user home
         monkeypatch.setenv("HOME", str(tmp_path))
 

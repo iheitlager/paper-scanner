@@ -1,10 +1,10 @@
 """PaperListController - MVC Controller for paginated paper viewing"""
 
-import json
 from typing import List, Optional
+
 from paper_scanner.core.models import Paper
-from paper_scanner.io.json import paper_to_json
 from paper_scanner.io.bibtex import papers_to_bibtex
+from paper_scanner.io.json import paper_to_json
 
 
 class PaperListController:

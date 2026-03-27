@@ -10,9 +10,9 @@ from typing import Any, Dict, List, Tuple
 
 from ..core.database import PapersDatabase
 from ..core.enum import DiscoveryMethod, StepStatus
+from ..core.exceptions import ConfigurationError
 from ..core.models import Paper
 from ..core.step_result import StepResult
-from ..core.exceptions import ConfigurationError
 from ..io.ris import ris_file_to_papers
 from .base import BaseStep
 

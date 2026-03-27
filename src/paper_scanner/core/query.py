@@ -16,10 +16,10 @@ if TYPE_CHECKING:
 class PapersQuery:
     """
     Fluent query builder for papers database.
-    
+
     Chains multiple filters and transformations, executing lazily
     when terminal operations like execute(), top(), or list() are called.
-    
+
     Example:
         >>> papers_db.query().filter_by_topic("AI").top(10).execute()
         >>> papers_db.query().grep("cloud computing").exclude_duplicates().first()
@@ -41,10 +41,10 @@ class PapersQuery:
     def filter(self, predicate: Callable[[Paper], bool]) -> "PapersQuery":
         """
         Add custom filter predicate.
-        
+
         Args:
             predicate: Function that returns True to keep paper
-            
+
         Returns:
             Self for chaining
         """
@@ -54,10 +54,10 @@ class PapersQuery:
     def filter_by_topic(self, topic: str) -> "PapersQuery":
         """
         Filter papers by topic (searches keywords).
-        
+
         Args:
             topic: Topic keyword to search for
-            
+
         Returns:
             Self for chaining
         """
@@ -72,11 +72,11 @@ class PapersQuery:
     def filter_by_year(self, min_year: int, max_year: Optional[int] = None) -> "PapersQuery":
         """
         Filter papers by publication year range.
-        
+
         Args:
             min_year: Minimum year (inclusive)
             max_year: Maximum year (inclusive), defaults to min_year
-            
+
         Returns:
             Self for chaining
         """
@@ -91,10 +91,10 @@ class PapersQuery:
     def filter_by_author(self, author_name: str) -> "PapersQuery":
         """
         Filter papers by author name (partial match).
-        
+
         Args:
             author_name: Author name to search for
-            
+
         Returns:
             Self for chaining
         """
@@ -107,10 +107,10 @@ class PapersQuery:
     def filter_by_doi(self, doi: str) -> "PapersQuery":
         """
         Filter papers by DOI.
-        
+
         Args:
             doi: DOI to search for
-            
+
         Returns:
             Self for chaining
         """
@@ -124,10 +124,10 @@ class PapersQuery:
     def grep(self, text: str) -> "PapersQuery":
         """
         Full-text search in title and abstract.
-        
+
         Args:
             text: Text to search for
-            
+
         Returns:
             Self for chaining
         """
@@ -142,7 +142,7 @@ class PapersQuery:
     def exclude_duplicates(self) -> "PapersQuery":
         """
         Only include primary papers (exclude duplicates).
-        
+
         Returns:
             Self for chaining
         """
@@ -156,10 +156,10 @@ class PapersQuery:
     def order_by_year(self, descending: bool = True) -> "PapersQuery":
         """
         Sort by publication year.
-        
+
         Args:
             descending: Sort newest first if True
-            
+
         Returns:
             Self for chaining
         """
@@ -170,10 +170,10 @@ class PapersQuery:
     def order_by_title(self, descending: bool = False) -> "PapersQuery":
         """
         Sort by title alphabetically.
-        
+
         Args:
             descending: Reverse alphabetical if True
-            
+
         Returns:
             Self for chaining
         """
@@ -184,11 +184,11 @@ class PapersQuery:
     def order_by(self, key_func: Callable[[Paper], Any], descending: bool = False) -> "PapersQuery":
         """
         Sort by custom key function.
-        
+
         Args:
             key_func: Function that extracts sort key from Paper
             descending: Sort descending if True
-            
+
         Returns:
             Self for chaining
         """
@@ -203,10 +203,10 @@ class PapersQuery:
     def top(self, count: int) -> "PapersQuery":
         """
         Limit results to top N papers.
-        
+
         Args:
             count: Maximum number of papers to return
-            
+
         Returns:
             Self for chaining
         """
@@ -224,7 +224,7 @@ class PapersQuery:
     def execute(self) -> List[Paper]:
         """
         Execute query and return results.
-        
+
         Returns:
             List of papers matching all filters
         """

@@ -18,7 +18,7 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import PaperType
-from paper_scanner.core.models import Author, Paper, Screening, DeduplicationResult
+from paper_scanner.core.models import Author, Paper
 from paper_scanner.steps.deduplication import (
     DeduplicationStep,
     _normalize_title,

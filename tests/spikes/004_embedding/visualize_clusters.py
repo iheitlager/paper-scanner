@@ -45,7 +45,7 @@ class ClusterVisualizer:
 
         # Load papers with embeddings and cluster assignments
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.id,
                 p.citekey,
                 p.title,
@@ -79,7 +79,7 @@ class ClusterVisualizer:
 
         # Load cluster statistics
         cursor.execute("""
-            SELECT 
+            SELECT
                 c.id,
                 c.cluster_name,
                 c.paper_count,
@@ -404,7 +404,7 @@ class ClusterVisualizer:
         linkage_matrix = linkage(self.embeddings, method="ward")
 
         # Plot dendrogram
-        dendro = dendrogram(linkage_matrix, labels=self.citekeys, leaf_rotation=90, leaf_font_size=10, ax=ax)
+        dendrogram(linkage_matrix, labels=self.citekeys, leaf_rotation=90, leaf_font_size=10, ax=ax)
 
         ax.set_xlabel("Papers", fontsize=12, fontweight="bold")
         ax.set_ylabel("Distance", fontsize=12, fontweight="bold")

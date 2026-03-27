@@ -25,7 +25,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import torch
 from sentence_transformers import SentenceTransformer
@@ -101,7 +101,7 @@ class EmbeddingGenerator:
                 chunks_by_paper[paper.id] = chunks
                 logger.info(f"  ✓ Created {len(chunks)} chunks")
             else:
-                logger.info(f"  ✗ Failed to create chunks")
+                logger.info("  ✗ Failed to create chunks")
 
         logger.info(f"\n{'='*80}")
         logger.info("PASS 2: Generate Embeddings")
@@ -121,7 +121,7 @@ class EmbeddingGenerator:
 
             # Show summary
             self._print_embedding_summary(paper, chunks_with_embeddings)
-            
+
             # Store result
             self.results.append({
                 "paper": paper,
@@ -141,7 +141,7 @@ class EmbeddingGenerator:
             if not result:
                 return []
 
-            text = result["text"]
+            result["text"]
             hierarchical = result["hierarchical_sections"]
 
             # Create chunks hierarchy with paper reference
@@ -239,7 +239,6 @@ class EmbeddingGenerator:
 
     def _generate_embeddings(self, chunks: List[TextChunk]) -> List[TextChunk]:
         """Generate embeddings for all chunks (Pass 2)."""
-        chunks_with_embeddings = []
         embeddable_chunks = []
         chunk_map = {}
 
@@ -297,7 +296,7 @@ class EmbeddingGenerator:
                 embedded_by_level[level] = embedded_by_level.get(level, 0) + 1
 
         logger.info(f"  Embeddings: {embedded_count}/{total_count}")
-        logger.info(f"  Levels:")
+        logger.info("  Levels:")
         for level in sorted(level_counts.keys()):
             if level > 0:
                 emb = embedded_by_level.get(level, 0)
@@ -363,7 +362,7 @@ class EmbeddingGenerator:
             for j, chunk2 in enumerate(all_embedded):
                 if j == idx:
                     continue
-                
+
                 sim = chunk1.similarity_to(chunk2)
                 if sim is not None:
                     similarities.append((sim, chunk2))
@@ -371,7 +370,7 @@ class EmbeddingGenerator:
             # Show top 3 similar chunks
             if similarities:
                 similarities.sort(reverse=True)
-                logger.info(f"  Most similar chunks:")
+                logger.info("  Most similar chunks:")
                 for sim, chunk in similarities[:3]:
                     logger.info(f"    • {chunk.section:15} | Similarity: {sim:.3f} | {chunk.text[:60]}...")
 

@@ -28,7 +28,7 @@ class ManualHandler(BaseFetcherHandler):
     def _fetch_from_api(self, doi: str) -> Optional[Dict[str, Any]]:
         """
         No API calls for manual handler - only cache-based retrieval.
-        
+
         The base class fetch_metadata() handles all caching logic.
         Return None to indicate no API data available.
 

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from paper_scanner.core.models import Citation, CitationDirection, Paper
+from paper_scanner.core.models import CitationDirection
 from paper_scanner.tools.fetchers.fetcher_handlers.bibtex_parser import BibtexParser
 from paper_scanner.tools.fetchers.fetcher_handlers.manual_handler import ManualHandler
 
@@ -43,7 +43,7 @@ class TestCitationHandling:
   doi = {10.1109/example.2023.1234567},
   abstract = {This paper demonstrates citation handling},
   keywords = {citation, metadata, snowballing},
-  
+
   cites = {10.1234/ref1, 10.1234/ref2, 10.1234/ref3},
   citedby = {10.1234/citing1, 10.1234/citing2},
   citedbycount = {2},
@@ -59,17 +59,17 @@ class TestCitationHandling:
     def test_bibtex_parsing_creates_backward_citations(self, bibtex_with_citations):
         """Test that bibtex cites field creates backward citations."""
         entries, skipped = BibtexParser.parse_file(bibtex_with_citations)
-        
+
         assert len(entries) == 1
         assert len(skipped) == 0
-        
+
         entry = entries[0]
         assert "citations" in entry
         citations = entry["citations"]
-        
+
         # Should have 5 citations total: 3 backward + 2 forward
         assert len(citations) == 5
-        
+
         # Find backward citations
         backward = [c for c in citations if isinstance(c, dict) and c.get("direction") == CitationDirection.BACKWARD]
         assert len(backward) == 3
@@ -78,10 +78,10 @@ class TestCitationHandling:
     def test_bibtex_parsing_creates_forward_citations(self, bibtex_with_citations):
         """Test that bibtex citedby field creates forward citations."""
         entries, skipped = BibtexParser.parse_file(bibtex_with_citations)
-        
+
         entry = entries[0]
         citations = entry["citations"]
-        
+
         # Find forward citations
         forward = [c for c in citations if isinstance(c, dict) and c.get("direction") == CitationDirection.FORWARD]
         assert len(forward) == 2
@@ -92,7 +92,7 @@ class TestCitationHandling:
         entries, _ = BibtexParser.parse_file(bibtex_with_citations)
         entry = entries[0]
         citations = entry["citations"]
-        
+
         # All should be manual with max confidence
         for citation in citations:
             assert citation["extraction_method"] == "manual"
@@ -102,14 +102,14 @@ class TestCitationHandling:
         """Test that manual handler can cache parsed citations."""
         entries, _ = BibtexParser.parse_file(bibtex_with_citations)
         entry = entries[0]
-        
+
         # Cache the entry
         doi = entry["doi"]
         handler._jsoncache.set(doi, entry)
-        
+
         # Retrieve and verify
         api_data, from_api = handler.fetch_metadata(doi)
-        
+
         assert api_data is not None
         assert "citations" in api_data
         assert len(api_data["citations"]) == 5
@@ -119,11 +119,11 @@ class TestCitationHandling:
         entries, _ = BibtexParser.parse_file(bibtex_with_citations)
         entry = entries[0]
         doi = entry["doi"]
-        
+
         # Cache and fetch via handler
         handler._jsoncache.set(doi, entry)
         paper, _ = handler.fetch_paper(doi)
-        
+
         assert paper is not None
         assert len(paper.citations) == 0
 
@@ -133,9 +133,9 @@ class TestCitationHandling:
         entries, _ = BibtexParser.parse_file(bibtex_with_citations)
         entry = entries[0]
         citations = entry["citations"]
-        
+
         valid_directions = {CitationDirection.BACKWARD, CitationDirection.FORWARD}
-        
+
         for citation in citations:
             assert citation["direction"] in valid_directions
 
@@ -143,11 +143,11 @@ class TestCitationHandling:
         """Test that citedbycount is set correctly."""
         entries, _ = BibtexParser.parse_file(bibtex_with_citations)
         entry = entries[0]
-        
+
         # Should be 2 (from citedby field length)
         assert entry["citedbycount"] == 2
 
-       
+
 
 class TestCitationEdgeCases:
     """Test edge cases and error handling."""
@@ -174,7 +174,7 @@ class TestCitationEdgeCases:
             "keywords": [],
             "citations": [],
         }
-        
+
         citations = handler._extract_citations(data)
         assert citations == []
 
@@ -188,7 +188,7 @@ class TestCitationEdgeCases:
             "year": 2023,
             "keywords": [],
         }
-        
+
         citations = handler._extract_citations(data)
         assert citations == []
 
@@ -199,7 +199,7 @@ class TestCitationEdgeCases:
             "title": "Test",
             "citations": "not a list",
         }
-        
+
         citations = handler._extract_citations(data)
         assert citations == []
 
@@ -216,7 +216,7 @@ class TestCitationEdgeCases:
                 }
             ],
         }
-        
+
         citations = handler._extract_citations(data)
         assert len(citations) == 1
         assert citations[0].doi is None

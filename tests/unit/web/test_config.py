@@ -312,7 +312,7 @@ class TestConfigIntegration:
     def test_missing_env_file_warning(self):
         """Test that missing .env file is handled gracefully."""
         manager = ConfigManager(env_file="/nonexistent/.env")
-        with patch("paper_scanner.web.config.logger") as mock_logger:
+        with patch("paper_scanner.web.config.logger"):
             config = manager.load()
             # Should still load config
             assert isinstance(config, Config)

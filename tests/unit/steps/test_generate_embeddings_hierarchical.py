@@ -10,14 +10,13 @@ Tests cover:
 - Error handling
 """
 
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch, Mock
-import numpy as np
+from unittest.mock import MagicMock, patch
 
-from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.enum import StepStatus, ScreeningDecision
-from paper_scanner.core.models import Paper, TextChunk, Embedding, PDFInfo
+import numpy as np
+import pytest
+
+from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.models import Embedding, Paper, PDFInfo, TextChunk
 from paper_scanner.steps.generate_embeddings import GenerateEmbeddingsStep
 
 
@@ -127,7 +126,7 @@ class TestHierarchicalChunkCreation:
         """Create step instance."""
         def mock_callback(msg, debug=False):
             pass  # No-op for testing
-        
+
         return GenerateEmbeddingsStep(
             general_config=mock_general_config,
             db=mock_db,
@@ -170,7 +169,7 @@ class TestEmbeddingGeneration:
         """Create step instance."""
         def mock_callback(msg, debug=False):
             pass  # No-op for testing
-        
+
         return GenerateEmbeddingsStep(
             general_config=mock_general_config,
             db=mock_db,
@@ -236,7 +235,7 @@ class TestExecutionWithHierarchy:
         """Create step instance."""
         def mock_callback(msg, debug=False):
             pass  # No-op for testing
-        
+
         return GenerateEmbeddingsStep(
             general_config=mock_general_config,
             db=mock_db,
@@ -263,7 +262,7 @@ class TestExecutionWithHierarchy:
             paper=sample_paper,
             parent_chunk=None,
         )
-        
+
         section_chunk = TextChunk(
             chunk_index=1,
             text="Introduction section content...",
@@ -284,7 +283,6 @@ class TestExecutionWithHierarchy:
         )
         section_chunk.children_chunks.append(para_chunk)
 
-        chunks = [paper_chunk, section_chunk, para_chunk]
 
         # Verify hierarchy structure
         assert paper_chunk.hierarchy_level == 0
@@ -304,7 +302,6 @@ class TestExecutionWithHierarchy:
 
     def test_device_selection_cuda(self, step):
         """Test device selection falls back to CUDA."""
-        import torch
         with patch("torch.backends.mps.is_available", return_value=False):
             with patch("torch.cuda.is_available", return_value=True):
                 device = step._select_device(None)
@@ -312,7 +309,6 @@ class TestExecutionWithHierarchy:
 
     def test_device_selection_cpu(self, step):
         """Test device selection defaults to CPU."""
-        import torch
         with patch("torch.backends.mps.is_available", return_value=False):
             with patch("torch.cuda.is_available", return_value=False):
                 device = step._select_device(None)

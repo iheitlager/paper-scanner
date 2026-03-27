@@ -17,11 +17,12 @@ Setup:
 3. Check GPU usage: Activity Monitor -> Window -> GPU History
 """
 
-import sys
 import json
+import sys
 import time
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
 import bibtexparser
 from bibtexparser.bparser import BibTexParser
 
@@ -36,7 +37,7 @@ def load_bibtex_data(bibtex_path: Path) -> Dict[str, Dict[str, str]]:
     with open(bibtex_path, "r", encoding="utf-8") as f:
         parser = BibTexParser(common_strings=True)
         bib_database = bibtexparser.load(f, parser=parser)
-    
+
     papers = {}
     for entry in bib_database.entries:
         paper_id = entry.get("pdf", "unknown").replace(".pdf", "")
@@ -52,12 +53,12 @@ def load_bibtex_data(bibtex_path: Path) -> Dict[str, Dict[str, str]]:
 
 
 def classify_with_ollama(
-    paper_data: Dict[str, str], 
+    paper_data: Dict[str, str],
     handler: OllamaHandler,
     timeout: int = 180
 ) -> Dict[str, Any]:
     """Classify a paper using Ollama with BibTeX data."""
-    
+
     system_prompt = """You are an expert academic paper classifier. Based on the title, abstract, and keywords provided, classify this paper into ONE of these categories:
 
 Categories:
@@ -89,7 +90,7 @@ Keywords: {paper_data['keywords']}"""
             max_tokens=500
         )
         latency = time.time() - start
-        
+
         if result is None:
             return {
                 "category": "error",
@@ -98,7 +99,7 @@ Keywords: {paper_data['keywords']}"""
                 "latency_ms": int(latency * 1000),
                 "status": "error"
             }
-        
+
         return {
             "category": result.get("category", "unknown"),
             "confidence": result.get("confidence", 0.0),
@@ -108,7 +109,7 @@ Keywords: {paper_data['keywords']}"""
             "tokens_out": token_usage["output_tokens"],
             "status": "success"
         }
-            
+
     except Exception as e:
         return {
             "category": "error",
@@ -122,7 +123,7 @@ Keywords: {paper_data['keywords']}"""
 def normalize_category(category: str) -> str:
     """Normalize category names."""
     category = category.lower().strip().replace(" ", "_")
-    
+
     # Handle variations
     mappings = {
         "case study": "case_study",
@@ -138,7 +139,7 @@ def normalize_category(category: str) -> str:
         "commentory": "editorial",
         "conceptual": "conceptual",
     }
-    
+
     return mappings.get(category, category)
 
 
@@ -147,80 +148,80 @@ def main():
     print("=" * 80)
     print("Test 008: Ollama Classification on BibTeX Data")
     print("=" * 80)
-    
+
     # Configuration
     bibtex_path = Path(__file__).parent.parent.parent / "data" / "eight_cases.bib"
     output_dir = Path(__file__).parent
-    
+
     # Get all available Ollama models
     all_models = list(OllamaHandler.MODELS.keys())
-    
+
     # Test only these models (available on user's system)
     models_to_test = ["llama3.2:3b", "phi3:mini"]  # Add more as you pull them
-    
+
     print(f"\n📋 Available models in OllamaHandler: {', '.join(all_models)}")
     print(f"🧪 Testing models: {', '.join(models_to_test)}")
-    
+
     # Load BibTeX data
     print(f"\n📚 Loading papers from {bibtex_path.name}...")
     papers = load_bibtex_data(bibtex_path)
     print(f"   Loaded {len(papers)} papers with abstracts and keywords")
-    
+
     # Ground truth
     ground_truth = {
         paper_id: normalize_category(data["ground_truth"])
         for paper_id, data in papers.items()
     }
-    
+
     # Test each model
     for model in models_to_test:
         print(f"\n{'=' * 80}")
         print(f"Testing Model: {model}")
         print(f"{'=' * 80}")
-        
+
         # Initialize handler for this model
         handler = OllamaHandler(model=model)
-        
+
         results = {}
         total_latency = 0
         correct = 0
         errors = 0
-        
+
         for i, (paper_id, paper_data) in enumerate(papers.items(), 1):
             title_short = paper_data["title"][:50] + "..." if len(paper_data["title"]) > 50 else paper_data["title"]
             print(f"\n[{i}/{len(papers)}] {title_short}")
             print(f"   Ground truth: {paper_data['ground_truth']}")
-            
+
             # Classify
             result = classify_with_ollama(paper_data, handler, timeout=180)
-            
+
             if result["status"] == "success":
                 category = normalize_category(result["category"])
                 result["category"] = category
-                
+
                 # Check correctness
                 expected = ground_truth[paper_id]
                 is_correct = category == expected
-                
+
                 if is_correct:
                     correct += 1
                     print(f"   ✓ Predicted: {category} (confidence: {result['confidence']:.2f})")
                 else:
                     print(f"   ✗ Predicted: {category} (expected: {expected})")
                     print(f"     Reasoning: {result['reasoning'][:100]}...")
-                
+
                 print(f"   Latency: {result['latency_ms']}ms | Tokens: {result['tokens_in']}→{result['tokens_out']}")
                 total_latency += result["latency_ms"]
             else:
                 errors += 1
                 print(f"   ⚠️  ERROR: {result['reasoning']}")
-            
+
             results[paper_id] = result
-        
+
         # Calculate metrics
         accuracy = (correct / len(papers)) * 100 if papers else 0
         avg_latency = total_latency / (len(papers) - errors) if (len(papers) - errors) > 0 else 0
-        
+
         print(f"\n{'=' * 80}")
         print(f"Results for {model}:")
         print(f"{'=' * 80}")
@@ -228,11 +229,11 @@ def main():
         print(f"Errors:        {errors}/{len(papers)}")
         print(f"Avg Latency:   {avg_latency:.0f}ms")
         print(f"Total Time:    {total_latency/1000:.1f}s")
-        
+
         # Save results
         model_safe = model.replace(":", "_").replace(".", "_")
         output_file = output_dir / f"test_008_ollama_{model_safe}_results.json"
-        
+
         output_data = {
             "model": model,
             "accuracy": accuracy,
@@ -244,12 +245,12 @@ def main():
             "ground_truth": ground_truth,
             "results": results
         }
-        
+
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(output_data, f, indent=2, ensure_ascii=False)
-        
+
         print(f"\n✅ Results saved to {output_file.name}")
-    
+
     print(f"\n{'=' * 80}")
     print("All models tested!")
     print(f"{'=' * 80}")

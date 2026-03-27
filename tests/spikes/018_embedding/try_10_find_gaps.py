@@ -11,11 +11,11 @@ Shows:
 - Potential research gaps or niche topics
 """
 
-import sys
 import os
-from dotenv import load_dotenv
+import sys
 
 import psycopg2
+from dotenv import load_dotenv
 from pgvector.psycopg2 import register_vector
 
 # Load environment
@@ -67,7 +67,7 @@ def find_gaps(threshold=0.6):
         # Find nearest neighbor (excluding self)
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 p2.cite_key,
                 pe1.embedding <=> pe2.embedding as distance
             FROM paper_embeddings pe1
@@ -110,9 +110,9 @@ def find_gaps(threshold=0.6):
             print(f"   Similarity to nearest: {gap['similarity']:.1%} (distance: {gap['distance']:.4f})")
 
         print(f"\n{'=' * 80}")
-        print(f"💡 Interpretation:")
-        print(f"   These papers are isolated from other topics in your collection.")
-        print(f"   They represent potential research gaps or niche areas.")
+        print("💡 Interpretation:")
+        print("   These papers are isolated from other topics in your collection.")
+        print("   They represent potential research gaps or niche areas.")
     else:
         print(f"✅ No research gaps found (all papers have similarity >= {threshold:.0%})")
         print("   Your collection is well-connected with similar papers.")

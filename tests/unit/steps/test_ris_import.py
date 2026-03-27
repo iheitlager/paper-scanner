@@ -4,14 +4,13 @@ Unit tests for ris_import step
 
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Author, Paper, PaperType
 from paper_scanner.core.enum import DiscoveryMethod, StepStatus
 from paper_scanner.core.exceptions import ConfigurationError
+from paper_scanner.core.models import Author, Paper, PaperType
 from paper_scanner.steps.ris_import import RisImportStep, _fix_cite_key_collisions
 
 

@@ -12,9 +12,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Paper, PDFInfo, Discovery
+from paper_scanner.core.enum import DiscoveryMethod, StepStatus
+from paper_scanner.core.models import Discovery, Paper, PDFInfo
 from paper_scanner.steps.download_pdfs import DownloadPDFsStep
-from paper_scanner.core.enum import StepStatus, DiscoveryMethod
 
 
 class TestDownloadPDFsValidation:

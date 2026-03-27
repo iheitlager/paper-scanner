@@ -91,7 +91,6 @@ def batch_example(api_key=None):
         print(f"Fetching results from {response.results_url}", file=sys.stderr)
         batch_results = client.messages.batches.results(batch_id)
 
-        results = {}
         for item in batch_results:
             if hasattr(item, "result"):
                 print(dir(item), item.result.message.content)

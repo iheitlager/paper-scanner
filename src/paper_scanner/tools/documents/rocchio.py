@@ -39,7 +39,7 @@ class ScreeningState:
 
     # Iteration tracking
     iteration: int = 0
-    
+
     def to_dict(self) -> dict:
         """Convert state to dict for storage in executor.step_state."""
         return asdict(self)
@@ -85,7 +85,7 @@ class AdaptiveRocchioScreener:
             self.state.centroid_irrelevant = np.array(self.state.centroid_irrelevant)
         if self.state.query_centroid is not None:
             self.state.query_centroid = np.array(self.state.query_centroid)
-    
+
     def initialize_from_research_question(self, research_question_embedding: np.ndarray) -> None:
         """
         Initialize query centroid from research question embedding.
@@ -99,7 +99,7 @@ class AdaptiveRocchioScreener:
                 f"got {research_question_embedding.shape[0]}"
             )
         self.state.query_centroid = research_question_embedding.copy()
-    
+
     def bootstrap_from_seeds(
         self,
         accepted_embeddings: list[np.ndarray],
@@ -124,7 +124,7 @@ class AdaptiveRocchioScreener:
         if rejected_embeddings:
             self.state.centroid_irrelevant = np.mean(rejected_embeddings, axis=0)
             self.state.count_irrelevant = len(rejected_embeddings)
-    
+
     def classify(self, paper_embedding: np.ndarray) -> dict:
         """
         Classify a paper using Rocchio scoring.
@@ -193,7 +193,7 @@ class AdaptiveRocchioScreener:
             "centroid_relevant": self.state.centroid_relevant is not None,
             "centroid_irrelevant": self.state.centroid_irrelevant is not None,
         }
-    
+
     def update_centroid(self, paper_embedding: np.ndarray, is_relevant: bool) -> None:
         """
         Incrementally update a centroid with a newly labeled paper.
@@ -225,7 +225,7 @@ class AdaptiveRocchioScreener:
                 self.state.centroid_irrelevant += (
                     (paper_embedding - self.state.centroid_irrelevant) / self.state.count_irrelevant
                 )
-    
+
     def next_iteration(self) -> None:
         """Mark the transition to the next snowballing iteration."""
         self.state.iteration += 1

@@ -1,10 +1,10 @@
 """Unit tests for ConsoleViewer"""
 
-import pytest
-from unittest.mock import Mock, patch, call
-from io import StringIO
+from unittest.mock import patch
 
-from paper_scanner.core.models import Paper, Author
+import pytest
+
+from paper_scanner.core.models import Author, Paper
 from paper_scanner.viewer.console_viewer import ConsoleViewer
 
 
@@ -54,15 +54,15 @@ class TestConsoleViewer:
     def test_render_page_first_page(self, sample_papers):
         """Test rendering first page"""
         viewer = ConsoleViewer(sample_papers, page_size=10)
-        
+
         # Mock console.print to capture output
         with patch.object(viewer.console, 'print') as mock_print:
             with patch.object(viewer.console, 'clear') as mock_clear:
                 viewer.render_page()
-                
+
                 # Verify clear was called
                 mock_clear.assert_called_once()
-                
+
                 # Verify print was called multiple times
                 assert mock_print.call_count > 0
 
@@ -89,11 +89,11 @@ class TestConsoleViewer:
         """Test rendering last page with fewer papers"""
         viewer = ConsoleViewer(sample_papers, page_size=10)
         viewer.controller.current_page = 1  # Go to last page
-        
-        with patch.object(viewer.console, 'print') as mock_print:
+
+        with patch.object(viewer.console, 'print'):
             with patch.object(viewer.console, 'clear'):
                 viewer.render_page()
-                
+
                 # Should show 5 papers on last page (15 total, 10 per page)
                 papers = viewer.controller.get_current_page_papers()
                 assert len(papers) == 5
@@ -101,7 +101,7 @@ class TestConsoleViewer:
     def test_controller_integration(self, sample_papers):
         """Test that viewer's controller is properly initialized"""
         viewer = ConsoleViewer(sample_papers, page_size=10)
-        
+
         assert viewer.controller is not None
         assert viewer.controller.papers == sample_papers
         assert viewer.controller.current_page == 0
@@ -112,13 +112,13 @@ class TestConsoleViewer:
     def test_page_navigation_methods(self, sample_papers):
         """Test that viewer can navigate through pages"""
         viewer = ConsoleViewer(sample_papers, page_size=10)
-        
+
         assert viewer.controller.current_page == 0
-        
+
         # Test next page
         viewer.controller.next_page()
         assert viewer.controller.current_page == 1
-        
+
         # Test prev page
         viewer.controller.prev_page()
         assert viewer.controller.current_page == 0
@@ -127,7 +127,7 @@ class TestConsoleViewer:
         """Test stopping the viewer"""
         viewer = ConsoleViewer(sample_papers)
         viewer.running = True
-        
+
         viewer.stop()
         assert viewer.running is False
 
@@ -142,13 +142,13 @@ class TestConsoleViewer:
                 doi=None,  # No DOI
             )
         ]
-        
+
         viewer = ConsoleViewer(papers)
-        
+
         with patch.object(viewer.console, 'print') as mock_print:
             with patch.object(viewer.console, 'clear'):
                 viewer.render_page()
-                
+
                 # Should still render without error
                 assert mock_print.call_count > 0
 
@@ -166,28 +166,28 @@ class TestConsoleViewer:
                 pages=None,
             )
         ]
-        
+
         viewer = ConsoleViewer(papers)
-        
+
         with patch.object(viewer.console, 'print') as mock_print:
             with patch.object(viewer.console, 'clear'):
                 viewer.render_page()
-                
+
                 # Should handle gracefully
                 assert mock_print.call_count > 0
 
     def test_multiple_papers_apa_format(self, sample_papers):
         """Test that multiple papers are rendered with APA format"""
         viewer = ConsoleViewer(sample_papers[:3], page_size=10)
-        
+
         with patch.object(viewer.console, 'print') as mock_print:
             with patch.object(viewer.console, 'clear'):
                 viewer.render_page()
-                
+
                 # Verify papers are formatted with index and APA citation
                 printed_calls = [str(call_obj) for call_obj in mock_print.call_args_list]
                 printed_text = " ".join(printed_calls)
-                
+
                 # Check for indexed papers (red or cyan depending on keywords/abstract)
                 assert ("[red]1[/red]" in printed_text or "[cyan]1.[/cyan]" in printed_text) and ("2021" in printed_text or "2022" in printed_text)
 
@@ -202,12 +202,12 @@ class TestConsoleViewer:
             )
             for i in range(1, 21)
         ]
-        
+
         # Test with page_size=5
         viewer = ConsoleViewer(papers, page_size=5)
         assert viewer.controller.page_size == 5
         assert viewer.controller.total_pages == 4
-        
+
         # Test with page_size=20
         viewer = ConsoleViewer(papers, page_size=20)
         assert viewer.controller.page_size == 20

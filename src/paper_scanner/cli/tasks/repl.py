@@ -9,10 +9,9 @@ Two modes of interaction:
 - Micro mode: Plain Python code with full access to paper_scanner modules
 """
 
+import textwrap
 import time
 from typing import Dict
-
-import textwrap
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
@@ -24,8 +23,8 @@ from pygments.lexers.python import PythonLexer
 
 from paper_scanner.core.controller import AbstractController, macro_step
 from paper_scanner.core.enum import ScreeningDecision
+from paper_scanner.core.reporter import AbstractControllerReporter, AbstractStepReporter, ConsoleLoggingMixin
 from paper_scanner.core.step_result import StepResult, StepStatus
-from paper_scanner.core.reporter import AbstractStepReporter, AbstractControllerReporter, ConsoleLoggingMixin
 from paper_scanner.viewer import ConsoleViewer
 
 TABSTOP = 2
@@ -382,7 +381,7 @@ class ReplController(AbstractController):
         setattr(self.controller_reporter, command , value)
         setattr(self.step_reporter, command , value)
 
-        self.controller_reporter.log(f"[cyan]{command}[/cyan] = {'on' if value else 'off'}")   
+        self.controller_reporter.log(f"[cyan]{command}[/cyan] = {'on' if value else 'off'}")
         return 0
 
     def _execute_macro_command(self, user_input: str) -> int:
@@ -422,7 +421,7 @@ class ReplController(AbstractController):
             try:
                 compile(textwrap.dedent(code), "<input>", "exec")
                 break  # Valid code
-            except IndentationError as e:
+            except IndentationError:
                 # Incomplete code, prompt for more input
                 # check comments
                 code = code.split('#')[0].rstrip()
@@ -540,7 +539,7 @@ class ReplController(AbstractController):
                 status = "✓" if idx < self.executor.current_step_index else " "
                 command = step.get("command", "unknown")
                 description = step.get("step", "No description")
-                if step.get("enabled", True) == False:
+                if not step.get("enabled", True):
                     command = f"[red]{command}[/red]"
                     description = f"[strike][red]{description}[/red][/strike]"
                 self.controller_reporter.log(f"[{status}] Step {idx + 1}: [blue]{description}[/blue] ([dim]{command}[/dim])")

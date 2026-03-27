@@ -17,14 +17,12 @@ Ground Truth from BibTeX:
 """
 
 import json
-import time
 import re
+import time
 from pathlib import Path
 from typing import Dict, List, Tuple
-import sys
 
 from pypdf import PdfReader
-
 
 # Enhanced study type patterns based on actual paper analysis
 ENHANCED_STUDY_TYPE_PATTERNS = {
@@ -102,12 +100,12 @@ def extract_abstract(text: str) -> str:
         text,
         re.IGNORECASE | re.DOTALL
     )
-    
+
     if abstract_match:
         abstract = abstract_match.group(1)
         abstract = re.sub(r"\s+", " ", abstract).strip()
         return abstract[:1000]
-    
+
     return ""
 
 
@@ -118,72 +116,72 @@ def extract_keywords(text: str) -> List[str]:
         text,
         re.IGNORECASE
     )
-    
+
     if keywords_match:
         keywords_str = keywords_match.group(1)
         keywords = re.split(r"[,;]\s*|and\s+", keywords_str)
         keywords = [k.strip() for k in keywords if k.strip()]
         return keywords[:15]
-    
+
     return []
 
 
 def classify_study_type_enhanced(text: str, keywords: List[str] = None) -> Tuple[str, int, Dict[str, int]]:
     """
     Enhanced classification based on actual paper patterns.
-    
+
     Returns:
         (study_type, total_score, category_scores)
     """
     scores = {}
-    
+
     # Count pattern matches for each study type
     for study_type, patterns in ENHANCED_STUDY_TYPE_PATTERNS.items():
         matches = 0
         for pattern in patterns:
             matches += len(re.findall(pattern, text, re.IGNORECASE))
         scores[study_type] = matches
-    
+
     # Boost scores based on keywords
     if keywords:
         keywords_lower = [k.lower() for k in keywords]
         keywords_text = " ".join(keywords_lower)
-        
+
         for study_type, patterns in ENHANCED_STUDY_TYPE_PATTERNS.items():
             for pattern in patterns:
                 if re.search(pattern, keywords_text, re.IGNORECASE):
                     scores[study_type] += 5  # Strong signal from keywords
-    
+
     # Decision logic with priority rules
     # RULE: Empirical case studies have preference over literature review
     # (papers that contain empirical analysis are primary research, not reviews)
-    
+
     # 1. If we have clear qualitative indicators (interviews), it's qualitative
     if scores.get("qualitative", 0) >= 3:
         return "qualitative", scores["qualitative"], scores
-    
+
     # 2. Case study patterns (PRIORITY over literature review)
     #    Papers with case studies + lit review = empirical case study paper
     if scores.get("case_study", 0) >= 2:
         return "case_study", scores["case_study"], scores
-    
+
     # 3. If literature review patterns WITHOUT case studies
     if scores.get("literature_review", 0) >= 5:
         return "literature_review", scores["literature_review"], scores
-    
+
     # 4. Editorial has distinctive patterns
     if scores.get("editorial", 0) >= 2:
         return "editorial", scores["editorial"], scores
-    
+
     # 5. Conceptual/theoretical papers
     if scores.get("conceptual", 0) >= 2:
         return "conceptual", scores["conceptual"], scores
-    
+
     # 6. Default to highest score
     if max(scores.values()) > 0:
         best_type = max(scores, key=scores.get)
         return best_type, scores[best_type], scores
-    
+
     return "unknown", 0, scores
 
 
@@ -191,7 +189,7 @@ def process_pdfs_enhanced() -> Dict:
     """Process all PDFs with enhanced regex patterns."""
     test_data_dir = Path(__file__).parent.parent.parent / "data"
     pdf_files = sorted(test_data_dir.glob("*.pdf"))
-    
+
     results = {
         "method": "enhanced_regex_patterns",
         "timestamp": time.time(),
@@ -199,7 +197,7 @@ def process_pdfs_enhanced() -> Dict:
         "papers": [],
         "total_latency_ms": 0,
     }
-    
+
     print(f"Processing {len(pdf_files)} PDFs with enhanced regex patterns...")
     print("Ground truth from eight_cases.bib:")
     print("  0c288904: case study (empirical with case studies)")
@@ -211,25 +209,25 @@ def process_pdfs_enhanced() -> Dict:
     print("  639d1860: qualitative study")
     print("  77ecffcd: qualitative study")
     print()
-    
+
     for pdf_path in pdf_files:
         start_time = time.time()
-        
+
         # Extract text
         text = extract_text_from_pdf(str(pdf_path))
         if not text:
             print(f"⚠️  Skipped {pdf_path.name} (no text extracted)")
             continue
-        
+
         # Extract metadata
         abstract = extract_abstract(text)
         keywords = extract_keywords(text)
-        
+
         # Classify
         study_type, score, all_scores = classify_study_type_enhanced(text, keywords)
-        
+
         latency_ms = (time.time() - start_time) * 1000
-        
+
         paper_result = {
             "filename": pdf_path.name,
             "abstract": abstract if abstract else "(no abstract found)",
@@ -241,20 +239,20 @@ def process_pdfs_enhanced() -> Dict:
             "text_length": len(text),
             "has_abstract": bool(abstract),
         }
-        
+
         results["papers"].append(paper_result)
         results["papers_processed"] += 1
         results["total_latency_ms"] += latency_ms
-        
+
         keywords_str = ", ".join(keywords[:3]) if keywords else "no keywords"
         print(f"✓ {pdf_path.name}: {study_type} (score: {score}) | {keywords_str} ({latency_ms:.1f}ms)")
-    
+
     results["avg_latency_ms"] = (
         results["total_latency_ms"] / results["papers_processed"]
         if results["papers_processed"] > 0
         else 0
     )
-    
+
     return results
 
 
@@ -262,10 +260,10 @@ def save_results(results: Dict, output_path: str):
     """Save results to JSON file."""
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
-    
+
     print(f"\n📊 Results saved to {output_file}")
 
 
@@ -274,15 +272,15 @@ def main():
     print("=" * 70)
     print("TEST 005: Enhanced Regex Classification (Based on BibTeX Ground Truth)")
     print("=" * 70)
-    
+
     results = process_pdfs_enhanced()
-    
+
     # Print summary
-    print(f"\n📈 Summary:")
+    print("\n📈 Summary:")
     print(f"  Papers processed: {results['papers_processed']}")
     print(f"  Total latency: {results['total_latency_ms']:.1f}ms")
     print(f"  Avg latency/paper: {results['avg_latency_ms']:.1f}ms")
-    
+
     # Compare to ground truth
     ground_truth = {
         "0c288904": "case_study",
@@ -294,10 +292,10 @@ def main():
         "639d1860": "qualitative",
         "77ecffcd": "qualitative",
     }
-    
+
     correct = 0
     total = 0
-    print(f"\n📊 Accuracy vs Ground Truth:")
+    print("\n📊 Accuracy vs Ground Truth:")
     for paper in results["papers"]:
         filename_prefix = paper["filename"][:8]
         if filename_prefix in ground_truth:
@@ -308,16 +306,16 @@ def main():
             total += 1
             symbol = "✓" if is_correct else "✗"
             print(f"  {symbol} {filename_prefix}: expected={expected}, got={actual}")
-    
+
     if total > 0:
         accuracy = (correct / total) * 100
         print(f"\n🎯 Accuracy: {correct}/{total} = {accuracy:.1f}%")
-    
+
     # Save results
     output_dir = Path(__file__).parent / "outputs"
     output_dir.mkdir(exist_ok=True)
     save_results(results, str(output_dir / "results_005_enhanced_regex.json"))
-    
+
     return results
 
 

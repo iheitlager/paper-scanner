@@ -206,7 +206,7 @@ class TestExecute:
             "store_path": str(store_path)
         }
 
-        result = step.execute(config, verbose=False, dry_run=False)
+        step.execute(config, verbose=False, dry_run=False)
 
         # Store path should be created
         assert store_path.exists()
@@ -249,7 +249,7 @@ class TestExecute:
             mock_reader.get_page_count.return_value = 5
             mock_reader_class.return_value = mock_reader
 
-            result = step.execute(config, verbose=False, dry_run=True)
+            step.execute(config, verbose=False, dry_run=True)
 
         # In dry_run mode, nothing should be stored or copied
         assert db.count(primary_only=False) == 0
@@ -391,7 +391,7 @@ class TestExecute:
 
         # Mock FileReader to return valid data
         with patch('paper_scanner.steps.load_files.FileReader') as mock_reader_class, \
-             patch('paper_scanner.steps.load_files.shutil.copy2') as mock_copy:
+             patch('paper_scanner.steps.load_files.shutil.copy2'):
             mock_reader = MagicMock()
             mock_reader.exists.return_value = True
             mock_reader.get_file_info.return_value = {
@@ -443,7 +443,7 @@ class TestExecute:
 
         # Mock FileReader to return valid data for all PDFs
         with patch('paper_scanner.steps.load_files.FileReader') as mock_reader_class, \
-             patch('paper_scanner.steps.load_files.shutil.copy2') as mock_copy:
+             patch('paper_scanner.steps.load_files.shutil.copy2'):
             def reader_factory(path):
                 mock_reader = MagicMock()
                 mock_reader.exists.return_value = True
@@ -498,7 +498,7 @@ class TestExecute:
 
         # Mock FileReader to fail on second file
         with patch('paper_scanner.steps.load_files.FileReader') as mock_reader_class, \
-             patch('paper_scanner.steps.load_files.shutil.copy2') as mock_copy:
+             patch('paper_scanner.steps.load_files.shutil.copy2'):
             def reader_factory(path):
                 mock_reader = MagicMock()
                 mock_reader.exists.return_value = True
@@ -558,7 +558,7 @@ class TestExecute:
 
         # Mock FileReader
         with patch('paper_scanner.steps.load_files.FileReader') as mock_reader_class, \
-             patch('paper_scanner.steps.load_files.shutil.copy2') as mock_copy:
+             patch('paper_scanner.steps.load_files.shutil.copy2'):
             mock_reader = MagicMock()
             mock_reader.exists.return_value = True
             mock_reader.get_file_info.return_value = {

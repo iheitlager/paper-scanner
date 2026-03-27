@@ -37,7 +37,7 @@ def find_gaps(threshold=0.6):
         # Find nearest neighbor
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 p2.citekey,
                 pe1.embedding <=> pe2.embedding as distance,
                 1 - (pe1.embedding <=> pe2.embedding) as similarity

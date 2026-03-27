@@ -28,15 +28,13 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
-from rich.console import Console
-
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
-from prompt_toolkit.enums import EditingMode
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.styles import Style
 from pygments.lexers.python import PythonLexer
+from rich.console import Console
 
 # Rich console for error/output display
 console = Console(file=sys.stderr)
@@ -45,9 +43,9 @@ console = Console(file=sys.stderr)
 def _is_code_complete(code: str) -> bool:
     """
     Check if Python code is syntactically complete.
-    
+
     Returns True if code can be executed, False if more input needed.
-    
+
     Detects:
     - Lines ending with colon (if, for, def, etc)
     - Unclosed brackets, parentheses, braces
@@ -72,10 +70,10 @@ def _is_code_complete(code: str) -> bool:
     in_string = False
     string_char = None
     i = 0
-    
+
     while i < len(code_no_comment):
         char = code_no_comment[i]
-        
+
         # Handle strings
         if char in ('"', "'") and (i == 0 or code_no_comment[i - 1] != '\\'):
             if not in_string:
@@ -84,7 +82,7 @@ def _is_code_complete(code: str) -> bool:
             elif char == string_char:
                 in_string = False
                 string_char = None
-        
+
         # Count brackets only outside strings
         if not in_string:
             if char == '(':
@@ -99,9 +97,9 @@ def _is_code_complete(code: str) -> bool:
                 open_braces += 1
             elif char == '}':
                 open_braces -= 1
-        
+
         i += 1
-    
+
     # If any brackets are unclosed, need more input
     if open_parens > 0 or open_brackets > 0 or open_braces > 0:
         return False
@@ -158,7 +156,7 @@ class PythonInterpreter:
     def _validate_code(self, code: str) -> tuple[bool, str | None]:
         """
         Validate code before execution.
-        
+
         Returns:
             (is_valid, error_message)
         """
@@ -184,7 +182,7 @@ class PythonInterpreter:
             except SyntaxError:
                 # If eval fails (statements, blocks, etc), use exec
                 pass
-            
+
             # Execute as statements/blocks
             exec(code_to_exec, self.namespace)
 
@@ -253,7 +251,7 @@ class PythonInterpreter:
                     accumulated = line
                     while not _is_code_complete(accumulated):
                         if self.debug:
-                            console.print(f"[dim]Code incomplete, waiting for more input...[/dim]")
+                            console.print("[dim]Code incomplete, waiting for more input...[/dim]")
                         try:
                             # Use continuation session (no completion, tab = indent)
                             continuation = continuation_session.prompt("... ")

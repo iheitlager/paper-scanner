@@ -4,23 +4,22 @@ Validates RIS file parsing using src/paper_scanner/io/ris.py library
 """
 
 from pathlib import Path
-from paper_scanner.io.ris import ris_file_to_papers
-from paper_scanner.core.enum import DiscoveryMethod
 
+from paper_scanner.io.ris import ris_file_to_papers
 
 if __name__ == '__main__':
     test_file = Path(__file__).parent / 'ProQuestDocuments-2025-12-31.ris'
-    
+
     print(f"Parsing: {test_file}")
-    
+
     # Load RIS file using production library
     papers = ris_file_to_papers(
         str(test_file),
         source_database="ProQuest"
     )
-    
+
     print(f"✓ Successfully loaded {len(papers)} papers\n")
-    
+
     # Display first 2 papers
     for i, paper in enumerate(papers[:2]):
         print(f"Paper {i+1}:")
@@ -41,7 +40,7 @@ if __name__ == '__main__':
         print(f"  Source Database: {paper.discovery.source_database}")
         print(f"  Abstract length: {len(paper.abstract) if paper.abstract else 0} chars")
         print()
-    
+
     # Statistics
     print("File Statistics:")
     print(f"  Total papers: {len(papers)}")
@@ -49,7 +48,7 @@ if __name__ == '__main__':
     print(f"  Papers with abstract: {sum(1 for p in papers if p.abstract)}")
     print(f"  Average keywords: {sum(len(p.keywords) for p in papers) / len(papers):.1f}")
     print(f"  Year range: {min(p.year for p in papers if p.year)} - {max(p.year for p in papers if p.year)}")
-    
+
     # Cite key analysis
     cite_key_types = {}
     for paper in papers:
@@ -59,9 +58,9 @@ if __name__ == '__main__':
             cite_key_types['doi'] = cite_key_types.get('doi', 0) + 1
         elif paper.source_key.startswith('ris_auto_'):
             cite_key_types['auto_generated'] = cite_key_types.get('auto_generated', 0) + 1
-    
-    print(f"\n  Cite Key Sources:")
+
+    print("\n  Cite Key Sources:")
     for key_type, count in sorted(cite_key_types.items()):
         print(f"    - {key_type}: {count}")
-    
+
     print("\n✓ Test completed successfully")

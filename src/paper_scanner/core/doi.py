@@ -5,7 +5,7 @@ import re
 class DOI:
     """
     DOI class that normalizes and provides multiple representations.
-    
+
     Accepts any DOI format in __init__ and normalizes to stem (core DOI without prefix/URL).
     Provides methods to get URL, prefix, safe filename format, and string representations.
 
@@ -16,7 +16,7 @@ class DOI:
     def __init__(self, doi: str):
         """
         Initialize DOI with any format and normalize to stem.
-        
+
         Args:
             doi: DOI string in any format (URL, doi:, doi., or raw stem)
         """
@@ -28,18 +28,18 @@ class DOI:
     def _normalize_to_stem(self, doi: str) -> str:
         """
         Normalize any DOI format to stem (core DOI without prefix/URL).
-        
+
         Validates DOI structure:
         - Must contain exactly one "/" separating prefix and suffix
         - Prefix must start with "10."
         - Both prefix and suffix must be non-empty
-        
+
         Args:
             doi: DOI in any format
-            
+
         Returns:
             Normalized DOI stem (e.g., "10.1234/example")
-            
+
         Raises:
             ValueError: If DOI format is invalid
         """

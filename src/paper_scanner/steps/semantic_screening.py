@@ -17,21 +17,19 @@ Outputs semantic screening results to screening.semantic_screening with:
 
 import logging
 import os
-import sys
 import time
 from datetime import datetime, timezone
 from typing import Optional, Tuple
 
 import numpy as np
-from rich.console import Console
 from scipy.spatial.distance import cosine
 
 from paper_scanner.core.enum import StepStatus
 
 from ..core.enum import ScreeningDecision
-from ..core.step_result import StepResult
-from ..core.exceptions import StepFatalError, ConfigurationError
+from ..core.exceptions import ConfigurationError, StepFatalError
 from ..core.models import Paper, ProcessingMetadata, SemanticScreening
+from ..core.step_result import StepResult
 from .base import BaseStep
 
 # Suppress verbose logging from transformers/sentence-transformers
@@ -55,7 +53,7 @@ class SemanticScreeningStep(BaseStep):
     def validate(config):
         """
         Validate semantic_screening step configuration.
-        
+
         Args:
             config: Step configuration with optional keys:
                 - model: str - Sentence transformer model ID (e.g., 'all-mpnet-base-v2')
@@ -63,10 +61,10 @@ class SemanticScreeningStep(BaseStep):
                     - auto_include: float [0-1] - Score >= this triggers INCLUDED
                     - manual_review: float [0-1] - Score in [manual_review, auto_include) triggers MANUAL_REVIEW
                     - auto_exclude: float [0-1] - Score < this triggers EXCLUDED
-            
+
         Returns:
             Tuple of (is_valid, error_messages)
-            
+
         Raises:
             Returns error list if:
             - model is not a string
@@ -99,21 +97,21 @@ class SemanticScreeningStep(BaseStep):
     def execute(self, config, verbose=False, dry_run=False, debug=False):
         """
         Execute semantic screening step using embedding-based relevance scoring.
-        
+
         Design Decisions:
         ==================
         - Embedding-based approach captures semantic meaning beyond keywords
         - Uses sentence-transformers for efficient encoding (all-mpnet-base-v2 default)
         - Cosine similarity (0-1 scale) measures relevance to research question
         - Three-tier decision logic: INCLUDED → MANUAL_REVIEW → EXCLUDED
-        
+
         Priority Logic:
         ===============
         Papers are classified based on similarity score:
         1. Score >= auto_include (default 0.65)     → INCLUDED
         2. Score >= manual_review (default 0.55)    → MANUAL_REVIEW (border cases)
         3. Score < manual_review                     → EXCLUDED
-        
+
         Note: Unlike keyword_screening, semantic screening doesn't combine with other
         signals - the embedding-based score is the sole decision criterion, as it
         captures holistic relevance.
@@ -231,11 +229,11 @@ class _SemanticScreener:
         auto_exclude_threshold: float = 0.55,
     ):
         """Initialize semantic screener with research question and similarity thresholds.
-        
+
         The screener embeds the research question once and reuses that embedding to
         compute similarity for each paper, providing O(1) per-paper screening after
         initial model load.
-        
+
         Args:
             research_question: The research question text to embed (used as reference)
             model_name: Sentence transformer model ID (e.g., 'all-mpnet-base-v2')
@@ -308,16 +306,16 @@ class _SemanticScreener:
 
     def screen_paper(self, paper: Paper) -> Tuple[SemanticScreening, bool, Optional[str]]:
         """Screen a single paper based on semantic similarity to research question.
-        
+
         Computes cosine similarity between paper (title + abstract combined) and
         the research question embeddings. Uses similarity thresholds to make
         INCLUDED/EXCLUDED/MANUAL_REVIEW decision.
-        
+
         Similarity Score Examples (with defaults auto_include=0.65, manual_review=0.55):
         - 0.80: "Cloud computing security frameworks" vs RQ about cloud security → INCLUDED
         - 0.62: "Digital transformation in supply chains" vs RQ about IT adoption → MANUAL_REVIEW
         - 0.35: "Classical philosophy in ancient Greece" vs RQ about IT innovation → EXCLUDED
-        
+
         Returns:
             Tuple of:
             - SemanticScreening: Result object with score, decision, reasoning

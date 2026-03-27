@@ -137,8 +137,8 @@ class DatabaseManager:
         try:
             cursor.execute(
                 """
-                INSERT INTO papers 
-                (file_path, file_name, directory, size_bytes, 
+                INSERT INTO papers
+                (file_path, file_name, directory, size_bytes,
                  created_time, modified_time, accessed_time)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (file_path) DO UPDATE SET

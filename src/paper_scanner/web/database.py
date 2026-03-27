@@ -168,8 +168,8 @@ class DatabaseManager:
 
             cursor.execute(
                 """
-                INSERT INTO papers 
-                (file_path, file_name, directory, size_bytes, 
+                INSERT INTO papers
+                (file_path, file_name, directory, size_bytes,
                  created_time, modified_time, accessed_time, tags, title, cite_key, year, title_details, analysis)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (file_path) DO UPDATE SET
@@ -224,7 +224,7 @@ class DatabaseManager:
             # to improve API response performance
             # Include citation counts for UI display
             cursor.execute("""
-                SELECT 
+                SELECT
                     p.db_id, p.id, p.cite_key, p.source_key, p.doi, p.arxiv_id, p.pmid, p.isbn, p.issn, p.url,
                     p.title, p.abstract, p.authors, p.keywords, p.topics, p.year, p.journal, p.journal_acronym, p.journal_iso4,
                     p.booktitle, p.publisher, p.volume, p.issue, p.pages, p.paper_type, p.language,
@@ -385,7 +385,7 @@ class DatabaseManager:
 
         try:
             cursor.execute("""
-                SELECT 
+                SELECT
                     year,
                     COUNT(*) as count,
                     json_agg(json_build_object('id', id, 'file_name', file_name, 'title', title, 'cite_key', cite_key, 'authors', authors)) as papers
@@ -454,7 +454,7 @@ class DatabaseManager:
             # Get all papers with citation counts, excluding large JSONB fields
             cursor.execute(
                 """
-                SELECT 
+                SELECT
                     db_id, id, cite_key, title, authors, year, journal, doi, url,
                     COALESCE(inbound.count, 0) as inbound_count,
                     COALESCE(outbound.count, 0) as outbound_count
@@ -479,7 +479,7 @@ class DatabaseManager:
             # Get all citation edges, mapping db_ids to UUIDs
             cursor.execute(
                 """
-                SELECT 
+                SELECT
                     cp.id as source_id,
                     cip.id as target_id
                 FROM citation_edges ce

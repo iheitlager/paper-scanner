@@ -15,9 +15,7 @@ Outputs screening results to paper.screening.metadata_screening with:
 - metadata: Processing timestamp and duration
 """
 
-import re
 import sys
-import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -31,6 +29,7 @@ from paper_scanner.core.enum import (
 )
 from paper_scanner.core.models import MetadataScreening, Paper, ProcessingMetadata
 from paper_scanner.core.step_result import StepResult
+
 from .base import BaseStep
 
 # Initialize rich console for colored output
@@ -44,7 +43,7 @@ class MetadataScreeningStep(BaseStep):
     def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
         Validate metadata_screening step configuration.
-        
+
         Args:
             config: Step configuration with optional keys:
                 - enabled: bool - Whether screening is enabled (default: true)
@@ -54,10 +53,10 @@ class MetadataScreeningStep(BaseStep):
                         Can be plain string or dict with "NOT": value for exclude-everything-except
                     - quality_tier: list[str] - Quality tiers to exclude
                     - is_peer_reviewed: list[bool] - Peer review status to exclude
-            
+
         Returns:
             Tuple of (is_valid, error_messages)
-            
+
         Raises:
             Returns error list if:
             - Any exclude field is not a list
@@ -108,7 +107,7 @@ class MetadataScreeningStep(BaseStep):
     ) -> StepResult:
         """
         Execute metadata-based screening step using tri-state logic.
-        
+
         Design Decisions:
         ==================
         - Tri-state inclusion logic: Must match include rules, must NOT match exclude rules
@@ -116,7 +115,7 @@ class MetadataScreeningStep(BaseStep):
         - Language and paper type are most common filters
         - Quality tier assessment based on peer review status and source ranking
         - Missing metadata treated as passing (don't exclude without info)
-        
+
         Priority Logic:
         ===============
         Papers are screened in this order:
@@ -125,15 +124,15 @@ class MetadataScreeningStep(BaseStep):
         3. Check if quality_tier matches exclude rules → EXCLUDED if match
         4. Check if is_peer_reviewed status matches exclude rules → EXCLUDED if match
         5. If no exclusions match → INCLUDED
-        
+
         Negation (NOT) Syntax:
         ======================
         The {"NOT": "value"} syntax inverts logic - exclude everything EXCEPT the value:
-        
+
         exclude:
           paper_types:
             - {"NOT": "OPINION"}  # Means: exclude everything except OPINION papers
-        
+
         This is useful for inclusive filters (e.g., only include conference papers).
 
         Args:
@@ -143,7 +142,7 @@ class MetadataScreeningStep(BaseStep):
             verbose: Enable verbose output
             dry_run: Don't actually modify papers
             debug: Enable debug output
-            
+
         Returns:
             StepResult with execution statistics including:
             - screened: Papers processed
@@ -153,7 +152,7 @@ class MetadataScreeningStep(BaseStep):
         """
         # Parse configuration
         exclude_logic = self._extract_exclude_logic(config.get("exclude", {}))
-        exclude_no_doi = config.get("exclude_no_doi", True)
+        config.get("exclude_no_doi", True)
 
         self.callback(
             "Metadata Screening"
@@ -222,7 +221,7 @@ class MetadataScreeningStep(BaseStep):
     ) -> Tuple[MetadataScreening, bool, Optional[str]]:
         """
         Screen paper against metadata exclude criteria.
-        
+
         Returns:
             (MetadataScreening model, should_include, exclusion_reason)
         """
@@ -233,7 +232,7 @@ class MetadataScreeningStep(BaseStep):
         for field, field_logic in exclude_logic.items():
             if field == "doi_not_set":
                 # string handling trick to stay within structure
-                paper_value = paper.doi or "None" 
+                paper_value = paper.doi or "None"
             elif field == "language":
                 paper_value = paper.language or "en"
             elif field == "paper_types":
@@ -297,7 +296,7 @@ class MetadataScreeningStep(BaseStep):
     ) -> Dict[str, Dict[str, Any]]:
         """
         Extract exclude logic from config into structured format.
-        
+
         Returns:
         {
             "field_name": {
@@ -339,7 +338,7 @@ class MetadataScreeningStep(BaseStep):
     @staticmethod
     def _parse_not_operator(criterion: Any) -> Optional[str]:
         """Parse NOT operator from criterion (dict or string format)
-        
+
         Returns the value after NOT or None if not present
         """
         if isinstance(criterion, dict):

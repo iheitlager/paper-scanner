@@ -1,6 +1,5 @@
 import re
-from typing import List, Dict, Optional
-
+from typing import Dict, List, Optional
 
 # Canonical paper structure (every academic paper should map to these top-level sections)
 CANONICAL_SECTIONS = {
@@ -19,13 +18,13 @@ CANONICAL_SECTIONS = {
 
 def detect_sections(text: str) -> List[Dict]:
     """Detect sections in academic paper text.
-    
+
     Scans text for section headers using 70+ regex patterns covering:
     - Markdown headers (# ## ###)
     - Numbered sections (1. 1.1. I. A.)
     - ALL CAPS sections
     - Common academic section names (Abstract, Introduction, Methods, etc.)
-    
+
     Returns structured list of sections with title and content.
     """
 
@@ -180,36 +179,36 @@ def detect_sections(text: str) -> List[Dict]:
 
     # Post-process: extract paper title (if not already detected as section header)
     sections = _extract_title(sections, text)
-    
+
     # Post-process: split combined headers like "ABSTRACT KEYWORDS AND PHRASES"
     sections = _split_combined_headers(sections)
-    
+
     # Post-process: extract research questions from introduction sections
     sections = _extract_research_questions(sections)
-    
+
     return sections
 
 
 def _extract_title(sections: List[Dict], text: str) -> List[Dict]:
     """Extract paper title if not already detected as a section.
-    
+
     The paper title typically appears before abstract/introduction and is often missed
     when it spans multiple lines or appears inline (e.g., after metadata).
     """
     # Check if title already exists
     if any(normalize_section_name(s['title']) == 'title' for s in sections):
         return sections
-    
+
     # Look for "Abstract" section - title should be before it
     abstract_index = None
     for i, section in enumerate(sections):
         if normalize_section_name(section['title']) == 'abstract':
             abstract_index = i
             break
-    
+
     if abstract_index is None or abstract_index == 0:
         return sections
-    
+
     # Collect text before abstract from non-header sections
     title_candidates = []
     for i in range(abstract_index):
@@ -220,16 +219,16 @@ def _extract_title(sections: List[Dict], text: str) -> List[Dict]:
             content = section['content'].strip()
             if content and len(content) > 20:  # Likely to be title if non-trivial length
                 title_candidates.append(content)
-    
+
     # Use the longest non-metadata section as title
     if title_candidates:
         best_title = max(title_candidates, key=len)
         # Clean up title (remove extra whitespace, newlines)
         best_title = ' '.join(best_title.split())
-        
+
         # Insert title at beginning
         sections.insert(0, {"title": "title", "content": best_title})
-    
+
     return sections
 
 
@@ -243,22 +242,22 @@ def _is_metadata_section(title: str) -> bool:
         'conditions', 'access', 'open access'
     ]
     title_lower = title.lower()
-    
+
     # Check if it's too short (likely metadata)
     if len(title) < 5:
         return True
-    
+
     # Check for metadata keywords
     for keyword in metadata_keywords:
         if keyword in title_lower:
             return True
-    
+
     return False
 
 
 def _split_combined_headers(sections: List[Dict]) -> List[Dict]:
     """Split combined headers into separate sections.
-    
+
     Some PDFs combine headers on one line (e.g., "ABSTRACT KEYWORDS AND PHRASES").
     This function detects and splits them into separate sections.
     """
@@ -267,11 +266,11 @@ def _split_combined_headers(sections: List[Dict]) -> List[Dict]:
         (r"abstract\s+keywords", ["abstract", "keywords"]),
         (r"abstract\s+key\s+words", ["abstract", "keywords"]),
     ]
-    
+
     for section in sections:
         title = section['title'].lower()
         split = False
-        
+
         for pattern, headers in combined_patterns:
             if re.search(pattern, title, re.IGNORECASE):
                 # Split into multiple sections
@@ -280,33 +279,33 @@ def _split_combined_headers(sections: List[Dict]) -> List[Dict]:
                     result.append({"title": header, "content": content})
                 split = True
                 break
-        
+
         if not split:
             result.append(section)
-    
+
     return result
 
 
 def _extract_research_questions(sections: List[Dict]) -> List[Dict]:
     """Extract research questions from introduction sections.
-    
+
     Some papers embed research questions in the introduction without a dedicated section.
     This function detects lines like "RQ1:", "RQ2:", etc. and creates a separate section.
     """
     result = []
     rq_content = []
     rq_found = False
-    
+
     for section in sections:
         title = section['title'].lower()
         content = section['content']
-        
+
         # Check if this section contains research questions
         if 'rq' in content or 'research question' in title.lower():
             # Extract RQ lines (RQ1:, RQ2:, RQ3:, etc.)
             lines = content.split('\n')
             non_rq_lines = []
-            
+
             for line in lines:
                 # Check if line starts with RQ pattern
                 if re.match(r'^\s*RQ\d+:', line, re.IGNORECASE):
@@ -314,7 +313,7 @@ def _extract_research_questions(sections: List[Dict]) -> List[Dict]:
                     rq_found = True
                 else:
                     non_rq_lines.append(line)
-            
+
             # If we found RQs, keep the section but with non-RQ content only
             if rq_found and non_rq_lines:
                 result.append({
@@ -325,29 +324,29 @@ def _extract_research_questions(sections: List[Dict]) -> List[Dict]:
                 result.append(section)
         else:
             result.append(section)
-    
+
     # Add research questions section if we found any
     if rq_content:
         result.append({
             "title": "research_question",
             "content": '\n'.join(rq_content)
         })
-    
+
     return result
 
 
 def normalize_section_name(detected_title: str) -> Optional[str]:
     """Map detected section name to canonical section.
-    
+
     Matches detected section titles against known canonical sections.
     This enables consistent comparison across papers that use different naming conventions.
-    
+
     Args:
         detected_title: Section title from detect_sections()
-        
+
     Returns:
         Canonical section name (e.g., "methods", "findings") or None if no match
-        
+
     Examples:
         - "Research Methods" → "methods"
         - "Results and Discussion" → "findings"
@@ -355,35 +354,35 @@ def normalize_section_name(detected_title: str) -> Optional[str]:
         - "Conclusion" → "conclusion"
     """
     detected_lower = detected_title.lower().strip()
-    
+
     # Direct lookup in canonical sections
     for canonical, aliases in CANONICAL_SECTIONS.items():
         for alias in aliases:
             if detected_lower == alias or alias in detected_lower or detected_lower in alias:
                 return canonical
-    
+
     return None
 
 
 def group_sections_hierarchically(sections: List[Dict]) -> Dict[str, List[Dict]]:
     """Group detected sections into hierarchical canonical structure.
-    
+
     Takes raw detected sections and maps each to its canonical parent section.
     Unknown sections are grouped under "other".
-    
+
     Args:
         sections: List from detect_sections()
-        
+
     Returns:
         Dict with canonical section names as keys, lists of detected sections as values
-        
+
     Example:
         Input: [
             {"title": "Methods", "content": "..."},
             {"title": "Research Design", "content": "..."},
             {"title": "Results", "content": "..."},
         ]
-        
+
         Output: {
             "methods": [
                 {"title": "Methods", "content": "...", "canonical": "methods"},
@@ -396,33 +395,33 @@ def group_sections_hierarchically(sections: List[Dict]) -> Dict[str, List[Dict]]
     """
     hierarchical = {canon: [] for canon in CANONICAL_SECTIONS.keys()}
     hierarchical["other"] = []
-    
+
     for section in sections:
         canonical = normalize_section_name(section["title"])
-        
+
         # Add canonical mapping to section
         section_with_mapping = {**section, "canonical": canonical}
-        
+
         if canonical:
             hierarchical[canonical].append(section_with_mapping)
         else:
             hierarchical["other"].append(section_with_mapping)
-    
+
     return hierarchical
 
 
 def validate_paper_structure(hierarchical_sections: Dict[str, List[Dict]]) -> Dict:
     """Validate that detected sections cover standard paper structure.
-    
+
     Checks which canonical sections were found and reports coverage.
     Useful for assessing if PDF extraction was successful.
-    
+
     Args:
         hierarchical_sections: Output from group_sections_hierarchically()
-        
+
     Returns:
         Dict with coverage analysis
-        
+
     Example output:
         {
             "found": ["abstract", "introduction", "methods", "findings", "conclusion"],
@@ -432,13 +431,13 @@ def validate_paper_structure(hierarchical_sections: Dict[str, List[Dict]]) -> Di
             "total_detected": 11,
         }
     """
-    found = [canon for canon, sections in hierarchical_sections.items() 
+    found = [canon for canon, sections in hierarchical_sections.items()
              if canon != "other" and sections]
     missing = [canon for canon in CANONICAL_SECTIONS.keys() if canon not in found]
-    
+
     total_canonical = len(CANONICAL_SECTIONS)
     coverage_pct = round(100 * len(found) / total_canonical, 1)
-    
+
     return {
         "found": found,
         "missing": missing,

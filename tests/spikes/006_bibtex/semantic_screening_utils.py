@@ -21,7 +21,7 @@ class EmbeddingManager:
 
     def __init__(self, model_name: str = "all-mpnet-base-v2"):
         """Initialize embedding manager.
-        
+
         Args:
             model_name: Sentence transformer model to use
                 - 'all-mpnet-base-v2': 768 dims, best quality (default)
@@ -42,10 +42,10 @@ class EmbeddingManager:
 
     def embed_text(self, text: str) -> np.ndarray:
         """Embed single text.
-        
+
         Args:
             text: Text to embed
-            
+
         Returns:
             Embedding vector
         """
@@ -54,11 +54,11 @@ class EmbeddingManager:
 
     def embed_batch(self, texts: List[str], batch_size: int = 32) -> np.ndarray:
         """Embed multiple texts efficiently.
-        
+
         Args:
             texts: List of texts to embed
             batch_size: Batch size for processing
-            
+
         Returns:
             Array of embeddings (n_texts, dimension)
         """
@@ -68,11 +68,11 @@ class EmbeddingManager:
 
     def compute_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
         """Compute cosine similarity between embeddings.
-        
+
         Args:
             embedding1: First embedding
             embedding2: Second embedding
-            
+
         Returns:
             Similarity score (0-1, where 1 is identical)
         """
@@ -90,11 +90,11 @@ class EmbeddingManager:
     def compute_similarities_batch(self, query_embedding: np.ndarray,
                                   candidate_embeddings: np.ndarray) -> np.ndarray:
         """Compute similarities between query and multiple candidates.
-        
+
         Args:
             query_embedding: Query embedding (dimension,)
             candidate_embeddings: Candidate embeddings (n_candidates, dimension)
-            
+
         Returns:
             Array of similarity scores (n_candidates,)
         """
@@ -114,7 +114,7 @@ class PaperEmbedder:
 
     def __init__(self, embedding_manager: EmbeddingManager):
         """Initialize paper embedder.
-        
+
         Args:
             embedding_manager: EmbeddingManager instance
         """
@@ -123,10 +123,10 @@ class PaperEmbedder:
     @staticmethod
     def normalize_text(text: Optional[str]) -> str:
         """Normalize text for embedding.
-        
+
         Args:
             text: Text to normalize
-            
+
         Returns:
             Cleaned text
         """
@@ -141,13 +141,13 @@ class PaperEmbedder:
                           keywords: Optional[List[str]] = None,
                           full_text: Optional[str] = None) -> str:
         """Combine paper components into single text for embedding.
-        
+
         Args:
             title: Paper title
             abstract: Paper abstract
             keywords: List of keywords
             full_text: Full paper text (optional, usually too long)
-            
+
         Returns:
             Combined text for embedding
         """
@@ -177,12 +177,12 @@ class PaperEmbedder:
                    abstract: Optional[str] = None,
                    keywords: Optional[List[str]] = None) -> np.ndarray:
         """Embed paper based on title, abstract, and keywords.
-        
+
         Args:
             title: Paper title
             abstract: Paper abstract
             keywords: List of keywords
-            
+
         Returns:
             Paper embedding vector
         """
@@ -191,10 +191,10 @@ class PaperEmbedder:
 
     def embed_papers_batch(self, papers: List[Dict]) -> List[np.ndarray]:
         """Embed multiple papers efficiently.
-        
+
         Args:
             papers: List of paper dicts with 'title', 'abstract', 'keywords'
-            
+
         Returns:
             List of embedding vectors
         """
@@ -216,7 +216,7 @@ class SimilarityClassifier:
     def __init__(self, threshold_include: float = 0.65,
                  threshold_manual_review: float = 0.55):
         """Initialize classifier.
-        
+
         Args:
             threshold_include: Similarity threshold for inclusion
             threshold_manual_review: Similarity threshold for manual review
@@ -226,10 +226,10 @@ class SimilarityClassifier:
 
     def classify(self, similarity: float) -> Tuple[str, str, Optional[str]]:
         """Classify paper based on similarity.
-        
+
         Args:
             similarity: Similarity score (0-1)
-            
+
         Returns:
             Tuple of (stage, decision, reason)
             - stage: 'pass', 'review', 'fail'
@@ -247,10 +247,10 @@ class SimilarityClassifier:
 
     def batch_classify(self, similarities: np.ndarray) -> List[Tuple[str, str, Optional[str]]]:
         """Classify multiple papers at once.
-        
+
         Args:
             similarities: Array of similarity scores
-            
+
         Returns:
             List of (stage, decision, reason) tuples
         """
@@ -260,11 +260,11 @@ class SimilarityClassifier:
 def create_research_question_embedding(research_question: str,
                                       model_name: str = "all-mpnet-base-v2") -> np.ndarray:
     """Create embedding for research question.
-    
+
     Args:
         research_question: Research question text
         model_name: Model to use
-        
+
     Returns:
         Research question embedding
     """
@@ -275,12 +275,12 @@ def create_research_question_embedding(research_question: str,
 def compare_paper_to_question(paper: Dict, research_question: str,
                              model_name: str = "all-mpnet-base-v2") -> float:
     """Compute similarity between paper and research question.
-    
+
     Args:
         paper: Paper dict with 'title', 'abstract', 'keywords'
         research_question: Research question text
         model_name: Model to use
-        
+
     Returns:
         Similarity score
     """

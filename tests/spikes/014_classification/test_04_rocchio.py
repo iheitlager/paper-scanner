@@ -19,10 +19,12 @@ Expected behavior:
 This tests the core Rocchio functionality with minimal training signal.
 """
 
-import pytest
 from pathlib import Path
-from paper_scanner.core.executor import StepExecutor
+
+import pytest
+
 from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.executor import StepExecutor
 from paper_scanner.core.reporter import NoOpReporter
 
 
@@ -50,7 +52,7 @@ def bib_file():
     """Locate the scopus_sample_20.bib file by searching upward from test directory."""
     # Start from test file and search upward
     search_dir = Path(__file__).parent
-    
+
     for _ in range(5):  # Search up to 5 directories
         bib_path = search_dir / "scopus_sample_20.bib"
         if bib_path.exists():
@@ -210,12 +212,12 @@ def test_rocchio_prototype_1_zero_seed(executor, bib_file):
     print(f"Papers screened (keyword): {keyword_result.stats['screened']}")
     print(f"  - Passed: {keyword_result.stats['passed']}")
     print(f"  - Failed: {keyword_result.stats['failed']}")
-    print(f"\nRocchio classification results:")
+    print("\nRocchio classification results:")
     print(f"  - Total classified: {rocchio_result.stats['classified']}")
     print(f"  - Accepted: {rocchio_result.stats['accepted']}")
     print(f"  - Rejected: {rocchio_result.stats['rejected']}")
     print(f"  - Uncertain: {rocchio_result['stats']['uncertain']}")
-    print(f"\nCentroid state:")
+    print("\nCentroid state:")
     print(f"  - Iteration: {state_dict['iteration']}")
     print(f"  - Relevant papers: {state_dict['count_relevant']}")
     print(f"  - Irrelevant papers: {state_dict['count_irrelevant']}")

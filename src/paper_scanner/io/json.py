@@ -46,15 +46,15 @@ class PaperJSONEncoder(json.JSONEncoder):
 def paper_to_dict(paper: Paper, exclude_none: bool = False) -> Dict[str, Any]:
     """
     Convert Paper Pydantic model to dictionary (100% complete)
-    
+
     Self-references (duplicate_of, resolved_paper) are handled by @field_serializer
     decorators on the models, which convert Paper objects to ID strings during
     JSON serialization.
-    
+
     Args:
         paper: Paper Pydantic model
         exclude_none: If True, exclude None values from output
-    
+
     Returns:
         Complete dictionary representation with self-references as IDs
     """
@@ -75,12 +75,12 @@ def paper_to_json(
 ) -> str:
     """
     Convert Paper to JSON string (100% complete)
-    
+
     Args:
         paper: Paper Pydantic model
         exclude_none: Exclude None values
         indent: JSON indentation (None for compact)
-    
+
     Returns:
         JSON string
     """
@@ -102,12 +102,12 @@ def papers_to_json(
 ) -> str:
     """
     Convert list of Papers to JSON string
-    
+
     Args:
         papers: List of Paper models
         exclude_none: Exclude None values
         indent: JSON indentation
-    
+
     Returns:
         JSON string (array of papers)
     """
@@ -130,7 +130,7 @@ def paper_to_json_file(
 ) -> None:
     """
     Write Paper to JSON file
-    
+
     Args:
         paper: Paper model
         filepath: Output file path
@@ -154,7 +154,7 @@ def papers_to_json_file(
 ) -> None:
     """
     Write Papers to JSON file
-    
+
     Args:
         papers: List of Paper models
         filepath: Output file path
@@ -268,11 +268,11 @@ def papers_to_jsonl(
     """
     Convert papers to JSONL format (one JSON object per line)
     Efficient for large datasets
-    
+
     Args:
         papers: List of Paper models
         exclude_none: Exclude None values
-    
+
     Returns:
         JSONL string
     """
@@ -293,7 +293,7 @@ def papers_to_jsonl_file(
 ) -> None:
     """
     Write papers to JSONL file
-    
+
     Args:
         papers: List of Paper models
         filepath: Output file path
@@ -312,10 +312,10 @@ def papers_to_jsonl_file(
 def jsonl_to_papers(jsonl_string: str) -> List[Paper]:
     """
     Convert JSONL string to Papers
-    
+
     Args:
         jsonl_string: JSONL formatted string
-    
+
     Returns:
         List of Paper models
     """
@@ -334,10 +334,10 @@ def jsonl_to_papers(jsonl_string: str) -> List[Paper]:
 def jsonl_file_to_papers(filepath: str) -> List[Paper]:
     """
     Load papers from JSONL file (memory efficient for large files)
-    
+
     Args:
         filepath: Path to JSONL file
-    
+
     Returns:
         List of Paper models
     """
@@ -361,13 +361,13 @@ def jsonl_file_to_papers(filepath: str) -> List[Paper]:
 def stream_jsonl_file(filepath: str):
     """
     Stream papers from JSONL file (generator, memory efficient)
-    
+
     Args:
         filepath: Path to JSONL file
-    
+
     Yields:
         Paper models one at a time
-    
+
     Usage:
         for paper in stream_jsonl_file('papers.jsonl'):
             process(paper)
@@ -387,10 +387,10 @@ def stream_jsonl_file(filepath: str):
 def collection_to_dict(collection: PaperCollection) -> Dict[str, Any]:
     """
     Convert PaperCollection to dictionary
-    
+
     Args:
         collection: PaperCollection model
-    
+
     Returns:
         Dictionary representation
     """
@@ -404,11 +404,11 @@ def collection_to_json(
 ) -> str:
     """
     Convert PaperCollection to JSON string
-    
+
     Args:
         collection: PaperCollection model
         indent: JSON indentation
-    
+
     Returns:
         JSON string
     """
@@ -430,7 +430,7 @@ def collection_to_json_file(
 ) -> None:
     """
     Write PaperCollection to JSON file
-    
+
     Args:
         collection: PaperCollection model
         filepath: Output file path
@@ -448,10 +448,10 @@ def collection_to_json_file(
 def dict_to_collection(data: Dict[str, Any]) -> PaperCollection:
     """
     Convert dictionary to PaperCollection
-    
+
     Args:
         data: Dictionary representation
-    
+
     Returns:
         PaperCollection model
     """
@@ -462,10 +462,10 @@ def dict_to_collection(data: Dict[str, Any]) -> PaperCollection:
 def json_to_collection(json_string: str) -> PaperCollection:
     """
     Convert JSON string to PaperCollection
-    
+
     Args:
         json_string: JSON representation
-    
+
     Returns:
         PaperCollection model
     """
@@ -477,10 +477,10 @@ def json_to_collection(json_string: str) -> PaperCollection:
 def json_file_to_collection(filepath: str) -> PaperCollection:
     """
     Load PaperCollection from JSON file
-    
+
     Args:
         filepath: Path to JSON file
-    
+
     Returns:
         PaperCollection model
     """
@@ -498,7 +498,7 @@ def json_file_to_collection(filepath: str) -> PaperCollection:
 def paper_to_dict_minimal(paper: Paper) -> Dict[str, Any]:
     """
     Export minimal paper info (for listings, overviews)
-    
+
     Fields: id, cite_key, title, authors, year, doi, final_decision
     """
 
@@ -516,7 +516,7 @@ def paper_to_dict_minimal(paper: Paper) -> Dict[str, Any]:
 def paper_to_dict_bibliographic(paper: Paper) -> Dict[str, Any]:
     """
     Export bibliographic info only (for citations)
-    
+
     Fields: All bibliographic metadata, no embeddings/processing
     """
 
@@ -549,7 +549,7 @@ def paper_to_dict_bibliographic(paper: Paper) -> Dict[str, Any]:
 def paper_to_dict_screening(paper: Paper) -> Dict[str, Any]:
     """
     Export screening info only
-    
+
     Fields: All screening decisions and scores
     """
 
@@ -596,7 +596,7 @@ def paper_to_dict_screening(paper: Paper) -> Dict[str, Any]:
 def paper_to_dict_camo(paper: Paper) -> Dict[str, Any]:
     """
     Export CAMO statements only
-    
+
     Fields: Paper identification + all CAMO statements
     """
 
@@ -632,12 +632,12 @@ def papers_to_json_partial(
 ) -> str:
     """
     Export papers with specific fields only
-    
+
     Args:
         papers: List of Paper models
         mode: 'minimal', 'bibliographic', 'screening', or 'camo'
         indent: JSON indentation
-    
+
     Returns:
         JSON string
     """
@@ -671,10 +671,10 @@ def papers_to_json_partial(
 def validate_json_schema(json_string: str) -> bool:
     """
     Validate that JSON can be deserialized to Paper model
-    
+
     Args:
         json_string: JSON string
-    
+
     Returns:
         True if valid, False otherwise
     """
@@ -689,10 +689,10 @@ def validate_json_schema(json_string: str) -> bool:
 def validate_json_file(filepath: str) -> Dict[str, Any]:
     """
     Validate JSON file and return diagnostics
-    
+
     Args:
         filepath: Path to JSON file
-    
+
     Returns:
         Dict with validation results
     """
@@ -717,7 +717,7 @@ def validate_json_file(filepath: str) -> Dict[str, Any]:
             papers = [dict_to_paper(d) for d in data]
             result['paper_count'] = len(papers)
         else:
-            paper = dict_to_paper(data)
+            dict_to_paper(data)
             result['paper_count'] = 1
 
         result['valid'] = True
@@ -735,10 +735,10 @@ def validate_json_file(filepath: str) -> Dict[str, Any]:
 def verify_round_trip(paper: Paper) -> bool:
     """
     Verify that Paper can be serialized and deserialized without loss
-    
+
     Args:
         paper: Paper model
-    
+
     Returns:
         True if round-trip successful, False otherwise
     """
@@ -771,13 +771,13 @@ def split_papers_to_files(
 ) -> List[str]:
     """
     Split papers into multiple JSON files
-    
+
     Args:
         papers: List of Paper models
         output_dir: Output directory
         papers_per_file: Number of papers per file
         prefix: Filename prefix
-    
+
     Returns:
         List of created file paths
     """
@@ -808,11 +808,11 @@ def merge_json_files(
 ) -> int:
     """
     Merge multiple JSON files into one
-    
+
     Args:
         filepaths: List of JSON file paths
         output_filepath: Output file path
-    
+
     Returns:
         Total number of papers merged
     """
@@ -843,7 +843,7 @@ def papers_to_json_gz(
 ) -> None:
     """
     Write papers to compressed JSON file (.json.gz)
-    
+
     Args:
         papers: List of Paper models
         filepath: Output file path
@@ -864,10 +864,10 @@ def papers_to_json_gz(
 def json_gz_to_papers(filepath: str) -> List[Paper]:
     """
     Load papers from compressed JSON file (.json.gz)
-    
+
     Args:
         filepath: Path to .json.gz file
-    
+
     Returns:
         List of Paper models
     """

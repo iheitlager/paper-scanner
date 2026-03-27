@@ -3,27 +3,24 @@ Unit tests for MetadataScreeningStep
 
 Tests metadata-based paper filtering with tri-state logic:
 - Hard INCLUDE: Must have these values
-- Hard EXCLUDE: Must NOT have these values  
+- Hard EXCLUDE: Must NOT have these values
 - OMITTED: No requirement (leave aside)
 
 Run with:
     pytest tests/unit/steps/test_metadata_screening.py -v
 """
 
-import pytest
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, List
+
+import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import (
     PaperType,
-    QualityTier,
     ScreeningDecision,
-    StudyType,
     StepStatus,
 )
-from paper_scanner.core.models import Paper, Screening, MetadataScreening, ProcessingMetadata
+from paper_scanner.core.models import MetadataScreening, Paper
 from paper_scanner.steps.metadata_screening import MetadataScreeningStep
 
 
@@ -139,7 +136,7 @@ class TestMetadataScreeningExecution:
         """Should handle empty database gracefully"""
         config = {}
         result = metadata_screening_step.execute(config)
-        
+
         assert result.status == StepStatus.SUCCESS
         assert result.stats["total_papers"] == 0
         assert result.stats["screened"] == 0
@@ -152,10 +149,10 @@ class TestMetadataScreeningExecution:
         paper2 = Paper(cite_key="paper2", title="Test Paper 2", language="fr")
         papers_db.add(paper1)
         papers_db.add(paper2)
-        
+
         config = {"exclude": {"language": ["NOT: en"]}}
         result = metadata_screening_step.execute(config)
-        
+
         assert result.status == StepStatus.SUCCESS
         assert result.stats["screened"] == 2
         assert result.stats["passed"] == 1  # Only paper1 with language "en"
@@ -169,10 +166,10 @@ class TestMetadataScreeningExecution:
         paper2 = Paper(cite_key="paper2", title="Test Paper 2", language="fr")
         papers_db.add(paper1)
         papers_db.add(paper2)
-        
+
         config = {"exclude": {"doi_not_set": True}}
         result = metadata_screening_step.execute(config)
-        
+
         assert result.status == StepStatus.SUCCESS
         assert result.stats["screened"] == 2
         assert result.stats["passed"] == 1  # Only paper1 with doi set
@@ -184,10 +181,10 @@ class TestMetadataScreeningExecution:
         paper2 = Paper(cite_key="paper2", title="Test Paper 2", language="fr")
         papers_db.add(paper1)
         papers_db.add(paper2)
-        
+
         config = {}
         result = metadata_screening_step.execute(config)
-        
+
         assert result.status == StepStatus.SUCCESS
         assert result.stats["screened"] == 2
         assert result.stats["passed"] == 2
@@ -199,7 +196,7 @@ class TestMetadataScreeningExecution:
         paper2 = Paper(cite_key="paper2", title="Conference", paper_type=PaperType.CONFERENCE_PAPER)
         papers_db.add(paper1)
         papers_db.add(paper2)
-        
+
         # Exclude conference papers
         config = {
             "exclude": {
@@ -207,7 +204,7 @@ class TestMetadataScreeningExecution:
             }
         }
         result = metadata_screening_step.execute(config)
-        
+
         assert result.stats["passed"] == 1
         assert result.stats["failed"] == 1
 
@@ -217,7 +214,7 @@ class TestMetadataScreeningExecution:
         paper2 = Paper(cite_key="paper2", title="Test", language="fr")
         papers_db.add(paper1)
         papers_db.add(paper2)
-        
+
         # Use string format: "NOT: en"
         config = {
             "exclude": {
@@ -225,7 +222,7 @@ class TestMetadataScreeningExecution:
             }
         }
         result = metadata_screening_step.execute(config)
-        
+
         assert result.stats["passed"] == 1
         assert result.stats["failed"] == 1
 
@@ -235,7 +232,7 @@ class TestMetadataScreeningExecution:
         paper2 = Paper(cite_key="paper2", title="Test", language="fr")
         papers_db.add(paper1)
         papers_db.add(paper2)
-        
+
         # Use dict format: {"NOT": "en"}
         config = {
             "exclude": {
@@ -243,7 +240,7 @@ class TestMetadataScreeningExecution:
             }
         }
         result = metadata_screening_step.execute(config)
-        
+
         assert result.stats["passed"] == 1
         assert result.stats["failed"] == 1
 
@@ -255,7 +252,7 @@ class TestMetadataScreeningExecution:
         papers_db.add(paper1)
         papers_db.add(paper2)
         papers_db.add(paper3)
-        
+
         # Exclude conference papers AND only allow journal articles
         config = {
             "exclude": {
@@ -263,7 +260,7 @@ class TestMetadataScreeningExecution:
             }
         }
         result = metadata_screening_step.execute(config)
-        
+
         # Only paper1 (journal_article) should pass
         assert result.stats["passed"] == 1
         assert result.stats["failed"] == 2
@@ -272,10 +269,10 @@ class TestMetadataScreeningExecution:
         """Should update papers in database with screening results"""
         paper = Paper(cite_key="paper1", title="Test", language="en")
         papers_db.add(paper)
-        
+
         config = {"exclude": {"language": ["NOT: en"]}}
-        result = metadata_screening_step.execute(config)
-        
+        metadata_screening_step.execute(config)
+
         # Retrieve paper from database
         updated_paper = papers_db.to_list()[0]
         assert updated_paper.screening.metadata_screening is not None
@@ -285,10 +282,10 @@ class TestMetadataScreeningExecution:
         """Should update final_decision when paper is excluded"""
         paper = Paper(cite_key="paper1", title="Test", language="fr")
         papers_db.add(paper)
-        
+
         config = {"exclude": {"language": ["NOT: en"]}}
-        result = metadata_screening_step.execute(config)
-        
+        metadata_screening_step.execute(config)
+
         updated_paper = papers_db.to_list()[0]
         assert updated_paper.screening.final_decision == ScreeningDecision.EXCLUDED
         assert updated_paper.screening.final_decision_by == "automated:metadata_screening"
@@ -298,10 +295,10 @@ class TestMetadataScreeningExecution:
         paper = Paper(cite_key="paper1", title="Test", language="fr")
         papers_db.add(paper)
         original_screening = paper.screening.metadata_screening
-        
+
         config = {"exclude": {"language": ["NOT: en"]}}
-        result = metadata_screening_step.execute(config, dry_run=True)
-        
+        metadata_screening_step.execute(config, dry_run=True)
+
         # Paper in database should not be updated
         db_paper = papers_db.to_list()[0]
         assert db_paper.screening.metadata_screening == original_screening
@@ -349,7 +346,7 @@ class TestExtractExcludeLogic:
         step = MetadataScreeningStep({}, None, None)
         exclude_config = {"language": ["NOT: en"]}
         logic = step._extract_exclude_logic(exclude_config)
-        
+
         assert "language" in logic
         assert logic["language"]["exclude_all_except"] == "en"
         assert logic["language"]["hard_excludes"] == []
@@ -359,7 +356,7 @@ class TestExtractExcludeLogic:
         step = MetadataScreeningStep({}, None, None)
         exclude_config = {"paper_types": ["conference_paper", "book"]}
         logic = step._extract_exclude_logic(exclude_config)
-        
+
         assert logic["paper_types"]["exclude_all_except"] is None
         assert set(logic["paper_types"]["hard_excludes"]) == {"conference_paper", "book"}
 
@@ -368,7 +365,7 @@ class TestExtractExcludeLogic:
         step = MetadataScreeningStep({}, None, None)
         exclude_config = {"paper_types": ["conference_paper", "NOT: journal_article"]}
         logic = step._extract_exclude_logic(exclude_config)
-        
+
         assert logic["paper_types"]["exclude_all_except"] == "journal_article"
         assert "conference_paper" in logic["paper_types"]["hard_excludes"]
 
@@ -380,7 +377,7 @@ class TestExtractExcludeLogic:
             "paper_types": ["conference_paper"]
         }
         logic = step._extract_exclude_logic(exclude_config)
-        
+
         assert len(logic) == 2
         assert logic["language"]["exclude_all_except"] == "en"
         assert logic["paper_types"]["hard_excludes"] == ["conference_paper"]
@@ -393,7 +390,7 @@ class TestExtractExcludeLogic:
                 "doi_not_set": val,
             }
             logic = step._extract_exclude_logic(exclude_config)
-            
+
             assert len(logic) == 1
             assert logic["doi_not_set"]["hard_excludes"] == ["None" if val else "set"]
 
@@ -428,10 +425,10 @@ class TestScreeningResults:
         cache_dir.mkdir()
         db = PapersDatabase()
         step = MetadataScreeningStep({}, db, cache_dir)
-        
+
         paper = Paper(cite_key="paper1", title="Test", language="en", paper_type=PaperType.JOURNAL_ARTICLE)
         screening, passed, reason = step._screen_paper(paper, {})
-        
+
         assert isinstance(screening, MetadataScreening)
         assert screening.language == "en"
         assert screening.paper_type == PaperType.JOURNAL_ARTICLE
@@ -442,7 +439,7 @@ class TestScreeningResults:
         cache_dir.mkdir()
         db = PapersDatabase()
         step = MetadataScreeningStep({}, db, cache_dir)
-        
+
         paper = Paper(cite_key="paper1", title="Test", language="fr")
         exclude_logic = {
             "language": {
@@ -451,7 +448,7 @@ class TestScreeningResults:
             }
         }
         screening, passed, reason = step._screen_paper(paper, exclude_logic)
-        
+
         assert passed is False
         assert reason is not None
         assert "language" in reason
@@ -466,7 +463,7 @@ class TestIntegration:
         db = PapersDatabase()
         cache_dir = Path("/tmp/test_cache")
         cache_dir.mkdir(exist_ok=True)
-        
+
         # Create diverse test papers
         papers = [
             Paper(cite_key="paper1", title="EN Journal", language="en", paper_type=PaperType.JOURNAL_ARTICLE),
@@ -474,12 +471,12 @@ class TestIntegration:
             Paper(cite_key="paper3", title="FR Journal", language="fr", paper_type=PaperType.JOURNAL_ARTICLE),
             Paper(cite_key="paper4", title="DE Book", language="de", paper_type=PaperType.BOOK),
         ]
-        
+
         for paper in papers:
             db.add(paper)
-        
+
         step = MetadataScreeningStep({}, db, cache_dir)
-        
+
         # Screen: only EN journals
         config = {
             "enabled": True,
@@ -488,9 +485,9 @@ class TestIntegration:
                 "paper_types": ["conference_paper", "book"]
             }
         }
-        
+
         result = step.execute(config)
-        
+
         assert result.status == StepStatus.SUCCESS
         assert result.stats["screened"] == 4
         assert result.stats["passed"] == 1  # Only EN Journal
@@ -501,19 +498,19 @@ class TestIntegration:
         db = PapersDatabase()
         cache_dir = Path("/tmp/test_cache")
         cache_dir.mkdir(exist_ok=True)
-        
+
         papers = [
             Paper(cite_key="paper1", title="Paper 1"),
             Paper(cite_key="paper2", title="Paper 2"),
             Paper(cite_key="paper3", title="Paper 3"),
         ]
-        
+
         for paper in papers:
             db.add(paper)
-        
+
         step = MetadataScreeningStep({}, db, cache_dir)
         result = step.execute({"enabled": True})
-        
+
         assert result.stats["passed"] == 3
         assert result.stats["failed"] == 0
 

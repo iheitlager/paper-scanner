@@ -8,12 +8,10 @@ import random
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from ..core.database import PapersDatabase
-from ..core.enum import DiscoveryMethod, StepStatus
-from ..core.models import Paper
-from ..core.step_result import StepResult
-from ..core.exceptions import ConfigurationError
 from ..core.cite_key import fix_cite_key_collisions
+from ..core.enum import DiscoveryMethod, StepStatus
+from ..core.exceptions import ConfigurationError
+from ..core.step_result import StepResult
 from ..io.bibtex import bibtex_file_to_papers, load_type_mapping_config
 from .base import BaseStep
 

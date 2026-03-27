@@ -83,7 +83,7 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
     def display_step_result(index, step_config, result):
         """
         Display step execution result in consistent format.
-        
+
         Args:
             result: Step execution result dict
             step_info: Optional step info dict (for single-step mode)
@@ -345,7 +345,7 @@ def main(debug: bool = False, verbose: bool = False, timings: bool = False):
                     if last_step_info:
                         console.print(f"  [cyan]Last Step:[/cyan] [blue]{last_step_info['description']}[/blue] - [dim]{last_step_info['name']}[/dim]")
                     status_val = state['results'].status
-                    status_color = 'green' if status_val == StepStatus.SUCCESS else 'yellow' if status_val == StepStatus.WARNING else 'red' if status_val == StepStatus.ERROR else 'cyan'   
+                    status_color = 'green' if status_val == StepStatus.SUCCESS else 'yellow' if status_val == StepStatus.WARNING else 'red' if status_val == StepStatus.ERROR else 'cyan'
                     status_msg = state['results'].message
                     console.print(f"  [cyan]Last result status:[/cyan] [{status_color}]{status_val.value}[/{status_color}]")
                     if status_msg:

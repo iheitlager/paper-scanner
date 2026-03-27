@@ -8,13 +8,13 @@ Run with:
     python test_03_keyword_screening.py --manual
 """
 
-import pytest
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
 import re
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
-from paper_scanner.core.enum import StudyType, ScreeningDecision
+import pytest
+
+from paper_scanner.core.enum import ScreeningDecision, StudyType
 from paper_scanner.core.models import KeywordScreening, ProcessingMetadata
 
 
@@ -462,7 +462,7 @@ class KeywordScreener:
         keyword_screening = KeywordScreening(
             passed=should_include,
             study_type=detected_study_type,
-            screening_decision=ScreeningDecision.INCLUDED if should_include else ScreeningDecision.EXCLUDED,    
+            screening_decision=ScreeningDecision.INCLUDED if should_include else ScreeningDecision.EXCLUDED,
             inclusion_keywords=matched_inclusion_keywords,
             inclusion_threshold=len(self.inclusion_keywords) if self.inclusion_keywords else None,
             exclusion_keywords=matched_exclusion_keywords,

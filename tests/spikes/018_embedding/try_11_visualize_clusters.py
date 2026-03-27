@@ -14,15 +14,14 @@ Examples:
     python try_11_visualize_clusters.py tsne 3     # t-SNE 3D
 """
 
-import sys
 import os
-from dotenv import load_dotenv
+import sys
 
-import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import seaborn as sns
+import numpy as np
 import psycopg2
+import seaborn as sns
+from dotenv import load_dotenv
 from pgvector.psycopg2 import register_vector
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
@@ -60,7 +59,7 @@ class ClusterVisualizer:
 
         # Load papers with embeddings and cluster assignments
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.db_id,
                 p.cite_key,
                 p.title,
@@ -91,7 +90,7 @@ class ClusterVisualizer:
 
         # Load cluster statistics and centroids
         cursor.execute("""
-            SELECT 
+            SELECT
                 id,
                 cluster_name,
                 paper_count,
@@ -373,9 +372,9 @@ class ClusterVisualizer:
         self.print_statistics()
 
         if dim == 2:
-            fig = self.plot_clusters_2d(reduced, centroids_reduced)
+            self.plot_clusters_2d(reduced, centroids_reduced)
         elif dim == 3:
-            fig = self.plot_clusters_3d(reduced, centroids_reduced)
+            self.plot_clusters_3d(reduced, centroids_reduced)
         else:
             raise ValueError(f"Unsupported dimension: {dim}")
 

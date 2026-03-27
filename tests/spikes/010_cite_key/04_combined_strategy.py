@@ -33,7 +33,7 @@ def doi_to_slug(doi_str: str) -> str:
 def generate_best_cite_key(paper: Paper) -> tuple[str, str]:
     """
     Generate best possible cite key using fallback strategy.
-    
+
     Returns:
         (cite_key, strategy) where strategy is "author_year", "doi", or "uuid"
     """

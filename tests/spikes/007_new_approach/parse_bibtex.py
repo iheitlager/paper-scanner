@@ -4,7 +4,7 @@ Parse BibTeX file and print Paper objects
 
 Usage:
     python parse_bibtex.py <path_to_file.bib> [--source-type TYPE] [--discovery METHOD] [--output-type {txt,jsonl}]
-    
+
 Example:
     python parse_bibtex.py tests/data/ieee_sample_20.bib --source-type ieee
     python parse_bibtex.py tests/data/scopus_sample_20.bib --source-type scopus --output-type jsonl

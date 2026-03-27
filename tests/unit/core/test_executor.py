@@ -21,8 +21,8 @@ from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.exceptions import PipelineExecutionError, StepError
 from paper_scanner.core.executor import StepExecutor
 from paper_scanner.core.models import Paper
-from paper_scanner.steps.halt import HaltException
 from paper_scanner.core.reporter import NoOpReporter
+from paper_scanner.steps.halt import HaltException
 
 # ============================================================================
 # Fixtures
@@ -352,7 +352,7 @@ class TestCheckpointManagement:
         )
         executor.papers_db.add(paper)
         executor.current_step_index = 1
-        save_result = executor.checkpoint()
+        executor.checkpoint()
 
         # Create new executor and load checkpoint
         executor2 = StepExecutor(

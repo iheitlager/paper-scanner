@@ -76,11 +76,11 @@ def load_sample_bibtex():
         # Query what we just loaded
         cursor = loader.connection.cursor()
         cursor.execute("""
-            SELECT COUNT(*) as total, 
+            SELECT COUNT(*) as total,
                    COUNT(CASE WHEN doi IS NOT NULL THEN 1 END) as with_doi,
                    COUNT(CASE WHEN abstract IS NOT NULL THEN 1 END) as with_abstract,
                    COUNT(CASE WHEN authors IS NOT NULL THEN 1 END) as with_authors
-            FROM papers 
+            FROM papers
             WHERE citekey = ANY(%s)
         """, ([p.citekey for p in papers_to_load],))
 

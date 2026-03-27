@@ -33,16 +33,16 @@ class CitationRemover:
 
     def remove_citations(self, text: str) -> Tuple[str, Dict]:
         """Remove citations from text and track removal statistics.
-        
+
         Args:
             text: Input text with citations
-            
+
         Returns:
             Tuple of (cleaned_text, stats_dict)
         """
         original_length = len(text)
         original_tokens = self._count_tokens(text)
-        
+
         cleaned = text
         removed_chars = 0
         removed_tokens = 0
@@ -55,13 +55,13 @@ class CitationRemover:
                 citation_text = match.group(0)
                 citation_chars = len(citation_text)
                 citation_tokens = self._count_tokens(citation_text)
-                
+
                 self.citation_blocks.append({
                     'text': citation_text[:50] + ('...' if len(citation_text) > 50 else ''),
                     'chars': citation_chars,
                     'tokens': citation_tokens,
                 })
-                
+
                 removed_chars += citation_chars
                 removed_tokens += citation_tokens
                 matches_found += 1
@@ -103,12 +103,12 @@ class CitationRemover:
         """Get summary of removed citations."""
         if not self.citation_blocks:
             return "No citations removed"
-        
+
         summary = f"Removed {len(self.citation_blocks)} citations:\n"
         for i, citation in enumerate(self.citation_blocks[:5], 1):
             summary += f"  {i}. {citation['text']} ({citation['chars']} chars, {citation['tokens']} tokens)\n"
-        
+
         if len(self.citation_blocks) > 5:
             summary += f"  ... and {len(self.citation_blocks) - 5} more\n"
-        
+
         return summary

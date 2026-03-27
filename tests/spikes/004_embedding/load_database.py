@@ -353,7 +353,7 @@ class DatabaseImporter:
         Returns True on success, False on failure
         """
 
-        file_name = Path(record.get("file_path", "")).name
+        Path(record.get("file_path", "")).name
 
         try:
             cursor = self.conn.cursor()

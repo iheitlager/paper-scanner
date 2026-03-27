@@ -22,7 +22,7 @@ class TestDeduplicationCircularFix:
         """
         Test that loading the same 5 papers twice (creating 10 records with 5 unique DOIs)
         correctly identifies 5 duplicates without creating circular dependencies.
-        
+
         This was the reported issue: all 10 papers were being marked as cancelled.
         """
         papers_db = PapersDatabase()

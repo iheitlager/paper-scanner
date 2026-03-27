@@ -18,10 +18,11 @@ Configuration example:
           min_year: 2020                        # Optional year filter
 """
 
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer
-from typing import Any, Dict, List, Optional, Tuple
 
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import Embedding, Paper, TextChunk

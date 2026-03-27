@@ -11,7 +11,7 @@ from typing import Optional
 class AbstractParser:
     """
     Parse and clean abstracts with various markup formats.
-    
+
     Handles:
     - JATS XML tags (jats:title, jats:p, etc.)
     - HTML tags (p, div, etc.)

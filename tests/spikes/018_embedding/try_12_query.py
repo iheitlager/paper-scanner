@@ -19,21 +19,20 @@ Examples of questions:
 
 import os
 import sys
+
 from dotenv import load_dotenv
 
 # Disable tokenizer parallelism warning
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-import numpy as np
+import anthropic
 import psycopg2
 from pgvector.psycopg2 import register_vector
-import anthropic
 from rich.console import Console
-from rich.spinner import Spinner
 from rich.live import Live
 from rich.panel import Panel
+from rich.spinner import Spinner
 from rich.table import Table
-from rich import print as rprint
 
 # Initialize rich console for colored output
 console = Console()
@@ -96,7 +95,7 @@ class PaperQueryEngine:
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 ce.id,
                 p.db_id,
                 p.cite_key,
@@ -156,7 +155,7 @@ class PaperQueryEngine:
         self, user_question: str, search_results: list, search_text: str
     ) -> str:
         """Ask Claude to synthesize findings from search results"""
-        
+
         # Format papers info for context
         papers_context = "\n\n".join(
             [
@@ -248,7 +247,7 @@ NO markdown syntax (no #, ##, **, etc). Be specific about which papers make whic
                     console.print("\n[yellow]👋 End of input. Goodbye![/yellow]")
                     break
                 user_input = line.strip()
-                
+
                 if not user_input:
                     continue
 

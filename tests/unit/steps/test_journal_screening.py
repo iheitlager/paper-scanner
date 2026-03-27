@@ -1,9 +1,10 @@
 """Unit tests for JournalScreeningStep."""
-import pytest
 import tempfile
-import yaml
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock
+
+import pytest
+import yaml
 
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import Paper
@@ -33,13 +34,13 @@ def temp_journal_definitions():
             'business': ['Journal of Business Research', 'Management Science']
         }
     }
-    
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
         yaml.dump(journals_data, f)
         temp_path = f.name
-    
+
     yield temp_path
-    
+
     Path(temp_path).unlink(missing_ok=True)
 
 
@@ -143,9 +144,9 @@ class TestJournalScreeningExecute:
     def test_execute_empty_database(self, step, mock_db):
         """Test execution with no papers in database."""
         mock_db.all.return_value = []
-        
+
         result = step.execute({})
-        
+
         assert result.status == StepStatus.SUCCESS
         assert result.stats['total_papers'] == 0
         assert result.stats['papers_matched'] == 0
@@ -156,18 +157,18 @@ class TestJournalScreeningExecute:
         paper1.id = '1'
         paper1.journal = 'Journal of Business Research'
         paper1.screening = {}
-        
+
         paper2 = Mock(spec=Paper)
         paper2.id = '2'
         paper2.journal = 'Management Science'
         paper2.screening = {}
-        
+
         mock_db.all.return_value = [paper1, paper2]
-        
+
         result = step.execute({
             'journal_definitions_path': temp_journal_definitions
         })
-        
+
         assert result.status == StepStatus.SUCCESS
         assert result.stats['total_papers'] == 2
         assert result.stats['papers_matched'] == 2
@@ -178,11 +179,11 @@ class TestJournalScreeningExecute:
         paper.id = '1'
         paper.journal = None
         paper.screening = {}
-        
+
         mock_db.all.return_value = [paper]
-        
+
         result = step.execute({})
-        
+
         assert result.stats['total_papers'] == 1
         assert result.stats['papers_with_errors'] == 1
 
@@ -192,13 +193,13 @@ class TestJournalScreeningExecute:
         paper.id = '1'
         paper.journal = None
         paper.screening = {}
-        
+
         mock_db.all.return_value = [paper]
-        
+
         result = step.execute({
             'skip_missing': True
         })
-        
+
         assert result.stats['total_papers'] == 1
         assert result.stats['papers_skipped'] == 1
         assert result.stats['papers_with_errors'] == 0
@@ -209,14 +210,14 @@ class TestJournalScreeningExecute:
         paper.id = '1'
         paper.journal = 'Journal of Business Research'
         paper.screening = {}
-        
+
         mock_db.all.return_value = [paper]
-        
+
         result = step.execute(
             {'journal_definitions_path': temp_journal_definitions},
             dry_run=True
         )
-        
+
         assert result.status == StepStatus.SUCCESS
         # update should not be called in dry-run mode
         mock_db.update_paper.assert_not_called()
@@ -227,14 +228,14 @@ class TestJournalScreeningExecute:
         paper.id = '1'
         paper.journal = 'Journal of Business Research'
         paper.screening = {}
-        
+
         mock_db.all.return_value = [paper]
-        
+
         result = step.execute(
             {'journal_definitions_path': temp_journal_definitions},
             verbose=True
         )
-        
+
         assert result.status == StepStatus.SUCCESS
 
     def test_execute_invalid_definitions_path(self, step, mock_db):
@@ -242,7 +243,7 @@ class TestJournalScreeningExecute:
         result = step.execute({
             'journal_definitions_path': '/nonexistent/path.yml'
         })
-        
+
         assert result.status == StepStatus.ERROR
         assert 'not found' in result.message.lower()
 
@@ -252,17 +253,17 @@ class TestJournalScreeningExecute:
         paper.id = '1'
         paper.journal = 'Journal of Business Research'
         paper.screening = Mock()
-        
+
         mock_db.all.return_value = [paper]
-        
+
         result = step.execute({
             'journal_definitions_path': temp_journal_definitions
         })
-        
+
         assert result.status == StepStatus.SUCCESS
         # Verify update_paper was called
         mock_db.update.assert_called()
-        
+
         # Verify screening metadata was set
         calls = mock_db.update.call_args_list
         assert len(calls) > 0
@@ -282,10 +283,10 @@ class TestJournalScreeningIntegration:
             'generate_iso4': True,
             'skip_missing': False
         }
-        
+
         is_valid, errors = JournalScreeningStep.validate(config)
         assert is_valid
-        
+
         # Create step and execute
         general_config = {'project_name': 'test'}
         step = JournalScreeningStep(
@@ -293,15 +294,15 @@ class TestJournalScreeningIntegration:
             db=mock_db,
             cache_dir=tmp_path
         )
-        
+
         paper = Mock(spec=Paper)
         paper.id = '1'
         paper.journal = 'Journal of Business Research'
         paper.screening = {}
-        
+
         mock_db.all.return_value = [paper]
-        
+
         result = step.execute(config)
-        
+
         assert result.status == StepStatus.SUCCESS
         assert 'papers_matched' in result.stats

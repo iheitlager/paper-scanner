@@ -6,7 +6,6 @@ Handles import/export of papers from/to BibTeX format
 """
 
 import re
-import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -30,10 +29,10 @@ _type_mapping_cache: Optional[Dict[str, Any]] = None
 def load_type_mapping_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     """
     Load BibTeX type mapping configuration from YAML file.
-    
+
     Args:
         config_path: Path to YAML config file. If None, uses default location.
-        
+
     Returns:
         Dictionary with type mappings and source-specific overrides
     """
@@ -50,7 +49,7 @@ def load_type_mapping_config(config_path: Optional[str] = None) -> Dict[str, Any
 
     if not config_path.exists():
         # Return minimal default mappings if config file not found
-        return {
+        _type_mapping_cache = {
             'type_mappings': {
                 'article': {'paper_type': 'journal_article', 'confidence': 0.95},
                 'inproceedings': {'paper_type': 'conference_paper', 'confidence': 0.95},
@@ -66,6 +65,7 @@ def load_type_mapping_config(config_path: Optional[str] = None) -> Dict[str, Any
             'source_overrides': {},
             'custom_mappings': {}
         }
+        return _type_mapping_cache
 
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f) or {}
@@ -81,18 +81,18 @@ def evaluate_paper_type(
 ) -> tuple[Optional[str], float]:
     """
     Evaluate paper type from BibTeX entry using configurable mappings.
-    
+
     This function tries multiple strategies:
     1. Source-specific type field and mapping
     2. Standard BibTeX entry type mapping
     3. Custom field mappings
     4. Fallback to entry type
-    
+
     Args:
         entry: BibTeX entry dictionary
         source_type: Source database type (scopus, wos, ieee, etc.)
         type_mapping_config: Loaded type mapping configuration
-        
+
     Returns:
         Tuple of (paper_type: str, confidence: float)
         Returns (None, 0.0) if no type could be determined
@@ -165,15 +165,15 @@ def evaluate_paper_type(
 def escape_ampersands_for_bibtex(text: Optional[str]) -> Optional[str]:
     """
     Escape ampersands for BibTeX format: replace & with \\&
-    
+
     Ensures ampersands in fields are properly escaped when exporting to BibTeX.
     """
     if not text:
         return text
-    
+
     # Only escape & that aren't already escaped
     text = re.sub(r'(?<!\\)&', r'\&', text)
-    
+
     return text
 
 
@@ -242,7 +242,7 @@ def bibtex_entry_to_paper(
     title = normalized['title']
     if not title:
         raise ValueError(f"BibTeX entry {cite_key} missing title")
-    
+
     abstract = normalized['abstract']
     authors = []
     if normalized['authors']:
@@ -263,13 +263,13 @@ def bibtex_entry_to_paper(
                     family_name = author_str
                     given_name = None
                     full_name = author_str
-            
+
             authors.append(Author(
                 family_name=family_name,
                 given_name=given_name,
                 full_name=full_name
             ))
-    
+
     keywords = normalized['keywords'] or []
     year = normalized['year']
     doi = normalized['doi']
@@ -430,7 +430,7 @@ def bibtex_file_to_papers(
 def format_authors_bibtex(authors: List[Author]) -> str:
     """
     Format authors for BibTeX
-    
+
     Format: "Last1, First1 and Last2, First2"
     """
 
@@ -450,7 +450,7 @@ def format_authors_bibtex(authors: List[Author]) -> str:
 def format_keywords_bibtex(keywords: List[str]) -> str:
     """
     Format keywords for BibTeX
-    
+
     Format: "keyword1, keyword2, keyword3"
     """
 
@@ -463,7 +463,7 @@ def format_keywords_bibtex(keywords: List[str]) -> str:
 def infer_bibtex_type(paper: Paper) -> str:
     """
     Infer BibTeX entry type from Paper
-    
+
     Uses paper_type if available (from screening or direct),
     otherwise infers from other fields
     """
@@ -501,12 +501,12 @@ def infer_bibtex_type(paper: Paper) -> str:
 def paper_to_bibtex_entry(paper: Paper, use_source_key: bool = False) -> Dict:
     """
     Convert Paper Pydantic model to BibTeX entry dictionary
-    
+
     Args:
         paper: Paper Pydantic model
         use_source_key: If True and source_key exists, use it as ID.
                        Otherwise use cite_key.
-    
+
     Returns:
         BibTeX entry dictionary
     """
@@ -582,11 +582,11 @@ def papers_to_bibtex(
 ) -> str:
     """
     Convert list of Paper models to BibTeX string
-    
+
     Args:
         papers: List of Paper Pydantic models
         use_source_key: Use source_key if available, otherwise cite_key
-    
+
     Returns:
         BibTeX formatted string
     """
@@ -619,7 +619,7 @@ def papers_to_bibtex_file(
 ) -> None:
     """
     Write papers to BibTeX file
-    
+
     Args:
         papers: List of Paper models
         filepath: Output .bib file path
@@ -639,7 +639,7 @@ def papers_to_bibtex_file(
 def format_bibtex_entry(entry: Dict) -> str:
     """
     Format single BibTeX entry dict as string
-    
+
     Useful for storing raw_bibtex in Paper model
     """
 
@@ -655,7 +655,7 @@ def format_bibtex_entry(entry: Dict) -> str:
 def clean_bibtex_string(bibtex_string: str) -> str:
     """
     Clean common issues in BibTeX strings
-    
+
     - Remove excessive whitespace
     - Remove empty entries
     - Standardize line endings
@@ -732,11 +732,11 @@ def export_papers_by_source(
 ) -> Dict[str, str]:
     """
     Export papers to separate BibTeX files by source type
-    
+
     Args:
         papers: List of Paper models
         output_dir: Directory to write files
-    
+
     Returns:
         Dict mapping source_type to output filepath
     """
@@ -772,11 +772,11 @@ def export_papers_by_decision(
 ) -> Dict[str, str]:
     """
     Export papers to separate files by screening decision
-    
+
     Args:
         papers: List of Paper models
         output_dir: Directory to write files
-    
+
     Returns:
         Dict mapping decision to output filepath
     """

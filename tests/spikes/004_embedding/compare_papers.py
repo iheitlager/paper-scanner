@@ -25,7 +25,7 @@ def compare_papers(citekey1, citekey2):
     for citekey in (citekey1, citekey2):
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 p.citekey, p.title, p.year, p.journal, p.authors,
                 pe.embedding
             FROM papers p
@@ -106,12 +106,12 @@ def compare_papers(citekey1, citekey2):
             JOIN papers p ON pe.paper_id = p.id
             WHERE p.citekey = %s AND pe.embedding_method = 'aggregate_chunks'
         )
-        SELECT 
+        SELECT
             p.citekey,
             p.title,
             (pe.embedding <=> (SELECT embedding FROM paper1)) as dist1,
             (pe.embedding <=> (SELECT embedding FROM paper2)) as dist2,
-            ((pe.embedding <=> (SELECT embedding FROM paper1)) + 
+            ((pe.embedding <=> (SELECT embedding FROM paper1)) +
              (pe.embedding <=> (SELECT embedding FROM paper2))) / 2 as avg_dist
         FROM papers p
         JOIN paper_embeddings pe ON p.id = pe.paper_id

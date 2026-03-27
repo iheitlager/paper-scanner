@@ -5,9 +5,6 @@ Tests the 404 marker creation, detection, and cache behavior with not-found entr
 """
 
 from datetime import datetime
-from pathlib import Path
-
-import pytest
 
 from paper_scanner.core.cache import (
     JSONFileCache,
@@ -22,7 +19,7 @@ class TestCreate404Marker:
     def test_create_404_marker_without_url(self):
         """Test creating a 404 marker without URL."""
         marker = create_404_marker(key="10.1234/test.doi")
-        
+
         assert marker["ITEM"] == "404 - NOT FOUND"
         assert marker["KEY"] == "10.1234/test.doi"
         assert "LAST-CHECKED" in marker
@@ -33,7 +30,7 @@ class TestCreate404Marker:
         """Test creating a 404 marker with URL."""
         url = "https://doi.org/10.1234/test"
         marker = create_404_marker(key="10.1234/test.doi", url=url)
-        
+
         assert marker["ITEM"] == "404 - NOT FOUND"
         assert marker["KEY"] == "10.1234/test.doi"
         assert marker["URL"] == url
@@ -42,7 +39,7 @@ class TestCreate404Marker:
     def test_404_marker_timestamp_is_iso_format(self):
         """Test that 404 marker timestamp is in ISO format."""
         marker = create_404_marker(key="10.1234/test.doi")
-        
+
         # Should be parseable as ISO datetime
         timestamp = marker["LAST-CHECKED"]
         parsed = datetime.fromisoformat(timestamp)
@@ -88,13 +85,13 @@ class TestCache404Behavior:
         cache = JSONFileCache(cache_dir=tmp_path)
         key = "10.1234/test.doi"
         marker = create_404_marker(key=key, url="https://doi.org/10.1234/test.doi")
-        
+
         # Store marker
         cache.set(key, marker)
-        
+
         # Retrieve marker
         retrieved = cache.get(key, ttl=-1)  # Never expire for this test
-        
+
         assert retrieved is not None
         assert is_404_marker(retrieved)
         assert retrieved["URL"] == "https://doi.org/10.1234/test.doi"
@@ -104,10 +101,10 @@ class TestCache404Behavior:
         cache = JSONFileCache(cache_dir=tmp_path)
         key = "10.1234/test.doi"
         marker = create_404_marker(key=key)
-        
+
         cache.set(key, marker)
         retrieved = cache.get(key, ttl=-1)
-        
+
         # get() returns the marker, not None
         assert retrieved is not None
         assert is_404_marker(retrieved)
@@ -116,12 +113,12 @@ class TestCache404Behavior:
         """Test caching multiple 404 markers."""
         cache = JSONFileCache(cache_dir=tmp_path)
         keys = ["10.1234/doi1", "10.1234/doi2", "10.1234/doi3"]
-        
+
         # Cache 404 markers for all keys
         for key in keys:
             marker = create_404_marker(key=key, url=f"https://doi.org/{key}")
             cache.set(key, marker)
-        
+
         # Verify all are cached as 404s
         for key in keys:
             retrieved = cache.get(key, ttl=-1)
@@ -130,24 +127,23 @@ class TestCache404Behavior:
     def test_404_marker_with_ttl_expiration(self, tmp_path):
         """Test that 404 markers respect TTL like normal cache entries."""
         import os
-        import time
-        
+
         cache = JSONFileCache(cache_dir=tmp_path, default_ttl=1)  # 1 day TTL
         key = "10.1234/test.doi"
         marker = create_404_marker(key=key)
-        
+
         cache.set(key, marker)
-        
+
         # Verify it's cached
         retrieved = cache.get(key, ttl=1)
         assert is_404_marker(retrieved)
-        
+
         # Set file mtime to 2 days ago
         cache_path = cache._get_cache_path(key)
         past_time = datetime.now() - __import__("datetime").timedelta(days=2)
         timestamp = past_time.timestamp()
         os.utime(cache_path, (timestamp, timestamp))
-        
+
         # Should expire now
         retrieved = cache.get(key, ttl=1)
         assert retrieved is None
@@ -161,32 +157,32 @@ class TestCache404Integration:
         """Test caching normal data, then replacing with 404 marker."""
         cache = JSONFileCache(cache_dir=tmp_path)
         key = "10.1234/test.doi"
-        
+
         # First, cache normal data
         normal_data = {"title": "Test Paper", "year": 2023}
         cache.set(key, normal_data)
-        
+
         retrieved = cache.get(key, ttl=-1)
         assert retrieved == normal_data
         assert not is_404_marker(retrieved)
-        
+
         # Then, replace with 404 marker
         marker = create_404_marker(key=key)
         cache.set(key, marker)
-        
+
         retrieved = cache.get(key, ttl=-1)
         assert is_404_marker(retrieved)
 
     def test_distinguish_404_marker_from_empty_dict(self, tmp_path):
         """Test that 404 markers can be distinguished from empty dicts."""
         cache = JSONFileCache(cache_dir=tmp_path)
-        
+
         # Cache empty dict
         cache.set("10.1234/empty", {})
         empty_result = cache.get("10.1234/empty", ttl=-1)
         assert empty_result == {}
         assert not is_404_marker(empty_result)
-        
+
         # Cache 404 marker
         cache.set("10.1234/notfound", create_404_marker(key="10.1234/notfound"))
         marker_result = cache.get("10.1234/notfound", ttl=-1)
@@ -196,11 +192,11 @@ class TestCache404Integration:
         """Test that 404 markers are stored while None returns are not."""
         cache = JSONFileCache(cache_dir=tmp_path)
         key = "10.1234/test.doi"
-        
+
         # When API returns None (404), we store a marker
         marker = create_404_marker(key=key)
         cache.set(key, marker)
-        
+
         # get() should return the marker, not None
         retrieved = cache.get(key, ttl=-1)
         assert retrieved is not None

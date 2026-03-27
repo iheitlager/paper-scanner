@@ -8,10 +8,11 @@ Run with:
     python test_01_metadata_screening_parse.py
 """
 
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import pytest
 import yaml
-from pathlib import Path
-from typing import Dict, Any, List, Optional
 
 
 class MetadataScreeningConfigParser:
@@ -27,10 +28,10 @@ class MetadataScreeningConfigParser:
     def parse_screening_step(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Extract metadata-screening step from config
-        
+
         Args:
             config: Full configuration dict (with 'steps' key at top level)
-            
+
         Returns:
             The metadata-screening step config or None if not found
         """
@@ -44,15 +45,15 @@ class MetadataScreeningConfigParser:
     def validate_exclude_criteria(exclude_config: Dict[str, Any]) -> tuple[bool, List[str]]:
         """
         Validate exclude criteria structure
-        
+
         Args:
             exclude_config: The exclude section of config
-            
+
         Returns:
             (is_valid, errors)
         """
         errors = []
-        
+
         # Each field should have a list of criteria
         for field, criteria in exclude_config.items():
             if not isinstance(criteria, list):
@@ -73,18 +74,18 @@ class MetadataScreeningConfigParser:
                             errors.append(f"Field '{field}': dict criteria must have 'NOT' key, got {list(criterion.keys())}")
                     else:
                         errors.append(f"Field '{field}': criteria must be strings or dicts, got {type(criterion).__name__}")
-        
+
         return len(errors) == 0, errors
 
     @staticmethod
     def parse_not_operator(criterion: Any) -> Optional[str]:
         """
         Parse NOT operator from criterion
-        
+
         Accepts both formats:
         - Dict syntax: {"NOT": "en"}
         - String syntax: "NOT: en"
-        
+
         Returns the value after NOT or None if not present
         """
         if isinstance(criterion, dict):
@@ -97,7 +98,7 @@ class MetadataScreeningConfigParser:
     def extract_exclude_logic(exclude_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         """
         Extract exclude logic from config into structured format
-        
+
         Returns:
         {
             "field_name": {
@@ -107,11 +108,11 @@ class MetadataScreeningConfigParser:
         }
         """
         logic = {}
-        
+
         for field, criteria in exclude_config.items():
             exclude_all_except = None
             hard_excludes = []
-            
+
             for criterion in criteria:
                 not_value = MetadataScreeningConfigParser.parse_not_operator(criterion)
                 if not_value:
@@ -123,12 +124,12 @@ class MetadataScreeningConfigParser:
                         pass
                     elif isinstance(criterion, str):
                         hard_excludes.append(criterion)
-            
+
             logic[field] = {
                 "exclude_all_except": exclude_all_except,
                 "hard_excludes": hard_excludes
             }
-        
+
         return logic
 
 
@@ -148,7 +149,7 @@ class TestYAMLLoading:
         """Should load YAML file successfully"""
         parser = MetadataScreeningConfigParser()
         config = parser.load_yaml_config(str(config_file))
-        
+
         assert config is not None
         assert "pipeline" in config
         assert "steps" in config
@@ -157,7 +158,7 @@ class TestYAMLLoading:
         """Should have multiple steps"""
         parser = MetadataScreeningConfigParser()
         config = parser.load_yaml_config(str(config_file))
-        
+
         steps = config["steps"]
         assert len(steps) >= 2, "Should have at least 2 steps"
 
@@ -177,7 +178,7 @@ class TestScreeningStepParsing:
         """Should extract metadata-screening step from config"""
         parser = MetadataScreeningConfigParser()
         screening_config = parser.parse_screening_step(config)
-        
+
         assert screening_config is not None, "metadata-screening step not found"
         assert "exclude" in screening_config
 
@@ -185,7 +186,7 @@ class TestScreeningStepParsing:
         """Should have exclude section"""
         parser = MetadataScreeningConfigParser()
         screening_config = parser.parse_screening_step(config)
-        
+
         exclude = screening_config.get("exclude", {})
         assert "language" in exclude
         assert "paper_types" in exclude
@@ -194,14 +195,14 @@ class TestScreeningStepParsing:
         """Should NOT have include section"""
         parser = MetadataScreeningConfigParser()
         screening_config = parser.parse_screening_step(config)
-        
+
         assert "include" not in screening_config, "include section should be removed"
 
     def test_screening_step_no_value_mapping(self, config):
         """Should NOT have value_mapping section"""
         parser = MetadataScreeningConfigParser()
         screening_config = parser.parse_screening_step(config)
-        
+
         assert "value_mapping" not in screening_config, "value_mapping should be removed"
 
 
@@ -215,7 +216,7 @@ class TestExcludeCriteriaValidation:
         }
         parser = MetadataScreeningConfigParser()
         is_valid, errors = parser.validate_exclude_criteria(exclude_config)
-        
+
         assert is_valid is True
         assert errors == []
 
@@ -226,7 +227,7 @@ class TestExcludeCriteriaValidation:
         }
         parser = MetadataScreeningConfigParser()
         is_valid, errors = parser.validate_exclude_criteria(exclude_config)
-        
+
         assert is_valid is True
         assert errors == []
 
@@ -237,7 +238,7 @@ class TestExcludeCriteriaValidation:
         }
         parser = MetadataScreeningConfigParser()
         is_valid, errors = parser.validate_exclude_criteria(exclude_config)
-        
+
         assert is_valid is True
         assert errors == []
 
@@ -248,7 +249,7 @@ class TestExcludeCriteriaValidation:
         }
         parser = MetadataScreeningConfigParser()
         is_valid, errors = parser.validate_exclude_criteria(exclude_config)
-        
+
         assert is_valid is True
         assert errors == []
 
@@ -259,7 +260,7 @@ class TestExcludeCriteriaValidation:
         }
         parser = MetadataScreeningConfigParser()
         is_valid, errors = parser.validate_exclude_criteria(exclude_config)
-        
+
         assert is_valid is False
         assert len(errors) > 0
 
@@ -270,7 +271,7 @@ class TestExcludeCriteriaValidation:
         }
         parser = MetadataScreeningConfigParser()
         is_valid, errors = parser.validate_exclude_criteria(exclude_config)
-        
+
         assert is_valid is False
         assert len(errors) > 0
 
@@ -282,28 +283,28 @@ class TestParseNotOperator:
         """Should extract value from NOT: operator"""
         parser = MetadataScreeningConfigParser()
         value = parser.parse_not_operator("NOT: en")
-        
+
         assert value == "en"
 
     def test_parse_not_operator_with_whitespace(self):
         """Should handle whitespace around NOT: operator"""
         parser = MetadataScreeningConfigParser()
         value = parser.parse_not_operator("NOT:   en   ")
-        
+
         assert value == "en"
 
     def test_parse_not_operator_absent(self):
         """Should return None when NOT: not present"""
         parser = MetadataScreeningConfigParser()
         value = parser.parse_not_operator("editorial")
-        
+
         assert value is None
 
     def test_parse_not_operator_complex_value(self):
         """Should handle complex values after NOT:"""
         parser = MetadataScreeningConfigParser()
         value = parser.parse_not_operator("NOT: journal_article")
-        
+
         assert value == "journal_article"
 
 
@@ -317,7 +318,7 @@ class TestExtractExcludeLogic:
         }
         parser = MetadataScreeningConfigParser()
         logic = parser.extract_exclude_logic(exclude_config)
-        
+
         assert "language" in logic
         assert logic["language"]["exclude_all_except"] == "en"
         assert logic["language"]["hard_excludes"] == []
@@ -329,7 +330,7 @@ class TestExtractExcludeLogic:
         }
         parser = MetadataScreeningConfigParser()
         logic = parser.extract_exclude_logic(exclude_config)
-        
+
         assert "study_types" in logic
         assert logic["study_types"]["exclude_all_except"] is None
         assert set(logic["study_types"]["hard_excludes"]) == {"editorial", "conceptual", "theoretical"}
@@ -341,7 +342,7 @@ class TestExtractExcludeLogic:
         }
         parser = MetadataScreeningConfigParser()
         logic = parser.extract_exclude_logic(exclude_config)
-        
+
         assert logic["study_types"]["exclude_all_except"] == "empirical"
         assert "editorial" in logic["study_types"]["hard_excludes"]
 
@@ -354,7 +355,7 @@ class TestExtractExcludeLogic:
         }
         parser = MetadataScreeningConfigParser()
         logic = parser.extract_exclude_logic(exclude_config)
-        
+
         assert len(logic) == 3
         assert logic["language"]["exclude_all_except"] == "en"
         assert logic["paper_types"]["exclude_all_except"] == "journal_article"
@@ -374,8 +375,8 @@ class TestIntegrationYAMLParsing:
 
     def test_full_pipeline_parsing(self, config):
         """Should parse entire config"""
-        parser = MetadataScreeningConfigParser()
-        
+        MetadataScreeningConfigParser()
+
         assert "pipeline" in config
         assert "version" in config["pipeline"]
         assert "steps" in config
@@ -384,7 +385,7 @@ class TestIntegrationYAMLParsing:
         """Should parse complete screening step"""
         parser = MetadataScreeningConfigParser()
         screening_config = parser.parse_screening_step(config)
-        
+
         assert screening_config is not None
         is_valid, errors = parser.validate_exclude_criteria(screening_config["exclude"])
         assert is_valid is True, f"Validation errors: {errors}"
@@ -394,10 +395,10 @@ class TestIntegrationYAMLParsing:
         parser = MetadataScreeningConfigParser()
         screening_config = parser.parse_screening_step(config)
         logic = parser.extract_exclude_logic(screening_config["exclude"])
-        
+
         assert "language" in logic
         assert "paper_types" in logic
-        
+
         # Verify NOT: logic
         assert logic["language"]["exclude_all_except"] == "en"
         assert logic["paper_types"]["exclude_all_except"] == "journal_article"
@@ -424,7 +425,7 @@ def run_manual_tests():
     # Test 2: Extract screening step
     print("\n[Test 2] Extracting metadata-screening step")
     screening_config = parser.parse_screening_step(config)
-    print(f"  Found metadata-screening step")
+    print("  Found metadata-screening step")
     print(f"  Has exclude: {'exclude' in screening_config}")
     print(f"  Has include: {'include' in screening_config}")
     print(f"  Has value_mapping: {'value_mapping' in screening_config}")
@@ -445,7 +446,7 @@ def run_manual_tests():
     # Test 4: Extract exclude logic
     print("\n[Test 4] Extracting exclude logic")
     logic = parser.extract_exclude_logic(screening_config["exclude"])
-    
+
     for field, field_logic in logic.items():
         print(f"  {field}:")
         if field_logic["exclude_all_except"]:

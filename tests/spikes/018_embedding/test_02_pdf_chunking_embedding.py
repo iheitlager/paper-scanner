@@ -3,7 +3,7 @@
 Spike 018: Test 2 - PDF Chunking & Embedding
 =============================================
 
-Test PDF extraction, intelligent chunking with section detection, 
+Test PDF extraction, intelligent chunking with section detection,
 and embedding generation for paper text chunks.
 
 This test:
@@ -31,11 +31,11 @@ import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import numpy as np
-from sentence_transformers import SentenceTransformer, util
 import torch
+from sentence_transformers import SentenceTransformer, util
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
@@ -62,7 +62,7 @@ class PDFEmbeddingPipeline:
         chunk_overlap: int = 50,
     ):
         """Initialize PDF embedding pipeline.
-        
+
         Args:
             model_name: Hugging Face model identifier
             device: "cpu" or "cuda"
@@ -100,10 +100,10 @@ class PDFEmbeddingPipeline:
 
     def embed_text(self, text: Optional[str]) -> Optional[List[float]]:
         """Generate embedding for a text string.
-        
+
         Args:
             text: Text to embed
-            
+
         Returns:
             List of floats (768 dimensions) or None if text is empty
         """
@@ -121,11 +121,11 @@ class PDFEmbeddingPipeline:
         self, vector: List[float], text_source: str
     ) -> Embedding:
         """Create an Embedding model object.
-        
+
         Args:
             vector: Embedding vector
             text_source: Description of what was embedded
-            
+
         Returns:
             Embedding model instance
         """
@@ -148,10 +148,10 @@ class PDFEmbeddingPipeline:
 
     def process_paper_pdf(self, paper: Paper) -> int:
         """Process a paper PDF and generate chunk embeddings.
-        
+
         Args:
             paper: Paper object with pdf_info.file_path
-            
+
         Returns:
             Number of chunks processed (0 if no PDF or error)
         """
@@ -163,7 +163,7 @@ class PDFEmbeddingPipeline:
             return 0
 
         pdf_path = Path(paper.pdf_info.file_path)
-        
+
         if not pdf_path.exists():
             logger.warning(f"PDF not found: {pdf_path}")
             return 0
@@ -188,19 +188,19 @@ class PDFEmbeddingPipeline:
             for raw_chunk_index, chunk in enumerate(chunks):
                 try:
                     logger.debug(f"    [Chunk {raw_chunk_index + 1}/{len(chunks)}] Processing...")
-                    
+
                     # Extract chunk text
                     chunk_text = chunk.get("content", chunk.get("text", ""))
                     section = chunk.get("section", None)
 
                     if not chunk_text.strip():
-                        logger.debug(f"      ✗ Skipped: empty text")
+                        logger.debug("      ✗ Skipped: empty text")
                         continue
 
                     # Generate embedding for chunk
                     embedding_vector = self.embed_text(chunk_text)
                     if not embedding_vector:
-                        logger.debug(f"      ✗ Skipped: embedding failed")
+                        logger.debug("      ✗ Skipped: embedding failed")
                         continue
 
                     embedding_obj = self.create_embedding_object(
@@ -252,10 +252,10 @@ class PDFEmbeddingPipeline:
 
     def process_papers(self, papers: List[Paper]) -> int:
         """Process a list of papers.
-        
+
         Args:
             papers: List of Paper objects
-            
+
         Returns:
             Total number of chunks processed
         """
@@ -271,15 +271,15 @@ class PDFEmbeddingPipeline:
 
     def aggregate_paper_embedding(self, paper: Paper) -> Optional[Embedding]:
         """Aggregate chunk embeddings into a single paper-level embedding.
-        
+
         Strategy (MVP): Average all chunk embeddings
         - Respects paper structure via section-aware chunks
         - Simple and fast computation
         - Future: Can upgrade to weighted average (higher weight for abstract, intro, conclusion)
-        
+
         Args:
             paper: Paper with populated text_chunks
-            
+
         Returns:
             Aggregated Embedding (768-dim vector) or None if no chunks
         """
@@ -302,7 +302,7 @@ class PDFEmbeddingPipeline:
 
         # Simple strategy: Average all chunk embeddings
         mean_vector = np.mean(chunk_vectors, axis=0)
-        
+
         # Ensure it's a list and proper dimensions
         mean_vector_list = mean_vector.tolist()
 
@@ -315,17 +315,17 @@ class PDFEmbeddingPipeline:
         self, papers: List[Paper], query: str, top_k: int = 5
     ) -> List[tuple]:
         """Search across all paper chunks using semantic similarity.
-        
+
         Demonstrates fine-grained search at chunk level:
         - Each TextChunk has embedding.vector (768-dim)
         - section field indicates (intro, methods, results, etc.)
         - Enables finding specific discussion in papers
-        
+
         Args:
             papers: List of papers with text_chunks populated
             query: Search query text
             top_k: Number of top results to return
-            
+
         Returns:
             List of (paper, chunk, similarity_score) tuples sorted by similarity
         """
@@ -362,7 +362,7 @@ def print_results(
     pipeline: PDFEmbeddingPipeline, papers: List[Paper]
 ) -> None:
     """Print summary of PDF chunking and embedding results.
-    
+
     Args:
         pipeline: PDFEmbeddingPipeline instance
         papers: List of papers processed
@@ -375,7 +375,7 @@ def print_results(
     print(f"Chunk size: {pipeline.chunk_size} tokens")
     print(f"Chunk overlap: {pipeline.chunk_overlap} tokens")
 
-    print(f"\nStatistics:")
+    print("\nStatistics:")
     print(f"  Papers processed: {pipeline.stats['papers_processed']}")
     print(f"  PDFs found: {pipeline.stats['pdfs_found']}")
     print(f"  PDFs successfully processed: {pipeline.stats['pdfs_processed']}")
@@ -407,7 +407,7 @@ def print_results(
 
             # Show sample chunks
             if paper.text_chunks:
-                print(f"   Sample chunks:")
+                print("   Sample chunks:")
                 for j, chunk in enumerate(paper.text_chunks[:2], 1):
                     text_preview = chunk.text[:60].replace("\n", " ") + "..."
                     print(
@@ -504,7 +504,7 @@ def main():
     try:
         # Load papers from pre-prepared JSONL with PDF attachments
         from paper_scanner.core.models import Paper
-        
+
         papers = []
         logger.info(f"Loading papers from JSONL: {jsonl_path}")
         with open(jsonl_path, 'r') as f:
@@ -513,7 +513,7 @@ def main():
                     paper_dict = json.loads(line)
                     paper = Paper.model_validate(paper_dict)
                     papers.append(paper)
-        
+
         logger.info(f"✓ Loaded {len(papers)} papers with PDF attachments")
 
         # Initialize pipeline

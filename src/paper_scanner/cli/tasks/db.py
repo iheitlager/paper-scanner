@@ -7,7 +7,7 @@ Uses environment variables for sensitive configuration (via dotenv).
 Configuration supports two modes:
 1. Direct database URL:
    --database-url "postgresql://user:password@localhost:5432/pdfdb"
-   
+
 2. Environment variables:
    Sets DATABASE_URL via .env file or command line
    Falls back to individual components: DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME
@@ -32,18 +32,18 @@ def execute_db_stats(
 ) -> int:
     """
     Display database statistics overview.
-    
+
     Shows record counts for main tables: papers and citations.
     Supports configuration via:
     - Explicit database_url parameter
     - Environment variables (DATABASE_URL or individual components)
-    
+
     Args:
         database_url: PostgreSQL connection URL (optional, uses env if not provided)
         cache_dir: Cache directory (unused but for consistency with task interface)
         console: Optional Rich console instance (uses stderr by default)
         verbose: Enable verbose output
-        
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
@@ -88,7 +88,7 @@ def execute_db_stats(
 
             # Get additional statistics
             cursor.execute("""
-                SELECT 
+                SELECT
                     COUNT(DISTINCT year) as unique_years,
                     MIN(year) as earliest_year,
                     MAX(year) as latest_year,
@@ -100,7 +100,7 @@ def execute_db_stats(
             unique_years, earliest_year, latest_year, validated_count = stats or (0, None, None, 0)
 
             cursor.execute("""
-                SELECT COUNT(*) FROM paper_screening 
+                SELECT COUNT(*) FROM paper_screening
                 WHERE final_decision IS NOT NULL
             """)
             screened_count = cursor.fetchone()[0]
@@ -232,11 +232,11 @@ def execute_db_clear(
 ) -> int:
     """
     Clear records from database tables.
-    
+
     Supports clearing:
     - "all": All tables (respecting foreign key dependencies)
     - Specific table name: Only that table
-    
+
     Args:
         target: "all" or specific table name
         database_url: PostgreSQL connection URL (optional, uses env if not provided)
@@ -244,7 +244,7 @@ def execute_db_clear(
         console: Optional Rich console instance (uses stderr by default)
         verbose: Enable verbose output
         dry_run: Show what would be cleared without actually doing it
-        
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """

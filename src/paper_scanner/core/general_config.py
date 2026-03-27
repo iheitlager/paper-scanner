@@ -12,7 +12,7 @@ from typing import Any, Dict
 class GeneralConfigLoader:
     """
     Loader for general project configuration from YAML definitions.
-    
+
     Maps YAML definition keys to internal general_config keys.
     Provides sensible defaults for optional fields.
     """
@@ -32,7 +32,7 @@ class GeneralConfigLoader:
     def get_defaults() -> Dict[str, Any]:
         """
         Get default values for general_config fields.
-        
+
         Returns:
             Dictionary with default values
         """
@@ -50,10 +50,10 @@ class GeneralConfigLoader:
     def load(general_config: Dict[str, Any], project_config: Dict[str, Any]) -> None:
         """
         Load configuration from project definition into general_config.
-        
+
         Updates general_config in-place with values from project_config.
         Only updates fields that are present in project_config.
-        
+
         Args:
             general_config: The general_config dict to update (modified in-place)
             project_config: The "project" section from YAML definition

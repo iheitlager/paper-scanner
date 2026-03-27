@@ -6,10 +6,7 @@ and verifies end-to-end citation persistence.
 """
 
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, Mock, patch
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 from paper_scanner.core.enum import CitationDirection, DiscoveryMethod, PaperType
 from paper_scanner.core.models import Author, Citation, Paper
@@ -65,7 +62,7 @@ class TestCitationEdgeInsertion:
             citations=[self.create_citation(doi="10.1234/cited")],
         )
 
-        paper2 = self.create_paper_with_citations(
+        self.create_paper_with_citations(
             cite_key="paper2",
         )
 

@@ -26,7 +26,7 @@ def build_custom_pipeline(
 ) -> Definition:
     """
     Factory function to build pipelines with conditional steps.
-    
+
     Args:
         project_name: Name of the research project
         sources: List of BibTeX sources to import
@@ -35,7 +35,7 @@ def build_custom_pipeline(
         screen_by_keywords: Whether to screen by keywords
         keywords: List of keywords for screening
         dry_run: Dry run mode
-    
+
     Returns:
         Configured Definition object
     """

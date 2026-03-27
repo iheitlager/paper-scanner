@@ -5,7 +5,7 @@ Tests PDF caching, handler integration, and error handling for PDF downloads.
 """
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 from paper_scanner.core.models import PDFInfo
 from paper_scanner.tools.fetchers.fetcher import Fetcher

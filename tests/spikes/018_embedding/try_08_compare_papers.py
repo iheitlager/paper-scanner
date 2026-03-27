@@ -11,13 +11,12 @@ Shows:
 - Papers similar to both
 """
 
-import sys
 import os
-from datetime import datetime
-from dotenv import load_dotenv
+import sys
 
 import numpy as np
 import psycopg2
+from dotenv import load_dotenv
 from pgvector.psycopg2 import register_vector
 
 # Load environment
@@ -36,7 +35,7 @@ def get_db_url():
 
 def compare_papers(citekey1, citekey2):
     """Detailed comparison of two papers"""
-    
+
     conn = psycopg2.connect(get_db_url())
     register_vector(conn)
     cursor = conn.cursor()
@@ -46,7 +45,7 @@ def compare_papers(citekey1, citekey2):
     for citekey in (citekey1, citekey2):
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 p.cite_key, p.title, p.year, p.journal,
                 pe.embedding, pe.embedding_method, pe.created_at
             FROM papers p
@@ -65,7 +64,7 @@ def compare_papers(citekey1, citekey2):
             return False
 
         cite_key, title, year, journal, embedding, method, created = result
-        
+
         if embedding is None:
             print(f"⚠️  Paper {citekey} has no embedding yet")
             cursor.close()

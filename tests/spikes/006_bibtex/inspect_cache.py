@@ -32,11 +32,11 @@ def get_cache_dir() -> Path:
 def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[str] = None) -> Tuple[Dict[str, Any], int]:
     """
     Validate all cache files and return statistics.
-    
+
     Args:
         export_errors: Optional path to export not found records as JSON
         export_failed: Optional path to export invalid/failed records as JSON
-    
+
     Returns:
         Tuple of (stats dict, error count)
     """
@@ -184,11 +184,11 @@ def validate_cache(export_errors: Optional[str] = None, export_failed: Optional[
 def build_ascii_histogram(papers_by_year: Dict[int, int], max_width: int = 50) -> str:
     """
     Build an ASCII histogram of papers per year.
-    
+
     Args:
         papers_by_year: Dict mapping year to paper count
         max_width: Maximum width of the histogram bar
-        
+
     Returns:
         Formatted ASCII histogram string
     """
@@ -210,10 +210,10 @@ def build_ascii_histogram(papers_by_year: Dict[int, int], max_width: int = 50) -
 
 def get_random_record(failed_only: bool = False) -> Optional[Dict[str, Any]]:
     """Get a random cached record from the cache directory and return it.
-    
+
     Args:
         failed_only: If True, only return records with no references (failed records)
-    
+
     Returns:
         A random cached record, or None if none found
     """

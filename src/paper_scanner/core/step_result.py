@@ -42,7 +42,7 @@ class StepResult:
 
         Allows: result['message'] → result.message
         Preferred: Use attribute access directly (result.message)
-        
+
         Also checks stats dict for keys not found as direct attributes.
 
         Args:

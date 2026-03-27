@@ -17,9 +17,9 @@ import hashlib
 import importlib
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type
 
 import yaml
 
@@ -27,11 +27,11 @@ from paper_scanner.cli import STEP_REGISTRY_PATHS
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.exceptions import CheckpointError, ConfigurationError, PipelineExecutionError, StepError
-from paper_scanner.core.step_result import FINAL_STEP, StepResult
 from paper_scanner.core.general_config import GeneralConfigLoader
+from paper_scanner.core.reporter import NOOP
+from paper_scanner.core.step_result import FINAL_STEP, StepResult
 from paper_scanner.steps.base import BaseStep
 from paper_scanner.steps.halt import HaltException
-from paper_scanner.core.reporter import NOOP
 
 if TYPE_CHECKING:
     from paper_scanner.core.reporter import AbstractStepReporter
@@ -696,7 +696,7 @@ class StepExecutor:
             if self.step_reporter:
                 self.step_reporter.on_step_start(self.current_step_index, step_config, total=len(self.steps))
 
-            if step_config.get("enabled", True) != False:
+            if step_config.get("enabled", True):
                 # Handle run-template: recursively execute template steps
                 if step_name == "run-template":
                     result = self._execute_template(step_params, description, dry_run)
@@ -842,7 +842,7 @@ class StepExecutor:
             # ConfigurationError propagates for invalid config
             step_name, step_params, step_desc = self.parse_step_config(template_step)
 
-            self.step_reporter.on_step_event(f"Executing template '{template_name}' step: '{step_name}'") 
+            self.step_reporter.on_step_event(f"Executing template '{template_name}' step: '{step_name}'")
             if step_name == "run-template":
                 # Nested template call
                 result = self._execute_template(step_params, step_desc, dry_run)

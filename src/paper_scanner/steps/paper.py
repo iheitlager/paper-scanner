@@ -11,10 +11,10 @@ from typing import Any, Dict, List, Tuple
 
 from rich.console import Console
 
+from paper_scanner.core.cite_key import generate_doi_based_cite_key
 from paper_scanner.core.doi import DOI
 from paper_scanner.core.enum import DiscoveryMethod, PaperType, StepStatus, StudyType
 from paper_scanner.core.models import Discovery, Paper
-from paper_scanner.core.cite_key import generate_doi_based_cite_key
 
 from .base import BaseStep
 
@@ -155,9 +155,8 @@ class PaperStep(BaseStep):
                         paper_type = PaperType(paper_type_str)
 
                     # Parse optional study_type (for future use)
-                    study_type = None
                     if study_type_str:
-                        study_type = StudyType(study_type_str)
+                        StudyType(study_type_str)
 
                     # Create Paper object
                     paper = Paper(

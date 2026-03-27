@@ -405,10 +405,10 @@ class HaltStep(Step):
 class Definition:
     """
     Fluent builder for paper-scanner processing pipelines.
-    
+
     Allows construction of processing pipelines entirely in Python with
     full type safety and IDE support.
-    
+
     Example:
         >>> pipeline = (
         ...     Definition("My Project")
@@ -431,7 +431,7 @@ class Definition:
     ):
         """
         Initialize a new Definition.
-        
+
         Args:
             name: Project name
             description: Project description
@@ -590,11 +590,11 @@ class Definition:
     def run(self, verbose: bool = False, dry_run: bool = False):
         """
         Execute the pipeline.
-        
+
         Args:
             verbose: Enable verbose output
             dry_run: Don't actually execute
-        
+
         Returns:
             Execution results
         """
@@ -668,7 +668,7 @@ def create_standard_pipeline(
 ) -> Definition:
     """
     Create a standard processing pipeline.
-    
+
     Args:
         project_name: Name of the project
         sources: List of BibTeX sources to import
@@ -676,7 +676,7 @@ def create_standard_pipeline(
         categorize: Whether to categorize papers
         export_format: Export format (jsonl, bibtex, csv)
         output_path: Path for export file
-    
+
     Returns:
         Configured Definition object
     """

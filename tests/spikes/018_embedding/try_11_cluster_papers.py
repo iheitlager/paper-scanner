@@ -13,13 +13,13 @@ Examples:
     python try_11_cluster_papers.py 4         # 4 clusters
 """
 
-import sys
 import json
 import os
-from dotenv import load_dotenv
+import sys
 
 import numpy as np
 import psycopg2
+from dotenv import load_dotenv
 from pgvector.psycopg2 import register_vector
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
@@ -94,7 +94,7 @@ def cluster_papers(n_clusters=3):
         silhouette = None
 
     # Step 3: Analyze and insert clusters
-    print(f"\n[Step 3/4] Analyzing clusters and inserting into database...")
+    print("\n[Step 3/4] Analyzing clusters and inserting into database...")
 
     cluster_db_ids = {}  # Map cluster_idx -> db_id
 
@@ -178,8 +178,8 @@ def cluster_papers(n_clusters=3):
     conn.commit()
 
     # Step 4: Display summary
-    print(f"\n[Step 4/4] Clustering complete!")
-    print(f"\n  Summary:")
+    print("\n[Step 4/4] Clustering complete!")
+    print("\n  Summary:")
     print(f"    - Papers clustered: {len(paper_db_ids)}")
     print(f"    - Number of clusters: {n_clusters}")
     silhouette_str = f"{silhouette:.3f}" if silhouette else "N/A"

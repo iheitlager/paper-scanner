@@ -66,17 +66,17 @@ class PapersExporter:
         Get all papers with:
         - screening_stage in ('stage2_pass', 'stage2_review', 'stage3_review', etc.)
         - file_path is not NULL
-        
+
         Returns list of paper records as dictionaries
         """
         cursor = self.conn.cursor(cursor_factory=RealDictCursor)
 
         query = """
-        SELECT 
+        SELECT
             p.*
         FROM papers p
         JOIN paper_screening ps ON p.id = ps.paper_id
-        WHERE 
+        WHERE
             ps.screening_stage IN (
                 'stage2_pass',
                 'stage2_review',
@@ -101,7 +101,7 @@ class PapersExporter:
     def serialize_paper(self, paper: Dict) -> str:
         """
         Serialize paper record to JSON string.
-        
+
         Handles special types (datetime, etc.) for JSON serialization.
         """
         # Create a copy to avoid modifying original
@@ -117,7 +117,7 @@ class PapersExporter:
     def export_jsonl(self) -> int:
         """
         Export papers as JSONL to stdout.
-        
+
         Returns: number of papers exported
         """
         papers = self.get_papers_for_processing()

@@ -20,10 +20,10 @@ Updates SemanticScreening with:
 Configuration options:
   - model: Sentence transformer model ID (default: "all-mpnet-base-v2")
     Options: "specter2", "sciBERT", "all-mpnet-base-v2", "all-MiniLM-L6-v2"
-  
+
   - dimension_threshold: float [0-1] - Similarity threshold for dimension applicability
     (default: 0.5)
-  
+
   - initialize_from_research_question: bool - Initialize centroids from research question
     if no training data available (default: true)
 
@@ -38,7 +38,6 @@ Example YAML:
 import logging
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from paper_scanner.core.enum import ScreeningDecision, StepStatus

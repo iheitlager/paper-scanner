@@ -28,7 +28,6 @@ Example YAML:
 import logging
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from paper_scanner.core.enum import ScreeningDecision, StepStatus
@@ -46,7 +45,7 @@ logging.getLogger("anthropic").setLevel(logging.WARNING)
 class LLMClassificationStep(BaseStep):
     """LLM-based paper classification using Claude."""
 
-    SYSTEM_PROMPT_TEMPLATE = """You are an expert academic paper classifier. 
+    SYSTEM_PROMPT_TEMPLATE = """You are an expert academic paper classifier.
 Your task is to classify research papers based on predefined research dimensions.
 
 You will be provided with:

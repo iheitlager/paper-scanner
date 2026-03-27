@@ -15,9 +15,9 @@ from unittest.mock import Mock, patch
 import pytest
 import yaml
 
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.exceptions import PipelineExecutionError
 from paper_scanner.core.executor import StepExecutor
-from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.reporter import NoOpReporter
 
 # ============================================================================

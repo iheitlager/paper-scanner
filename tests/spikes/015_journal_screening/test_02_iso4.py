@@ -4,6 +4,7 @@ Tests ISO4 abbreviation generation from full journal names.
 ISO4 (International Standard 4) is the standard for journal title abbreviations.
 """
 import pytest
+
 from paper_scanner.core.iso4 import ISO4Generator
 
 
@@ -21,7 +22,7 @@ class TestISO4Generator:
             ("Technovation", "Technovation"),
             ("Sustainability", "Sustain."),
         ]
-        
+
         for full_name, expected_iso4 in test_cases:
             result = generator.generate(full_name)
             print(f"\n{full_name:50} → {result}")
@@ -33,7 +34,7 @@ class TestISO4Generator:
             ("Academy Journal", "Acad. J."),
             ("Information Systems", "Inf. Syst."),
         ]
-        
+
         for full_name, expected_iso4 in test_cases:
             result = generator.generate(full_name)
             print(f"\n{full_name:50} → {result}")
@@ -46,7 +47,7 @@ class TestISO4Generator:
             ("IEEE Transactions on Engineering Management", "IEEE Trans. Eng. Manag."),
             ("International Journal of Production Economics", "Int. J. Prod. Econ."),
         ]
-        
+
         for full_name, expected_iso4 in test_cases:
             result = generator.generate(full_name)
             print(f"\n{full_name:50} → {result}")
@@ -59,7 +60,7 @@ class TestISO4Generator:
             "Supply Chain Management - An International Journal",
             "Renewable and Sustainable Energy Reviews",
         ]
-        
+
         for full_name in test_cases:
             result = generator.generate(full_name)
             print(f"\n{full_name:50} → {result}")
@@ -72,7 +73,7 @@ class TestISO4Generator:
             "Supply Chain Management - An International Journal",
             "Innovation - Organization & Management",
         ]
-        
+
         for full_name in test_cases:
             result = generator.generate(full_name)
             print(f"\n{full_name:50} → {result}")
@@ -91,7 +92,7 @@ class TestISO4Generator:
             ("Journal of Management Information Systems", "J. Manag. Inf. Syst."),
             ("California Management Review", "Calif. Manag. Rev."),
         ]
-        
+
         for full_name, expected_iso4 in test_cases:
             result = generator.generate(full_name)
             print(f"\n{full_name:50} → {result:30} (expected: {expected_iso4})")
@@ -110,7 +111,7 @@ class TestISO4Generator:
             generator.generate("JOURNAL OF BUSINESS RESEARCH"),
             generator.generate("journal of business research"),
         ]
-        
+
         print(f"\nCase variants: {results}")
         # Results should be consistent
         assert len(set(results)) == 1, "Case handling inconsistent"
@@ -121,7 +122,7 @@ class TestISO4Generator:
             generator.generate("Journal of Business Research"),
             generator.generate("Journal  of  Business  Research"),
         ]
-        
+
         print(f"\nWhitespace variants: {results}")
         assert results[0] == results[1], "Whitespace handling inconsistent"
 
@@ -134,7 +135,7 @@ class TestISO4Generator:
             "Journal of Business Research": "J. Bus. Res.",
             "Technology in Society": "Technol. Soc.",
         }
-        
+
         for journal_name, expected_iso4 in definitions.items():
             generated = generator.generate(journal_name)
             print(f"\n{journal_name:50} → {generated:30} (expected: {expected_iso4})")
@@ -147,7 +148,7 @@ class TestISO4Generator:
             ("", None),
             ("   ", None),
         ]
-        
+
         for input_val, expected in test_cases:
             result = generator.generate(input_val)
             print(f"\nInput: {repr(input_val):20} → {result}")
@@ -160,7 +161,7 @@ class TestISO4Generator:
             "Studies in Big Data",
             "Lecture Notes in Computer Science",
         ]
-        
+
         for full_name in test_cases:
             result = generator.generate(full_name)
             print(f"\n{full_name:50} → {result}")

@@ -58,7 +58,7 @@ def find_similar_papers(citekey, limit=5):
     # Find similar papers using vector similarity
     cursor.execute(
         """
-        SELECT 
+        SELECT
             p2.citekey,
             p2.title,
             p2.year,

@@ -4,15 +4,16 @@ Unit tests for rocchio_classifier step.
 Tests both validator and executor for the Rocchio dimension-based classification step.
 """
 
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
 from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock, patch
 
-from paper_scanner.core.models import Paper, Screening
+import pytest
+
 from paper_scanner.core.enum import ScreeningDecision, StepStatus
-from paper_scanner.core.step_result import StepResult
 from paper_scanner.core.exceptions import ConfigurationError, StepFatalError
+from paper_scanner.core.models import Paper, Screening
+from paper_scanner.core.step_result import StepResult
 from paper_scanner.steps.rocchio_classifier import RocchioClassifierStep, _RocchioClassifier
 
 
