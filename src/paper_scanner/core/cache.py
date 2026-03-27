@@ -82,7 +82,7 @@ class JSONFileCache:
         from paper_scanner.core.paths import get_json_cache_dir
         cache_dir = get_json_cache_dir(cache_dir)
 
-        self.cache_dir = Path(cache_dir).expanduser()
+        self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.default_ttl = timedelta(days=default_ttl) if isinstance(default_ttl, int) else default_ttl
 
@@ -197,7 +197,7 @@ class PDFCache:
         from paper_scanner.core.paths import get_pdf_cache_dir
         cache_dir = get_pdf_cache_dir(cache_dir)
 
-        self.cache_dir = Path(cache_dir).expanduser()
+        self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_cache_path(self, key: str) -> Path:

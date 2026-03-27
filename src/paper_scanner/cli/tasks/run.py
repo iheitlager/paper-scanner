@@ -242,8 +242,9 @@ def execute_run(
     # Determine cache_dir with priority:
     # 1. CLI argument (cache_dir parameter)
     # 2. Definition file project.cache_dir
-    # 3. CACHE_DIR env var (handled by get_cache_dir)
-    # 4. XDG default: $XDG_CACHE_HOME/paper-scanner/
+    # 3. CACHE_DIR env var (via get_cache_dir)
+    # 4. Legacy path fallback (via get_cache_dir)
+    # 5. XDG default: $XDG_CACHE_HOME/paper-scanner/
     from paper_scanner.core.paths import get_cache_dir
 
     if cache_dir is None and "project" in definition:

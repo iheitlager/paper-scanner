@@ -30,7 +30,7 @@ _LEGACY_PDF_CACHE_DIR = Path.home() / ".cache_pdf"
 
 def _xdg_cache_home() -> Path:
     """Return $XDG_CACHE_HOME or its default (~/.cache)."""
-    return Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    return Path(os.getenv("XDG_CACHE_HOME", str(Path.home() / ".cache")))
 
 
 def _resolve_with_legacy(xdg_path: Path, legacy_path: Path, label: str) -> Path:
