@@ -39,13 +39,13 @@ class TestPDFCacheInitialization:
         assert cache_dir.exists()
         assert cache_dir.is_dir()
 
-    def test_pdfcache_init_with_none_uses_default(self, tmp_path):
-        """Test that None cache_dir uses default ~/.cache_pdf."""
-        with patch.object(Path, 'home', return_value=tmp_path):
-            cache = PDFCache(cache_dir=None)
-            expected = tmp_path / ".cache_pdf"
-            assert cache.cache_dir == expected
-            assert expected.exists()
+    def test_pdfcache_init_with_none_uses_default(self, tmp_path, monkeypatch):
+        """Test that None cache_dir uses XDG default."""
+        monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / ".cache"))
+        cache = PDFCache(cache_dir=None)
+        expected = tmp_path / ".cache" / "paper-scanner" / "pdf"
+        assert cache.cache_dir == expected
+        assert expected.exists()
 
     def test_pdfcache_init_expands_user_path(self, tmp_path):
         """Test that ~ is expanded in cache_dir path."""

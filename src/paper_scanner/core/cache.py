@@ -75,14 +75,14 @@ class JSONFileCache:
 
         Args:
             cache_dir: Directory to store cache files.
-                      Defaults to ~/.cache_files if not provided.
+                      Defaults to $XDG_CACHE_HOME/paper-scanner/api/ if not provided.
             default_ttl: Default time-to-live for cache entries in days.
                          Can be int (days) or timedelta. Defaults to 30 days.
         """
-        if cache_dir is None:
-            cache_dir = Path.home() / ".cache_files"
+        from paper_scanner.core.paths import get_json_cache_dir
+        cache_dir = get_json_cache_dir(cache_dir)
 
-        self.cache_dir = Path(cache_dir).expanduser()
+        self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.default_ttl = timedelta(days=default_ttl) if isinstance(default_ttl, int) else default_ttl
 
@@ -192,12 +192,12 @@ class PDFCache:
 
         Args:
             cache_dir: Directory to store cached PDFs.
-                      Defaults to ".cache_pdf" if not provided.
+                      Defaults to $XDG_CACHE_HOME/paper-scanner/pdf/ if not provided.
         """
-        if cache_dir is None:
-            cache_dir = Path.home() / ".cache_pdf"
+        from paper_scanner.core.paths import get_pdf_cache_dir
+        cache_dir = get_pdf_cache_dir(cache_dir)
 
-        self.cache_dir = Path(cache_dir).expanduser()
+        self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_cache_path(self, key: str) -> Path:
