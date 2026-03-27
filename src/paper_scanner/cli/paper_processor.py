@@ -241,7 +241,7 @@ def main():
     run_parser.add_argument("-o", "--output", type=Path, default=None, help="Output results to JSON file")
 
     run_parser.add_argument(
-        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+        "--cache-dir", type=Path, default=None, help="Cache directory (default: $XDG_CACHE_HOME/paper-scanner, or CACHE_DIR env var)"
     )
 
     run_parser.add_argument(
@@ -285,7 +285,7 @@ def main():
     )
 
     repl_parser.add_argument(
-        "--cache-dir", type=Path, default=Path(os.environ.get("CACHE_DIR", "~/.paper-scanner")).expanduser(), help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+        "--cache-dir", type=Path, default=None, help="Cache directory (default: $XDG_CACHE_HOME/paper-scanner, or CACHE_DIR env var)"
     )
 
     repl_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
@@ -313,7 +313,7 @@ def main():
     info_parser = cache_subparsers.add_parser("info", help="Show cache information")
 
     info_parser.add_argument(
-        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+        "--cache-dir", type=Path, default=None, help="Cache directory (default: $XDG_CACHE_HOME/paper-scanner, or CACHE_DIR env var)"
     )
 
     info_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
@@ -323,7 +323,7 @@ def main():
     clear_parser.add_argument("target", choices=["checkpoints", "pdfs"], help="What to clear")
 
     clear_parser.add_argument(
-        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+        "--cache-dir", type=Path, default=None, help="Cache directory (default: $XDG_CACHE_HOME/paper-scanner, or CACHE_DIR env var)"
     )
 
     clear_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
@@ -333,7 +333,7 @@ def main():
     load_parser.add_argument("folder", type=str, help="Path to folder containing PDF files")
 
     load_parser.add_argument(
-        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+        "--cache-dir", type=Path, default=None, help="Cache directory (default: $XDG_CACHE_HOME/paper-scanner, or CACHE_DIR env var)"
     )
 
     load_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
@@ -350,7 +350,7 @@ def main():
     manual_load_parser.add_argument("bibtex_file", type=str, help="Path to bibtex file")
 
     manual_load_parser.add_argument(
-        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+        "--cache-dir", type=Path, default=None, help="Cache directory (default: $XDG_CACHE_HOME/paper-scanner, or CACHE_DIR env var)"
     )
 
     manual_load_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")
@@ -360,7 +360,7 @@ def main():
     manual_clear_parser = manual_subparsers.add_parser("clear", help="Clear manual handler cache")
 
     manual_clear_parser.add_argument(
-        "--cache-dir", type=Path, default=None, help="Cache directory (default: ~/.paper-scanner, or CACHE_DIR env var)"
+        "--cache-dir", type=Path, default=None, help="Cache directory (default: $XDG_CACHE_HOME/paper-scanner, or CACHE_DIR env var)"
     )
 
     manual_clear_parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output")

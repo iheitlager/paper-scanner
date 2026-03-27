@@ -241,23 +241,17 @@ def execute_run(
 
     # Determine cache_dir with priority:
     # 1. CLI argument (cache_dir parameter)
-    # 2. Environment variable CACHE_DIR
-    # 3. Definition file project.cache_dir
-    # 4. Default: ~/.paper-scanner
-    if cache_dir is None:
-        cache_dir = Path(os.getenv("CACHE_DIR", ""))
-        if not cache_dir or str(cache_dir) == ".":
-            cache_dir = None
+    # 2. Definition file project.cache_dir
+    # 3. CACHE_DIR env var (handled by get_cache_dir)
+    # 4. XDG default: $XDG_CACHE_HOME/paper-scanner/
+    from paper_scanner.core.paths import get_cache_dir
 
     if cache_dir is None and "project" in definition:
         project = definition["project"]
         if "cache_dir" in project:
             cache_dir = Path(project["cache_dir"])
 
-    if cache_dir is None:
-        cache_dir = Path("~/.paper-scanner").expanduser()
-    else:
-        cache_dir = cache_dir.expanduser()
+    cache_dir = get_cache_dir(cache_dir)
 
     # Create cache directory if it doesn't exist
     cache_dir.mkdir(parents=True, exist_ok=True)

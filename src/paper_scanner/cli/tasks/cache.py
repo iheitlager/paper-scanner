@@ -63,7 +63,7 @@ def execute_cache_info(
     Display cache information.
 
     Args:
-        cache_dir: Cache directory (default: ~/.paper-scanner)
+        cache_dir: Cache directory (default: $XDG_CACHE_HOME/paper-scanner)
         verbose: Enable verbose output
 
     Returns:
@@ -72,15 +72,8 @@ def execute_cache_info(
     import os
 
     # Determine cache_dir
-    if cache_dir is None:
-        cache_dir = Path(os.getenv("CACHE_DIR", ""))
-        if not cache_dir or str(cache_dir) == ".":
-            cache_dir = None
-
-    if cache_dir is None:
-        cache_dir = Path("~/.paper-scanner").expanduser()
-    else:
-        cache_dir = cache_dir.expanduser()
+    from paper_scanner.core.paths import get_cache_dir
+    cache_dir = get_cache_dir(cache_dir)
 
     if verbose:
         console.print(f"Cache directory: [cyan]{cache_dir}[/cyan]\n")
@@ -139,7 +132,7 @@ def execute_cache_clear(
 
     Args:
         target: What to clear ('checkpoints', etc.)
-        cache_dir: Cache directory (default: ~/.paper-scanner)
+        cache_dir: Cache directory (default: $XDG_CACHE_HOME/paper-scanner)
         verbose: Enable verbose output
 
     Returns:
@@ -148,15 +141,8 @@ def execute_cache_clear(
     import os
 
     # Determine cache_dir
-    if cache_dir is None:
-        cache_dir = Path(os.getenv("CACHE_DIR", ""))
-        if not cache_dir or str(cache_dir) == ".":
-            cache_dir = None
-
-    if cache_dir is None:
-        cache_dir = Path("~/.paper-scanner").expanduser()
-    else:
-        cache_dir = cache_dir.expanduser()
+    from paper_scanner.core.paths import get_cache_dir
+    cache_dir = get_cache_dir(cache_dir)
 
     if verbose:
         console.print(f"Cache directory: [cyan]{cache_dir}[/cyan]")
@@ -201,7 +187,7 @@ def execute_cache_load(
 
     Args:
         folder_path: Path to folder containing PDF files
-        cache_dir: Cache directory (default: ~/.paper-scanner)
+        cache_dir: Cache directory (default: $XDG_CACHE_HOME/paper-scanner)
         verbose: Enable verbose output
         dry_run: Don't actually cache files
 
@@ -211,15 +197,8 @@ def execute_cache_load(
     import os
 
     # Determine cache_dir
-    if cache_dir is None:
-        cache_dir = Path(os.getenv("CACHE_DIR", ""))
-        if not cache_dir or str(cache_dir) == ".":
-            cache_dir = None
-
-    if cache_dir is None:
-        cache_dir = Path("~/.paper-scanner").expanduser()
-    else:
-        cache_dir = cache_dir.expanduser()
+    from paper_scanner.core.paths import get_cache_dir
+    cache_dir = get_cache_dir(cache_dir)
 
     # Validate and expand folder path
     folder = Path(folder_path).expanduser()
@@ -323,7 +302,7 @@ def execute_cache_load_manual(
 
     Args:
         bibtex_path: Path to bibtex file
-        cache_dir: Cache directory (default: ~/.paper-scanner)
+        cache_dir: Cache directory (default: $XDG_CACHE_HOME/paper-scanner)
         verbose: Enable verbose output
         dry_run: Don't actually cache entries
 
@@ -336,15 +315,8 @@ def execute_cache_load_manual(
     from paper_scanner.tools.fetchers.fetcher_handlers.manual_handler import ManualHandler
 
     # Determine cache_dir
-    if cache_dir is None:
-        cache_dir = Path(os.getenv("CACHE_DIR", ""))
-        if not cache_dir or str(cache_dir) == ".":
-            cache_dir = None
-
-    if cache_dir is None:
-        cache_dir = Path("~/.paper-scanner").expanduser()
-    else:
-        cache_dir = cache_dir.expanduser()
+    from paper_scanner.core.paths import get_cache_dir
+    cache_dir = get_cache_dir(cache_dir)
 
     # Validate bibtex file
     bibtex_file = Path(bibtex_path).expanduser()
@@ -439,7 +411,7 @@ def execute_cache_clear_manual(
     Removes all cached entries stored by the manual handler.
 
     Args:
-        cache_dir: Cache directory (default: ~/.paper-scanner)
+        cache_dir: Cache directory (default: $XDG_CACHE_HOME/paper-scanner)
         verbose: Enable verbose output
 
     Returns:
@@ -449,15 +421,8 @@ def execute_cache_clear_manual(
     import shutil
 
     # Determine cache_dir
-    if cache_dir is None:
-        cache_dir = Path(os.getenv("CACHE_DIR", ""))
-        if not cache_dir or str(cache_dir) == ".":
-            cache_dir = None
-
-    if cache_dir is None:
-        cache_dir = Path("~/.paper-scanner").expanduser()
-    else:
-        cache_dir = cache_dir.expanduser()
+    from paper_scanner.core.paths import get_cache_dir
+    cache_dir = get_cache_dir(cache_dir)
 
     manual_cache_dir = cache_dir / "manual"
 

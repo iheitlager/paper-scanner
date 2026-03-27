@@ -121,12 +121,13 @@ class StepExecutor:
 
         Args:
             general_config: Project-level config (must include 'project_name')
-            cache_dir: Cache directory for checkpoints (default: ~/.paper-scanner)
+            cache_dir: Cache directory for checkpoints (default: $XDG_CACHE_HOME/paper-scanner)
             verbose: Enable verbose output
             debug: Enable debug output
         """
         self.general_config = general_config
-        self.cache_dir = cache_dir or Path.home() / ".paper-scanner"
+        from paper_scanner.core.paths import get_cache_dir
+        self.cache_dir = cache_dir or get_cache_dir()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.step_reporter = step_reporter
 

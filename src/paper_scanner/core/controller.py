@@ -70,7 +70,8 @@ class AbstractController(ABC):
             self.controller_reporter.on_start()
 
             # First some generic stuff to handle
-            self.cache_dir = self.args.cache_dir if hasattr(self.args, "cache_dir") else Path.home() / ".paper-scanner"
+            from paper_scanner.core.paths import get_cache_dir
+            self.cache_dir = self.args.cache_dir if hasattr(self.args, "cache_dir") else get_cache_dir()
             self.cache_dir.mkdir(parents=True, exist_ok=True)
 
             self.executor = self.executor_class(
