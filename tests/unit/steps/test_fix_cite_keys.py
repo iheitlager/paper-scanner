@@ -12,12 +12,10 @@ from paper_scanner.core.cite_key import (
     make_collision_suffix,
     resolve_collision,
 )
-from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.models import Author, Paper
 from paper_scanner.steps.fix_cite_keys import FixCiteKeysStep
-
-from icecream import ic
 
 # ============================================================================
 # FIXTURES
@@ -577,7 +575,7 @@ class TestIntegration:
         # Store paper IDs before update
         paper_ids_before = [p.id for p in sample_db.all()]
 
-        result = step.execute({}, verbose=False, dry_run=False)
+        step.execute({}, verbose=False, dry_run=False)
 
         # Paper IDs should not change
         paper_ids_after = [p.id for p in sample_db.all()]

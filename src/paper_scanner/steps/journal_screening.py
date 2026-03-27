@@ -24,9 +24,10 @@ from rich.console import Console
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import StepStatus
-from paper_scanner.core.models import Paper, ProcessingMetadata, Screening, JournalScreeningResult
+from paper_scanner.core.models import JournalScreeningResult, ProcessingMetadata, Screening
 from paper_scanner.core.step_result import StepResult
 from paper_scanner.tools.documents.journals import JournalLookup
+
 from .base import BaseStep
 
 console = Console(file=sys.stderr)
@@ -37,7 +38,7 @@ class JournalScreeningStep(BaseStep):
 
     def __init__(self, general_config: Dict[str, Any], db: PapersDatabase, cache_dir: Path, **kwargs):
         """Initialize journal screening step.
-        
+
         Args:
             general_config: Project-level configuration
             db: Papers database instance
@@ -49,14 +50,14 @@ class JournalScreeningStep(BaseStep):
     @staticmethod
     def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """Validate journal_screening step configuration.
-        
+
         Args:
             config: Step configuration with optional keys:
                 - journal_definitions_path: str - Path to YAML definitions file
                 - required_views: list[str] - Filter to journals in these views
                 - generate_iso4: bool - Generate ISO4 for unmatched journals (default: true)
                 - skip_missing: bool - Skip papers with missing journals (default: false)
-        
+
         Returns:
             Tuple of (is_valid, error_messages)
         """
@@ -96,13 +97,13 @@ class JournalScreeningStep(BaseStep):
         debug: bool = False,
     ) -> StepResult:
         """Execute journal screening step.
-        
+
         Args:
             config: Step-specific configuration
             verbose: Enable verbose output
             dry_run: Perform dry run without modifying database
             debug: Enable debug logging
-        
+
         Returns:
             StepResult with screening results and statistics
         """
@@ -112,7 +113,7 @@ class JournalScreeningStep(BaseStep):
             # Load journal definitions
             defs_path = config.get("journal_definitions_path")
             self.journal_lookup = JournalLookup(defs_path) if defs_path else JournalLookup()
-            
+
             if verbose:
                 console.print(f"[cyan]Loaded {self.journal_lookup.get_journal_count()} journal definitions")
 
@@ -212,7 +213,7 @@ class JournalScreeningStep(BaseStep):
 
                                 self.db.update(paper)
 
-                        except Exception as e:
+                        except Exception:
                             stats["papers_with_errors"] += 1
                     else:
                         stats["papers_with_errors"] += 1

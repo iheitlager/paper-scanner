@@ -7,9 +7,9 @@ DOI information from PDF metadata and content.
 
 import hashlib
 import logging
+import os
 import re
 import sys
-import os
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -26,7 +26,7 @@ try:
     pypdf_logger.setLevel(logging.WARNING)
     pypdf_logger.propagate = False
     pypdf_logger.handlers = []
-    
+
     pypdf_reader_logger = logging.getLogger("pypdf._reader")
     pypdf_reader_logger.setLevel(logging.WARNING)
     pypdf_reader_logger.propagate = False
@@ -58,17 +58,17 @@ def suppress_pypdf_output():
 def compute_file_sha256(file_path: Path, chunk_size: int = 8192) -> str:
     """
     Compute SHA256 hash of a file.
-    
+
     Reads file in chunks to handle large files efficiently without
     loading entire file into memory.
-    
+
     Args:
         file_path: Path to the file
         chunk_size: Size of chunks to read (default 8KB)
-        
+
     Returns:
         SHA256 hash as hexadecimal string
-        
+
     Raises:
         FileNotFoundError: If file does not exist
         IOError: If file cannot be read
@@ -95,7 +95,7 @@ def compute_file_sha256(file_path: Path, chunk_size: int = 8192) -> str:
 class DOIExtractor:
     """
     Extract DOI from PDF using multiple methods.
-    
+
     Tries extraction methods in order:
     1. PDF metadata extraction (using pypdf)
     2. Content regex search (using pdfplumber or pypdf)
@@ -105,7 +105,7 @@ class DOIExtractor:
     def __init__(self, email: str = "i.heitlager@tue.nl"):
         """
         Initialize DOI extractor.
-        
+
         Args:
             email: Email for Crossref API user-agent
         """
@@ -311,7 +311,7 @@ class DOIExtractor:
 class FileReader:
     """
     Read PDF file and extract metadata and text.
-    
+
     Provides methods to:
     - Read PDF file information
     - Extract text content

@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 import pytest
 
+from paper_scanner.core.cite_key import fix_cite_key_collisions
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.models import Author, Paper, PaperType
-from paper_scanner.core.cite_key import fix_cite_key_collisions
 from paper_scanner.steps.bibtex_import import BibtexImportStep
 
 

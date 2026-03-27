@@ -15,7 +15,7 @@ Usage:
 Examples:
     # Trial run on one file
     python process_pdfs.py --trial "initiating-open-innovation-collaborations-between-incumbents-and-startups-how-can-david-and-goliath-get-along.pdf"
-    
+
     # Process all PDFs
     python process_pdfs.py
 """
@@ -66,7 +66,7 @@ class DOIExtractor:
     def extract_from_pdf(self, pdf_path: Path) -> Optional[str]:
         """
         Extract DOI from PDF using multiple methods.
-        
+
         Returns:
             DOI string if found, None otherwise
         """
@@ -169,7 +169,7 @@ class DOIExtractor:
     def _extract_from_title_lookup(self, pdf_path: Path) -> Optional[str]:
         """
         Try to extract title and lookup DOI via Crossref.
-        
+
         This is a fallback method when DOI is not directly in PDF.
         """
         if not HAS_PDFPLUMBER and not HAS_PYPDF:
@@ -259,7 +259,7 @@ class PDFDatabaseManager:
         cursor = self.conn.cursor(cursor_factory=RealDictCursor)
 
         query = """
-        SELECT 
+        SELECT
             p.id,
             p.citekey,
             p.doi,
@@ -293,7 +293,7 @@ class PDFDatabaseManager:
         2. Look up in database
         3. Rename file with DOI
         4. Update database record
-        
+
         Returns: status dictionary
         """
         result = {
@@ -391,11 +391,11 @@ class PDFDatabaseManager:
     def process_all_pdfs(self, trial_filename: Optional[str] = None, dry_run: bool = False) -> Dict:
         """
         Process all PDFs or single trial file.
-        
+
         Args:
             trial_filename: If provided, process only this file
             dry_run: If True, don't make changes
-            
+
         Returns: summary statistics
         """
         pdfs = self.get_pdf_files()
@@ -554,10 +554,10 @@ def main():
 Examples:
   # Trial on single file
   python process_pdfs.py --trial "initiating-open-innovation-collaborations-between-incumbents-and-startups-how-can-david-and-goliath-get-along.pdf"
-  
+
   # Process all PDFs
   python process_pdfs.py
-  
+
   # Dry run to see what would change
   python process_pdfs.py --dry-run
         """

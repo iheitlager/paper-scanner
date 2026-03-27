@@ -330,7 +330,7 @@ class KeywordScreening(BaseModel):
 
     passed: bool
     screening_decision: ScreeningDecision
-    
+
     study_type: Optional[StudyType] = StudyType.UNKNOWN
 
     # Matched keywords

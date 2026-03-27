@@ -1,19 +1,18 @@
 """JSON viewer - rich-based interactive JSON viewer for paper-scanner"""
 
+import os
 import sys
 import termios
 import tty
-import os
-from typing import Any, Optional
+from typing import Any
 
 # Disable tokenizers parallelism to avoid fork deadlocks
 # (happens when viewing papers with text chunks that use embedding models)
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 from rich.console import Console
-from rich.syntax import Syntax
 
-from paper_scanner.viewer.json_controller import JSONController, JSONNode
+from paper_scanner.viewer.json_controller import JSONController
 
 
 class JSONViewer:
@@ -86,7 +85,7 @@ class JSONViewer:
 
         if self.controller.get_current_node():
             node = self.controller.get_current_node()
-            action_help = f"[dim]Actions: [cyan]v[/cyan] value  [cyan]p[/cyan] path  [cyan]n/N[/cyan] next/prev search[/dim]"
+            action_help = "[dim]Actions: [cyan]v[/cyan] value  [cyan]p[/cyan] path  [cyan]n/N[/cyan] next/prev search[/dim]"
             self.console.print(action_help)
 
         # Status or search input

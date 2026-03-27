@@ -31,7 +31,7 @@ class COREHandler(BaseFetcherHandler):
     def __init__(self, cache_dir: Path, debug: bool = False, verbose: bool = False, api_key: Optional[str] = None):
         """
         Initialize CORE handler.
-        
+
         Args:
             cache_dir: Cache directory for API responses
             debug: Enable debug output

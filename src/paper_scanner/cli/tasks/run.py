@@ -428,7 +428,7 @@ def execute_run(
                 console.print(f"[green]ok[/green]: [{step_name}]")
 
         except HaltException as e:
-            halt_msg = f"Pipeline halted: {str(e)}"
+            f"Pipeline halted: {str(e)}"
             results["steps_executed"].append({"step": step_name, "status": "halted", "message": str(e)})
 
             # Track final papers statistics

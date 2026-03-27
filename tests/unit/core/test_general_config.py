@@ -7,8 +7,6 @@ Run with:
     pytest tests/unit/core/test_general_config.py -v
 """
 
-import pytest
-from datetime import datetime, timezone
 from paper_scanner.core.general_config import GeneralConfigLoader
 
 
@@ -125,63 +123,63 @@ class TestLoadMethod:
         """Should not modify general_config if project_config is empty"""
         general_config = {"project_name": "original"}
         project_config = {}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["project_name"] == "original"
 
     def test_load_updates_project_name(self):
         """Should update project_name from project_config"""
         general_config = {"project_name": "original"}
         project_config = {"name": "new_project"}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["project_name"] == "new_project"
 
     def test_load_updates_description(self):
         """Should update description from project_config"""
         general_config = {"description": ""}
         project_config = {"description": "Test description"}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["description"] == "Test description"
 
     def test_load_updates_researcher(self):
         """Should update researcher from project_config"""
         general_config = {"researcher": ""}
         project_config = {"researcher": "Dr. Smith"}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["researcher"] == "Dr. Smith"
 
     def test_load_updates_research_question(self):
         """Should update research_question from project_config"""
         general_config = {"research_question": ""}
         project_config = {"research_question": "What is AI?"}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["research_question"] == "What is AI?"
 
     def test_load_updates_research_dimensions(self):
         """Should update research_dimensions from project_config"""
         general_config = {"research_dimensions": []}
         project_config = {"research_dimensions": ["novelty", "impact"]}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["research_dimensions"] == ["novelty", "impact"]
 
     def test_load_updates_email(self):
         """Should update email from project_config"""
         general_config = {"email": ""}
         project_config = {"email": "user@example.com"}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["email"] == "user@example.com"
 
     def test_load_updates_created_at(self):
@@ -189,9 +187,9 @@ class TestLoadMethod:
         general_config = {"created_at": "old"}
         timestamp = "2026-01-03T10:00:00Z"
         project_config = {"created_at": timestamp}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["created_at"] == timestamp
 
     def test_load_multiple_fields(self):
@@ -208,9 +206,9 @@ class TestLoadMethod:
             "researcher": "Dr. Jones",
             "email": "jones@example.com"
         }
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["project_name"] == "new_project"
         assert general_config["description"] == "New description"
         assert general_config["researcher"] == "Dr. Jones"
@@ -223,9 +221,9 @@ class TestLoadMethod:
             "name": "new_project",
             "unknown_field": "should be ignored"
         }
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["project_name"] == "new_project"
         assert "unknown_field" not in general_config
 
@@ -234,9 +232,9 @@ class TestLoadMethod:
         general_config = {"project_name": "original"}
         original_id = id(general_config)
         project_config = {"name": "new_project"}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert id(general_config) == original_id
         assert general_config["project_name"] == "new_project"
 
@@ -244,9 +242,9 @@ class TestLoadMethod:
         """Should handle None values in project_config"""
         general_config = {"project_name": "original"}
         project_config = {"name": None}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["project_name"] is None
 
     def test_load_handles_various_types(self):
@@ -259,9 +257,9 @@ class TestLoadMethod:
             "research_dimensions": ["dim1", "dim2", "dim3"],
             "email": "test@test.com"
         }
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["research_dimensions"] == ["dim1", "dim2", "dim3"]
         assert general_config["email"] == "test@test.com"
 
@@ -273,9 +271,9 @@ class TestLoadMethod:
             "researcher": "original_researcher"
         }
         project_config = {"name": "new_project"}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["project_name"] == "new_project"
         assert general_config["description"] == "original_desc"
         assert general_config["researcher"] == "original_researcher"
@@ -287,9 +285,9 @@ class TestLoadMethod:
             "custom_field": "custom_value"
         }
         project_config = {"name": "new_project"}
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["project_name"] == "new_project"
         assert general_config["custom_field"] == "custom_value"
 
@@ -302,9 +300,9 @@ class TestLoadMethod:
                 "tier2": ["relevance", "impact"]
             }
         }
-        
+
         GeneralConfigLoader.load(general_config, project_config)
-        
+
         assert general_config["research_dimensions"] == {
             "tier1": ["quality", "novelty"],
             "tier2": ["relevance", "impact"]

@@ -179,7 +179,7 @@ class Stage0Preprocessor:
     def _check_paper_type(self, paper_type: Optional[str]) -> Tuple[bool, Optional[str]]:
         """
         Check if paper type is acceptable.
-        
+
         Returns:
             (is_acceptable, rejection_reason)
         """

@@ -27,10 +27,10 @@ from paper_scanner.core.models import Paper
 class PapersDatabase:
     """
     Indexed paper database with fast lookup capabilities.
-    
+
     Public Attributes:
         papers: List[Paper] - All papers in database (both primary and duplicates)
-    
+
     Private Indexes (maintained automatically):
         _doi_index: Dict[str, List[Paper]] - Maps DOI (normalized lowercase) to list of papers
                                              (multiple papers can share same DOI if duplicates)
@@ -40,7 +40,7 @@ class PapersDatabase:
                                                Enables efficient filtering by year for fuzzy finding
         _title_index: Dict[str, List[Paper]] - Maps normalized title (first 50 chars) to papers
                                                 Enables efficient text-based searching
-    
+
     All indexes are automatically updated during add, update, and delete operations
     to maintain consistency and enable O(1) or O(log n) lookups.
     """
@@ -48,7 +48,7 @@ class PapersDatabase:
     def __init__(self, resolve_duplicates: bool = True):
         """
         Initialize empty database with indexes.
-        
+
         Args:
             resolve_duplicates: If True, automatically mark papers with duplicate DOIs as duplicates
                                of the first paper with that DOI during indexing (at import time).
@@ -69,10 +69,10 @@ class PapersDatabase:
     def _index_paper(self, paper: Paper) -> None:
         """
         Add paper to all indexes.
-        
+
         If resolve_duplicates is True, automatically marks papers with duplicate DOIs
         as duplicates of the first paper with that DOI.
-        
+
         Args:
             paper: Paper to index
         """
@@ -91,7 +91,7 @@ class PapersDatabase:
                     primary_paper = self._doi_index[doi_key][0]
                     if paper.duplicate_of is None:  # Only set if not already marked
                         paper.duplicate_of = primary_paper
-                
+
                 self._doi_index[doi_key].append(paper)
 
         # Index by year (for efficient fuzzy finding by year)
@@ -108,7 +108,7 @@ class PapersDatabase:
     def _unindex_paper(self, paper: Paper) -> None:
         """
         Remove paper from all indexes.
-        
+
         Args:
             paper: Paper to unindex
         """
@@ -153,9 +153,9 @@ class PapersDatabase:
     def _update_doi_index(self, paper: Paper, old_doi: Optional[str]) -> None:
         """
         Update DOI index when a paper's DOI changes.
-        
+
         This is called from Paper model via field_validator hook.
-        
+
         Args:
             paper: Paper with updated DOI
             old_doi: Previous DOI value
@@ -186,10 +186,10 @@ class PapersDatabase:
     def add(self, paper: Paper) -> None:
         """
         Add a paper to the database.
-        
+
         Args:
             paper: Paper to add
-            
+
         Raises:
             ValueError: If cite_key already exists or ID already exists
         """
@@ -207,10 +207,10 @@ class PapersDatabase:
     def add_many(self, papers: List[Paper]) -> None:
         """
         Add multiple papers to the database.
-        
+
         Args:
             papers: List of papers to add
-            
+
         Raises:
             ValueError: If any paper has duplicate cite_key or id
         """
@@ -224,11 +224,11 @@ class PapersDatabase:
     def all(self, primary_only: bool = False) -> List[Paper]:
         """
         Get all papers in database.
-        
+
         Args:
             primary_only: If True, only return papers where duplicate_of is None.
                          If False, return all papers.
-        
+
         Returns:
             List of papers
         """
@@ -240,10 +240,10 @@ class PapersDatabase:
     def get_by_id(self, paper_id: str) -> Optional[Paper]:
         """
         Get paper by ID.
-        
+
         Args:
             paper_id: Paper ID
-            
+
         Returns:
             Paper or None if not found
         """
@@ -252,10 +252,10 @@ class PapersDatabase:
     def get_by_cite_key(self, cite_key: str) -> Optional[Paper]:
         """
         Get paper by cite_key.
-        
+
         Args:
             cite_key: Citation key
-            
+
         Returns:
             Paper or None if not found
         """
@@ -264,13 +264,13 @@ class PapersDatabase:
     def get_by_doi(self, doi: str, primary_only: bool = False) -> List[Paper]:
         """
         Get all papers with given DOI.
-        
+
         Note: Multiple papers can have the same DOI (they are typically duplicates).
-        
+
         Args:
             doi: DOI to search for
             primary_only: If True, only return primary papers (duplicate_of is None)
-            
+
         Returns:
             List of papers with matching DOI
         """
@@ -289,18 +289,18 @@ class PapersDatabase:
     ) -> List[Paper]:
         """
         Find papers matching a predicate function.
-        
+
         Args:
             predicate: Function that takes Paper and returns bool
             primary_only: If True, only search primary papers
-            
+
         Returns:
             List of matching papers
-            
+
         Example:
             # Find papers from 2020
             db.find(lambda p: p.year == 2020)
-            
+
             # Find papers by author
             db.find(lambda p: any(a.family_name == "Smith" for a in p.authors))
         """
@@ -314,13 +314,13 @@ class PapersDatabase:
     def update(self, paper: Paper) -> None:
         """
         Update a paper in the database.
-        
+
         Note: If the cite_key changed, the paper must not conflict with existing cite_key.
         If the DOI changed, the index is automatically updated via _update_doi_index.
-        
+
         Args:
             paper: Updated paper (must already be in database)
-            
+
         Raises:
             ValueError: If paper not in database or cite_key conflicts with existing
         """
@@ -354,7 +354,7 @@ class PapersDatabase:
     def update_many(self, papers: List[Paper]) -> None:
         """
         Update multiple papers in the database.
-        
+
         Args:
             papers: List of updated papers
         """
@@ -368,10 +368,10 @@ class PapersDatabase:
     def delete_by_id(self, paper_id: str) -> bool:
         """
         Delete a paper by ID.
-        
+
         Args:
             paper_id: Paper ID
-            
+
         Returns:
             True if deleted, False if not found
         """
@@ -386,10 +386,10 @@ class PapersDatabase:
     def delete_by_cite_key(self, cite_key: str) -> bool:
         """
         Delete a paper by cite_key.
-        
+
         Args:
             cite_key: Citation key
-            
+
         Returns:
             True if deleted, False if not found
         """
@@ -402,10 +402,10 @@ class PapersDatabase:
     def delete_many_by_id(self, paper_ids: List[str]) -> int:
         """
         Delete multiple papers by ID.
-        
+
         Args:
             paper_ids: List of paper IDs to delete
-            
+
         Returns:
             Number of papers deleted
         """
@@ -431,10 +431,10 @@ class PapersDatabase:
     def count(self, primary_only: bool = False) -> int:
         """
         Count papers in database.
-        
+
         Args:
             primary_only: If True, only count primary papers
-            
+
         Returns:
             Number of papers
         """
@@ -446,10 +446,10 @@ class PapersDatabase:
     def count_duplicates(self, doi: str) -> int:
         """
         Count papers with a specific DOI.
-        
+
         Args:
             doi: DOI to count
-            
+
         Returns:
             Number of papers with this DOI
         """
@@ -458,7 +458,7 @@ class PapersDatabase:
     def get_duplicate_groups(self) -> Dict[str, List[Paper]]:
         """
         Get all papers grouped by DOI.
-        
+
         Returns:
             Dict mapping DOI -> List of papers with that DOI
         """
@@ -471,10 +471,10 @@ class PapersDatabase:
     def exists_by_id(self, paper_id: str) -> bool:
         """
         Check if paper exists by ID.
-        
+
         Args:
             paper_id: Paper ID
-            
+
         Returns:
             True if paper exists
         """
@@ -483,10 +483,10 @@ class PapersDatabase:
     def exists_by_cite_key(self, cite_key: str) -> bool:
         """
         Check if paper exists by cite_key.
-        
+
         Args:
             cite_key: Citation key
-            
+
         Returns:
             True if paper exists
         """
@@ -495,10 +495,10 @@ class PapersDatabase:
     def exists_by_doi(self, doi: str) -> bool:
         """
         Check if any paper with DOI exists.
-        
+
         Args:
             doi: DOI to check
-            
+
         Returns:
             True if at least one paper with this DOI exists
         """
@@ -513,15 +513,15 @@ class PapersDatabase:
     ) -> List[Paper]:
         """
         Get papers from a year range for efficient fuzzy matching.
-        
+
         This uses the year index to quickly retrieve candidate papers
         without fetching all papers in the database.
-        
+
         Args:
             year: Target publication year
             tolerance: Year range tolerance (default 1 = ±1 year)
             primary_only: If True, only return primary papers
-            
+
         Returns:
             List of papers within the year range
         """
@@ -542,14 +542,14 @@ class PapersDatabase:
     ) -> List[Paper]:
         """
         Get papers with matching title prefix for efficient text search.
-        
+
         Uses the title index to retrieve candidate papers without
         scanning all papers.
-        
+
         Args:
             title: Paper title to search for (uses first 50 chars)
             primary_only: If True, only return primary papers
-            
+
         Returns:
             List of papers with matching title prefix
         """
@@ -567,10 +567,10 @@ class PapersDatabase:
     def to_list(self, primary_only: bool = False) -> List[Paper]:
         """
         Convert database to list (alias for all()).
-        
+
         Args:
             primary_only: If True, only return primary papers
-            
+
         Returns:
             List of papers
         """
@@ -579,7 +579,7 @@ class PapersDatabase:
     def from_list(self, papers: List[Paper]) -> None:
         """
         Load papers from list (replaces current database).
-        
+
         Args:
             papers: List of papers to load
         """
@@ -593,7 +593,7 @@ class PapersDatabase:
     def get_stats(self) -> Dict[str, Any]:
         """
         Get database statistics.
-        
+
         Returns:
             Dictionary with stats
         """
@@ -627,11 +627,11 @@ class PapersDatabase:
     def mark_duplicate(self, paper_id: str, duplicate_of_id: str) -> None:
         """
         Mark a paper as duplicate of another.
-        
+
         Args:
             paper_id: ID of paper to mark as duplicate
             duplicate_of_id: ID of primary paper
-            
+
         Raises:
             ValueError: If either paper not found
         """
@@ -650,10 +650,10 @@ class PapersDatabase:
     def get_duplicates_of(self, paper_id: str) -> List[Paper]:
         """
         Get all papers marked as duplicates of a given paper.
-        
+
         Args:
             paper_id: ID of primary paper
-            
+
         Returns:
             List of duplicate papers
         """
@@ -666,10 +666,10 @@ class PapersDatabase:
     def remove_duplicate_marking(self, paper_id: str) -> None:
         """
         Remove duplicate marking from a paper (make it primary again).
-        
+
         Args:
             paper_id: ID of paper to un-mark as duplicate
-            
+
         Raises:
             ValueError: If paper not found
         """
@@ -695,10 +695,10 @@ class PapersDatabase:
     def __getitem__(self, key):
         """
         Support indexing and slicing: db[0], db[1:5], db[-1]
-        
+
         Args:
             key: Integer index or slice object
-            
+
         Returns:
             Paper or list of papers
         """
@@ -742,7 +742,7 @@ class PapersDatabase:
     def __add__(self, other: "PapersDatabase") -> "PapersDatabase":
         """
         Merge two databases: db1 + db2
-        
+
         Creates a new database with papers from both, handling duplicates intelligently.
         """
         if not isinstance(other, PapersDatabase):
@@ -762,7 +762,7 @@ class PapersDatabase:
     def __sub__(self, other: "PapersDatabase") -> "PapersDatabase":
         """
         Remove papers from one database that exist in another: db1 - db2
-        
+
         Returns a new database with papers from self that are not in other.
         """
         if not isinstance(other, PapersDatabase):
@@ -780,10 +780,10 @@ class PapersDatabase:
     def query(self) -> "PapersQuery":
         """
         Create fluent query builder for complex filters.
-        
+
         Returns:
             PapersQuery builder that supports chainable filters, sorting, and limits
-            
+
         Example:
             >>> papers_db.query().filter_by_topic("AI").top(10).execute()
             >>> papers_db.query().grep("cloud computing").exclude_duplicates().first()
@@ -799,9 +799,9 @@ class PapersDatabase:
     def filter(self, predicate) -> "PapersQuery":
         """
         Shorthand for query().filter(predicate).
-        
+
         Returns PapersQuery for chaining.
-        
+
         Example:
             >>> db.filter(lambda p: p.year > 2020).order_by_year()
             >>> db.filter(lambda p: 'AI' in p.keywords)[0]  # First match
@@ -811,7 +811,7 @@ class PapersDatabase:
     def by_topic(self, topic):
         """
         Shorthand for query().filter_by_topic(topic).
-        
+
         Example:
             >>> db.by_topic("AI")[0:5]  # First 5 AI papers
             >>> list(db.by_topic("ML"))  # Iterate results
@@ -821,7 +821,7 @@ class PapersDatabase:
     def by_author(self, author_name) -> "PapersQuery":
         """
         Shorthand for query().filter_by_author(author_name).
-        
+
         Example:
             >>> db.by_author("Smith").count()
             >>> if db.by_author("Bengio"): print("Found papers by Bengio")
@@ -831,7 +831,7 @@ class PapersDatabase:
     def by_year(self, min_year, max_year=None) -> "PapersQuery":
         """
         Shorthand for query().filter_by_year(min_year, max_year).
-        
+
         Example:
             >>> db.by_year(2020)  # Papers from 2020
             >>> db.by_year(2020, 2022).order_by_year(descending=True)
@@ -841,7 +841,7 @@ class PapersDatabase:
     def search(self, text) -> "PapersQuery":
         """
         Shorthand for query().grep(text).
-        
+
         Example:
             >>> db.search("transformer")[0]  # First paper matching "transformer"
             >>> len(db.search("neural network"))  # Count matches

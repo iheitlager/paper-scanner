@@ -16,12 +16,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import psycopg2
+from paper_scanner.tools.cache import JSONFileCache
 from psycopg2.extras import RealDictCursor
 from rich.console import Console
 from rich.logging import RichHandler
 
 from paper_scanner import __version__
-from paper_scanner.tools.cache import JSONFileCache
 from paper_scanner.tools.fetchers import CROSSREF_EMAIL, CrossrefReferenceFetcher
 
 # Configure rich console with colored output
@@ -212,7 +212,7 @@ class CrossrefReferenceLoader:
 
             # Then get papers with DOIs
             query = """
-                SELECT 
+                SELECT
                     p.id,
                     p.citekey,
                     p.title,
@@ -375,10 +375,10 @@ class CrossrefReferenceLoader:
     def _format_paper_apa(self, paper: Dict[str, Any]) -> str:
         """
         Format a paper record in APA style
-        
+
         Args:
             paper: Paper record from database
-            
+
         Returns:
             APA formatted citation string
         """
@@ -425,12 +425,12 @@ class CrossrefReferenceLoader:
         Hierarchically resolve references:
         1. Those without DOI: use parsed data directly
         2. Those with DOI: fetch full metadata from Crossref
-        
+
         This function does NOT process references, only resolves and categorizes them.
-        
+
         Args:
             references: List of references from Crossref
-            
+
         Returns:
             Dict with 'direct' and 'crossref' reference lists
         """

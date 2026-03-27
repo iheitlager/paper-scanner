@@ -161,12 +161,12 @@ class PaperExplorer:
 
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 p.id, p.citekey, p.title, p.year, p.journal, p.authors,
                 p.abstract, p.doi, p.keywords,
                 pe.embedding
             FROM papers p
-            LEFT JOIN paper_embeddings pe ON p.id = pe.paper_id 
+            LEFT JOIN paper_embeddings pe ON p.id = pe.paper_id
                 AND pe.embedding_method = 'aggregate_chunks'
             WHERE p.citekey = %s
         """,
@@ -300,7 +300,7 @@ class PaperExplorer:
             cursor = self.conn.cursor()
             cursor.execute(
                 """
-                SELECT 
+                SELECT
                     p.citekey,
                     p.title,
                     p.year,
@@ -326,7 +326,7 @@ class PaperExplorer:
         cursor = self.conn.cursor()
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 p2.citekey,
                 p2.title,
                 p2.year,
@@ -393,8 +393,8 @@ class PaperExplorer:
 
         # Clusters
         cursor.execute("""
-            SELECT cluster_name, paper_count 
-            FROM paper_clusters 
+            SELECT cluster_name, paper_count
+            FROM paper_clusters
             ORDER BY paper_count DESC
         """)
         clusters = cursor.fetchall()
@@ -433,7 +433,7 @@ class PaperExplorer:
     def ask_claude(self, question: str, context: str = None) -> str:
         """Ask Claude a question with context"""
 
-        system_prompt = """You are a research assistant helping explore an academic paper collection. 
+        system_prompt = """You are a research assistant helping explore an academic paper collection.
 You have access to papers, their embeddings, citations, and clusters.
 
 Be concise but informative. Use markdown formatting for readability.
@@ -613,7 +613,7 @@ Focus on insights and connections between papers."""
             cursor.execute(
                 """
                 WITH chunk_matches AS (
-                    SELECT 
+                    SELECT
                         pc.paper_id,
                         pc.section_title,
                         pc.content,
@@ -624,7 +624,7 @@ Focus on insights and connections between papers."""
                     JOIN chunk_embeddings ce ON pc.id = ce.chunk_id
                     WHERE ce.model_name = 'all-mpnet-base-v2'
                 )
-                SELECT 
+                SELECT
                     p.citekey,
                     p.title,
                     p.year,
@@ -832,7 +832,7 @@ Focus on insights and connections between papers."""
         cursor = self.conn.cursor()
 
         cursor.execute("""
-            SELECT 
+            SELECT
                 c.id,
                 c.cluster_name,
                 c.paper_count,
@@ -924,7 +924,7 @@ Focus on insights and connections between papers."""
 
         # Most cited papers
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.citekey,
                 p.title,
                 p.year,
@@ -954,7 +954,7 @@ Focus on insights and connections between papers."""
 
         # Papers with most references
         cursor.execute("""
-            SELECT 
+            SELECT
                 p.citekey,
                 p.title,
                 p.year,
@@ -1089,11 +1089,11 @@ Focus on insights and connections between papers."""
         try:
             cursor.execute(
                 """
-                SELECT 
+                SELECT
                     citekey, authors, year, title, journal, volume, issue, pages, doi
                 FROM papers
-                ORDER BY 
-                    CASE 
+                ORDER BY
+                    CASE
                         WHEN %s = 'year' THEN year::text
                         WHEN %s = 'title' THEN title
                         ELSE CAST(authors AS text)

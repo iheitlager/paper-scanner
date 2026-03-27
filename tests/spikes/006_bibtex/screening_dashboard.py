@@ -62,7 +62,7 @@ class ScreeningDashboard:
 
         # Papers by source type
         cursor.execute("""
-        SELECT 
+        SELECT
             COALESCE(source_type, 'Unknown') as source,
             COUNT(*) as count
         FROM papers
@@ -74,7 +74,7 @@ class ScreeningDashboard:
 
         # Stage 0 stats
         cursor.execute("""
-        SELECT 
+        SELECT
             COUNT(*) as total,
             COUNT(CASE WHEN stage0_exclusion_reason IS NOT NULL THEN 1 END) as failed,
             COUNT(CASE WHEN stage0_exclusion_reason LIKE 'rejected_paper_type%' THEN 1 END) as rejected_type,
@@ -103,7 +103,7 @@ class ScreeningDashboard:
 
         # Stage 1 stats
         cursor.execute("""
-        SELECT 
+        SELECT
             COUNT(*) as total,
             COUNT(CASE WHEN stage1_exclusion_reason IS NOT NULL THEN 1 END) as failed,
             MIN(stage1_processed_at) as earliest,
@@ -124,7 +124,7 @@ class ScreeningDashboard:
 
         # Stage 2 stats
         cursor.execute("""
-        SELECT 
+        SELECT
             COUNT(*) as total,
             COUNT(CASE WHEN stage2_exclusion_reason IS NULL AND stage2_processed_at IS NOT NULL THEN 1 END) as included,
             COUNT(CASE WHEN screening_stage = 'stage2_review' THEN 1 END) as review,
@@ -155,7 +155,7 @@ class ScreeningDashboard:
 
         # Similarity distribution
         cursor.execute("""
-        SELECT 
+        SELECT
             COUNT(CASE WHEN semantic_similarity >= 0.65 THEN 1 END) as high,
             COUNT(CASE WHEN semantic_similarity >= 0.55 AND semantic_similarity < 0.65 THEN 1 END) as medium,
             COUNT(CASE WHEN semantic_similarity >= 0.45 AND semantic_similarity < 0.55 THEN 1 END) as low,
@@ -173,7 +173,7 @@ class ScreeningDashboard:
 
         # Overall status
         cursor.execute("""
-        SELECT 
+        SELECT
             COUNT(CASE WHEN final_decision = 'included' THEN 1 END) as final_included,
             COUNT(CASE WHEN final_decision = 'excluded' THEN 1 END) as final_excluded,
             COUNT(CASE WHEN final_decision = 'pending_review' THEN 1 END) as final_pending
@@ -188,7 +188,7 @@ class ScreeningDashboard:
 
         # Paper type analysis (2D: paper_type vs acceptance/pending/rejection)
         cursor.execute("""
-        SELECT 
+        SELECT
             COALESCE(p.paper_type, 'Unknown') as paper_type,
             COUNT(*) as total,
             COUNT(CASE WHEN ps.stage2_exclusion_reason IS NULL AND ps.stage2_processed_at IS NOT NULL THEN 1 END) as included,
@@ -207,7 +207,7 @@ class ScreeningDashboard:
 
         # Papers per year (total and final pass/review)
         cursor.execute("""
-        SELECT 
+        SELECT
             p.year,
             COUNT(*) as total_count,
             COUNT(CASE WHEN ps.screening_stage IN ('stage2_pass', 'stage2_review') THEN 1 END) as final_count
@@ -405,7 +405,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
 
         # Create summary text
         summary = f"""
-[bold green]✓ Stage 1: Coarse Filter (Keyword-Based)                         [/bold green]   
+[bold green]✓ Stage 1: Coarse Filter (Keyword-Based)                         [/bold green]
 [dim]Goal: Remove obviously irrelevant papers (Precision ~70%, Recall ~95%)[/dim]
 
 [bold]Results:[/bold]
@@ -450,7 +450,7 @@ Stage 2 (Semantic Filtering):      [bold cyan]{s2_processed:,}[/bold cyan] proce
 [bold]Similarity Statistics:[/bold]
   Average:  {s2['avg_similarity']:.2f}
   Range:    {s2['min_similarity']:.2f} → {s2['max_similarity']:.2f}
-  
+
 [bold]Similarity Distribution:[/bold]
   ≥ 0.65:    {dist['high']:5d} papers  [green]{'█' * max(1, int(dist['high'] * 10 / max(total, 1)))}[/green]
   0.55-0.65: {dist['medium']:5d} papers  [yellow]{'█' * max(1, int(dist['medium'] * 10 / max(total, 1)))}[/yellow]

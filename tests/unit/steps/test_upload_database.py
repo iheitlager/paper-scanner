@@ -377,7 +377,6 @@ class TestExecuteRealUpload:
         result = step.execute(config, dry_run=False)
 
         assert isinstance(result, StepResult)
-        from paper_scanner.core.enum import StepStatus
         assert result.status == StepStatus.SUCCESS
         assert "inserted" in result.message.lower()
         assert result.stats["inserted"] == 5
@@ -604,7 +603,7 @@ class TestBatchProcessing:
         step = create_step(mock_db, cache_dir, general_config)
         config = {"database_url": "postgresql://user:pass@localhost:5432/db"}
 
-        result = step.execute(config, dry_run=False)
+        step.execute(config, dry_run=False)
 
         # Should be called once (all papers in one batch)
         assert mock_uploader.insert_papers.call_count == 1

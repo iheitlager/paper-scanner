@@ -8,16 +8,14 @@ Run with:
     pytest tests/unit/steps/test_llm_classification_execution.py -v
 """
 
-from unittest.mock import MagicMock, patch, PropertyMock
-from datetime import datetime, timezone
 import uuid
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from paper_scanner.core.enum import ScreeningDecision, PaperType
-from paper_scanner.core.models import Paper, Author, Screening, SemanticScreening, ProcessingMetadata
+from paper_scanner.core.enum import PaperType, ScreeningDecision
+from paper_scanner.core.models import Author, Paper, SemanticScreening
 from paper_scanner.steps.llm_classification import LLMClassificationStep, _LLMClassifier
-
 
 
 class TestValidate:
@@ -215,7 +213,7 @@ class TestLLMClassifierBasic:
             auto_include_threshold=0.75,
             manual_review_threshold=0.55,
         )
-        
+
         assert classifier.research_question == "How to improve software quality?"
         assert classifier.research_dimensions == ["Testing", "Code Review"]
         assert classifier.model_name == "claude-3-5-sonnet-20241022"
@@ -232,15 +230,15 @@ class TestLLMClassifierBasic:
             year=2023,
             authors=[author],
         )
-        
+
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Testing"],
             api_key="test-key",
         )
-        
+
         formatted = classifier._format_paper_text(paper)
-        
+
         assert "TITLE: Test Paper" in formatted
         assert "ABSTRACT: This is a test" in formatted
         assert "KEYWORDS: testing, qa" in formatted
@@ -250,30 +248,30 @@ class TestLLMClassifierBasic:
     def test_format_paper_text_with_missing_fields(self):
         """Should handle missing fields gracefully"""
         paper = create_test_paper(title="Test Paper", abstract=None)
-        
+
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Testing"],
             api_key="test-key",
         )
-        
+
         formatted = classifier._format_paper_text(paper)
-        
+
         assert "TITLE: Test Paper" in formatted
         assert "ABSTRACT:" not in formatted
 
     def test_build_prompt_structure(self):
         """Should build prompt with correct structure"""
         paper = create_test_paper(title="Test Paper", abstract="Test abstract")
-        
+
         classifier = _LLMClassifier(
             research_question="How to test?",
             research_dimensions=["Unit Testing", "Integration Testing"],
             api_key="test-key",
         )
-        
+
         prompt = classifier._build_prompt(paper)
-        
+
         assert "RESEARCH QUESTION:" in prompt
         assert "How to test?" in prompt
         assert "RESEARCH DIMENSIONS" in prompt
@@ -291,7 +289,7 @@ class TestClassificationDominanceScoring:
         """Should handle 1.0 (dominant) dimension scores"""
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
-        
+
         mock_claude.call.return_value = (
             {
                 "classifications": {
@@ -303,16 +301,16 @@ class TestClassificationDominanceScoring:
             },
             {"output_tokens": 100, "input_tokens": 500},
         )
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Dimension A", "Dimension B"],
             api_key="test-key",
         )
-        
+
         result, raw = classifier.classify_paper(paper)
-        
+
         assert result.classification_vector == [1.0, 0.0]
         assert result.classification_labels == ["Dimension A"]
         assert result.decision == ScreeningDecision.INCLUDED
@@ -323,7 +321,7 @@ class TestClassificationDominanceScoring:
         """Should handle 0.5 (addressed but not dominant) dimension scores"""
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
-        
+
         mock_claude.call.return_value = (
             {
                 "classifications": {
@@ -335,16 +333,16 @@ class TestClassificationDominanceScoring:
             },
             {"output_tokens": 100, "input_tokens": 500},
         )
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Dimension A", "Dimension B"],
             api_key="test-key",
         )
-        
+
         result, raw = classifier.classify_paper(paper)
-        
+
         assert result.classification_vector == [0.5, 0.5]
         assert "Dimension A" in result.classification_labels
         assert "Dimension B" in result.classification_labels
@@ -356,7 +354,7 @@ class TestClassificationDominanceScoring:
         """Should handle mixed dominance scores"""
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
-        
+
         mock_claude.call.return_value = (
             {
                 "classifications": {
@@ -369,16 +367,16 @@ class TestClassificationDominanceScoring:
             },
             {"output_tokens": 100, "input_tokens": 500},
         )
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Dim A", "Dim B", "Dim C"],
             api_key="test-key",
         )
-        
+
         result, raw = classifier.classify_paper(paper)
-        
+
         assert result.classification_vector == [1.0, 0.5, 0.0]
         assert raw["dominant_count"] == 1
         assert raw["applies_count"] == 2
@@ -390,7 +388,7 @@ class TestClassificationDominanceScoring:
         """Should normalize old confidence scores to dominance levels"""
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
-        
+
         # Simulate old response format with confidence instead of dominance
         mock_claude.call.return_value = (
             {
@@ -403,16 +401,16 @@ class TestClassificationDominanceScoring:
             },
             {"output_tokens": 100, "input_tokens": 500},
         )
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Dimension A", "Dimension B"],
             api_key="test-key",
         )
-        
+
         result, raw = classifier.classify_paper(paper)
-        
+
         # 0.9 >= 0.75 → 1.0, 0.3 < 0.75 and >= 0.25 → 0.5
         assert result.classification_vector == [1.0, 0.5]
 
@@ -425,7 +423,7 @@ class TestDecisionLogic:
         """Should mark INCLUDED when avg confidence >= auto_include threshold"""
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
-        
+
         mock_claude.call.return_value = (
             {
                 "classifications": {
@@ -436,7 +434,7 @@ class TestDecisionLogic:
             },
             {"output_tokens": 100, "input_tokens": 500},
         )
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
@@ -444,9 +442,9 @@ class TestDecisionLogic:
             api_key="test-key",
             auto_include_threshold=0.75,
         )
-        
+
         result, _ = classifier.classify_paper(paper)
-        
+
         assert result.decision == ScreeningDecision.INCLUDED
 
     @patch("paper_scanner.steps.llm_classification.ClaudeHandler")
@@ -454,7 +452,7 @@ class TestDecisionLogic:
         """Should mark EXCLUDED when avg confidence < auto_exclude threshold"""
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
-        
+
         mock_claude.call.return_value = (
             {
                 "classifications": {
@@ -465,7 +463,7 @@ class TestDecisionLogic:
             },
             {"output_tokens": 100, "input_tokens": 500},
         )
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
@@ -473,9 +471,9 @@ class TestDecisionLogic:
             api_key="test-key",
             auto_exclude_threshold=0.55,
         )
-        
+
         result, _ = classifier.classify_paper(paper)
-        
+
         assert result.decision == ScreeningDecision.EXCLUDED
 
     @patch("paper_scanner.steps.llm_classification.ClaudeHandler")
@@ -483,7 +481,7 @@ class TestDecisionLogic:
         """Should mark MANUAL_REVIEW when confidence is between thresholds"""
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
-        
+
         # Use 0.65 which normalizes to 0.5 (since >= 0.25 but < 0.75)
         # Then: avg = 0.5, which is >= 0.55 (manual_review) but < 0.75 (auto_include)
         mock_claude.call.return_value = (
@@ -496,7 +494,7 @@ class TestDecisionLogic:
             },
             {"output_tokens": 100, "input_tokens": 500},
         )
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
@@ -506,9 +504,9 @@ class TestDecisionLogic:
             manual_review_threshold=0.45,
             auto_exclude_threshold=0.45,
         )
-        
+
         result, _ = classifier.classify_paper(paper)
-        
+
         assert result.decision == ScreeningDecision.MANUAL_REVIEW
 
 
@@ -521,16 +519,16 @@ class TestErrorHandling:
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
         mock_claude.call.side_effect = ValueError("API Error")
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Dimension A"],
             api_key="test-key",
         )
-        
+
         result, raw = classifier.classify_paper(paper)
-        
+
         assert result.decision == ScreeningDecision.MANUAL_REVIEW
         assert result.passed is False
         assert result.confidence == 0.0
@@ -542,16 +540,16 @@ class TestErrorHandling:
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
         mock_claude.call.return_value = (None, {})
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Dimension A"],
             api_key="test-key",
         )
-        
+
         result, raw = classifier.classify_paper(paper)
-        
+
         assert result.decision == ScreeningDecision.MANUAL_REVIEW
         assert result.passed is False
 
@@ -564,7 +562,7 @@ class TestMetadataTracking:
         """Should track processing metadata"""
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
-        
+
         mock_claude.call.return_value = (
             {
                 "classifications": {
@@ -575,16 +573,16 @@ class TestMetadataTracking:
             },
             {"output_tokens": 250, "input_tokens": 1000},
         )
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Dim A"],
             api_key="test-key",
         )
-        
+
         result, raw = classifier.classify_paper(paper)
-        
+
         assert result.metadata is not None
         assert result.metadata.success is True
         assert result.metadata.tokens_used == 250
@@ -595,7 +593,7 @@ class TestMetadataTracking:
         """Should return complete raw data with all tracking info"""
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
-        
+
         mock_claude.call.return_value = (
             {
                 "classifications": {
@@ -607,16 +605,16 @@ class TestMetadataTracking:
             },
             {"output_tokens": 100, "input_tokens": 500},
         )
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Dim A", "Dim B"],
             api_key="test-key",
         )
-        
+
         result, raw = classifier.classify_paper(paper)
-        
+
         assert "classifications" in raw
         assert "overall_decision" in raw
         assert "summary" in raw
@@ -638,7 +636,7 @@ class TestSemanticScreeningModel:
         """Should create properly structured SemanticScreening result"""
         mock_claude = MagicMock()
         mock_claude_class.return_value = mock_claude
-        
+
         mock_claude.call.return_value = (
             {
                 "classifications": {
@@ -649,16 +647,16 @@ class TestSemanticScreeningModel:
             },
             {"output_tokens": 100, "input_tokens": 500},
         )
-        
+
         paper = create_test_paper(title="Test", abstract="Abstract")
         classifier = _LLMClassifier(
             research_question="Test",
             research_dimensions=["Dim A"],
             api_key="test-key",
         )
-        
+
         result, _ = classifier.classify_paper(paper)
-        
+
         assert isinstance(result, SemanticScreening)
         assert result.passed is True
         assert result.classification_vector == [1.0]

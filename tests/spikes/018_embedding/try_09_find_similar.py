@@ -11,12 +11,11 @@ Shows:
 - Distance and similarity metrics
 """
 
-import sys
 import os
-from dotenv import load_dotenv
+import sys
 
-import numpy as np
 import psycopg2
+from dotenv import load_dotenv
 from pgvector.psycopg2 import register_vector
 
 # Load environment
@@ -62,7 +61,7 @@ def find_similar_papers(citekey, limit=5):
     print("=" * 80)
     print("FIND SIMILAR PAPERS")
     print("=" * 80)
-    print(f"\n🎯 Target Paper:")
+    print("\n🎯 Target Paper:")
     print(f"   {paper_cite_key} ({paper_year})")
     print(f"   {paper_title}")
     if paper_journal:
@@ -73,7 +72,7 @@ def find_similar_papers(citekey, limit=5):
     # The <=> operator returns distance, so smaller = more similar
     cursor.execute(
         """
-        SELECT 
+        SELECT
             p2.cite_key,
             p2.title,
             p2.year,
@@ -90,7 +89,7 @@ def find_similar_papers(citekey, limit=5):
     )
 
     results = cursor.fetchall()
-    
+
     if not results:
         print("⚠️  No other papers found in database")
         cursor.close()
@@ -104,7 +103,7 @@ def find_similar_papers(citekey, limit=5):
         # Distance 0 = identical, convert to similarity percentage
         # pgvector distance ranges from 0 to 2 for normalized vectors
         similarity = max(0, 1.0 - distance)  # Approximate conversion
-        
+
         print(f"\n{i}. {ck} ({year})")
         print(f"   {title}")
         if journal:

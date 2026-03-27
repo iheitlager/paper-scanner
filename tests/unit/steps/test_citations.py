@@ -5,12 +5,11 @@ Tests the execute() method's delegation to backward_execute() when
 backward configuration is present.
 """
 
-from unittest.mock import MagicMock, patch, ANY
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.enum import StepStatus
 from paper_scanner.steps.citations import CitationsStep
 
 
@@ -199,7 +198,7 @@ class TestExecuteWithBackwardConfig:
             }
         }
 
-        result = step.execute(config, verbose=False, dry_run=False)
+        step.execute(config, verbose=False, dry_run=False)
 
         # Check that backward_execute was called with config as first arg, and ANY for target_papers and results
         assert mock_backward.call_count == 1
@@ -248,7 +247,7 @@ class TestExecuteWithForwardConfig:
             }
         }
 
-        result = step.execute(config, verbose=False, dry_run=False)
+        step.execute(config, verbose=False, dry_run=False)
 
         # Check that forward_execute was called with config as first arg, and ANY for target_papers and results
         assert mock_forward.call_count == 1
@@ -279,8 +278,7 @@ class TestResolveCitationFetcherIntegration:
     @pytest.fixture
     def setup(self, tmp_path):
         """Setup test database and step"""
-        from paper_scanner.core.models import Paper, Citation, CitationDirection
-        
+
         db = PapersDatabase()
         step = CitationsStep(general_config={}, db=db, cache_dir=tmp_path)
         # Initialize attributes that are normally set in execute()
@@ -292,9 +290,9 @@ class TestResolveCitationFetcherIntegration:
 
     def test_resolve_citation_unpacks_3_tuple_from_fetcher(self, setup):
         """Test that _resolve_citation correctly unpacks 3-tuple from fetcher.fetch_paper()"""
-        from paper_scanner.core.models import Paper, Citation
         from paper_scanner.core.enum import CitationDirection
-        
+        from paper_scanner.core.models import Citation, Paper
+
         step, db = setup
 
         # Create citation for paper not in database
@@ -325,9 +323,9 @@ class TestResolveCitationFetcherIntegration:
 
     def test_resolve_citation_unpacks_3_tuple_cache_hit(self, setup):
         """Test that cache_hit is correctly handled when unpacking 3-tuple"""
-        from paper_scanner.core.models import Paper, Citation
         from paper_scanner.core.enum import CitationDirection
-        
+        from paper_scanner.core.models import Citation, Paper
+
         step, db = setup
 
         citation = Citation(
@@ -358,9 +356,9 @@ class TestResolveCitationFetcherIntegration:
 
     def test_resolve_citation_unpacks_3_tuple_cache_miss(self, setup):
         """Test that cache_miss is correctly handled when unpacking 3-tuple"""
-        from paper_scanner.core.models import Paper, Citation
         from paper_scanner.core.enum import CitationDirection
-        
+        from paper_scanner.core.models import Citation, Paper
+
         step, db = setup
 
         citation = Citation(
@@ -391,9 +389,9 @@ class TestResolveCitationFetcherIntegration:
 
     def test_resolve_citation_handler_name_captured(self, setup):
         """Test that handler name from 3-tuple is captured but not causing errors"""
-        from paper_scanner.core.models import Paper, Citation
         from paper_scanner.core.enum import CitationDirection
-        
+        from paper_scanner.core.models import Citation, Paper
+
         step, db = setup
 
         citation = Citation(
@@ -409,7 +407,7 @@ class TestResolveCitationFetcherIntegration:
         # Return with different handler names
         for handler_name in ["crossref", "openalex", "semanticscholar"]:
             mock_fetcher.fetch_paper.return_value = (enriched_paper, False, handler_name)
-            
+
             resolved_paper, created_new = step._resolve_citation(
                 citation=citation,
                 citing_paper=citing_paper,

@@ -25,11 +25,6 @@ from pathlib import Path
 from paper_scanner.core.models import Paper, TextChunk
 from paper_scanner.tools.embedding.citation_remover import CitationRemover
 from paper_scanner.tools.embedding.extractor import PDFExtractor
-from paper_scanner.tools.embedding.sections import (
-    detect_sections,
-    group_sections_hierarchically,
-    normalize_section_name,
-)
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
@@ -86,11 +81,11 @@ class ChunkingAnalysis:
             # Extract text
             result = self.extractor.extract(paper.pdf_info.file_path)
             if not result:
-                logger.error(f"  ✗ Extraction failed")
+                logger.error("  ✗ Extraction failed")
                 return []
 
             text = result["text"]
-            raw_sections = result["raw_sections"]
+            result["raw_sections"]
             hierarchical = result["hierarchical_sections"]
 
             # Remove citations
@@ -137,7 +132,7 @@ class ChunkingAnalysis:
                     continue
 
                 section_content = section_item.get("content", "").strip()
-                section_title = section_item.get("title", section_name)
+                section_item.get("title", section_name)
 
                 if not section_content:
                     continue
@@ -205,16 +200,16 @@ class ChunkingAnalysis:
         logger.info(f"  Title: {paper.title}")
         logger.info(f"  Authors: {paper.author_string}")
         logger.info(f"  Year: {paper.year}")
-        logger.info(f"\n  CHUNK HIERARCHY (3-Level: Paper → Sections → Paragraphs):")
-        logger.info(f"  ────────────────────────────────────────────────────────────────────────────")
+        logger.info("\n  CHUNK HIERARCHY (3-Level: Paper → Sections → Paragraphs):")
+        logger.info("  ────────────────────────────────────────────────────────────────────────────")
         for level in sorted(level_counts.keys()):
             level_names = {0: "Papers", 1: "Sections", 2: "Paragraphs"}
             logger.info(f"  • Level {level} ({level_names.get(level, 'Unknown')}): {level_counts[level]}")
 
     def _print_hierarchy_tree(self, chunks: list) -> None:
         """Print hierarchical tree of chunks."""
-        logger.info(f"\n  HIERARCHY TREE:")
-        logger.info(f"  ────────────────────────────────────────────────────────────────────────────")
+        logger.info("\n  HIERARCHY TREE:")
+        logger.info("  ────────────────────────────────────────────────────────────────────────────")
 
         # Build hierarchy map
         children_map = {}
@@ -282,7 +277,7 @@ class ChunkingAnalysis:
         logger.info(f"\nPapers analyzed: {total_papers}")
         logger.info(f"Total chunks created: {total_chunks}")
         logger.info(f"Average chunks per paper: {total_chunks // total_papers if total_papers > 0 else 0}")
-        
+
         logger.info(f"\n{'─'*80}")
         logger.info("Chunks by Hierarchy Level:")
         logger.info(f"{'─'*80}")

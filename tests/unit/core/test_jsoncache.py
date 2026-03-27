@@ -34,7 +34,7 @@ class TestCacheInitialization:
     def test_cache_init_creates_directory(self, tmp_path):
         """Test that cache initialization creates directory if it doesn't exist."""
         cache_dir = tmp_path / "nested" / "cache" / "dir"
-        cache = JSONFileCache(cache_dir=cache_dir)
+        JSONFileCache(cache_dir=cache_dir)
 
         assert cache_dir.exists()
         assert cache_dir.is_dir()

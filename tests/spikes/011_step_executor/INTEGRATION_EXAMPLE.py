@@ -47,7 +47,7 @@ class BatchTaskExecutor:
     ) -> dict:
         """
         Execute complete pipeline batch.
-        
+
         Returns:
             Execution results dictionary
         """
@@ -228,7 +228,7 @@ class REPLSession:
 def show_comparison():
     """
     Show side-by-side comparison of old vs new approach.
-    
+
     OLD: Separate run.py and repl.py with different initialization
     NEW: Unified StepExecutor with integration patterns
     """
@@ -305,7 +305,7 @@ def example_batch():
     print("Example 1: Batch Task Integration")
     print("=" * 60 + "\n")
 
-    batch = BatchTaskExecutor(
+    BatchTaskExecutor(
         definition_file=Path("definition.yml"),
         project_name="Example Project",
         verbose=True,

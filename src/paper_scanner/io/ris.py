@@ -7,14 +7,11 @@ RIS (Research Information Systems) is a tagged format used by many academic data
 """
 
 import hashlib
-import re
-import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..core.models import Author, Discovery, DiscoveryMethod, Paper
 from ..core.enum import PaperType
-from ..core.doi import DOI
+from ..core.models import Author, Discovery, DiscoveryMethod, Paper
 from ..core.normalization import Normalizer
 
 # ============================================================================
@@ -239,7 +236,7 @@ def ris_record_to_paper(
 
     # Database tracking
     accession_number = record.get('AN', '').strip() or None
-    database = record.get('DB', '').strip() or source_database or None
+    record.get('DB', '').strip() or source_database or None
 
     # ============================================================================
     # Cite Key & Source Key Strategy

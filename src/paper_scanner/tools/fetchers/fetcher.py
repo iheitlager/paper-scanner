@@ -5,13 +5,12 @@ Coordinates metadata and citations fetching from multiple sources with fallback 
 and unified caching across all APIs.
 """
 
-import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from paper_scanner.core.models import Citation, Paper, PDFInfo
 from paper_scanner.core.cache import PDFCache
 from paper_scanner.core.exceptions import ConfigurationError
+from paper_scanner.core.models import Citation, Paper, PDFInfo
 from paper_scanner.tools.fetchers.fetcher_handlers.base import BaseFetcherHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.crossref_handler import CrossrefHandler
 from paper_scanner.tools.fetchers.fetcher_handlers.manual_handler import ManualHandler

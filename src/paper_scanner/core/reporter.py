@@ -9,8 +9,8 @@ This module defines abstract reporter interfaces for monitoring and reporting on
 Reporters implement the observer pattern to provide custom handling of pipeline events.
 """
 
-from abc import ABC, abstractmethod
 import sys
+from abc import ABC, abstractmethod
 from typing import Any, Dict
 
 from rich.console import Console

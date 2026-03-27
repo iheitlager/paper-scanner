@@ -1,7 +1,8 @@
 """Unit tests for JSONViewer"""
 
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from paper_scanner.viewer.json_viewer import JSONViewer
 
 
@@ -119,7 +120,7 @@ class TestJSONViewer:
 
     def test_escape_search_query_brackets(self, sample_data):
         """Test that search query with brackets is escaped"""
-        viewer = JSONViewer(sample_data)
+        JSONViewer(sample_data)
         # Simulate user typing brackets
         query_with_brackets = "test[0]"
         escaped = query_with_brackets.replace("[", r"\[").replace("]", r"\]")

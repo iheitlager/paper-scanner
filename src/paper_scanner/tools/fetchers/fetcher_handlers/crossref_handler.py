@@ -151,7 +151,7 @@ class CrossrefHandler(BaseFetcherHandler):
     def _extract_year(self, api_data: Dict[str, Any]) -> Optional[int]:
         """
         Extract publication year from Crossref API data.
-        
+
         Crossref provides year in multiple places with different formats:
         - published-print.date-parts: [[2026, 3]] (preferred)
         - published-online.date-parts: [[2026, 3]]
@@ -207,7 +207,7 @@ class CrossrefHandler(BaseFetcherHandler):
     def _extract_journal(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract journal name from Crossref API data.
-        
+
         Crossref provides journal in:
         - container-title: ["Journal Name"] (preferred for journal articles)
         - short-container-title: ["J. Name"]
@@ -233,7 +233,7 @@ class CrossrefHandler(BaseFetcherHandler):
     def _extract_url(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract URL from Crossref API data.
-        
+
         Crossref provides URL in:
         - resource.primary.URL: Primary/preferred URL to the resource
         - URL: Alternative location for URL field
@@ -287,7 +287,7 @@ class CrossrefHandler(BaseFetcherHandler):
     def _extract_isbn(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract ISBN from Crossref API data.
-        
+
         Crossref provides ISBNs in 'isbn' field (array of strings).
         """
         isbns = api_data.get("isbn")
@@ -298,7 +298,7 @@ class CrossrefHandler(BaseFetcherHandler):
     def _extract_issn(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract ISSN from Crossref API data.
-        
+
         Crossref provides ISSNs in 'issn' field (array of strings).
         """
         issns = api_data.get("issn")
@@ -309,7 +309,7 @@ class CrossrefHandler(BaseFetcherHandler):
     def _extract_pmid(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract PubMed ID from Crossref API data.
-        
+
         Crossref doesn't directly provide PMID. Check alternative identifiers.
         """
         # Crossref doesn't reliably provide PMID

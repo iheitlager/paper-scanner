@@ -17,7 +17,7 @@ Thresholds:
 
 Usage:
     python stage2_semantic_screening.py [--db-url <url>] [--limit <n>] [--verbose] [--force-redo]
-    
+
     # Example:
     python stage2_semantic_screening.py \\
         --db-url postgresql://pdfuser:pdfuser@localhost/pdfdb \\
@@ -68,13 +68,13 @@ class Stage2SemanticScreener:
 
     # Research question for semantic filtering
     RESEARCH_QUESTION = """
-    How do incumbent firms involve suppliers in their digital innovation 
+    How do incumbent firms involve suppliers in their digital innovation
     processes? What mechanisms enable or hinder this collaboration?
     """
 
     def __init__(self, db_url: str, model_name: str = "all-mpnet-base-v2"):
         """Initialize the screener with database connection details.
-        
+
         Args:
             db_url: PostgreSQL connection URL
             model_name: Sentence transformer model to use
@@ -128,10 +128,10 @@ class Stage2SemanticScreener:
 
     def normalize_text(self, text: Optional[str]) -> str:
         """Normalize text for embedding.
-        
+
         Args:
             text: Text to normalize
-            
+
         Returns:
             Cleaned text
         """
@@ -143,11 +143,11 @@ class Stage2SemanticScreener:
 
     def compute_paper_embedding(self, title: Optional[str], abstract: Optional[str]) -> np.ndarray:
         """Compute embedding for paper combining title and abstract.
-        
+
         Args:
             title: Paper title
             abstract: Paper abstract
-            
+
         Returns:
             Embedding vector
         """
@@ -167,11 +167,11 @@ class Stage2SemanticScreener:
 
     def compute_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
         """Compute cosine similarity between two embeddings.
-        
+
         Args:
             embedding1: First embedding vector
             embedding2: Second embedding vector
-            
+
         Returns:
             Cosine similarity score (0-1, where 1 is identical)
         """
@@ -190,14 +190,14 @@ class Stage2SemanticScreener:
 
     def stage2_refined_filter(self, paper: Dict, base_similarity: float) -> Dict:
         """Stage 2: Refine with keywords as BOOST, not filter.
-        
-        MEDIUM PRECISION - narrow down candidates using semantic similarity 
+
+        MEDIUM PRECISION - narrow down candidates using semantic similarity
         with optional keyword boost for alignment enhancement.
-        
+
         Args:
             paper: Paper record from database
             base_similarity: Base semantic similarity score from embeddings
-            
+
         Returns:
             Dictionary with filtering results including:
             - passed: Boolean indicating if paper passes screening
@@ -255,10 +255,10 @@ class Stage2SemanticScreener:
 
     def classify_paper(self, similarity: float) -> Tuple[str, str, Optional[str]]:
         """Classify paper based on similarity score.
-        
+
         Args:
             similarity: Similarity score (0-1)
-            
+
         Returns:
             Tuple of (screening_stage, decision, exclusion_reason)
             - screening_stage: 'stage2_pass', 'stage2_review', 'stage2_fail'
@@ -276,10 +276,10 @@ class Stage2SemanticScreener:
 
     def screen_paper(self, paper: Dict) -> Dict:
         """Perform Stage 2 screening on a single paper.
-        
+
         Args:
             paper: Paper record from database
-            
+
         Returns:
             Dictionary with screening results
         """
@@ -315,18 +315,18 @@ class Stage2SemanticScreener:
 
     def get_stage1_passed_papers(self, limit: Optional[int] = None, force_redo: bool = False) -> List[Dict]:
         """Fetch papers that passed Stage 1 and need Stage 2 screening.
-        
+
         Args:
             limit: Maximum number of papers to fetch
             force_redo: If True, reprocess papers even if Stage 2 already done
-            
+
         Returns:
             List of paper records
         """
         if force_redo:
             # Get all papers that passed Stage 1
             query = """
-            SELECT 
+            SELECT
                 p.id,
                 p.title,
                 p.abstract,
@@ -343,7 +343,7 @@ class Stage2SemanticScreener:
         else:
             # Get only papers that haven't been screened with Stage 2 yet
             query = """
-            SELECT 
+            SELECT
                 p.id,
                 p.title,
                 p.abstract,
@@ -353,7 +353,7 @@ class Stage2SemanticScreener:
                 ps.semantic_similarity
             FROM papers p
             LEFT JOIN paper_screening ps ON p.id = ps.paper_id
-            WHERE ps.screening_stage IS NULL 
+            WHERE ps.screening_stage IS NULL
                OR ps.screening_stage = 'stage1_pass'
             ORDER BY p.id
             """
@@ -373,7 +373,7 @@ class Stage2SemanticScreener:
 
     def update_screening_results(self, results: List[Dict]) -> None:
         """Update paper_screening table with Stage 2 results.
-        
+
         Args:
             results: List of screening results
         """
@@ -450,12 +450,12 @@ class Stage2SemanticScreener:
 
     def get_screening_summary(self) -> Dict:
         """Get summary statistics of screening results.
-        
+
         Returns:
             Dictionary with summary statistics
         """
         query = """
-        SELECT 
+        SELECT
             COUNT(*) as total,
             COUNT(CASE WHEN screening_stage = 'stage2_pass' THEN 1 END) as included,
             COUNT(CASE WHEN screening_stage = 'stage2_fail' THEN 1 END) as excluded,
@@ -480,7 +480,7 @@ class Stage2SemanticScreener:
 
     def run(self, limit: Optional[int] = None, force_redo: bool = False, verbose: bool = False) -> None:
         """Run Stage 2 screening on papers.
-        
+
         Args:
             limit: Maximum number of papers to screen
             force_redo: If True, reprocess papers even if Stage 2 already done

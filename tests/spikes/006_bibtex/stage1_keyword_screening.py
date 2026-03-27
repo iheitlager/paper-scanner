@@ -11,7 +11,7 @@ precision (~70%), allowing false positives to be filtered in later stages.
 
 Usage:
     python stage1_keyword_screening.py [--db-url <url>] [--limit <n>] [--verbose]
-    
+
     # Example:
     python stage1_keyword_screening.py \\
         --db-url postgresql://pdfuser:pdfuser@localhost/pdfdb \\
@@ -76,7 +76,7 @@ class Stage1KeywordScreener:
 
     def __init__(self, db_url: str):
         """Initialize the screener with database connection details.
-        
+
         Args:
             db_url: PostgreSQL connection URL
         """
@@ -108,10 +108,10 @@ class Stage1KeywordScreener:
 
     def normalize_text(self, text: Optional[str]) -> str:
         """Normalize text for keyword matching.
-        
+
         Args:
             text: Text to normalize
-            
+
         Returns:
             Lowercase, whitespace-trimmed text
         """
@@ -121,11 +121,11 @@ class Stage1KeywordScreener:
 
     def check_keyword_match(self, text: str, keywords: List[str]) -> Tuple[List[str], int]:
         """Check which keywords match in text.
-        
+
         Args:
             text: Text to search in (should be normalized)
             keywords: List of keywords to check
-            
+
         Returns:
             Tuple of (matched_keywords, match_count)
         """
@@ -140,10 +140,10 @@ class Stage1KeywordScreener:
 
     def screen_paper(self, paper: Dict) -> Dict:
         """Perform Stage 1 screening on a single paper.
-        
+
         Args:
             paper: Paper record from database
-            
+
         Returns:
             Dictionary with screening results
         """
@@ -199,15 +199,15 @@ class Stage1KeywordScreener:
 
     def get_unscreened_papers(self, limit: Optional[int] = None) -> List[Dict]:
         """Fetch papers that haven't been screened yet.
-        
+
         Args:
             limit: Maximum number of papers to fetch
-            
+
         Returns:
             List of paper records
         """
         query = """
-        SELECT 
+        SELECT
             p.id,
             p.title,
             p.abstract,
@@ -216,7 +216,7 @@ class Stage1KeywordScreener:
             COALESCE(ps.screening_stage, 'unscreened') as current_stage
         FROM papers p
         LEFT JOIN paper_screening ps ON p.id = ps.paper_id
-        WHERE ps.screening_stage IS NULL 
+        WHERE ps.screening_stage IS NULL
            OR ps.screening_stage IN ('unscreened', 'stage0_pass', 'stage1_pass', 'stage1_fail')
         """
 
@@ -235,7 +235,7 @@ class Stage1KeywordScreener:
 
     def update_screening_results(self, results: List[Dict]) -> None:
         """Update paper_screening table with Stage 1 results.
-        
+
         Args:
             results: List of screening results
         """
@@ -296,11 +296,11 @@ class Stage1KeywordScreener:
 
     def process_papers(self, limit: Optional[int] = None, verbose: bool = False) -> Dict:
         """Process all unscreened papers through Stage 1.
-        
+
         Args:
             limit: Maximum number of papers to process
             verbose: Enable verbose logging
-            
+
         Returns:
             Dictionary with processing statistics
         """
@@ -360,12 +360,12 @@ class Stage1KeywordScreener:
 
     def print_sample_results(self, limit: int = 10) -> None:
         """Print sample screening results for review.
-        
+
         Args:
             limit: Number of results to display
         """
         query = """
-        SELECT 
+        SELECT
             p.citekey,
             p.title,
             ps.screening_stage,
@@ -424,13 +424,13 @@ Examples:
   # Process all unscreened papers
   python stage1_keyword_screening.py \\
     --db-url postgresql://pdfuser:pdfuser@localhost/pdfdb
-  
+
   # Process limited sample with verbose output
   python stage1_keyword_screening.py \\
     --db-url postgresql://pdfuser:pdfuser@localhost/pdfdb \\
     --limit 50 \\
     --verbose
-  
+
   # Show sample results from database
   python stage1_keyword_screening.py \\
     --db-url postgresql://pdfuser:pdfuser@localhost/pdfdb \\

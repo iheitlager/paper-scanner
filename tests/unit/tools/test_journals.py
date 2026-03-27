@@ -1,8 +1,10 @@
 """Unit tests for JournalLookup library."""
-import pytest
 import tempfile
-import yaml
 from pathlib import Path
+
+import pytest
+import yaml
+
 from paper_scanner.tools.documents.journals import JournalLookup
 
 
@@ -28,13 +30,13 @@ def temp_journal_definitions():
             'test_view': ['Journal of Business Research', 'Management Science']
         }
     }
-    
+
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yml', delete=False) as f:
         yaml.dump(journals_data, f)
         temp_path = f.name
-    
+
     yield temp_path
-    
+
     # Cleanup
     Path(temp_path).unlink(missing_ok=True)
 
@@ -79,7 +81,7 @@ class TestJournalLookup:
         jl = JournalLookup(temp_journal_definitions)
         with pytest.raises(ValueError):
             jl.lookup(None)
-        
+
         with pytest.raises(ValueError):
             jl.lookup('')
 
@@ -101,7 +103,7 @@ class TestJournalLookup:
         # This tests the actual production file
         jl = JournalLookup()
         assert jl.get_journal_count() >= 50
-        
+
         # Verify some known journals from production file
         result = jl.lookup('Journal of Business Research')
         assert result[0] == 'Journal of Business Research'

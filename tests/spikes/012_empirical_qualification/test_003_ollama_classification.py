@@ -10,16 +10,13 @@ Requirements:
 """
 
 import json
-import time
 import re
+import time
 from pathlib import Path
 from typing import Dict, Tuple
-import sys
-import subprocess
 
-from pypdf import PdfReader
 import requests
-
+from pypdf import PdfReader
 
 # Ollama API endpoint
 OLLAMA_API = "http://localhost:11434/api/generate"
@@ -48,12 +45,12 @@ def extract_abstract(text: str) -> str:
         text,
         re.IGNORECASE | re.DOTALL
     )
-    
+
     if abstract_match:
         abstract = abstract_match.group(1)
         abstract = re.sub(r"\s+", " ", abstract).strip()
         return abstract[:500]
-    
+
     # Use first 300 words
     words = text.split()[:50]
     return " ".join(words)
@@ -72,7 +69,7 @@ def query_ollama(prompt: str, model: str = None, timeout: int = 60) -> str:
     """Query Ollama model with prompt."""
     if model is None:
         model = OLLAMA_MODELS[0]  # Default to first model
-    
+
     try:
         response = requests.post(
             OLLAMA_API,
@@ -83,7 +80,7 @@ def query_ollama(prompt: str, model: str = None, timeout: int = 60) -> str:
             },
             timeout=timeout,
         )
-        
+
         if response.status_code == 200:
             return response.json().get("response", "")
         else:
@@ -115,12 +112,12 @@ def extract_abstract(text: str) -> str:
         text,
         re.IGNORECASE | re.DOTALL
     )
-    
+
     if abstract_match:
         abstract = abstract_match.group(1)
         abstract = re.sub(r"\s+", " ", abstract).strip()
         return abstract[:800]
-    
+
     words = text.split()[:50]
     return " ".join(words)
 
@@ -132,28 +129,28 @@ def extract_keywords(text: str) -> list:
         text,
         re.IGNORECASE
     )
-    
+
     if keywords_match:
         keywords_str = keywords_match.group(1)
         keywords = re.split(r"[,;]\s*|and\s+", keywords_str)
         keywords = [k.strip() for k in keywords if k.strip()]
         return keywords[:15]
-    
+
     return []
 
 
 def classify_study_type_ollama(abstract: str, model: str) -> Tuple[str, str]:
     """
     Classify study type using Ollama LLM.
-    
+
     Args:
         abstract: The abstract text
         model: Model name (phi3:mini or phi3.5)
-    
+
     Returns:
         (study_type, reasoning): Study type and LLM reasoning
     """
-    prompt = f"""Classify the following paper abstract by study type. 
+    prompt = f"""Classify the following paper abstract by study type.
 Respond with ONLY the classification in this format: STUDY_TYPE: [type]
 
 Study types:
@@ -168,9 +165,9 @@ Abstract:
 {abstract}
 
 Classification:"""
-    
+
     response = query_ollama(prompt, model=model, timeout=120)  # Give LLM more time
-    
+
     # Parse response
     if "STUDY_TYPE:" in response:
         type_str = response.split("STUDY_TYPE:")[-1].strip().split("\n")[0].lower()
@@ -191,7 +188,7 @@ Classification:"""
             study_type = "unknown"
     else:
         study_type = "unknown"
-    
+
     return study_type, response
 
 
@@ -204,9 +201,9 @@ Abstract:
 {abstract}
 
 Metadata:"""
-    
+
     response = query_ollama(prompt)
-    
+
     # Try to parse JSON
     try:
         # Find JSON in response
@@ -216,7 +213,7 @@ Metadata:"""
             return metadata
     except Exception:
         pass
-    
+
     # Fallback
     return {
         "keywords": [],
@@ -229,7 +226,7 @@ def process_pdfs_ollama() -> Dict:
     """Process all PDFs using Ollama classification with both models."""
     test_data_dir = Path(__file__).parent.parent.parent / "data"
     pdf_files = sorted(test_data_dir.glob("*.pdf"))
-    
+
     # Check Ollama
     print("Checking Ollama connection...")
     if not check_ollama_running():
@@ -245,9 +242,9 @@ def process_pdfs_ollama() -> Dict:
             "error": "Ollama not running",
             "papers": [],
         }
-    
+
     print("✓ Ollama is running\n")
-    
+
     results = {
         "method": "ollama_lm",
         "models": OLLAMA_MODELS,
@@ -257,23 +254,23 @@ def process_pdfs_ollama() -> Dict:
         "total_latency_ms": 0,
         "status": "success",
     }
-    
+
     print(f"Processing {len(pdf_files)} PDFs with Ollama models: {', '.join(OLLAMA_MODELS)}...\n")
-    
+
     for pdf_path in pdf_files:
         start_time = time.time()
-        
+
         # Extract text
         text = extract_text_from_pdf(str(pdf_path))
         if not text:
             print(f"⚠️  Skipped {pdf_path.name} (no text extracted)")
             continue
-        
+
         # Extract metadata
         title = extract_title(text)
         abstract = extract_abstract(text)
         keywords = extract_keywords(text)
-        
+
         # Classify with both models
         classifications = {}
         for model in OLLAMA_MODELS:
@@ -282,9 +279,9 @@ def process_pdfs_ollama() -> Dict:
                 "study_type": study_type,
                 "reasoning": reasoning[:150],
             }
-        
+
         latency_ms = (time.time() - start_time) * 1000
-        
+
         paper_result = {
             "filename": pdf_path.name,
             "title": title,
@@ -295,11 +292,11 @@ def process_pdfs_ollama() -> Dict:
             "latency_ms": latency_ms,
             "text_length": len(text),
         }
-        
+
         results["papers"].append(paper_result)
         results["papers_processed"] += 1
         results["total_latency_ms"] += latency_ms
-        
+
         # Display results from both models
         phi3_mini_type = classifications.get("phi3:mini", {}).get("study_type", "?")
         phi3_5_type = classifications.get("phi3.5", {}).get("study_type", "?")
@@ -307,13 +304,13 @@ def process_pdfs_ollama() -> Dict:
         print(f"✓ {pdf_path.name}")
         print(f"  phi3:mini → {phi3_mini_type} | phi3.5 → {phi3_5_type}")
         print(f"  Keywords: {keywords_str} | {latency_ms:.1f}ms")
-    
+
     results["avg_latency_ms"] = (
         results["total_latency_ms"] / results["papers_processed"]
         if results["papers_processed"] > 0
         else 0
     )
-    
+
     return results
 
 
@@ -321,10 +318,10 @@ def save_results(results: Dict, output_path: str):
     """Save results to JSON file."""
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     with open(output_file, "w") as f:
         json.dump(results, f, indent=2)
-    
+
     print(f"\n📊 Results saved to {output_file}")
 
 
@@ -333,25 +330,25 @@ def main():
     print("=" * 60)
     print("TEST 003: Ollama LLM Classification")
     print("=" * 60)
-    
+
     results = process_pdfs_ollama()
-    
+
     if results.get("status") == "error":
         print(f"\n❌ Error: {results.get('error')}")
         return results
-    
+
     # Print summary
-    print(f"\n📈 Summary:")
+    print("\n📈 Summary:")
     print(f"  Papers processed: {results['papers_processed']}")
     print(f"  Models: {', '.join(results.get('models', []))}")
     print(f"  Total latency: {results['total_latency_ms']:.1f}ms")
     print(f"  Avg latency/paper: {results['avg_latency_ms']:.1f}ms")
-    
+
     # Save results
     output_dir = Path(__file__).parent / "outputs"
     output_dir.mkdir(exist_ok=True)
     save_results(results, str(output_dir / "results_003_ollama.json"))
-    
+
     return results
 
 

@@ -13,10 +13,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 
-from paper_scanner.core.doi import DOI
-from paper_scanner.core.models import Citation, Paper, PDFInfo
 from paper_scanner.core.cache import JSONFileCache, create_404_marker, is_404_marker
 from paper_scanner.core.cite_key import generate_doi_based_cite_key
+from paper_scanner.core.doi import DOI
+from paper_scanner.core.models import Citation, Paper, PDFInfo
 
 console = Console(file=sys.stderr)
 
@@ -119,7 +119,7 @@ class BaseFetcherHandler(ABC):
     def _extract_url(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract URL from API response.
-        
+
         Default implementation returns None.
         Subclasses can override for API-specific handling.
         """
@@ -128,7 +128,7 @@ class BaseFetcherHandler(ABC):
     def _extract_isbn(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract ISBN from API response.
-        
+
         Default implementation returns None.
         Subclasses can override for API-specific handling.
         """
@@ -137,7 +137,7 @@ class BaseFetcherHandler(ABC):
     def _extract_issn(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract ISSN from API response.
-        
+
         Default implementation returns None.
         Subclasses can override for API-specific handling.
         """
@@ -146,7 +146,7 @@ class BaseFetcherHandler(ABC):
     def _extract_pmid(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract PubMed ID from API response.
-        
+
         Default implementation returns None.
         Subclasses can override for API-specific handling.
         """
@@ -210,7 +210,7 @@ class BaseFetcherHandler(ABC):
     def _extract_publisher(self, api_data: Dict[str, Any]) -> Optional[str]:
         """
         Extract publisher from API response.
-        
+
         Default implementation returns None.
         Subclasses can override for API-specific handling.
         """
@@ -231,7 +231,7 @@ class BaseFetcherHandler(ABC):
         """
         key = f"{doi}_fwd" # this is going to be mangled to md5
         api_data = self._jsoncache.get(key)
-        
+
         if api_data is not None:
             # Check if this is a 404 marker
             if is_404_marker(api_data):

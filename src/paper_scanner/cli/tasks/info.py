@@ -17,16 +17,16 @@ from paper_scanner.steps.base import BaseStep
 def _get_step_description(step_class: Type[BaseStep], step_name: str) -> str:
     """
     Get a meaningful description for a step.
-    
+
     Tries to extract from:
     1. Class docstring if it's not a generic wrapper description
     2. Module-level docstring otherwise
     3. Fallback to generic message
-    
+
     Args:
         step_class: The step class
         step_name: Name of the step
-        
+
     Returns:
         First line of description
     """
@@ -67,14 +67,14 @@ def _get_step_description(step_class: Type[BaseStep], step_name: str) -> str:
 def execute_info_steps(builtin_steps: Dict[str, Type[BaseStep]], console: Optional[Console] = None) -> int:
     """
     Display information about available steps.
-    
+
     Shows each available step with its name, description from docstring,
     and key information.
-    
+
     Args:
         builtin_steps: Dictionary mapping step names to step classes
         console: Optional Rich console instance (uses stderr by default)
-        
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """

@@ -7,7 +7,7 @@ a standard interface for step discovery, configuration validation, and execution
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Tuple
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.reporter import NOOP
@@ -135,7 +135,7 @@ class BaseStep(ABC):
             - "status": StepStatus.[SUCCESS, ERROR, WARNING, HALTED]
             - "message": Summary message
             - "count": Number of items processed (or 0 on error)
-            
+
             May include:
             - "details": Step-specific result details
             - "error": Error message (if status is "error")

@@ -8,12 +8,12 @@ Run with:
     python test_02_screen_files.py
 """
 
-import pytest
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-import json
+from typing import Any, Dict, List, Optional
 
-from paper_scanner.core.enum import PaperType, StudyType, ScreeningDecision
+import pytest
+
+from paper_scanner.core.enum import PaperType, ScreeningDecision, StudyType
 from paper_scanner.io.bibtex import bibtex_file_to_papers
 
 
@@ -33,7 +33,7 @@ class ScreeningCriteria:
     def parse_exclude_criteria(self, field: str) -> Dict[str, Any]:
         """
         Parse exclude criteria for a field.
-        
+
         Returns dict with:
         - hard_excludes: list of values that hard exclude
         - exclude_all_except: optional value (for NOT: prefix)
@@ -55,7 +55,7 @@ class ScreeningCriteria:
     def parse_include_criteria(self, field: str) -> List[str]:
         """
         Parse include criteria for a field.
-        
+
         Returns list of values that must be included.
         """
         return self.include.get(field, [])
@@ -67,11 +67,11 @@ class ScreeningCriteria:
     ) -> tuple[bool, Optional[str]]:
         """
         Determine if paper should be included based on tri-state logic.
-        
+
         Args:
             paper_data: Paper data dict with fields like 'language', 'paper_type', etc.
             verbose: Enable verbose output
-        
+
         Returns:
             (should_include, exclusion_reason)
         """
@@ -314,12 +314,12 @@ class TestBibtexFileProcessing:
     def test_read_bibtex_file(self, bibtex_file):
         """Should read papers from BibTeX file"""
         assert bibtex_file.exists(), f"Test file not found: {bibtex_file}"
-        
+
         try:
             papers = bibtex_file_to_papers(str(bibtex_file))
             assert papers is not None
             assert len(papers) > 0, "No papers read from BibTeX file"
-            
+
             # Check first paper has expected fields
             first_paper = papers[0]
             assert hasattr(first_paper, 'title')
@@ -332,7 +332,7 @@ class TestBibtexFileProcessing:
         """Should extract all needed fields for screening"""
         try:
             papers = bibtex_file_to_papers(str(bibtex_file))
-            
+
             for paper in papers:
                 # These fields may be missing, but structure should exist
                 paper_dict = {
@@ -416,12 +416,12 @@ def run_manual_tests():
         "include": {}
     }
     screening = ScreeningCriteria(criteria)
-    
+
     paper = {"study_type": "editorial"}
     included, reason = screening.should_include(paper)
     print(f"  Editorial paper - Included: {included}")
     assert included is False
-    
+
     paper = {"study_type": "empirical_qualitative"}
     included, reason = screening.should_include(paper)
     print(f"  Empirical paper - Included: {included}")

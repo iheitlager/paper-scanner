@@ -5,10 +5,9 @@ Tests verify that bibtex.py correctly uses the Normalizer class for all
 field normalization instead of duplicated functions.
 """
 
-import pytest
-from paper_scanner.io.bibtex import bibtex_entry_to_paper
-from paper_scanner.core.models import Author, Paper, PaperType
+from paper_scanner.core.models import Author
 from paper_scanner.core.normalization import Normalizer
+from paper_scanner.io.bibtex import bibtex_entry_to_paper
 
 
 class TestBibtexNormalizerIntegration:
@@ -18,7 +17,7 @@ class TestBibtexNormalizerIntegration:
         """parse_authors should use Normalizer.normalize_authors()"""
         # Test "Last, First" format - normalize_authors returns list of strings
         result = Normalizer.normalize_authors("Smith, John and Doe, Jane")
-        
+
         assert len(result) == 2
         assert isinstance(result[0], str)
         assert "Smith" in result[0] or "John" in result[0]
@@ -27,7 +26,7 @@ class TestBibtexNormalizerIntegration:
     def test_parse_keywords_uses_normalizer(self):
         """parse_keywords should use Normalizer.normalize_keywords()"""
         result = Normalizer.normalize_keywords("machine learning; deep learning; neural networks")
-        
+
         assert len(result) == 3
         assert all(kw.islower() for kw in result)
         assert "machine learning" in result
@@ -38,7 +37,7 @@ class TestBibtexNormalizerIntegration:
         """normalize_ampersands should use Normalizer._normalize_ampersands()"""
         result = Normalizer._normalize_ampersands("Smith \\& Jones Publishing")
         assert result == "Smith & Jones Publishing"
-        
+
         result = Normalizer._normalize_ampersands("Art &amp; Design")
         assert result == "Art & Design"
 
@@ -57,9 +56,9 @@ class TestBibtexNormalizerIntegration:
             'doi': '10.1234/example',
             'booktitle': 'proceedings of icml'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # Verify all fields are normalized
         assert paper.title  # Titlecased and cleaned
         assert paper.abstract  # Whitespace collapsed, ampersands normalized
@@ -80,9 +79,9 @@ class TestBibtexNormalizerIntegration:
             'ENTRYTYPE': 'article',
             'title': 'a study of {deep learning} & transformers'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # Title should be titlecased and contain expected content
         assert 'Study' in paper.title
         assert 'Learning' in paper.title or 'learning' in paper.title
@@ -95,9 +94,9 @@ class TestBibtexNormalizerIntegration:
             'title': 'Study',
             'abstract': 'We tested   &amp;   validated   multiple   models.   '
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # Abstract should be collapsed, not titlecased
         assert paper.abstract
         # Should have single spaces
@@ -113,9 +112,9 @@ class TestBibtexNormalizerIntegration:
             'title': 'Study',
             'author': 'smith, john and van der doe, jane'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         assert len(paper.authors) == 2
         # Names should be titlecased
         assert paper.authors[0].given_name == 'John' or paper.authors[0].given_name == 'john'
@@ -128,9 +127,9 @@ class TestBibtexNormalizerIntegration:
             'title': 'Study',
             'keywords': 'ML; Machine Learning; NEURAL NETWORKS; neural networks'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # Should be deduplicated (case-insensitive)
         assert all(kw.islower() for kw in paper.keywords)
         # 'ml' and 'machine learning' and 'neural networks' should be present
@@ -144,9 +143,9 @@ class TestBibtexNormalizerIntegration:
             'title': 'Study',
             'year': '2024'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         assert paper.year == 2024
         assert isinstance(paper.year, int)
 
@@ -158,9 +157,9 @@ class TestBibtexNormalizerIntegration:
             'title': 'Study',
             'journal': 'nature & machine learning review'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # Should be titlecased
         assert paper.journal
         assert 'Nature' in paper.journal or 'nature' in paper.journal
@@ -175,9 +174,9 @@ class TestBibtexNormalizerIntegration:
             'author_keywords': 'neural networks',
             'keywords-plus': 'transformers'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # All keyword sources should be normalized
         assert len(paper.keywords) > 0
         # After normalization, should contain expected keywords
@@ -191,42 +190,42 @@ class TestBibtexNormalizerConsistency:
     def test_title_normalization_consistent(self):
         """Title normalization should match Normalizer.normalize_title()"""
         title_input = "the great study of machine learning"
-        
+
         entry = {'ID': 'test1', 'ENTRYTYPE': 'article', 'title': title_input}
         paper = bibtex_entry_to_paper(entry)
-        
+
         expected_title = Normalizer.normalize_title(title_input)
         assert paper.title == expected_title
 
     def test_abstract_normalization_consistent(self):
         """Abstract normalization should match Normalizer.normalize_abstract()"""
         abstract_input = "We tested   &amp;   validated the model.  "
-        
+
         entry = {'ID': 'test1', 'ENTRYTYPE': 'article', 'title': 'Study', 'abstract': abstract_input}
         paper = bibtex_entry_to_paper(entry)
-        
+
         expected_abstract = Normalizer.normalize_abstract(abstract_input)
         assert paper.abstract == expected_abstract
 
     def test_keywords_normalization_consistent(self):
         """Keywords normalization should match Normalizer.normalize_keywords()"""
         keywords_input = "machine learning; deep learning; ml"
-        
+
         entry = {'ID': 'test1', 'ENTRYTYPE': 'article', 'title': 'Study', 'keywords': keywords_input}
         paper = bibtex_entry_to_paper(entry)
-        
+
         expected_keywords = Normalizer.normalize_keywords(keywords_input)
         assert paper.keywords == expected_keywords
 
     def test_authors_normalization_consistent(self):
         """Authors normalization should match Normalizer.normalize_authors()"""
         authors_input = "Smith, John and Doe, Jane"
-        
+
         entry = {'ID': 'test1', 'ENTRYTYPE': 'article', 'title': 'Study', 'author': authors_input}
         paper = bibtex_entry_to_paper(entry)
-        
+
         expected_author_names = Normalizer.normalize_authors(authors_input)
-        
+
         # Extract names from paper authors
         paper_author_names = []
         for author in paper.authors:
@@ -235,5 +234,5 @@ class TestBibtexNormalizerConsistency:
                 paper_author_names.append(f"{author.family_name}, {author.given_name}")
             else:
                 paper_author_names.append(author.full_name)
-        
+
         assert len(paper_author_names) == len(expected_author_names)

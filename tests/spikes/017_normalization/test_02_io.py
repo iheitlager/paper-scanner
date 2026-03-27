@@ -10,11 +10,10 @@ This test suite validates that:
 3. Backward compatibility is maintained
 """
 
-import pytest
-from paper_scanner.io.bibtex import bibtex_entry_to_paper
-from paper_scanner.io.ris import RISRecord, ris_record_to_paper
 from paper_scanner.core.models import PaperType
 from paper_scanner.core.normalization import Normalizer
+from paper_scanner.io.bibtex import bibtex_entry_to_paper
+from paper_scanner.io.ris import RISRecord, ris_record_to_paper
 
 
 class TestIOBibTeXIntegration:
@@ -34,9 +33,9 @@ class TestIOBibTeXIntegration:
             'year': '2024',
             'doi': '10.1234/example.2024.ml',
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # Verify all fields normalized
         assert paper.title  # Titlecased
         assert paper.abstract  # Whitespace collapsed
@@ -55,7 +54,7 @@ class TestIOBibTeXIntegration:
         title_input = "machine learning in {NLP}"
         abstract_input = "We tested  &amp;  validated."
         keywords_input = "ML; Deep Learning; ml"
-        
+
         entry = {
             'ID': 'test1',
             'ENTRYTYPE': 'article',
@@ -63,9 +62,9 @@ class TestIOBibTeXIntegration:
             'abstract': abstract_input,
             'keywords': keywords_input,
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # Compare with direct Normalizer output
         assert paper.title == Normalizer.normalize_title(title_input)
         assert paper.abstract == Normalizer.normalize_abstract(abstract_input)
@@ -81,9 +80,9 @@ class TestIOBibTeXIntegration:
             'author_keywords': 'Deep Learning',
             'keywords-plus': 'Neural Networks'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # All keyword sources should be combined
         keyword_str = ' '.join(paper.keywords)
         assert any(k in keyword_str.lower() for k in ['ml', 'deep', 'neural'])
@@ -106,9 +105,9 @@ class TestIORISIntegration:
         record.add_field('PB', 'nature publishing')
         record.add_field('PY', '2024')
         record.add_field('DO', '10.1234/example')
-        
+
         paper = ris_record_to_paper(record)
-        
+
         # Verify all fields normalized
         assert paper.title  # Titlecased
         assert paper.abstract  # Whitespace collapsed
@@ -126,15 +125,15 @@ class TestIORISIntegration:
         title_input = "machine learning in NLP"
         abstract_input = "We tested  &amp;  validated."
         journal_input = "nature machine intelligence"
-        
+
         record = RISRecord()
         record.add_field('TY', 'JOUR')
         record.add_field('T1', title_input)
         record.add_field('AB', abstract_input)
         record.add_field('JF', journal_input)
-        
+
         paper = ris_record_to_paper(record)
-        
+
         # Compare with direct Normalizer output
         assert paper.title == Normalizer.normalize_title(title_input)
         assert paper.abstract == Normalizer.normalize_abstract(abstract_input)
@@ -148,12 +147,12 @@ class TestIORISIntegration:
             ('BOOK', PaperType.BOOK),
             ('THES', PaperType.THESIS),
         ]
-        
+
         for ris_type, expected_type in test_cases:
             record = RISRecord()
             record.add_field('TY', ris_type)
             record.add_field('T1', 'Test Paper')
-            
+
             paper = ris_record_to_paper(record)
             assert paper.paper_type == expected_type
 
@@ -173,7 +172,7 @@ class TestIONormalizationConsistency:
             'journal': 'nature machine intelligence',
             'year': '2024',
         }
-        
+
         ris_record = RISRecord()
         ris_record.add_field('TY', 'JOUR')
         ris_record.add_field('T1', 'machine learning study')
@@ -183,10 +182,10 @@ class TestIONormalizationConsistency:
         ris_record.add_field('KW', 'Deep Learning')
         ris_record.add_field('JF', 'nature machine intelligence')
         ris_record.add_field('PY', '2024')
-        
+
         bibtex_paper = bibtex_entry_to_paper(bibtex_entry)
         ris_paper = ris_record_to_paper(ris_record)
-        
+
         # Key fields should normalize identically
         assert bibtex_paper.title == ris_paper.title
         assert bibtex_paper.abstract == ris_paper.abstract
@@ -203,7 +202,7 @@ class TestIOBackwardCompatibility:
     def test_normalizer_parse_bibtex_authors(self):
         """Normalizer should parse BibTeX-style author strings"""
         from paper_scanner.core.normalization import Normalizer
-        
+
         # Parse BibTeX author format via Normalizer
         authors = Normalizer.normalize_authors("Smith, John")
         assert len(authors) > 0
@@ -213,7 +212,7 @@ class TestIOBackwardCompatibility:
     def test_normalizer_parse_keywords(self):
         """Normalizer should parse and normalize keywords"""
         from paper_scanner.core.normalization import Normalizer
-        
+
         # Parse keywords via Normalizer - returns lowercase list
         keywords = Normalizer.normalize_keywords("ML; Deep Learning")
         assert len(keywords) > 0
@@ -223,7 +222,7 @@ class TestIOBackwardCompatibility:
     def test_normalizer_normalize_ampersands(self):
         """Normalizer should normalize HTML and LaTeX ampersands"""
         from paper_scanner.core.normalization import Normalizer
-        
+
         # Normalize ampersands via Normalizer._normalize_ampersands
         result = Normalizer._normalize_ampersands("A \\& B")
         assert "&" in result
@@ -231,7 +230,7 @@ class TestIOBackwardCompatibility:
     def test_normalizer_normalize_ris_ampersands(self):
         """Normalizer should normalize RIS-style ampersands"""
         from paper_scanner.core.normalization import Normalizer
-        
+
         # Normalize RIS ampersands
         result = Normalizer._normalize_ampersands("A &amp; B")
         assert "&" in result
@@ -239,7 +238,7 @@ class TestIOBackwardCompatibility:
     def test_normalizer_collapse_whitespace(self):
         """Normalizer should collapse excess whitespace"""
         from paper_scanner.core.normalization import Normalizer
-        
+
         # Collapse whitespace via Normalizer._collapse_whitespace
         result = Normalizer._collapse_whitespace("A   B   C")
         assert result == "A B C"
@@ -247,7 +246,7 @@ class TestIOBackwardCompatibility:
     def test_normalizer_parse_ris_authors(self):
         """Normalizer should parse RIS-style author lists"""
         from paper_scanner.core.normalization import Normalizer
-        
+
         # Parse RIS authors via Normalizer
         authors = Normalizer.normalize_authors(["Smith, John"])
         assert len(authors) > 0
@@ -257,7 +256,7 @@ class TestIOBackwardCompatibility:
     def test_normalizer_parse_ris_keywords(self):
         """Normalizer should parse RIS-style keywords"""
         from paper_scanner.core.normalization import Normalizer
-        
+
         # Parse RIS keywords via Normalizer - returns lowercase list
         keywords = Normalizer.normalize_keywords(["Machine Learning"])
         assert len(keywords) > 0
@@ -275,7 +274,7 @@ class TestIOFieldNormalizationDetails:
             'ENTRYTYPE': 'article',
             'title': 'a study of {deep learning} & transformers'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
         assert 'Study' in paper.title or 'study' in paper.title
 
@@ -287,7 +286,7 @@ class TestIOFieldNormalizationDetails:
             'title': 'Study',
             'abstract': 'this is a lowercase abstract sentence.'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
         assert paper.abstract == 'this is a lowercase abstract sentence.'
 
@@ -297,9 +296,9 @@ class TestIOFieldNormalizationDetails:
         record.add_field('TY', 'JOUR')
         record.add_field('T1', 'Study')
         record.add_field('AU', 'Smith, John')
-        
+
         paper = ris_record_to_paper(record)
-        
+
         # Author should be parsed correctly
         assert paper.authors[0].family_name  # "Smith"
         assert paper.authors[0].given_name  # "John"
@@ -312,9 +311,9 @@ class TestIOFieldNormalizationDetails:
             'title': 'Study',
             'author': 'van der Smith, John'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # Name should be titlecased preserving structure
         assert len(paper.authors) > 0
 
@@ -326,9 +325,9 @@ class TestIOFieldNormalizationDetails:
             'title': 'Study',
             'keywords': 'ML; ml; Machine Learning; MACHINE LEARNING'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # Should have fewer than 4 keywords due to deduplication
         assert len(paper.keywords) <= 2
 
@@ -343,7 +342,7 @@ class TestIOFieldNormalizationDetails:
         }
         paper = bibtex_entry_to_paper(entry)
         assert paper.year == 2024
-        
+
         # Out of range year should return None
         entry['year'] = '500'
         paper = bibtex_entry_to_paper(entry)
@@ -357,9 +356,9 @@ class TestIOFieldNormalizationDetails:
             'title': 'Study',
             'doi': 'https://doi.org/10.1234/example'
         }
-        
+
         paper = bibtex_entry_to_paper(entry)
-        
+
         # Should extract plain DOI format
         assert paper.doi
         assert paper.doi.startswith('10.')

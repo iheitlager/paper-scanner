@@ -31,7 +31,7 @@ def debug_search():
 
     # Check paper embeddings
     cursor.execute("""
-        SELECT 
+        SELECT
             p.citekey,
             p.title,
             pe.embedding,
@@ -91,7 +91,7 @@ def debug_search():
 
     cursor.execute(
         """
-        SELECT 
+        SELECT
             p.citekey,
             p.title,
             pe.embedding <=> %s::vector as distance,

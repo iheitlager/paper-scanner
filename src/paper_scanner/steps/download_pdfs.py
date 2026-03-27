@@ -210,8 +210,8 @@ class DownloadPDFsStep(BaseStep):
                 "skipped": skipped,
                 "errors": len(error_details),
             },
-            error= "\n".join(detail["error"] for detail in error_details) if error_details else None, 
-            details = { 
+            error= "\n".join(detail["error"] for detail in error_details) if error_details else None,
+            details = {
                 "store_path":str(store_path),
                 "sources":sources
             },

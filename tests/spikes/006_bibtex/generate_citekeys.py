@@ -16,10 +16,10 @@ Usage:
 Examples:
     # Generate citekeys
     python generate_citekeys.py
-    
+
     # Dry run to see what would be generated
     python generate_citekeys.py --dry-run
-    
+
     # Custom database
     python generate_citekeys.py --db-url "postgresql://user:pass@host/db"
 """
@@ -66,7 +66,7 @@ class CitekeyGenerator:
         cursor = self.conn.cursor(cursor_factory=RealDictCursor)
 
         query = """
-        SELECT 
+        SELECT
             id,
             file_path,
             file_name,
@@ -275,7 +275,7 @@ Examples:
 Naming strategy:
   1. If authors exist: {first_author_lastname}{year}
      Example: smith2023, johnson2022
-  
+
   2. If no authors: {random_code}
      Example: auto2023abc1, autoPQR8T2X
         """,

@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
     test_cases = [
         """Extract in JSON format - title, authors (array), year:
-        
+
 "Digital technologies, innovation, and skills: Emerging trajectories and challenges" by Tommaso Ciarli, Martin Kenney, Silvia Massini, and Lucia Piscitello (2021)
 
 JSON:""",

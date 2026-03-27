@@ -2,19 +2,14 @@
 Unit tests for ManualHandler and BibtexParser.
 """
 
-import json
-from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
 
-from paper_scanner.core.cache import JSONFileCache
-from paper_scanner.core.enum import CitationDirection
-from paper_scanner.core.doi import DOI
 from paper_scanner.tools.fetchers.fetcher_handlers.bibtex_parser import (
-    BibtexParser,
     BibtexParseError,
+    BibtexParser,
 )
 from paper_scanner.tools.fetchers.fetcher_handlers.manual_handler import ManualHandler
 

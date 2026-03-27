@@ -4,9 +4,8 @@ Example demonstrating 404 caching functionality.
 Shows how the handlers automatically cache 404 responses to reduce API calls.
 """
 
-from pathlib import Path
-from unittest.mock import Mock, patch
 import tempfile
+from pathlib import Path
 
 # Example setup
 cache_dir = Path(tempfile.mkdtemp())

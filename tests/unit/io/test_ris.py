@@ -3,17 +3,15 @@ Unit tests for RIS format parser
 Tests parsing, normalization, and Paper model conversion
 """
 
-import pytest
-from pathlib import Path
 
+from paper_scanner.core.enum import DiscoveryMethod, PaperType
 from paper_scanner.io.ris import (
     RISParser,
     RISRecord,
+    infer_paper_type_ris,
     ris_file_to_papers,
     ris_to_papers,
-    infer_paper_type_ris,
 )
-from paper_scanner.core.enum import PaperType, DiscoveryMethod
 
 
 class TestRISRecord:
@@ -30,7 +28,7 @@ class TestRISRecord:
         record = RISRecord()
         record.add_field("AU", "Smith, John")
         record.add_field("AU", "Doe, Jane")
-        
+
         values = record.get_list("AU")
         assert len(values) == 2
         assert "Smith, John" in values
@@ -91,7 +89,7 @@ T1  - Test Title
 AU  - Smith, John
 PY  - 2025
 ER  - """)
-        
+
         records = RISParser.parse_file(str(ris_file))
         assert len(records) == 1
         assert records[0].get("T1") == "Test Title"
@@ -102,12 +100,12 @@ ER  - """)
         ris_file = tmp_path / "test.ris"
         ris_file.write_text("""TY  - JOUR
 T1  - Title 1
-ER  - 
+ER  -
 
 TY  - JOUR
 T1  - Title 2
 ER  - """)
-        
+
         records = RISParser.parse_file(str(ris_file))
         assert len(records) == 2
         assert records[0].get("T1") == "Title 1"
@@ -123,7 +121,7 @@ AU  - Doe, Jane
 KW  - keyword1
 KW  - keyword2
 ER  - """)
-        
+
         records = RISParser.parse_file(str(ris_file))
         assert len(records[0].get_list("AU")) == 2
         assert len(records[0].get_list("KW")) == 2
@@ -142,10 +140,10 @@ JF  - Test Journal
 PY  - 2025
 DO  - 10.1234/test
 ER  - """
-        
+
         papers = ris_to_papers(ris_string)
         assert len(papers) == 1
-        
+
         paper = papers[0]
         assert paper.title == "Test Article"
         assert paper.year == 2025
@@ -162,7 +160,7 @@ KW  - keyword1
 KW  - keyword2
 KW  - keyword3
 ER  - """
-        
+
         papers = ris_to_papers(ris_string)
         assert len(papers[0].keywords) == 3
 
@@ -172,7 +170,7 @@ ER  - """
 T1  - Test Title
 AN  - 3282856007
 ER  - """
-        
+
         papers = ris_to_papers(ris_string)
         assert papers[0].source_key == "ris_an_3282856007"
         assert papers[0].cite_key == "ris_an_3282856007"
@@ -183,7 +181,7 @@ ER  - """
 T1  - Test Title
 DO  - 10.1234/test
 ER  - """
-        
+
         papers = ris_to_papers(ris_string)
         assert papers[0].source_key == "ris_doi_10.1234/test"
         assert papers[0].cite_key == "ris_doi_10.1234/test"
@@ -194,7 +192,7 @@ ER  - """
 T1  - Test Title
 AU  - Smith, John
 ER  - """
-        
+
         papers = ris_to_papers(ris_string)
         assert papers[0].source_key.startswith("ris_auto_")
         assert papers[0].cite_key == papers[0].source_key
@@ -204,7 +202,7 @@ ER  - """
         ris_string = """TY  - JOUR
 AU  - Smith, John
 ER  - """
-        
+
         # ris_to_papers catches and skips invalid records, returns empty list
         papers = ris_to_papers(ris_string)
         assert len(papers) == 0
@@ -214,13 +212,13 @@ ER  - """
         ris_string = """TY  - JOUR
 T1  - Title 1
 AU  - Smith, John
-ER  - 
+ER  -
 
 TY  - JOUR
 T1  - Title 2
 AU  - Doe, Jane
 ER  - """
-        
+
         papers = ris_to_papers(ris_string)
         assert len(papers) == 2
         assert papers[0].title == "Title 1"
@@ -238,7 +236,7 @@ T1  - Test Article
 AU  - Smith, John
 PY  - 2025
 ER  - """)
-        
+
         papers = ris_file_to_papers(str(ris_file))
         assert len(papers) == 1
         assert papers[0].title == "Test Article"
@@ -251,7 +249,7 @@ ER  - """)
         ris_file.write_text("""TY  - JOUR
 T1  - Test Article
 ER  - """)
-        
+
         papers = ris_file_to_papers(
             str(ris_file),
             source_database="ProQuest"

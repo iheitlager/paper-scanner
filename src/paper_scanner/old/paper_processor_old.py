@@ -494,7 +494,7 @@ Example YAML config (Ollama SLM):
   output_key: references
   add_metadata: true
 
-Note: 
+Note:
 - PDFs are automatically encoded as base64 documents when text_source=pdf (Claude only)
 - SLM models via Ollama require max_chars to limit PDF text extraction
 - Prompt file should instruct model how to extract and analyze content as JSON

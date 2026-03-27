@@ -350,7 +350,7 @@ class TestExecuteRun:
         def mock_get_step(step_name):
             return MockStep()
 
-        results = execute_run(
+        execute_run(
             definition_file,
             cache_dir=cache_dir,
             output_file=output_file,
@@ -554,7 +554,7 @@ class TestExecuteRun:
         def mock_get_step(step_name):
             return MockStep()
 
-        results = execute_run(
+        execute_run(
             definition_file,
             cache_dir=cache_dir,
             clear_checkpoint=True,

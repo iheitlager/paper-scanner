@@ -19,7 +19,6 @@ from ..io.bibtex import papers_to_bibtex
 from ..io.json import papers_to_jsonl
 from .base import BaseStep
 
-
 VALID_FORMATS = {"json", "jsonl", "bibtex"}
 VALID_FLAGS = {"true", "false", "only", "all", "no"}
 
@@ -31,10 +30,10 @@ class ExportStep(BaseStep):
     def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
         Validate export step configuration.
-        
+
         Args:
             config: Step configuration
-            
+
         Returns:
             Tuple of (is_valid, error_messages)
         """
@@ -99,13 +98,13 @@ class ExportStep(BaseStep):
     ) -> Dict[str, Any]:
         """
         Execute database export step
-        
+
         Args:
             config: Step configuration (includes format and output/output_path)
             verbose: Enable verbose output
             dry_run: Don't actually write files
             debug: Enable debug output
-        
+
         Returns:
             Dictionary with execution results
         """
@@ -154,7 +153,7 @@ class ExportStep(BaseStep):
             if duplicates_flag in ["only", "true", True]:
                 # export only duplicates
                 c &= p.duplicate_of is not None
-            elif duplicates_flag is ["no", "false", False]:
+            elif duplicates_flag == ["no", "false", False]:
                 # export only unique papers (default)
                 c &= p.duplicate_of is None
             # else do not care
@@ -217,7 +216,7 @@ class ExportStep(BaseStep):
         with open(self.output_path, 'w', encoding='utf-8') as f:
             f.write(bibtex_content)
 
-    def _export_jsonl(self, papers: List[Any]) -> None:    
+    def _export_jsonl(self, papers: List[Any]) -> None:
         """Export papers to JSONL file."""
 
         jsonl_content = papers_to_jsonl(papers, exclude_none=self.exclude_none)

@@ -8,7 +8,6 @@ across all IO handlers and fetchers.
 import pytest
 
 from paper_scanner.core.normalization import Normalizer
-from paper_scanner.core.enum import PaperType
 
 
 class TestNormalizerTitle:
@@ -570,9 +569,9 @@ class TestNormalizerIntegration:
             'paper_type': 'journal_article',
             'other_field': 'unchanged'
         }
-        
+
         normalized = Normalizer.normalize(raw)
-        
+
         assert normalized['title'] == 'The Great Study'
         # Abstract: no titlecase, just collapse whitespace and normalize ampersands
         assert normalized['abstract'] == 'We tested& validated...'
@@ -592,9 +591,9 @@ class TestNormalizerIntegration:
             'title': 'test paper',
             'year': 2024
         }
-        
+
         normalized = Normalizer.normalize(raw)
-        
+
         assert normalized['title'] == 'Test Paper'
         assert normalized['year'] == 2024
         assert normalized['abstract'] is None

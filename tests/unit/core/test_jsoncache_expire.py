@@ -11,14 +11,9 @@ Tests various TTL (time-to-live) scenarios including:
 - TTL = None (use default)
 """
 
-import json
 import os
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 from paper_scanner.core.cache import JSONFileCache
 
@@ -26,7 +21,7 @@ from paper_scanner.core.cache import JSONFileCache
 def set_file_mtime(file_path: Path, days_old: int = 0, hours_old: int = 0, minutes_old: int = 0, seconds_old: int = 0):
     """
     Helper function to set file modification time to a past date.
-    
+
     Args:
         file_path: Path to the file
         days_old: Number of days in the past

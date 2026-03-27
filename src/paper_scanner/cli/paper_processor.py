@@ -5,13 +5,14 @@ Processes YAML definition files and executes sequential steps
 """
 
 import argparse
-import signal
 import os
+import signal
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Type
 
 from dotenv import load_dotenv
+from icecream import install
 from rich.console import Console
 
 from paper_scanner import __version__
@@ -31,7 +32,6 @@ from paper_scanner.cli.tasks import (
 )
 from paper_scanner.steps.base import BaseStep
 
-from icecream import install
 install()
 
 # Load environment variables from .env file
@@ -270,7 +270,7 @@ def main():
 
     info_subparsers = info_parser.add_subparsers(dest="info_command", help="Info commands")
 
-    steps_parser = info_subparsers.add_parser("steps", help="Show available steps and their documentation")
+    info_subparsers.add_parser("steps", help="Show available steps and their documentation")
 
     # ===== REPL COMMAND =====
     repl_parser = subparsers.add_parser("repl", help="Start interactive REPL for building pipelines")

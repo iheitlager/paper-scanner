@@ -34,7 +34,7 @@ class TestPDFCacheInitialization:
     def test_pdfcache_init_creates_directory(self, tmp_path):
         """Test that PDFCache initialization creates directory if it doesn't exist."""
         cache_dir = tmp_path / "nested" / "pdf" / "cache"
-        cache = PDFCache(cache_dir=cache_dir)
+        PDFCache(cache_dir=cache_dir)
 
         assert cache_dir.exists()
         assert cache_dir.is_dir()

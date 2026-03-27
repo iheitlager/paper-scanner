@@ -40,7 +40,6 @@ import json
 import logging
 import re
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -96,16 +95,16 @@ class CitationRemover:
 
     def remove_citations(self, text: str) -> Tuple[str, Dict]:
         """Remove citations from text and track removal statistics.
-        
+
         Args:
             text: Input text with citations
-            
+
         Returns:
             Tuple of (cleaned_text, stats_dict)
         """
         original_length = len(text)
         original_tokens = self._count_tokens(text)
-        
+
         cleaned = text
         removed_chars = 0
         removed_tokens = 0
@@ -118,13 +117,13 @@ class CitationRemover:
                 citation_text = match.group(0)
                 citation_chars = len(citation_text)
                 citation_tokens = self._count_tokens(citation_text)
-                
+
                 self.citation_blocks.append({
                     'text': citation_text[:50] + ('...' if len(citation_text) > 50 else ''),
                     'chars': citation_chars,
                     'tokens': citation_tokens,
                 })
-                
+
                 removed_chars += citation_chars
                 removed_tokens += citation_tokens
                 matches_found += 1
@@ -166,14 +165,14 @@ class CitationRemover:
         """Get summary of removed citations."""
         if not self.citation_blocks:
             return "No citations removed"
-        
+
         summary = f"Removed {len(self.citation_blocks)} citations:\n"
         for i, citation in enumerate(self.citation_blocks[:5], 1):
             summary += f"  {i}. {citation['text']} ({citation['chars']} chars, {citation['tokens']} tokens)\n"
-        
+
         if len(self.citation_blocks) > 5:
             summary += f"  ... and {len(self.citation_blocks) - 5} more\n"
-        
+
         return summary
 
 
@@ -194,10 +193,10 @@ class PyMuPDFStructureExtractor:
 
     def extract(self, pdf_path: str) -> Optional[Dict]:
         """Extract text from PDF using PyMuPDF.
-        
+
         Args:
             pdf_path: Path to PDF file
-            
+
         Returns:
             Dict with text, detected sections (raw), canonical sections, and statistics
         """
@@ -206,15 +205,15 @@ class PyMuPDFStructureExtractor:
 
         try:
             import fitz
-            
+
             doc = fitz.open(pdf_path)
             full_text = self._extract_text(doc)
-            
+
             # Use sections.py for detection and canonicalization
             raw_sections = detect_sections(full_text)
             hierarchical = group_sections_hierarchically(raw_sections)
             coverage = validate_paper_structure(hierarchical)
-            
+
             return {
                 'tool': 'PyMuPDF',
                 'pdf_path': pdf_path,
@@ -231,16 +230,16 @@ class PyMuPDFStructureExtractor:
     @staticmethod
     def _extract_text(doc) -> str:
         """Extract text from PDF.
-        
+
         Args:
             doc: PyMuPDF document
-            
+
         Returns:
             Combined text from all pages
         """
         full_text = ""
-        total_pages = len(doc)
-        
+        len(doc)
+
         for page_num, page in enumerate(doc, 1):
             text = page.get_text()
             if text:
@@ -266,10 +265,10 @@ class PDFPlumberStructureExtractor:
 
     def extract(self, pdf_path: str) -> Optional[Dict]:
         """Extract text from PDF using pdfplumber.
-        
+
         Args:
             pdf_path: Path to PDF file
-            
+
         Returns:
             Dict with text, detected sections (raw), canonical sections, and statistics
         """
@@ -278,15 +277,15 @@ class PDFPlumberStructureExtractor:
 
         try:
             import pdfplumber
-            
+
             with pdfplumber.open(pdf_path) as pdf:
                 text = self._extract_text(pdf)
-                
+
                 # Use sections.py for detection and canonicalization
                 raw_sections = detect_sections(text)
                 hierarchical = group_sections_hierarchically(raw_sections)
                 coverage = validate_paper_structure(hierarchical)
-                
+
                 return {
                     'tool': 'pdfplumber',
                     'pdf_path': pdf_path,
@@ -303,21 +302,21 @@ class PDFPlumberStructureExtractor:
     @staticmethod
     def _extract_text(pdf) -> str:
         """Extract text from all pages.
-        
+
         Args:
             pdf: pdfplumber PDF object
-            
+
         Returns:
             Combined text from all pages
         """
         full_text = ""
-        total_pages = len(pdf.pages)
-        
+        len(pdf.pages)
+
         for page_num, page in enumerate(pdf.pages, 1):
             page_text = page.extract_text()
             if page_text:
                 full_text += page_text + "\n\n"
-        
+
         return full_text
 
 
@@ -326,7 +325,7 @@ class HierarchicalStructureTest:
 
     def __init__(self, technique: str = 'both', verbose: bool = False):
         """Initialize test.
-        
+
         Args:
             technique: 'pymupdf', 'pdfplumber', or 'both'
             verbose: Enable verbose logging
@@ -340,7 +339,7 @@ class HierarchicalStructureTest:
 
     def test_papers(self, papers: List[Paper]) -> None:
         """Test structure extraction on papers.
-        
+
         Args:
             papers: List of Paper objects with PDFs
         """
@@ -355,9 +354,9 @@ class HierarchicalStructureTest:
 
         # Test first 2 papers
         test_papers = papers_with_pdfs[:2]
-        
+
         print(f"\n{'='*80}")
-        print(f"HIERARCHICAL STRUCTURE EXTRACTION TEST")
+        print("HIERARCHICAL STRUCTURE EXTRACTION TEST")
         print(f"{'='*80}")
         print(f"\nPapers to process: {len(test_papers)}")
         print(f"Extraction techniques: {self.technique.upper()}")
@@ -372,7 +371,7 @@ class HierarchicalStructureTest:
 
     def test_single_paper(self, paper: Paper) -> None:
         """Test structure extraction on a single paper.
-        
+
         Args:
             paper: Paper object with PDF
         """
@@ -393,24 +392,24 @@ class HierarchicalStructureTest:
 
         # Store results for final comparison
         self.all_results[paper.cite_key] = results
-        
+
         # Print comparison
         self._print_comparison(paper, results)
 
     def _process_result(self, result: Dict) -> Dict:
         """Process extraction result: remove citations and gather stats.
-        
+
         Args:
             result: Extraction result with text
-            
+
         Returns:
             Processed result with citation statistics and canonical sections
         """
         text = result.get('text', '')
-        
+
         # Remove citations
         cleaned_text, citation_stats = self.citation_remover.remove_citations(text)
-        
+
         return {
             'tool': result['tool'],
             'original_text_chars': len(text),
@@ -424,7 +423,7 @@ class HierarchicalStructureTest:
 
     def _print_comparison(self, paper: Paper, results: Dict) -> None:
         """Print comparison of extraction techniques with structure overview.
-        
+
         Args:
             paper: Paper object being analyzed
             results: Dict of results keyed by technique
@@ -441,64 +440,64 @@ class HierarchicalStructureTest:
         for tool_name, result in results.items():
             print(f"{tool_name.upper()}")
             print(f"  {'─' * 76}\n")
-            
-            print(f"  Text Statistics:")
+
+            print("  Text Statistics:")
             print(f"    • Original size: {result['original_text_chars']:,} chars")
             print(f"    • After citation removal: {result['cleaned_text_chars']:,} chars")
-            
-            print(f"\n  Raw Section Detection:")
+
+            print("\n  Raw Section Detection:")
             print(f"    • Raw sections found: {result['raw_sections_detected']}")
-            
-            print(f"\n  Canonical Structure:")
+
+            print("\n  Canonical Structure:")
             print(f"    • Coverage: {result['canonical_coverage']:.1f}% ({result['canonical_sections_found']}/10 sections)")
             if result['canonical_sections_list']:
                 print(f"    • Found: {', '.join(result['canonical_sections_list'])}")
                 missing = [s for s in ['title', 'abstract', 'keywords', 'introduction', 'background', 'research_question', 'literature', 'methods', 'findings', 'conclusion'] if s not in result['canonical_sections_list']]
                 if missing:
                     print(f"    • Missing: {', '.join(missing)}")
-            
+
             cs = result['citation_stats']
-            print(f"\n  Citation Removal:")
+            print("\n  Citation Removal:")
             print(f"    • Citations found: {cs['citations_found']}")
             print(f"    • Chars removed: {cs['removed_chars']:,} ({cs['removed_percentage_chars']}%)")
             print(f"    • Tokens removed: {cs['removed_tokens']:,} ({cs['removed_percentage_tokens']}%)")
             print(f"    • Remaining tokens: {cs['final_tokens']:,}")
-            
-            print(f"\n")
+
+            print("\n")
 
     def print_conclusion(self) -> None:
         """Print final conclusion comparing extraction methods."""
         if not self.all_results or len(self.all_results) == 0:
             return
-        
+
         if self.technique != 'both':
             return  # Only show conclusion when comparing both
-        
+
         # Aggregate metrics across all papers
         pymupdf_scores = {'coverage': [], 'sections': [], 'citations': []}
         pdfplumber_scores = {'coverage': [], 'sections': [], 'citations': []}
-        
+
         for paper_key, results in self.all_results.items():
             if 'pymupdf' in results:
                 pymupdf_scores['coverage'].append(results['pymupdf']['canonical_coverage'])
                 pymupdf_scores['sections'].append(results['pymupdf']['canonical_sections_found'])
                 pymupdf_scores['citations'].append(results['pymupdf']['citation_stats']['citations_found'])
-            
+
             if 'pdfplumber' in results:
                 pdfplumber_scores['coverage'].append(results['pdfplumber']['canonical_coverage'])
                 pdfplumber_scores['sections'].append(results['pdfplumber']['canonical_sections_found'])
                 pdfplumber_scores['citations'].append(results['pdfplumber']['citation_stats']['citations_found'])
-        
+
         # Calculate averages
         def avg_list(lst):
             return sum(lst) / len(lst) if lst else 0
-        
+
         print(f"\n{'='*80}")
         print("CONCLUSION: METHOD COMPARISON")
         print(f"{'='*80}\n")
-        
+
         print(f"Papers analyzed: {len(self.all_results)}\n")
-        
+
         print("CANONICAL STRUCTURE COVERAGE:")
         pymupdf_avg = avg_list(pymupdf_scores['coverage'])
         pdfplumber_avg = avg_list(pdfplumber_scores['coverage'])
@@ -506,7 +505,7 @@ class HierarchicalStructureTest:
         print(f"  pdfplumber: {pdfplumber_avg:.1f}%")
         winner = "PyMuPDF" if pymupdf_avg > pdfplumber_avg else "pdfplumber"
         print(f"  ✓ Winner: {winner}\n")
-        
+
         print("CANONICAL SECTIONS FOUND (average):")
         pymupdf_sections = avg_list(pymupdf_scores['sections'])
         pdfplumber_sections = avg_list(pdfplumber_scores['sections'])
@@ -514,7 +513,7 @@ class HierarchicalStructureTest:
         print(f"  pdfplumber: {pdfplumber_sections:.1f}/10")
         winner = "PyMuPDF" if pymupdf_sections > pdfplumber_sections else "pdfplumber"
         print(f"  ✓ Winner: {winner}\n")
-        
+
         print("CITATION DETECTION (average citations found):")
         pymupdf_cites = avg_list(pymupdf_scores['citations'])
         pdfplumber_cites = avg_list(pdfplumber_scores['citations'])
@@ -522,7 +521,7 @@ class HierarchicalStructureTest:
         print(f"  pdfplumber: {pdfplumber_cites:.0f}")
         winner = "PyMuPDF" if pymupdf_cites > pdfplumber_cites else "pdfplumber"
         print(f"  ✓ Winner: {winner}\n")
-        
+
         # Overall recommendation
         print("RECOMMENDATION:")
         if pymupdf_avg > pdfplumber_avg and pymupdf_sections > pdfplumber_sections:
@@ -538,7 +537,7 @@ class HierarchicalStructureTest:
             print("    • PyMuPDF advantages: Font-aware detection, better for structured PDFs")
             print("    • pdfplumber advantages: Position-aware, robust text extraction")
             print("    • Recommendation: Use PyMuPDF as default, fallback to pdfplumber if needed")
-        
+
         print(f"\n{'='*80}\n")
 
 
@@ -589,7 +588,7 @@ def main():
         # Run test
         test = HierarchicalStructureTest(technique=args.technique, verbose=args.verbose)
         test.test_papers(papers)
-        
+
         # Print conclusion
         test.print_conclusion()
 

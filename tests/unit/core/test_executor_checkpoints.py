@@ -153,7 +153,7 @@ class TestCheckpointManagement:
         )
         executor.papers_db.add(paper)
         executor.current_step_index = 1
-        save_result = executor.checkpoint()
+        executor.checkpoint()
 
         # Create new executor and load checkpoint
         executor2 = StepExecutor(

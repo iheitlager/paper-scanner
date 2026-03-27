@@ -7,13 +7,13 @@ This module provides a generator that converts full journal names to ISO4 abbrev
 Reference: https://en.wikipedia.org/wiki/ISO_4
            https://www.issn.org/
 """
-from typing import Optional
 import re
+from typing import Optional
 
 
 class ISO4Generator:
     """Generate ISO4 abbreviations from full journal names.
-    
+
     Rules implemented:
     - Remove common stop words (and, or, the, of, etc.)
     - Abbreviate significant words to 3-4 letters
@@ -78,7 +78,6 @@ class ISO4Generator:
         'archive': 'Arch.',
         'engineering': 'Eng.',
         'environmental': 'Environ.',
-        'engineering': 'Eng.',
         'sustainable': 'Sustain.',
         'sustainability': 'Sustain.',
         'development': 'Dev.',
@@ -94,13 +93,13 @@ class ISO4Generator:
 
     def generate(self, journal_name: Optional[str]) -> Optional[str]:
         """Generate ISO4 abbreviation from full journal name.
-        
+
         Args:
             journal_name: Full journal title (e.g., "Journal of Business Research")
-        
+
         Returns:
             ISO4 abbreviation (e.g., "J. Bus. Res.") or None if input is invalid
-        
+
         Examples:
             >>> gen = ISO4Generator()
             >>> gen.generate("Journal of Business Research")
@@ -110,39 +109,39 @@ class ISO4Generator:
         """
         if not journal_name or not isinstance(journal_name, str):
             return None
-        
+
         # Normalize input
         journal_name = journal_name.strip()
         if not journal_name:
             return None
-        
+
         # Extract words, removing punctuation but preserving structure
         words = self._extract_words(journal_name)
         if not words:
             return None
-        
+
         # Filter stop words and abbreviate
         abbreviated = []
         for word in words:
             abbrev = self._abbreviate_word(word)
             if abbrev:  # Skip None results (stop words)
                 abbreviated.append(abbrev)
-        
+
         if not abbreviated:
             return None
-        
+
         # Join with spaces and ensure proper period format
         result = ' '.join(abbreviated)
-        
+
         # Ensure last element has period if it doesn't already
         if not result.endswith('.'):
             result += '.'
-        
+
         return result
 
     def _extract_words(self, text: str) -> list[str]:
         """Extract words from journal title.
-        
+
         Handles:
         - Hyphens and dashes as separators
         - Ampersands and slashes as connectors (converted to 'and')
@@ -152,52 +151,52 @@ class ISO4Generator:
         text = text.replace('-', ' ')
         text = text.replace('&', ' and ')
         text = text.replace('/', ' or ')
-        
+
         # Extract words (alphanumeric sequences)
         words = re.findall(r'\b[a-zA-Z]+\b', text)
-        
+
         return words
 
     def _abbreviate_word(self, word: str) -> Optional[str]:
         """Abbreviate a single word according to ISO4 rules.
-        
+
         Args:
             word: Single word to abbreviate
-        
+
         Returns:
             Abbreviated word with period, or None if word is a stop word
         """
         if not word:
             return None
-        
+
         word_lower = word.lower()
-        
+
         # Check if it's a stop word
         if word_lower in self.STOP_WORDS:
             return None
-        
+
         # Check if it's a known acronym
         if word_lower in self.ACRONYMS:
             return self.ACRONYMS[word_lower]
-        
+
         # Check for special abbreviations
         if word_lower in self.SPECIAL_ABBREVIATIONS:
             return self.SPECIAL_ABBREVIATIONS[word_lower]
-        
+
         # Default abbreviation logic
         # Short words (3-4 letters) stay as-is
         if len(word) <= 4:
             return word.capitalize() + '.'
-        
+
         # Longer words get abbreviated to 3 letters
         return word[:3].capitalize() + '.'
 
     def batch_generate(self, journal_names: list[str]) -> dict[str, Optional[str]]:
         """Generate ISO4 abbreviations for multiple journal names.
-        
+
         Args:
             journal_names: List of full journal titles
-        
+
         Returns:
             Dictionary mapping journal name -> ISO4 abbreviation
         """

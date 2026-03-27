@@ -8,17 +8,17 @@ Tests cover:
 - Step execution and integration with database
 """
 
+
 import pytest
-from datetime import datetime, timezone
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.enum import PaperType, StudyType, ScreeningDecision, StepStatus
+from paper_scanner.core.enum import PaperType, StepStatus, StudyType
 from paper_scanner.core.models import Author, KeywordScreening, Paper
 from paper_scanner.steps.keyword_screening import (
     KeywordMatcher,
-    StudyTypeDetector,
     KeywordScreener,
     KeywordScreeningStep,
+    StudyTypeDetector,
 )
 
 
@@ -108,58 +108,58 @@ def sample_paper_editorial():
 
 class TestKeywordMatcher:
     """Tests for wildcard keyword matching"""
-    
+
     def test_normalize_text(self):
         """Should normalize text for matching"""
         assert KeywordMatcher.normalize_text("  Digital  ") == "digital"
         assert KeywordMatcher.normalize_text("SOFTWARE") == "software"
         assert KeywordMatcher.normalize_text(None) == ""
         assert KeywordMatcher.normalize_text("") == ""
-    
+
     def test_exact_match(self):
         """Should match exact keywords with word boundaries"""
         assert KeywordMatcher.matches("software", "The software tool is great")
         assert KeywordMatcher.matches("software", "software development")
         assert not KeywordMatcher.matches("software", "softness is good")
         assert not KeywordMatcher.matches("software", "MySoftware")
-    
+
     def test_wildcard_suffix(self):
         """Should match keyword* patterns"""
         assert KeywordMatcher.matches("test*", "testing is important")
         assert KeywordMatcher.matches("test*", "tests are good")
         assert KeywordMatcher.matches("agile*", "agile methodology")
         assert not KeywordMatcher.matches("test*", "contest is fun")
-    
+
     def test_wildcard_prefix(self):
         """Should match *keyword patterns"""
         assert KeywordMatcher.matches("*test", "contest is fun")
         assert KeywordMatcher.matches("*test", "pretest phase")
         assert KeywordMatcher.matches("*agile", "diagile approach")
         assert not KeywordMatcher.matches("*test", "testing begins")
-    
+
     def test_wildcard_both(self):
         """Should match *keyword* patterns"""
         assert KeywordMatcher.matches("*test*", "testing contest pretest")
         assert KeywordMatcher.matches("*test*", "attest to the value")
         assert KeywordMatcher.matches("*agile*", "we are agile practitioners")
-    
+
     def test_case_insensitive(self):
         """Should match case-insensitively"""
         assert KeywordMatcher.matches("software", "SOFTWARE")
         assert KeywordMatcher.matches("software", "SoftWare")
         assert KeywordMatcher.matches("test*", "TESTING")
-    
+
     def test_no_match_empty_text(self):
         """Should not match against empty text"""
         assert not KeywordMatcher.matches("software", None)
         assert not KeywordMatcher.matches("software", "")
-    
+
     def test_find_all(self):
         """Should find all pattern occurrences"""
         text = "software and software development and software testing"
         matches = KeywordMatcher.find_all("software", text)
         assert len(matches) == 3
-    
+
     def test_special_characters(self):
         """Should handle special regex characters in patterns"""
         # Pattern with special chars: C++ needs special handling since + is regex special
@@ -173,23 +173,23 @@ class TestKeywordMatcher:
 
 class TestStudyTypeDetector:
     """Tests for implicit study type detection"""
-    
+
     def test_detect_editorial(self):
         """Should detect editorial study type"""
         title = "Editorial: The state of the art in software engineering"
         abstract = "This study examined how firms leverage digital technologies to transform software development practices through agile methodologies."
-        keywords = ["software", "agile", "digital transformation"]        
+        keywords = ["software", "agile", "digital transformation"]
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.EDITORIAL
-    
+
     def test_detect_literature_review(self):
         """Should detect literature review"""
         title = "A systematic review of agile practices in software development"
         abstract = "This study examined how firms leverage digital technologies to transform software development practices through agile methodologies."
-        keywords = ["software", "agile", "digital transformation"]        
+        keywords = ["software", "agile", "digital transformation"]
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.LITERATURE_REVIEW
-    
+
     def test_detect_literature_review_metaanalysis(self):
         """Should detect meta-analysis as literature review"""
         title = "A meta-analysis of DevOps practices in software teams"
@@ -197,7 +197,7 @@ class TestStudyTypeDetector:
         keywords = ["meta-analysis", "devops"]
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.LITERATURE_REVIEW
-    
+
     def test_detect_conceptual(self):
         """Should detect conceptual/theoretical paper"""
         title = "A theoretical framework for understanding organizational change"
@@ -205,7 +205,7 @@ class TestStudyTypeDetector:
         keywords = ["framework", "theory"]
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.CONCEPTUAL
-    
+
     def test_detect_empirical_qualitative(self):
         """Should detect case study paper (case study takes priority over qualitative)"""
         title = "A qualitative case study examining interviews with agile practitioners"
@@ -213,7 +213,7 @@ class TestStudyTypeDetector:
         keywords = ["agile", "qualitative", "case study"]
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.CASE_STUDY
-    
+
     def test_detect_empirical_quantitative(self):
         """Should detect quantitative empirical paper"""
         title = "An empirical study of agile adoption"
@@ -221,7 +221,7 @@ class TestStudyTypeDetector:
         keywords = ["quantitative", "agile", "metrics"]
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.EMPIRICAL_QUANTITATIVE
-    
+
     def test_detect_empirical_with_sample_size(self):
         """Should detect empirical from sample size notation"""
         title = "Sample size study"
@@ -229,7 +229,7 @@ class TestStudyTypeDetector:
         keywords = ["regression", "analysis"]
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.EMPIRICAL_QUANTITATIVE
-    
+
     def test_detect_empirical_case_study(self):
         """Should detect case study from case study keyword"""
         title = "A case study of agile adoption in a large organization"
@@ -237,7 +237,7 @@ class TestStudyTypeDetector:
         keywords = ["case study", "agile", "adoption"]
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.CASE_STUDY
-    
+
     def test_detect_empirical_mixed_methods(self):
         """Should detect empirical with mixed methods"""
         title = "Mixed methods study"
@@ -246,7 +246,7 @@ class TestStudyTypeDetector:
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         # Mixed methods is considered EMPIRICAL_QUANTITATIVE when both present
         assert study_type in [StudyType.EMPIRICAL_QUANTITATIVE, StudyType.EMPIRICAL_QUALITATIVE]
-    
+
     def test_detect_unknown(self):
         """Should default to UNKNOWN for unclear papers"""
         title = "Something about computers"
@@ -254,12 +254,12 @@ class TestStudyTypeDetector:
         keywords = ["computers", "innovation"]
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         assert study_type == StudyType.UNKNOWN
-    
+
     def test_detect_none_text(self):
         """Should handle None text"""
         study_type = StudyTypeDetector.detect_study_type(None, None, None)
         assert study_type == StudyType.UNKNOWN
-    
+
     def test_empirical_priority_over_review(self):
         """Should detect study type correctly when both review and empirical present"""
         title = "A systematic review with empirical validation"
@@ -268,7 +268,7 @@ class TestStudyTypeDetector:
         study_type = StudyTypeDetector.detect_study_type(title=title, abstract=abstract, keywords=keywords)
         # Should detect some type of empirical or review
         assert study_type in [StudyType.EMPIRICAL_QUALITATIVE, StudyType.EMPIRICAL_QUANTITATIVE, StudyType.LITERATURE_REVIEW]
-    
+
     def test_minimum_threshold_for_empirical(self):
         """Should require minimum 2 patterns for empirical classification (except case studies)"""
         title = "General topic"
@@ -285,7 +285,7 @@ class TestStudyTypeDetector:
 
 class TestKeywordScreener:
     """Tests for keyword screening logic"""
-    
+
     def test_flatten_keywords_dict(self):
         """Should flatten nested dict structure"""
         keywords_config = {
@@ -294,19 +294,19 @@ class TestKeywordScreener:
         }
         result = KeywordScreener._flatten_keywords(keywords_config)
         assert set(result) == {"software", "agile", "DevOps", "CI/CD"}
-    
+
     def test_flatten_keywords_list(self):
         """Should handle flat list structure"""
         keywords_config = ["software", "agile", "DevOps"]
         result = KeywordScreener._flatten_keywords(keywords_config)
         assert set(result) == {"software", "agile", "DevOps"}
-    
+
     def test_flatten_keywords_empty(self):
         """Should handle empty structures"""
         assert KeywordScreener._flatten_keywords({}) == []
         assert KeywordScreener._flatten_keywords([]) == []
         assert KeywordScreener._flatten_keywords(None) == []
-    
+
     def test_inclusion_required_mode_include(self):
         """Should include paper with matching inclusion keywords"""
         config = {
@@ -325,7 +325,7 @@ class TestKeywordScreener:
         )
         assert should_include is True
         assert reason is None
-    
+
     def test_inclusion_required_mode_exclude_by_keyword(self):
         """Should exclude paper with exclusion keywords when no inclusion keywords match"""
         config = {
@@ -344,7 +344,7 @@ class TestKeywordScreener:
         )
         assert should_include is False
         assert "no inclusion keywords matched" in reason
-    
+
     def test_inclusion_required_mode_no_inclusions(self):
         """Should exclude paper without inclusion keywords"""
         config = {
@@ -360,7 +360,7 @@ class TestKeywordScreener:
         )
         assert should_include is False
         assert "no inclusion keywords" in reason
-    
+
     def test_exclusion_only_mode_include(self):
         """Should include paper in exclusion_only mode if no exclusions"""
         config = {
@@ -376,7 +376,7 @@ class TestKeywordScreener:
         )
         assert should_include is True
         assert reason is None
-    
+
     def test_exclusion_only_mode_exclude(self):
         """Should exclude paper if exclusion keywords match"""
         config = {
@@ -392,7 +392,7 @@ class TestKeywordScreener:
         )
         assert should_include is False
         assert "excluded keywords" in reason
-    
+
     def test_soft_mode_always_includes(self):
         """Should always include in soft mode"""
         config = {
@@ -401,7 +401,7 @@ class TestKeywordScreener:
             "include": {"keywords": {"domains": ["software"]}}
         }
         screener = KeywordScreener(config)
-        
+
         # Even with exclusion keywords matched
         screening, should_include, reason = screener.screen_paper(
             title="Medical Software",
@@ -409,7 +409,7 @@ class TestKeywordScreener:
             keywords=["medical", "healthcare"]
         )
         assert should_include is True
-    
+
     def test_study_type_exclusion(self):
         """Should exclude papers by study type"""
         config = {
@@ -425,7 +425,7 @@ class TestKeywordScreener:
         )
         assert "study_type" in reason
         assert should_include is False
-    
+
     def test_wildcard_keyword_matching(self):
         """Should support wildcard patterns in keywords"""
         config = {
@@ -436,7 +436,7 @@ class TestKeywordScreener:
                 "keywords": {"domains": ["soft*", "*development"]}}
         }
         screener = KeywordScreener(config)
-        
+
         # Should match "software"
         screening, should_include, reason = screener.screen_paper(
             title="Software Development",
@@ -444,7 +444,7 @@ class TestKeywordScreener:
             keywords=["software", "development"]
         )
         assert should_include is True
-    
+
     def test_screening_model_populated(self):
         """Should populate KeywordScreening model correctly"""
         config = {
@@ -461,7 +461,7 @@ class TestKeywordScreener:
             abstract="This paper discusses agile",
             keywords=["agile", "software"]
         )
-        
+
         assert isinstance(screening, KeywordScreening)
         assert screening.study_type in list(StudyType)
         assert len(screening.inclusion_keywords) > 0
@@ -495,8 +495,8 @@ class TestKeywordScreeningStep:
             db=papers_db,
             cache_dir=temp_cache_dir
         )
-    
-    
+
+
     def test_validate_missing_enabled(self, keyword_screening_step):
         """Should fail when enabled key missing"""
         config = {}
@@ -504,7 +504,7 @@ class TestKeywordScreeningStep:
         # Missing enabled is okay - it defaults to enabled state in BaseStep
         # The step itself doesn't require it
         assert errors is not None or is_valid is True
-    
+
     def test_validate_invalid_mode(self, keyword_screening_step):
         """Should fail with invalid mode"""
         config = {
@@ -514,7 +514,7 @@ class TestKeywordScreeningStep:
         }
         is_valid, errors = keyword_screening_step.validate(config)
         assert is_valid is False
-    
+
     def test_validate_valid_config(self, keyword_screening_step):
         """Should pass validation with valid config"""
         config = {
@@ -524,11 +524,11 @@ class TestKeywordScreeningStep:
         }
         is_valid, errors = keyword_screening_step.validate(config)
         assert is_valid is True
-    
+
     def test_execute_basic_screening(self, keyword_screening_step, sample_paper_software):
         """Should execute basic keyword screening"""
         keyword_screening_step.db.add(sample_paper_software)
-        
+
         config = {
             "mode": "inclusion_required",
             "exclude": {"keywords": {}, "study_types": []},
@@ -538,15 +538,15 @@ class TestKeywordScreeningStep:
             }
         }
         result = keyword_screening_step.execute(config)
-        
+
         assert result["status"] == StepStatus.SUCCESS
         assert result["stats"]["screened"] == 1
         assert result["stats"]["passed"] == 1
-    
+
     def test_execute_with_exclusions(self, keyword_screening_step, sample_paper_medical):
         """Should exclude papers with exclusion keywords"""
         keyword_screening_step.db.add(sample_paper_medical)
-        
+
         config = {
             "enabled": True,
             "mode": "inclusion_required",
@@ -554,14 +554,14 @@ class TestKeywordScreeningStep:
             "include": {"keywords": {}}
         }
         result = keyword_screening_step.execute(config)
-        
+
         assert result["status"] == StepStatus.SUCCESS
         assert result["stats"]["failed"] == 1
-    
+
     def test_execute_dry_run(self, keyword_screening_step, sample_paper_software):
         """Should not modify database in dry_run mode"""
         keyword_screening_step.db.add(sample_paper_software)
-        
+
         config = {
             "enabled": True,
             "mode": "inclusion_required",
@@ -572,7 +572,7 @@ class TestKeywordScreeningStep:
             }
         }
         result = keyword_screening_step.execute(config, dry_run=True)
-        
+
         assert result["status"] == StepStatus.SUCCESS
 
 
@@ -602,7 +602,7 @@ class TestKeywordScreeningIntegration:
             db=papers_db,
             cache_dir=temp_cache_dir
         )
-    
+
     def test_full_screening_pipeline(self, keyword_screening_step):
         """Should screen multiple papers correctly"""
         # Add papers with different characteristics
@@ -638,10 +638,10 @@ class TestKeywordScreeningIntegration:
                 url="http://example.com/p3"
             ),
         ]
-        
+
         for paper in papers:
             keyword_screening_step.db.add(paper)
-        
+
         # Execute screening
         config = {
             "enabled": True,
@@ -655,9 +655,9 @@ class TestKeywordScreeningIntegration:
                 "keywords": {"domains": ["software", "agile", "devops"]}
             }
         }
-        
+
         result = keyword_screening_step.execute(config)
-        
+
         assert result["status"] == StepStatus.SUCCESS
         assert result["stats"]["screened"] == 3
         # Paper 1 should be included (has inclusion keywords)

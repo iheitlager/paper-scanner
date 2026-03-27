@@ -7,10 +7,8 @@ Run with:
     pytest tests/unit/steps/test_export.py -v
 """
 
-import pytest
-from pathlib import Path
 
-from paper_scanner.steps.export import ExportStep, VALID_FORMATS, VALID_FLAGS
+from paper_scanner.steps.export import VALID_FLAGS, ExportStep
 
 
 class TestValidate:

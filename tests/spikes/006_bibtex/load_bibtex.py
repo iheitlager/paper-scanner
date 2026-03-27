@@ -9,7 +9,7 @@ This module provides two main classes:
 Usage:
     reader = BibtexReader(filepath)
     papers = reader.parse()
-    
+
     loader = PostgreSQLLoader(connection_string)
     loader.load_papers(papers)
 """
@@ -405,7 +405,7 @@ class Paper:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for database insertion.
-        
+
         Generates source_key combining source_type and citekey.
         This key is used to detect and reject duplicate papers from the same source.
         """
@@ -549,7 +549,7 @@ class BibtexReader:
 
         for match in re.finditer(pattern, content, re.IGNORECASE | re.MULTILINE):
             # Find the position of @ symbol
-            match_start = match.start()
+            match.start()
             # Skip back past any preceding } or whitespace to find @ position
             at_pos = match.start() + (match.group(0).index('@') if '@' in match.group(0) else 0)
 

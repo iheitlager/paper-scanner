@@ -378,7 +378,7 @@ class TestPaperClass:
 
     def test_paper_title_required(self):
         """Verify title is optional"""
-        discovery = Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
+        Discovery(method=DiscoveryMethod.KEYWORD_SEARCH)
         # Title is optional - should not raise
         paper = Paper(
             cite_key="test2020"

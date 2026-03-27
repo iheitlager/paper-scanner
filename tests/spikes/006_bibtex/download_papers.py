@@ -530,11 +530,11 @@ class PaperDownloader:
         cursor = self.conn.cursor(cursor_factory=RealDictCursor)
 
         query = """
-        SELECT 
-            p.id, 
-            p.citekey, 
-            p.doi, 
-            p.title, 
+        SELECT
+            p.id,
+            p.citekey,
+            p.doi,
+            p.title,
             p.year,
             p.file_path,
             ps.screening_stage,
@@ -905,10 +905,10 @@ def main():
 Examples:
   # Download all stage2_pass/stage2_review papers
   python download_papers.py
-  
+
   # Download to specific directory
   python download_papers.py -o ~/downloads/papers
-  
+
   # Dry run to see what would be downloaded
   python download_papers.py --dry-run
         """

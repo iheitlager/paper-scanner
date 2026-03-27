@@ -11,21 +11,19 @@ Processes PDF files:
 """
 import random
 import shutil
-import sys
 from datetime import datetime
 from pathlib import Path
 
 from paper_scanner.core.cache import PDFCache
 
-from ..core.enum import DiscoveryMethod, StepStatus
-from ..core.doi import DOI
 from ..core.cite_key import generate_doi_based_cite_key
+from ..core.doi import DOI
+from ..core.enum import DiscoveryMethod, StepStatus
 from ..core.exceptions import ConfigurationError, StepFatalError
 from ..core.models import Discovery, Paper, PDFInfo
 from ..core.step_result import StepResult
 from ..tools.documents import FileReader
 from .base import BaseStep
-
 
 
 # Class-based step interface (new architecture)
@@ -105,18 +103,18 @@ class LoadFilesStep(BaseStep):
         random_seed = config.get("random_seed", None)
         limit = config.get("limit", None)
         store_path = Path(config.get("store_path", "")).expanduser()
-        expected_count = config.get("expected_count")
+        config.get("expected_count")
 
         # Validate paths exist and are accessible
         if not file_path.exists() or not file_path.is_dir():
             raise ConfigurationError(f"File path does not exist or is not a directory: {file_path}")
-        
+
         # Create store path if needed
         try:
             store_path.mkdir(parents=True, exist_ok=True)
         except Exception as e:
             raise ConfigurationError(f"Cannot create store path {store_path}: {e}")
-        
+
         if not store_path.is_dir():
             raise ConfigurationError(f"Store path is not a directory: {store_path}")
 
@@ -224,7 +222,7 @@ class LoadFilesStep(BaseStep):
                     try:
                         shutil.copy2(pdf_path, new_filepath)
                         stats["files_copied"] += 1
-                    except Exception as e:
+                    except Exception:
                         raise StepFatalError(f"Failed to copy file to store path: {new_filepath}")
 
                 # Step 6: Add PDFInfo to paper

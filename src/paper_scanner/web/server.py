@@ -159,7 +159,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
             pdf_record = db_manager.get_pdf_by_file_name(identifier)
             if not pdf_record:
                 pdf_record = db_manager.get_pdf_by_cite_key(identifier)
-            
+
             if not pdf_record:
                 raise PDFNotFoundException(identifier)
 
@@ -219,7 +219,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
             pdf_record = db_manager.get_pdf_by_file_name(identifier)
             if not pdf_record:
                 pdf_record = db_manager.get_pdf_by_cite_key(identifier)
-            
+
             if not pdf_record:
                 raise PDFNotFoundException(identifier)
 
@@ -246,7 +246,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
             pdf_record = db_manager.get_pdf_by_file_name(identifier)
             if not pdf_record:
                 pdf_record = db_manager.get_pdf_by_cite_key(identifier)
-            
+
             if not pdf_record:
                 raise PDFNotFoundException(identifier)
 
@@ -285,7 +285,7 @@ def create_app(config: Optional[Config] = None) -> Tuple[Flask, DatabaseManager,
             pdf_record = db_manager.get_pdf_by_file_name(identifier)
             if not pdf_record:
                 pdf_record = db_manager.get_pdf_by_cite_key(identifier)
-            
+
             if not pdf_record:
                 raise PDFNotFoundException(identifier)
 

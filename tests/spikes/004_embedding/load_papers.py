@@ -178,9 +178,9 @@ class PaperLoader:
             cursor = self.conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO papers 
-                (file_path, file_name, directory, size_bytes, 
-                 created_time, modified_time, accessed_time, tags, 
+                INSERT INTO papers
+                (file_path, file_name, directory, size_bytes,
+                 created_time, modified_time, accessed_time, tags,
                  title, citekey, year, title_details, analysis)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (file_path) DO UPDATE SET

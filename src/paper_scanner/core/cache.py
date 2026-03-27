@@ -9,13 +9,12 @@ Supports 404 caching to reduce API calls for non-existent entries.
 
 import json
 import shutil
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
-from datetime import timedelta, datetime
 
 from paper_scanner.core import doi
 from paper_scanner.core.exceptions import PaperScannerError
-
 
 # 404 Cache Marker - indicates an item was not found at the API
 NOT_FOUND_MARKER = {"ITEM": "404 - NOT FOUND", "LAST-CHECKED": None, "URL": None}
@@ -24,10 +23,10 @@ NOT_FOUND_MARKER = {"ITEM": "404 - NOT FOUND", "LAST-CHECKED": None, "URL": None
 def create_404_marker(key: str, url: Optional[str] = None) -> Dict[str, Any]:
     """
     Create a 404 marker for caching not-found responses.
-    
+
     Args:
         url: Optional URL that was checked and returned 404
-        
+
     Returns:
         Dictionary with 404 marker
     """
@@ -42,10 +41,10 @@ def create_404_marker(key: str, url: Optional[str] = None) -> Dict[str, Any]:
 def is_404_marker(data: Any) -> bool:
     """
     Check if cached data is a 404 marker.
-    
+
     Args:
         data: Cached data to check
-        
+
     Returns:
         True if data is a 404 marker, False otherwise
     """
@@ -122,7 +121,7 @@ class JSONFileCache:
 
         # Convert ttl to timedelta
         if ttl == -1: # Never expires
-            ttl_delta = None 
+            ttl_delta = None
         elif ttl is None: # Take default
             ttl_delta = self.default_ttl
         else: # take what we got or transform into days

@@ -31,11 +31,11 @@ def create_batch_pipelines(
 ) -> Dict[int, Definition]:
     """
     Create multiple research review pipelines from configurations.
-    
+
     Args:
         reviews: List of research review configurations
         output_dir: Output directory for all exports
-    
+
     Returns:
         Dictionary mapping year to Definition object
     """

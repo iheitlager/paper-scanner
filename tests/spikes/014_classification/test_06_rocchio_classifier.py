@@ -14,7 +14,7 @@ The classifier:
 - Computes similarity between paper and each dimension centroid
 - Determines which dimensions apply (above threshold)
 - Identifies the dominant dimension (highest similarity)
-- Classifies as: EXCLUDED (no dimensions apply), UNCERTAIN (multiple dimensions, unclear dominance), 
+- Classifies as: EXCLUDED (no dimensions apply), UNCERTAIN (multiple dimensions, unclear dominance),
   or INCLUDED (clear dominant dimension)
 - Updates MetadataScreening fields with classifier results
 
@@ -29,10 +29,7 @@ Run with:
     python test_06_rocchio_classifier.py --manual
 """
 
-import json
-import os
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import pytest
@@ -42,20 +39,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Paper Scanner imports
+from paper_scanner.core.enum import ScreeningDecision
 from paper_scanner.core.models import (
     Paper,
-    Author,
-    SemanticScreening,
     ProcessingMetadata,
     Screening,
+    SemanticScreening,
 )
-from paper_scanner.core.enum import ScreeningDecision
 
 
 class RocchioClassifier:
     """
     Rocchio-based classifier using research dimensions as separate centroids.
-    
+
     Each research dimension becomes a centroid in the embedding space.
     Papers are classified based on their similarity to each dimension centroid.
     """
@@ -69,7 +65,7 @@ class RocchioClassifier:
     ):
         """
         Initialize the Rocchio classifier with dimension centroids.
-        
+
         Args:
             research_question: The research question from general_config
             research_dimensions: List of dimension names (each becomes a centroid)
@@ -80,23 +76,23 @@ class RocchioClassifier:
         self.research_dimensions = research_dimensions
         self.embedding_model = embedding_model
         self.logger = logger or (lambda msg: None)
-        
+
         # Initialize embedding model
         try:
             from sentence_transformers import SentenceTransformer
             self.embedder = SentenceTransformer(embedding_model)
         except ImportError:
             raise ImportError(
-                f"sentence-transformers not available. "
-                f"Install with: pip install sentence-transformers"
+                "sentence-transformers not available. "
+                "Install with: pip install sentence-transformers"
             )
-        
+
         # Initialize dimension centroids (empty, will be populated from labeled papers)
         self.dimension_centroids: Dict[str, Optional[List[float]]] = {
             dim: None for dim in research_dimensions
         }
         self.dimension_paper_counts: Dict[str, int] = {dim: 0 for dim in research_dimensions}
-        
+
         self.logger(f"Rocchio classifier initialized with {len(research_dimensions)} dimensions")
         self.logger(f"Dimensions: {', '.join(research_dimensions)}")
 
@@ -104,14 +100,14 @@ class RocchioClassifier:
         """Compute embedding for text."""
         if not text or not text.strip():
             return [0.0] * 768  # Default to zero vector for empty text
-        
+
         embedding = self.embedder.encode(text, convert_to_numpy=True).tolist()
         return embedding
 
     def add_training_example(self, paper: Paper, dimension: str, weight: float = 1.0):
         """
         Add a training example to update a dimension centroid.
-        
+
         Args:
             paper: Paper to use as training example
             dimension: Which dimension this paper exemplifies
@@ -120,16 +116,16 @@ class RocchioClassifier:
         if dimension not in self.dimension_centroids:
             self.logger(f"Warning: Unknown dimension '{dimension}'")
             return
-        
+
         # Get paper text (combine title + abstract)
         paper_text = f"{paper.title or ''} {paper.abstract or ''}".strip()
         if not paper_text:
             self.logger(f"Warning: Paper {paper.cite_key} has no title/abstract for embedding")
             return
-        
+
         # Compute embedding
         embedding = self.compute_embedding(paper_text)
-        
+
         # Update centroid (Rocchio: C = (1/n) * sum(embeddings))
         if self.dimension_centroids[dimension] is None:
             # First example: initialize centroid
@@ -138,22 +134,22 @@ class RocchioClassifier:
             # Add to existing centroid with weight
             current = self.dimension_centroids[dimension]
             self.dimension_centroids[dimension] = [
-                curr + (emb * weight) 
+                curr + (emb * weight)
                 for curr, emb in zip(current, embedding)
             ]
-        
+
         self.dimension_paper_counts[dimension] += 1
         self.logger(f"Added training example to '{dimension}' (count: {self.dimension_paper_counts[dimension]})")
 
     def initialize_from_research_question(self):
         """
         Initialize centroids from research question expanded with dimensions.
-        
+
         If no training examples exist, use research question + dimension names
         to create initial centroids.
         """
         self.logger("Initializing centroids from research question")
-        
+
         for dimension in self.research_dimensions:
             if self.dimension_centroids[dimension] is None:
                 # Create synthetic text from research question + dimension
@@ -165,17 +161,17 @@ class RocchioClassifier:
     def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
         """Compute cosine similarity between two vectors."""
         import math
-        
+
         if not vec1 or not vec2 or len(vec1) == 0 or len(vec2) == 0:
             return 0.0
-        
+
         # Handle zero vectors
         mag1 = math.sqrt(sum(x**2 for x in vec1))
         mag2 = math.sqrt(sum(x**2 for x in vec2))
-        
+
         if mag1 == 0 or mag2 == 0:
             return 0.0
-        
+
         dot_product = sum(a * b for a, b in zip(vec1, vec2))
         return dot_product / (mag1 * mag2)
 
@@ -186,27 +182,27 @@ class RocchioClassifier:
     ) -> Tuple[SemanticScreening, Dict]:
         """
         Classify a paper using Rocchio dimension centroids.
-        
+
         Args:
             paper: Paper to classify
             dimension_threshold: Similarity threshold for dimension applicability
-        
+
         Returns:
             Tuple of (SemanticScreening, raw classification dict)
         """
         start_time = datetime.now(timezone.utc)
-        
+
         try:
             # Ensure centroids are initialized
             self.initialize_from_research_question()
-            
+
             # Get paper embedding
             paper_text = f"{paper.title or ''} {paper.abstract or ''}".strip()
             if not paper_text:
                 paper_text = paper.title or ""
-            
+
             paper_embedding = self.compute_embedding(paper_text)
-            
+
             # Compute similarity to each dimension centroid
             dimension_similarities: Dict[str, float] = {}
             for dimension in self.research_dimensions:
@@ -216,13 +212,13 @@ class RocchioClassifier:
                     dimension_similarities[dimension] = similarity
                 else:
                     dimension_similarities[dimension] = 0.0
-            
+
             # Determine which dimensions apply
             applicable_dimensions = [
                 dim for dim, sim in dimension_similarities.items()
                 if sim >= dimension_threshold
             ]
-            
+
             # Determine dominant dimension
             dominant_dimension = None
             max_similarity = 0.0
@@ -232,7 +228,7 @@ class RocchioClassifier:
                     key=lambda d: dimension_similarities[d]
                 )
                 max_similarity = dimension_similarities[dominant_dimension]
-            
+
             # Make classification decision
             if len(applicable_dimensions) == 0:
                 # No dimensions apply
@@ -251,13 +247,13 @@ class RocchioClassifier:
                 classification = "uncertain"
                 # Confidence based on dominant dimension similarity
                 confidence = min(1.0, max_similarity)
-            
+
             # Build classification vector (similarities to all dimensions)
             classification_vector = [
-                dimension_similarities.get(dim, 0.0) 
+                dimension_similarities.get(dim, 0.0)
                 for dim in self.research_dimensions
             ]
-            
+
             # Metadata
             metadata = ProcessingMetadata(
                 timestamp=start_time,
@@ -265,7 +261,7 @@ class RocchioClassifier:
                 model_name=self.embedding_model,
                 success=True,
             )
-            
+
             # Create SemanticScreening result
             screening_result = SemanticScreening(
                 passed=decision != ScreeningDecision.EXCLUDED,
@@ -279,7 +275,7 @@ class RocchioClassifier:
                 reason=f"Rocchio: {dominant_dimension or 'no dimension'} dominant (sim={max_similarity:.3f})",
                 metadata=metadata,
             )
-            
+
             # Raw data
             raw_data = {
                 "dimension_similarities": dimension_similarities,
@@ -289,12 +285,12 @@ class RocchioClassifier:
                 "dimension_count": len(self.research_dimensions),
                 "classification_vector": classification_vector,
             }
-            
+
             return screening_result, raw_data
-            
+
         except Exception as e:
             self.logger(f"Error classifying paper {paper.cite_key}: {e}")
-            
+
             metadata = ProcessingMetadata(
                 timestamp=start_time,
                 duration_seconds=(datetime.now(timezone.utc) - start_time).total_seconds(),
@@ -302,7 +298,7 @@ class RocchioClassifier:
                 success=False,
                 error=str(e),
             )
-            
+
             screening_result = SemanticScreening(
                 passed=False,
                 similarity_score=0.0,
@@ -315,7 +311,7 @@ class RocchioClassifier:
                 reason=f"Classification error: {e}",
                 metadata=metadata,
             )
-            
+
             return screening_result, {"error": str(e)}
 
 
@@ -374,7 +370,7 @@ class TestRocchioClassifier:
         """Test embedding computation."""
         text = "This is a test paper about digital innovation and suppliers."
         embedding = classifier.compute_embedding(text)
-        
+
         assert isinstance(embedding, list)
         assert len(embedding) == 768  # Standard sentence-transformer output
         assert not all(x == 0 for x in embedding)  # Not all zeros
@@ -390,11 +386,11 @@ class TestRocchioClassifier:
         vec1 = [1.0, 0.0, 0.0]
         vec2 = [1.0, 0.0, 0.0]
         vec3 = [0.0, 1.0, 0.0]
-        
+
         # Identical vectors
         sim_identical = classifier._cosine_similarity(vec1, vec2)
         assert abs(sim_identical - 1.0) < 0.001
-        
+
         # Orthogonal vectors
         sim_orthogonal = classifier._cosine_similarity(vec1, vec3)
         assert abs(sim_orthogonal) < 0.001
@@ -406,13 +402,13 @@ class TestRocchioClassifier:
             abstract="This paper discusses how suppliers are involved in digital innovation.",
             cite_key="test001",
         )
-        
+
         # Initially no centroid
         assert classifier.dimension_centroids["supplier_involvement"] is None
-        
+
         # Add training example
         classifier.add_training_example(paper, "supplier_involvement")
-        
+
         # Now centroid exists
         assert classifier.dimension_centroids["supplier_involvement"] is not None
         assert classifier.dimension_paper_counts["supplier_involvement"] == 1
@@ -429,10 +425,10 @@ class TestRocchioClassifier:
             abstract="How to implement digital innovation in organizations.",
             cite_key="test002",
         )
-        
+
         classifier.add_training_example(paper1, "digital_innovation")
         classifier.add_training_example(paper2, "digital_innovation")
-        
+
         assert classifier.dimension_paper_counts["digital_innovation"] == 2
 
     def test_initialization_from_research_question(self, classifier):
@@ -440,10 +436,10 @@ class TestRocchioClassifier:
         # No training examples, so centroids should be None
         for centroid in classifier.dimension_centroids.values():
             assert centroid is None
-        
+
         # Initialize from research question
         classifier.initialize_from_research_question()
-        
+
         # Now all centroids should exist
         for dimension in classifier.research_dimensions:
             assert classifier.dimension_centroids[dimension] is not None
@@ -458,9 +454,9 @@ class TestRocchioClassifier:
             abstract="This paper proposes a neural network for weather forecasting.",
             cite_key="test_excluded",
         )
-        
+
         screening, raw = classifier.classify_paper(paper, dimension_threshold=0.5)
-        
+
         # Should be excluded (no relevant dimensions)
         assert screening.decision == ScreeningDecision.EXCLUDED
         assert screening.classification == "excluded"
@@ -474,9 +470,9 @@ class TestRocchioClassifier:
             abstract="How supplier involvement drives digital innovation in incumbent firms.",
             cite_key="test_included",
         )
-        
+
         screening, raw = classifier.classify_paper(paper, dimension_threshold=0.5)
-        
+
         # Should be included (has dominant dimension)
         # Classification could be included or uncertain depending on centroid similarities
         assert screening.decision in [ScreeningDecision.INCLUDED, ScreeningDecision.MANUAL_REVIEW]
@@ -491,9 +487,9 @@ class TestRocchioClassifier:
             abstract="A test paper about digital innovation.",
             cite_key="test_vector",
         )
-        
+
         screening, raw = classifier.classify_paper(paper)
-        
+
         assert len(screening.classification_vector) == len(classifier.research_dimensions)
         assert len(raw["dimension_similarities"]) == len(classifier.research_dimensions)
 
@@ -505,20 +501,20 @@ class TestRocchioClassifier:
             abstract="Key strategies for effective supplier involvement.",
             cite_key="supplier001",
         )
-        
+
         classifier.add_training_example(paper_supplier, "supplier_involvement")
         classifier.add_training_example(paper_supplier, "supplier_involvement")
         classifier.add_training_example(paper_supplier, "supplier_involvement")
-        
+
         # Classify a paper about suppliers
         paper = create_test_paper(
             title="Supplier Involvement in Innovation",
             abstract="This paper examines supplier involvement in innovation projects.",
             cite_key="test_dominant",
         )
-        
+
         screening, raw = classifier.classify_paper(paper, dimension_threshold=0.3)
-        
+
         # dominant_dimension should be identified
         if raw.get("dominant_dimension"):
             assert raw["dominant_dimension"] in classifier.research_dimensions
@@ -530,9 +526,9 @@ class TestRocchioClassifier:
             abstract="Test abstract",
             cite_key="test_meta",
         )
-        
+
         screening, _ = classifier.classify_paper(paper)
-        
+
         assert screening.metadata is not None
         assert screening.metadata.model_name == classifier.embedding_model
         assert screening.metadata.success is True
@@ -550,9 +546,9 @@ class TestRocchioClassifier:
             authors=[],
             screening=Screening(),
         )
-        
+
         screening, raw = classifier.classify_paper(paper)
-        
+
         # Should still classify without crashing
         assert screening is not None
         assert screening.decision in [
@@ -571,12 +567,12 @@ class TestRocchioClassifier:
             )
             for i in range(3)
         ]
-        
+
         results = []
         for paper in papers:
             screening, raw = classifier.classify_paper(paper)
             results.append((screening, raw))
-        
+
         assert len(results) == 3
         assert all(r[0].decision is not None for r in results)
         assert all(r[0].metadata is not None for r in results)
@@ -596,7 +592,7 @@ class TestRocchioClassifierIntegration:
             ],
             logger=lambda msg: print(f"  [LOG] {msg}"),
         )
-        
+
         # Train dimensions with relevant papers
         training_papers = {
             "digital_transformation": [
@@ -626,21 +622,21 @@ class TestRocchioClassifierIntegration:
                 ),
             ],
         }
-        
+
         # Add training examples
         for dimension, papers in training_papers.items():
             for paper in papers:
                 classifier.add_training_example(paper, dimension, weight=1.0)
-        
+
         # Classify a new paper
         test_paper = create_test_paper(
             title="Digital Transformation in Incumbent Firms",
             abstract="How established companies use digital innovation to stay competitive.",
             cite_key="test_final",
         )
-        
+
         screening, raw = classifier.classify_paper(test_paper, dimension_threshold=0.4)
-        
+
         # Verify results
         assert screening.decision is not None
         assert screening.classification_vector is not None

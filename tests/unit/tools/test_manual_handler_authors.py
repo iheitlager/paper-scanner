@@ -5,7 +5,6 @@ Tests that authors are properly converted from strings (in cache) to Author
 objects when constructing Paper models.
 """
 
-import json
 import tempfile
 from pathlib import Path
 

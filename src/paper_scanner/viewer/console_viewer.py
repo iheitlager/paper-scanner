@@ -1,18 +1,17 @@
 """ConsoleViewer - MVC View for rendering papers in the console"""
 
+import subprocess
 import sys
 import termios
 import tty
-import subprocess
 from datetime import datetime, timezone
-from typing import List, Callable, Optional, Dict, Any
+from typing import Any, Callable, Dict, List, Optional
 
 from rich.console import Console
-from rich.panel import Panel
 
-from paper_scanner.core.models import Paper
-from paper_scanner.core.enum import ScreeningDecision
 from paper_scanner.core.database import PapersDatabase
+from paper_scanner.core.enum import ScreeningDecision
+from paper_scanner.core.models import Paper
 from paper_scanner.viewer.console_controller import PaperListController
 from paper_scanner.viewer.json_viewer import JSONViewer
 
@@ -417,7 +416,7 @@ Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by
                             match_count = len(self.filtered_indices) if self.filtered_indices else 0
                             end_idx = min(start_idx + self.page_size, match_count)
                             papers_on_page = end_idx - start_idx
-                            
+
                             if self.filter_selected_index is None:
                                 self.filter_selected_index = 0
                             elif self.filter_selected_index < papers_on_page - 1:
@@ -500,11 +499,11 @@ Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by
                                 self.render_page()
                         elif key == "down":
                             self.message = ""  # Clear message on navigation
-                            page_changed = self.controller.select_down()
+                            self.controller.select_down()
                             self.render_page()
                         elif key == "up":
                             self.message = ""  # Clear message on navigation
-                            page_changed = self.controller.select_up()
+                            self.controller.select_up()
                             self.render_page()
                         elif key == "?" and self.controller.get_selected_paper():
                             self._show_help()
@@ -557,15 +556,15 @@ Database: {len(paper.citations) if paper.citations else 0} / {len(paper.cited_by
                             # Mark paper as manually excluded
                             paper = self.controller.get_selected_paper()
                             email = self.general_config.get("project", {}).get("email", "unknown@example.com")
-                            
+
                             paper.screening.final_decision = ScreeningDecision.EXCLUDED_MANUAL
                             paper.screening.final_decision_at = datetime.now(timezone.utc)
                             paper.screening.final_decision_by = f"manual:{email}"
-                            
+
                             # Update database if available
                             if self.db:
                                 self.db.update(paper)
-                            
+
                             self.message = f"[yellow]✓ Marked as manually excluded: {paper.doi}[/yellow]"
                             self.render_page()
                         elif key == ":":

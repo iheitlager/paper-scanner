@@ -5,8 +5,8 @@ Unit tests for report step
 import pytest
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Author, Paper, PaperType
 from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.models import Author, Paper, PaperType
 from paper_scanner.steps.report import ReportStep, _filter_by_duplicates, _generate_field_table
 
 

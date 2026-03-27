@@ -21,15 +21,15 @@ Outputs screening results to paper.screening.keyword_screening with:
 
 import re
 import sys
-import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 
 from paper_scanner.core.enum import ScreeningDecision, StepStatus, StudyType
-from paper_scanner.core.models import KeywordScreening, Paper, ProcessingMetadata
+from paper_scanner.core.models import KeywordScreening, ProcessingMetadata
 from paper_scanner.core.step_result import StepResult
+
 from .base import BaseStep
 
 # Initialize rich console for colored output
@@ -299,7 +299,7 @@ class StudyTypeDetector:
         # These words in the title is always decisive for literature review
         title = str(title) if title else ""
         abstract = str(abstract) if abstract else ""
-        
+
         if "systematic literature review" in title or "systematic review" in title or "literature review" in title:
             return StudyType.LITERATURE_REVIEW
         elif "bibliometric" in abstract or "bibliometric" in title:
@@ -326,7 +326,7 @@ class StudyTypeDetector:
         # indicators exist AND total empirical score is weak (≤3), classify as LITERATURE_REVIEW.
         # This avoids misclassifying bibliometric analyses as empirical research.
         has_explicit_lit_review = any(cls._has_indicator(text_lower, ind) for ind in cls.LITERATURE_REVIEW_INDICATORS)
-            
+
         if has_explicit_lit_review and empirical_info["total_score"] <= 2:
             return StudyType.LITERATURE_REVIEW
 
@@ -541,7 +541,7 @@ class KeywordScreener:
             for keyword in keywords:
                 if KeywordMatcher.matches(keyword, combined_text):
                     matched_inclusion_keywords_grouped[group] = matched_inclusion_keywords_grouped.get(group, []) + [keyword]
-        
+
         # Flatten to list for KeywordScreening model
         matched_inclusion_keywords = sum(matched_inclusion_keywords_grouped.values(), [])
         inclusion_score = self._calculate_inclusion_score(matched_inclusion_keywords_grouped, self.inclusion_keywords)
@@ -577,7 +577,7 @@ class KeywordScreener:
             should_include = False
             final_exclusion_reason = f"excluded keywords found: {', '.join(matched_exclusion_keywords[:3])}"
             screening_decision = ScreeningDecision.EXCLUDED
-    
+
         # 6. BUILD KEYWORD SCREENING MODEL
         duration_seconds = (datetime.now(timezone.utc) - start_time).total_seconds()
 

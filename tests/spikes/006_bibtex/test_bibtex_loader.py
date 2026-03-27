@@ -30,8 +30,8 @@ def test_bibtex_reader():
     # Check field mappings
     papers_with_doi = sum(1 for p in papers if p.doi)
     papers_with_abstract = sum(1 for p in papers if p.abstract)
-    papers_with_keywords = sum(1 for p in papers if p.keywords)
-    papers_with_authors = sum(1 for p in papers if p.authors)
+    sum(1 for p in papers if p.keywords)
+    sum(1 for p in papers if p.authors)
 
     # Verify at least some papers have these fields
     assert papers_with_doi > 0, "No papers with DOI found"
@@ -101,7 +101,7 @@ def test_database_connection():
         cursor = loader.connection.cursor()
         cursor.execute("""
             SELECT EXISTS (
-                SELECT FROM information_schema.tables 
+                SELECT FROM information_schema.tables
                 WHERE table_name = 'papers'
             )
         """)

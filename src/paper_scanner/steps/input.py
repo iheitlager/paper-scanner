@@ -26,10 +26,10 @@ console = Console(file=sys.stderr)
 def _read_json_lines(file_object) -> List[Dict[str, Any]]:
     """
     Read JSON Lines from a file object.
-    
+
     Args:
         file_object: File object to read from
-        
+
     Returns:
         List of parsed JSON dictionaries
     """
@@ -55,10 +55,10 @@ class InputStep(BaseStep):
     def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
         Validate input step configuration.
-        
+
         Args:
             config: Step configuration
-            
+
         Returns:
             Tuple of (is_valid, error_messages)
         """
@@ -102,13 +102,13 @@ class InputStep(BaseStep):
     ) -> Dict[str, Any]:
         """
         Execute input step - read JSON Lines from file or stdin and add to database.
-        
+
         Args:
             config: Step configuration with 'file' or 'input' keys
             verbose: Enable verbose output
             dry_run: If True, don't actually add papers to database
             debug: Enable debug output
-        
+
         Returns:
             Execution result with import statistics
         """

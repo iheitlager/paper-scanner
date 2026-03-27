@@ -42,8 +42,9 @@ from typing import Any, Dict, Tuple
 from paper_scanner.core.enum import ScreeningDecision, StepStatus
 from paper_scanner.core.exceptions import ConfigurationError, StepFatalError
 from paper_scanner.core.models import ProcessingMetadata, SemanticScreening
-from paper_scanner.tools.documents.rocchio import AdaptiveRocchioScreener, ScreeningState
 from paper_scanner.core.step_result import StepResult
+from paper_scanner.tools.documents.rocchio import AdaptiveRocchioScreener, ScreeningState
+
 from .base import BaseStep
 
 # Suppress verbose logging from transformers/sentence-transformers
@@ -265,7 +266,7 @@ class RocchioScreeningStep(BaseStep):
 
                 # Weighted centroid
                 rq_embedding = 0.7 * rq_embedding + dimension_weight * np.mean(dimension_embeddings, axis=0)
-                self.callback(f"Query centroid weighted: 70% RQ + 30% dimensions", debug=True)
+                self.callback("Query centroid weighted: 70% RQ + 30% dimensions", debug=True)
 
             screener.initialize_from_research_question(rq_embedding)
             self.callback(f"Research question embedding shape: {rq_embedding.shape}", debug=True)
@@ -326,8 +327,8 @@ class RocchioScreeningStep(BaseStep):
         # Screen only UNCERTAIN papers (skip already INCLUDED/EXCLUDED)
         all_papers = self.db.find(
             predicate=lambda p: (
-                not p.screening.semantic_screening 
-                and p.screening.final_decision in [ScreeningDecision.UNCERTAIN, ScreeningDecision.PENDING, ScreeningDecision.MANUAL_REVIEW]  
+                not p.screening.semantic_screening
+                and p.screening.final_decision in [ScreeningDecision.UNCERTAIN, ScreeningDecision.PENDING, ScreeningDecision.MANUAL_REVIEW]
             ),
             primary_only=True,
         )
@@ -384,8 +385,8 @@ class RocchioScreeningStep(BaseStep):
 
                     # Update final decision - replace UNCERTAIN/PENDING/MANUAL_REVIEW with Rocchio decision
                     if paper.screening.final_decision in (
-                        ScreeningDecision.PENDING, 
-                        ScreeningDecision.UNCERTAIN, 
+                        ScreeningDecision.PENDING,
+                        ScreeningDecision.UNCERTAIN,
                         ScreeningDecision.MANUAL_REVIEW
                     ):
 

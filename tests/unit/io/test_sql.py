@@ -147,7 +147,7 @@ class TestDatabaseConnectionPool:
         pool.initialize()
 
         try:
-            with pool.get_connection() as conn:
+            with pool.get_connection():
                 raise Exception("Test error")
         except Exception:
             pass

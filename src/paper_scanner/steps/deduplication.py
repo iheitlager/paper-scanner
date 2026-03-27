@@ -6,14 +6,14 @@ Records audit trail in screening.deduplication for full traceability
 """
 
 import sys
-import time
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 
-from paper_scanner.core.enum import StepStatus, ScreeningDecision
+from paper_scanner.core.enum import ScreeningDecision, StepStatus
+
 from ..core.models import DeduplicationResult, Paper, ProcessingMetadata
 from ..core.step_result import StepResult
 from .base import BaseStep
@@ -60,7 +60,7 @@ def _title_author_fuzzy_match(
             existing_norm_title = existing.screening.deduplication.normalized_title
         else:
             existing_norm_title = _normalize_title(existing.title)
-            
+
         existing_first_author = existing.authors[0].family_name.lower()
 
         if first_author != existing_first_author:
@@ -97,7 +97,7 @@ def _title_fuzzy_match(
             existing_norm_title = existing.screening.deduplication.normalized_title
         else:
             existing_norm_title = _normalize_title(existing.title)
-            
+
         similarity = SequenceMatcher(None, norm_title, existing_norm_title).ratio()
 
         if similarity >= threshold:
@@ -113,17 +113,17 @@ class DeduplicationStep(BaseStep):
     def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
         Validate deduplication step configuration.
-        
+
         Args:
             config: Step configuration with optional keys:
                 - methods: list of dicts, each with:
                     - method: str - One of 'doi_exact', 'title_author_fuzzy', 'title_fuzzy'
                     - threshold: float [0-1] - Similarity threshold for fuzzy methods
                     - priority: int - Execution order (lower first)
-                        
+
         Returns:
             Tuple of (is_valid, error_messages)
-            
+
         Raises:
             Returns error list if:
             - methods is not a list of dicts
@@ -174,7 +174,7 @@ class DeduplicationStep(BaseStep):
     ) -> Dict[str, Any]:
         """
         Execute multi-method deduplication step.
-        
+
         Design Decisions:
         ==================
         - Three-tier matching strategy: DOI (exact) → title+author (fuzzy) → title-only (fuzzy)
@@ -183,19 +183,19 @@ class DeduplicationStep(BaseStep):
         - Marks duplicates with paper.duplicate_of and creates full audit trail
         - Preserves first occurrence as primary, subsequent matches marked as duplicates
         - Idempotent: only processes papers with screening.deduplication = None
-        
+
         Priority/Threshold Logic:
         ========================
         Papers are matched sequentially by method priority:
         1. DOI exact match (confidence=1.0)         → Perfect match, highest confidence
         2. Title+author fuzzy (default threshold 0.90) → Very similar paper from different source
         3. Title-only fuzzy (default threshold 0.95)   → Fallback for missing author data
-        
+
         Higher thresholds are more conservative:
         - threshold=0.95 (strict):   Only obvious duplicates marked
         - threshold=0.85 (moderate): Balanced false positive/negative rate
         - threshold=0.75 (aggressive): Marks similar papers but risks false positives
-        
+
         Update Chain:
         =============
         For each duplicate found:
@@ -203,7 +203,7 @@ class DeduplicationStep(BaseStep):
         2. Creates screening.deduplication = DeduplicationResult(...) (audit trail)
         3. Sets screening.current_stage = 'deduplication_complete'
         4. Updates paper in database (if not dry_run)
-        
+
         Args:
             config: Step configuration with optional keys:
                 - methods: list - Deduplication methods to use (default: all three)
@@ -211,7 +211,7 @@ class DeduplicationStep(BaseStep):
             verbose: Enable verbose output
             dry_run: Don't modify papers
             debug: Enable debug output
-        
+
         Returns:
             StepResult with status, message, and stats dict containing:
             - duplicates_found: Count of duplicate papers identified
@@ -267,7 +267,7 @@ class DeduplicationStep(BaseStep):
                         metadata=ProcessingMetadata()
                     )
                     self.db.update(paper)
-                
+
                 results["duplicates_found"] += 1
                 results["duplicates"].append({
                     "paper_id": paper.id,
@@ -318,7 +318,7 @@ class DeduplicationStep(BaseStep):
                         duplicate_id, similarity_score = match_result
                         matching_paper = self.db.get_by_id(duplicate_id)
                     confidence = min(1.0, similarity_score) if match_result else 1.0
-                
+
                 # Break out of methods loop once a match is found (use first matching method)
                 if match_result and matching_paper:
                     break

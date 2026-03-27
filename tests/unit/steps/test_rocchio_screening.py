@@ -7,7 +7,6 @@ Run with:
     pytest tests/unit/steps/test_rocchio_screening.py -v
 """
 
-import pytest
 
 from paper_scanner.steps.keyword_screening import is_substantive_abstract
 from paper_scanner.steps.rocchio_screening import RocchioScreeningStep

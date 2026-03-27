@@ -332,7 +332,7 @@ def execute_cache_load_manual(
     """
     import os
 
-    from paper_scanner.tools.fetchers.fetcher_handlers.bibtex_parser import BibtexParser, BibtexParseError
+    from paper_scanner.tools.fetchers.fetcher_handlers.bibtex_parser import BibtexParseError, BibtexParser
     from paper_scanner.tools.fetchers.fetcher_handlers.manual_handler import ManualHandler
 
     # Determine cache_dir

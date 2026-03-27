@@ -4,16 +4,12 @@ Unit tests for REPL functionality
 Tests ReplController initialization, macro command registration, and REPL execution flow.
 """
 
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import Mock
 
 import pytest
 
-from paper_scanner.cli.tasks.repl import ReplController, ConsoleReporter
-from paper_scanner.core.controller import macro_step, AbstractController
-from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.models import Paper
+from paper_scanner.cli.tasks.repl import ConsoleReporter, ReplController
+from paper_scanner.core.controller import macro_step
 from paper_scanner.core.step_result import StepResult, StepStatus
 
 
@@ -42,9 +38,9 @@ class TestConsoleReporter:
         reporter.log_msg = Mock()
         reporter.controller = Mock()
         reporter.controller.debug = False
-        
+
         reporter.on_start()
-        
+
         # on_start should log setup messages
         assert reporter.log_msg.called
 
@@ -52,9 +48,9 @@ class TestConsoleReporter:
         """Test on_close callback"""
         reporter = ConsoleReporter()
         reporter.log_info = Mock()
-        
+
         reporter.on_close()
-        
+
         # Should be callable without error
         assert reporter.log_info.called
 
@@ -64,7 +60,7 @@ class TestMacroStepDecorator:
 
     def test_macro_step_decorator_adds_attribute(self):
         """Test that @macro_step adds _macro_names attribute"""
-        
+
         @macro_step("test_command", "tc")
         def test_func():
             pass
@@ -74,7 +70,7 @@ class TestMacroStepDecorator:
 
     def test_macro_step_single_name(self):
         """Test @macro_step with single name"""
-        
+
         @macro_step("single")
         def func():
             pass
@@ -83,7 +79,7 @@ class TestMacroStepDecorator:
 
     def test_macro_step_multiple_names(self):
         """Test @macro_step with multiple names (command and aliases)"""
-        
+
         @macro_step("command", "cmd", "c")
         def func():
             pass
@@ -178,10 +174,9 @@ class TestConsoleReporterInitialization:
 
     def test_console_reporter_implements_controller_reporter(self):
         """Test that ConsoleReporter implements AbstractControllerReporter"""
-        from paper_scanner.core.reporter import AbstractControllerReporter
-        
+
         reporter = ConsoleReporter()
-        
+
         # Should have required methods
         assert hasattr(reporter, 'on_start')
         assert hasattr(reporter, 'on_close')
@@ -191,20 +186,18 @@ class TestConsoleReporterInitialization:
 
     def test_console_reporter_implements_step_reporter(self):
         """Test that ConsoleReporter implements AbstractStepReporter"""
-        from paper_scanner.core.reporter import AbstractStepReporter
-        
+
         reporter = ConsoleReporter()
-        
+
         # Should have required methods
         assert hasattr(reporter, 'on_step_start')
         assert hasattr(reporter, 'on_step_end')
 
     def test_console_reporter_logging_mixin(self):
         """Test ConsoleReporter has logging mixin methods"""
-        from paper_scanner.core.reporter import ConsoleLoggingMixin
-        
+
         reporter = ConsoleReporter()
-        
+
         # Should have logging methods
         assert hasattr(reporter, 'log_msg')
         assert hasattr(reporter, 'log_info')
@@ -228,7 +221,7 @@ class TestReplControllerStructure:
         """Test that ReplController supports macro_step decorator"""
         # Check that macro step collection is supported
         method_names = [m for m in dir(ReplController) if not m.startswith('_')]
-        
+
         # ReplController should have public methods for macro commands
         assert len(method_names) > 0
 

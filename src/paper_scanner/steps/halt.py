@@ -30,10 +30,10 @@ class HaltStep(BaseStep):
     def validate(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
         Validate halt step configuration.
-        
+
         Args:
             config: Step configuration
-            
+
         Returns:
             Tuple of (is_valid, error_messages)
         """
@@ -54,20 +54,20 @@ class HaltStep(BaseStep):
     ) -> Dict[str, Any]:
         """
         Execute halt step - stops the pipeline
-        
+
         Args:
             config: Step configuration (optional 'message' key)
             verbose: Enable verbose output
             dry_run: Doesn't affect halt step
             debug: Enable debug output
-        
+
         Returns:
             Dictionary with halt status (raises HaltException before return)
         """
 
         message = config.get("message", "Pipeline halted")
 
-        result = {
+        {
             "status": StepStatus.HALTED,
             "message": message,
             "papers_count": self.db.count(primary_only=False)

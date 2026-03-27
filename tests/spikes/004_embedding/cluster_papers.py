@@ -72,7 +72,7 @@ def cluster_papers(conn, n_clusters=5):
         avg_year = np.mean(cluster_years) if cluster_years else None
 
         # Generate cluster name (using most common words in titles)
-        cluster_titles = [t for _, _, t, _ in cluster_papers]
+        [t for _, _, t, _ in cluster_papers]
         cluster_name = f"Cluster {cluster_id + 1}"  # Could use LLM here
 
         print(f"\n{cluster_name}: {len(cluster_papers)} papers")

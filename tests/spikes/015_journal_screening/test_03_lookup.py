@@ -3,6 +3,7 @@ Test 03: Journal Lookup - Query journal definitions with variations
 Tests journal lookup by name with case/whitespace variations and error handling.
 """
 import pytest
+
 from paper_scanner.tools.documents.journals import JournalLookup
 
 
@@ -42,9 +43,9 @@ class TestJournalLookup:
             "JOURNAL OF BUSINESS RESEARCH",
             "Journal Of Business Research",
         ]
-        
+
         results = [journal_lookup.lookup(name) for name in test_cases]
-        
+
         # All should return same journal
         names = [r[0] for r in results]
         assert len(set(names)) == 1, f"Different names returned: {names}"
@@ -57,9 +58,9 @@ class TestJournalLookup:
             "IEEE  Transactions  on  Engineering  Management",
             "  IEEE Transactions on Engineering Management  ",
         ]
-        
+
         results = [journal_lookup.lookup(name) for name in test_cases]
-        
+
         # All should return same journal
         names = [r[0] for r in results]
         assert len(set(names)) == 1
@@ -74,7 +75,7 @@ class TestJournalLookup:
             "Academy of Management Discoveries",
             "Academy of Management Learning & Education",
         ]
-        
+
         for journal in academy_journals:
             result = journal_lookup.lookup(journal)
             assert result[0] == journal
@@ -90,7 +91,7 @@ class TestJournalLookup:
             "Information Systems Research",
             "Journal of the Association for Information Systems",
         ]
-        
+
         for journal in is_journals:
             result = journal_lookup.lookup(journal)
             assert result[0] == journal
@@ -104,7 +105,7 @@ class TestJournalLookup:
             "European Journal of Innovation Management",
             "Journal of Innovation and Entrepreneurship",
         ]
-        
+
         for journal in innovation_journals:
             result = journal_lookup.lookup(journal)
             assert result[0] == journal
@@ -113,7 +114,7 @@ class TestJournalLookup:
     def test_lookup_returns_triplet(self, journal_lookup):
         """Test that lookup returns proper triplet."""
         name, acronym, iso4 = journal_lookup.lookup("Technovation")
-        
+
         assert isinstance(name, str) and len(name) > 0
         assert isinstance(acronym, str) and len(acronym) > 0
         assert isinstance(iso4, str) and len(iso4) > 0
@@ -128,7 +129,7 @@ class TestJournalLookup:
         """Test error message contains helpful information."""
         with pytest.raises(ValueError) as exc_info:
             journal_lookup.lookup("Unknown Journal")
-        
+
         error_msg = str(exc_info.value)
         assert "Unknown Journal" in error_msg
         print(f"\nError message: {error_msg}")
@@ -140,7 +141,7 @@ class TestJournalLookup:
             "",
             "   ",
         ]
-        
+
         for test_input in test_cases:
             with pytest.raises(ValueError):
                 journal_lookup.lookup(test_input)
@@ -157,7 +158,7 @@ class TestJournalLookup:
         """Test lookup with ISO4 generation fallback."""
         result = journal_lookup.lookup_with_generation("Journal of Business Research")
         name, acronym, iso4 = result
-        
+
         assert name == "Journal of Business Research"
         assert acronym == "JBR"
         assert iso4 == "J. Bus. Res."
@@ -166,10 +167,10 @@ class TestJournalLookup:
     def test_all_retrieved_journals_valid(self, journal_lookup):
         """Test that all retrieved journals have valid metadata."""
         journals = journal_lookup.list_journals()
-        
+
         for journal in journals[:20]:  # Test first 20
             name, acronym, iso4 = journal_lookup.lookup(journal)
-            
+
             assert name == journal
             assert len(name) > 0
             assert len(acronym) > 0
@@ -183,13 +184,13 @@ class TestJournalLookup:
             "IEEE Transactions on Engineering Management",
             "Academy of Management Journal",
         ]
-        
+
         results = {}
         for journal in test_journals:
             results[journal] = journal_lookup.lookup(journal)
-        
+
         assert len(results) == len(test_journals)
-        
+
         for journal, (name, acronym, iso4) in results.items():
             print(f"\n{journal:60} → {acronym:5} / {iso4}")
 
@@ -209,7 +210,7 @@ journals:
     acronym: "TJ"
     iso4: "Test J."
 """)
-        
+
         lookup = JournalLookup(str(test_yaml))
         result = lookup.lookup("Test Journal")
         assert result[0] == "Test Journal"
@@ -229,7 +230,7 @@ journals:
             ("  Journal  of  Business  Research  ", "journal of business research"),
             ("JoUrNaL oF bUsInEsS rEsEaRcH", "journal of business research"),
         ]
-        
+
         for input_name, expected in test_cases:
             result = JournalLookup._normalize(input_name)
             assert result == expected, f"Normalization failed for '{input_name}'"
@@ -250,7 +251,7 @@ class TestJournalLookupEdgeCases:
             "Innovation - Organization & Management",
             "Supply Chain Management - An International Journal",
         ]
-        
+
         for journal in test_journals:
             result = journal_lookup.lookup(journal)
             assert result[0] == journal
@@ -259,19 +260,19 @@ class TestJournalLookupEdgeCases:
     def test_repeated_lookups_consistency(self, journal_lookup):
         """Test that repeated lookups return same result."""
         journal = "MIS Quarterly"
-        
+
         results = [journal_lookup.lookup(journal) for _ in range(5)]
         unique = set(results)
-        
+
         assert len(unique) == 1, f"Inconsistent results: {results}"
 
     def test_acronym_format(self, journal_lookup):
         """Test that acronyms are reasonable."""
         journals = journal_lookup.list_journals()[:10]
-        
+
         for journal in journals:
             _, acronym, _ = journal_lookup.lookup(journal)
-            
+
             # Acronym should be non-empty and reasonable length
             assert len(acronym) > 0
             assert len(acronym) <= 20
@@ -280,10 +281,10 @@ class TestJournalLookupEdgeCases:
     def test_iso4_format(self, journal_lookup):
         """Test that ISO4 abbreviations have proper format."""
         journals = journal_lookup.list_journals()[:10]
-        
+
         for journal in journals:
             _, _, iso4 = journal_lookup.lookup(journal)
-            
+
             # ISO4 should be non-empty and reasonable
             assert len(iso4) > 0
             # Some ISO4 may not end with period (e.g., compound abbreviations)

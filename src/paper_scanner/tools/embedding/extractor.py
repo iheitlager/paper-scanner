@@ -33,10 +33,10 @@ class PDFExtractor:
 
     def extract(self, pdf_path: str) -> Optional[Dict]:
         """Extract text and structure from PDF.
-        
+
         Args:
             pdf_path: Path to PDF file
-            
+
         Returns:
             Dict with text, detected sections (raw and hierarchical), coverage stats
             or None if extraction fails
@@ -47,15 +47,15 @@ class PDFExtractor:
 
         try:
             import pdfplumber
-            
+
             with pdfplumber.open(pdf_path) as pdf:
                 text = self._extract_text(pdf)
-                
+
                 # Use sections.py for detection and canonicalization
                 raw_sections = detect_sections(text)
                 hierarchical = group_sections_hierarchically(raw_sections)
                 coverage = validate_paper_structure(hierarchical)
-                
+
                 return {
                     'tool': 'pdfplumber',
                     'pdf_path': pdf_path,
@@ -72,18 +72,18 @@ class PDFExtractor:
     @staticmethod
     def _extract_text(pdf) -> str:
         """Extract text from all pages.
-        
+
         Args:
             pdf: pdfplumber PDF object
-            
+
         Returns:
             Combined text from all pages
         """
         full_text = ""
-        
+
         for page in pdf.pages:
             page_text = page.extract_text()
             if page_text:
                 full_text += page_text + "\n\n"
-        
+
         return full_text

@@ -5,20 +5,21 @@ Outputs database statistics and relevant facts
 """
 import sys
 from collections import Counter
-from typing import Any, List, Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from rich.console import Console
 from rich.table import Table
 
+from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.step_result import StepResult
-from paper_scanner.core.database import PapersDatabase
+
 from ..core.enum import ScreeningDecision
 from ..core.models import Paper
 from .base import BaseStep
 
 if TYPE_CHECKING:
-    from paper_scanner.core.step_executor import StepExecutor
+    pass
 
 
 # Initialize rich console
@@ -124,7 +125,7 @@ class ReportStep(BaseStep):
         show_histogram = config.get("histogram", False)
         show_source = config.get("source", False)
         show_debug = config.get("debug", False)
-        show_dump_citations = config.get("dump_citations", False)
+        config.get("dump_citations", False)
 
         # Support both old and new configuration format
         tabulate_configs = []
@@ -190,11 +191,11 @@ class ReportStep(BaseStep):
 def _filter_by_duplicates(papers: List[Paper], duplicates: Any) -> List[Paper]:
     """
     Filter papers based on duplicates setting
-    
+
     Args:
         papers: List of papers
         duplicates: False (exclude), True (include all), 'only' (only duplicates)
-    
+
     Returns:
         Filtered list of papers
     """
@@ -209,12 +210,12 @@ def _filter_by_duplicates(papers: List[Paper], duplicates: Any) -> List[Paper]:
 def _generate_field_table(papers_db: List[Paper], field: str, total_papers: int) -> Table:
     """
     Generate a table of papers grouped by a specified field
-    
+
     Args:
         papers_db: List of papers to tabulate
         field: Field name to group by (e.g., 'paper_type', 'journal', 'booktitle')
         total_papers: Total papers in database (for percentage calculation)
-    
+
     Returns:
         Rich Table with field statistics
     """
@@ -292,7 +293,7 @@ def _generate_field_table(papers_db: List[Paper], field: str, total_papers: int)
 def _display_summary_results(db: PapersDatabase) -> None:
     """
     Display summary statistics of the papers database
-    
+
     Args:
         papers_db: List of papers to analyze
     """
@@ -358,7 +359,7 @@ def _display_tabulate_results(db: PapersDatabase, config: Dict[str, Any]) -> Non
     Args:
         papers_db: List of papers to analyze
         config: Tabulate configuration dictionary
-    
+
     Returns:
 
     """
@@ -384,7 +385,7 @@ def _display_tabulate_results(db: PapersDatabase, config: Dict[str, Any]) -> Non
 def _display_screening_results(db: PapersDatabase) -> None:
     """
     Display screening results breakdown by paper_type with stage progression
-    
+
     Args:
         db: PapersDatabase instance to analyze
     """
@@ -515,7 +516,7 @@ def _display_screening_results(db: PapersDatabase) -> None:
 def _display_source_results(db: PapersDatabase) -> None:
     """
     Display results breakdown by source_database  with stage progression
-    
+
     Args:
         db: PapersDatabase instance to analyze
     """
@@ -529,7 +530,7 @@ def _display_source_results(db: PapersDatabase) -> None:
 
     for paper in primary_papers:
         source_type = paper.discovery.source_database or "Unknown"
-        
+
         if source_type not in papers_by_type:
             papers_by_type[source_type] = {
                 "total": 0,
@@ -677,7 +678,7 @@ def _display_source_results(db: PapersDatabase) -> None:
 def _display_debug_info(db: PapersDatabase) -> None:
     """
     Display results breakdown by source_database  with stage progression
-    
+
     Args:
         db: PapersDatabase instance to analyze
     """
@@ -691,7 +692,7 @@ def _display_debug_info(db: PapersDatabase) -> None:
 
     for paper in primary_papers:
         source_type = paper.discovery.source_database or "Unknown"
-        
+
         if source_type not in papers_by_type:
             papers_by_type[source_type] = {
                 "total": 0,
@@ -756,9 +757,9 @@ def _display_debug_info(db: PapersDatabase) -> None:
 def _display_citations_histogram(db: PapersDatabase) -> None:
     """
     Display a histogram of citation counts ordered by number of citations (descending)
-    
+
     Shows how many papers have each citation count, ordered from most cited to least.
-    
+
     Args:
         papers_db: List of papers to analyze
     """
@@ -869,9 +870,9 @@ def _display_citations_histogram(db: PapersDatabase) -> None:
 def _display_bibliography(db: PapersDatabase) -> None:
     """
     Display a histogram of citation counts ordered by number of citations (descending)
-    
+
     Shows how many papers have each citation count, ordered from most cited to least.
-    
+
     Args:
         papers_db: List of papers to analyze
     """
@@ -921,40 +922,40 @@ def _display_bibliography(db: PapersDatabase) -> None:
 def _display_histogram(db: PapersDatabase) -> None:
     """
     Display a histogram of included papers by discovery iteration and publication year.
-    
+
     Shows only papers that passed screening (included = True), grouped by:
     - Discovery iteration (0 = initial, 1+ = snowballing iterations)
     - Publication year
-    
+
     Args:
         db: PapersDatabase instance
     """
     # Get all included papers (screening passed)
     all_papers = db.to_list(primary_only=False)
     included_papers = [p for p in all_papers if p.is_included]
-    
+
     if not included_papers:
         console.print("[yellow]No included papers found[/yellow]")
         return
-    
+
     # Build histogram: iteration -> year -> count
     histogram: Dict[int, Dict[int, int]] = {}
-    
+
     for paper in included_papers:
         iteration = paper.discovery.iteration if paper.discovery else 0
         year = paper.year
-        
+
         if year is None:
             year = 0  # Unknown year
-        
+
         if iteration not in histogram:
             histogram[iteration] = {}
-        
+
         if year not in histogram[iteration]:
             histogram[iteration][year] = 0
-        
+
         histogram[iteration][year] += 1
-    
+
     # Create table
     table = Table(title="Included Papers by Discovery Iteration and Year")
     table.add_column("Iteration", style="cyan", justify="right")
@@ -962,30 +963,30 @@ def _display_histogram(db: PapersDatabase) -> None:
     table.add_column("Count", style="yellow", justify="right")
     table.add_column("% of Total", style="blue", justify="right")
     table.add_column("Distribution", style="magenta")
-    
+
     total_included = len(included_papers)
-    
+
     # Find max count for bar width normalization
     max_count = max(
-        count 
-        for year_dict in histogram.values() 
+        count
+        for year_dict in histogram.values()
         for count in year_dict.values()
     ) if histogram else 1
-    
+
     # Sort iterations and years, display with grouping
     for iteration in sorted(histogram.keys(), reverse=True):
         years = sorted(histogram[iteration].keys(), reverse=True)
         for year in years:
             count = histogram[iteration][year]
             percentage = (count / total_included * 100) if total_included > 0 else 0
-            
+
             # Create bar visualization
             bar_width = int((count / max_count) * 30) if max_count > 0 else 0
             bar = "█" * bar_width
-            
+
             year_str = str(year) if year > 0 else "[dim]Unknown[/dim]"
             iteration_str = str(iteration) if iteration == 0 else f"{iteration} (snowball)"
-            
+
             table.add_row(
                 iteration_str,
                 year_str,
@@ -993,7 +994,7 @@ def _display_histogram(db: PapersDatabase) -> None:
                 f"{percentage:.1f}%",
                 bar
             )
-    
+
     # Add total row
     table.add_row(
         "[bold]Total[/bold]",
@@ -1002,6 +1003,6 @@ def _display_histogram(db: PapersDatabase) -> None:
         "[bold]100.0%[/bold]",
         ""
     )
-    
+
     console.print(table)
 

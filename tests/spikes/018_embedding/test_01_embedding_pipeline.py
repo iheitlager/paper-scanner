@@ -23,7 +23,6 @@ Requires:
 """
 
 import argparse
-import json
 import logging
 import sys
 from datetime import datetime, timezone
@@ -31,13 +30,13 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import numpy as np
-from sentence_transformers import SentenceTransformer, util
 import torch
+from sentence_transformers import SentenceTransformer, util
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
 
-from paper_scanner.core.models import Author, Embedding, Paper, ProcessingMetadata
+from paper_scanner.core.models import Embedding, Paper
 from paper_scanner.io.bibtex import bibtex_file_to_papers
 
 # Setup logging
@@ -53,7 +52,7 @@ class EmbeddingPipeline:
 
     def __init__(self, model_name: str = "all-mpnet-base-v2", device: str = "cpu"):
         """Initialize embedding pipeline with selected model.
-        
+
         Args:
             model_name: Hugging Face model identifier
             device: "cpu" or "cuda"
@@ -62,7 +61,7 @@ class EmbeddingPipeline:
         self.device = device
         self.model: Optional[SentenceTransformer] = None
         self.embeddings_store: Dict[str, Dict] = {}  # paper_id -> embedding data
-        
+
     def load_model(self) -> None:
         """Load the embedding model."""
         logger.info(f"Loading model: {self.model_name}")
@@ -75,16 +74,16 @@ class EmbeddingPipeline:
 
     def embed_text(self, text: Optional[str]) -> Optional[List[float]]:
         """Generate embedding for a text string.
-        
+
         Args:
             text: Text to embed
-            
+
         Returns:
             List of floats (768 dimensions) or None if text is empty
         """
         if not text or not text.strip():
             return None
-            
+
         try:
             embedding = self.model.encode(text, convert_to_tensor=False)
             return embedding.tolist()
@@ -96,11 +95,11 @@ class EmbeddingPipeline:
         self, vector: List[float], text_source: str
     ) -> Embedding:
         """Create an Embedding model object.
-        
+
         Args:
             vector: Embedding vector
             text_source: Description of what was embedded (e.g., "title", "abstract")
-            
+
         Returns:
             Embedding model instance
         """
@@ -123,10 +122,10 @@ class EmbeddingPipeline:
 
     def process_papers(self, papers: List[Paper]) -> int:
         """Generate embeddings for a list of papers.
-        
+
         Args:
             papers: List of Paper objects to embed
-            
+
         Returns:
             Number of successfully embedded papers
         """
@@ -192,12 +191,12 @@ class EmbeddingPipeline:
         self, query: str, top_k: int = 5, field: str = "title"
     ) -> List[tuple]:
         """Find similar papers using semantic search.
-        
+
         Args:
             query: Search query text
             top_k: Number of results to return
             field: Which embedding to search ("title", "abstract", "keywords")
-            
+
         Returns:
             List of (paper, similarity_score) tuples
         """
@@ -220,7 +219,7 @@ class EmbeddingPipeline:
             # Calculate cosine similarity - ensure both are same dtype
             paper_embedding_tensor = torch.from_numpy(paper_embedding).unsqueeze(0)
             similarity = util.pytorch_cos_sim(
-                query_embedding, 
+                query_embedding,
                 paper_embedding_tensor
             ).item()
 
@@ -234,12 +233,12 @@ class EmbeddingPipeline:
         self, paper_id: str, top_k: int = 5, threshold: float = 0.7
     ) -> List[tuple]:
         """Find papers similar to a given paper.
-        
+
         Args:
             paper_id: ID of the paper to compare
             top_k: Number of results to return
             threshold: Minimum similarity score (0-1)
-            
+
         Returns:
             List of (similar_paper, similarity_score) tuples
         """
@@ -265,7 +264,7 @@ class EmbeddingPipeline:
 
             other_vector = np.array(embedding_obj.vector, dtype=np.float32)
             other_tensor = torch.from_numpy(other_vector).unsqueeze(0)
-            
+
             # Calculate cosine similarity
             similarity = util.pytorch_cos_sim(
                 source_tensor,
@@ -281,21 +280,21 @@ class EmbeddingPipeline:
 
 def load_papers_from_bibtex(bib_path: Path) -> List[Paper]:
     """Load papers from BibTeX file.
-    
+
     Args:
         bib_path: Path to .bib file
-        
+
     Returns:
         List of Paper objects
     """
     logger.info(f"Loading papers from: {bib_path}")
-    
+
     try:
         # Use existing bibtex loader from paper_scanner
         papers = bibtex_file_to_papers(str(bib_path))
         logger.info(f"✓ Loaded {len(papers)} papers from BibTeX")
         return papers
-        
+
     except Exception as e:
         logger.error(f"✗ Failed to load papers from BibTeX: {e}")
         raise
@@ -303,7 +302,7 @@ def load_papers_from_bibtex(bib_path: Path) -> List[Paper]:
 
 def print_results(pipeline: EmbeddingPipeline, papers: List[Paper]) -> None:
     """Print summary of embedding results.
-    
+
     Args:
         pipeline: EmbeddingPipeline instance
         papers: List of papers that were embedded
@@ -315,7 +314,7 @@ def print_results(pipeline: EmbeddingPipeline, papers: List[Paper]) -> None:
     print(f"\nModel: {pipeline.model_name}")
     print(f"Total papers processed: {len(papers)}")
     print(f"Successfully embedded: {len(pipeline.embeddings_store)}")
-    print(f"Embedding dimensions: 768")
+    print("Embedding dimensions: 768")
 
     print("\n" + "-"*80)
     print("SAMPLE PAPERS:")
@@ -329,24 +328,24 @@ def print_results(pipeline: EmbeddingPipeline, papers: List[Paper]) -> None:
         print(f"   Title: {paper.title[:80] if paper.title else 'N/A'}...")
         print(f"   Year: {paper.year}")
         print(f"   Keywords: {', '.join(paper.keywords[:3]) if paper.keywords else 'None'}")
-        
+
         # Show embedding stats
         if emb_data["title"]:
-            print(f"   ✓ Title embedding: 768 dims")
+            print("   ✓ Title embedding: 768 dims")
         if "abstract" in emb_data and emb_data["abstract"]:
-            print(f"   ✓ Abstract embedding: 768 dims")
+            print("   ✓ Abstract embedding: 768 dims")
         if "keywords" in emb_data and emb_data["keywords"]:
-            print(f"   ✓ Keywords embedding: 768 dims")
+            print("   ✓ Keywords embedding: 768 dims")
 
     # Example semantic search
     print("\n" + "-"*80)
     print("SEMANTIC SEARCH EXAMPLE:")
     print("-"*80)
-    
+
     query = "digital transformation business model"
     print(f"\nQuery: '{query}'")
     print("\nTop 5 similar papers:")
-    
+
     results = pipeline.semantic_search(query, top_k=5)
     for i, (paper, similarity, source) in enumerate(results, 1):
         print(
@@ -360,15 +359,15 @@ def print_results(pipeline: EmbeddingPipeline, papers: List[Paper]) -> None:
         print("\n" + "-"*80)
         print("SIMILARITY MATCHING EXAMPLE:")
         print("-"*80)
-        
+
         first_paper_id = list(pipeline.embeddings_store.keys())[0]
         first_paper = pipeline.embeddings_store[first_paper_id]["paper"]
-        
+
         print(f"\nBase paper: {first_paper.cite_key}")
         print(f"Title: {first_paper.title[:70]}...")
-        
+
         similar = pipeline.find_similar_papers(first_paper_id, top_k=3, threshold=0.5)
-        
+
         if similar:
             print("\nMost similar papers (threshold: 0.5):")
             for i, (paper, similarity) in enumerate(similar, 1):
@@ -420,7 +419,7 @@ def main():
 
     # Paths: test file is in tests/spikes/018_embedding/, we need tests/data/
     bib_path = Path(__file__).parent.parent.parent / "data" / "eight_cases.bib"
-    
+
     if not bib_path.exists():
         logger.error(f"BibTeX file not found: {bib_path}")
         sys.exit(1)
@@ -428,21 +427,21 @@ def main():
     try:
         # Load papers
         papers = load_papers_from_bibtex(bib_path)
-        
+
         # Initialize pipeline
         pipeline = EmbeddingPipeline(model_name=args.model, device=args.device)
-        
+
         # Load model
         pipeline.load_model()
-        
+
         # Process papers
         pipeline.process_papers(papers)
-        
+
         # Print results
         print_results(pipeline, papers)
-        
+
         logger.info("\n✓ Embedding pipeline test completed successfully!")
-        
+
     except Exception as e:
         logger.error(f"✗ Pipeline test failed: {e}", exc_info=True)
         sys.exit(1)

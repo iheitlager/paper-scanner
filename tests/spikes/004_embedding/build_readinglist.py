@@ -55,7 +55,7 @@ def build_reading_list(seed_citekey, total_papers=10):
         # Find similar papers to add to queue
         cursor.execute(
             """
-            SELECT 
+            SELECT
                 p2.citekey,
                 pe1.embedding <=> pe2.embedding as distance
             FROM papers p1

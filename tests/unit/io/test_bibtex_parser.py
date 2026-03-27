@@ -17,7 +17,6 @@ from paper_scanner.io.bibtex import (
     bibtex_to_papers,
     clean_bibtex_string,
     evaluate_paper_type,
-    escape_ampersands_for_bibtex,
     export_papers_by_source,
     format_authors_bibtex,
     format_bibtex_entry,
@@ -637,7 +636,6 @@ class TestBibtexParsingIntegration:
         if not filepath.exists():
             pytest.skip(f"Test data file not found: {filepath}")
 
-        batch_id = "test_batch_123"
         discovery = Discovery(
             method=DiscoveryMethod.KEYWORD_SEARCH,
             source_database="ieee"
@@ -1097,8 +1095,8 @@ class TestCleanBibtexString:
     def test_clean_removes_excessive_whitespace(self):
         """Verify excessive whitespace is removed"""
         bibtex_string = """@article{test,
-        
-        
+
+
         title={Test}
         }"""
         cleaned = clean_bibtex_string(bibtex_string)
@@ -1173,7 +1171,7 @@ class TestExportBySource:
 
     def test_export_papers_by_source_creates_files(self, tmp_path):
         """Verify export_papers_by_source is callable"""
-        papers = [
+        [
             Paper(
                 cite_key="test1",
                 title="Paper 1",
@@ -1184,7 +1182,7 @@ class TestExportBySource:
                 paper_type=PaperType.JOURNAL_ARTICLE
             )
         ]
-        output_dir = str(tmp_path)
+        str(tmp_path)
 
         # Just verify the function exists and is callable
         # Actual functionality depends on Paper model attributes

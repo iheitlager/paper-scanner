@@ -11,8 +11,9 @@ Covers:
 """
 
 import pytest
-from paper_scanner.core.models import Author, Paper
+
 from paper_scanner.core.cite_key import generate_cite_key
+from paper_scanner.core.models import Author, Paper
 
 
 class TestAuthorBasics:
