@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from paper_scanner.core.enum import PaperType, ScreeningDecision, StepStatus
-from paper_scanner.core.models import Author, Paper, RelevanceScore
+from paper_scanner.core.models import Author, PDFInfo, Paper, RelevanceScore
 from paper_scanner.steps.relevance_scoring import (
     RelevanceScoringStep,
     _format_paper_text,
@@ -53,6 +53,15 @@ class TestValidate:
         p = tmp_path / "prompt.md"
         p.write_text("test")
         is_valid, errors = RelevanceScoringStep.validate({"prompt": str(p)})
+        assert is_valid is True
+
+    def test_invalid_use_pdf_type(self):
+        is_valid, errors = RelevanceScoringStep.validate({"use_pdf": "yes"})
+        assert is_valid is False
+        assert any("use_pdf" in e for e in errors)
+
+    def test_valid_use_pdf(self):
+        is_valid, errors = RelevanceScoringStep.validate({"use_pdf": False})
         assert is_valid is True
 
 
@@ -273,3 +282,157 @@ class TestExecute:
 
         assert result.stats["scored"] == 1
         assert paper.screening.relevance_scoring is None
+
+    @patch("paper_scanner.steps.relevance_scoring.ClaudeHandler")
+    def test_sends_pdf_when_available(self, mock_claude_class, tmp_path):
+        """When use_pdf=True (default) and PDF exists, send PDF path to Claude."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            {
+                "relevance": 0.9,
+                "confidence": 0.95,
+                "justification": "Full paper analysis",
+                "matching_keywords": ["innovation"],
+                "research_question_alignment": "Strong",
+            },
+            {"input_tokens": 5000, "output_tokens": 150},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test {json_schema} {research_question} {keywords}")
+
+        pdf_file = tmp_path / "paper.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4 fake content")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(pdf_info=PDFInfo(file_path=str(pdf_file)))
+        db.add(paper)
+
+        step = RelevanceScoringStep(
+            general_config={"research_question": "Test RQ", "keywords": ["innovation"]},
+            db=db,
+            cache_dir=tmp_path,
+        )
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        call_args = mock_claude.call.call_args
+        assert call_args.kwargs["text"] == str(pdf_file)
+
+    @patch("paper_scanner.steps.relevance_scoring.ClaudeHandler")
+    def test_falls_back_to_text_when_no_pdf(self, mock_claude_class, tmp_path):
+        """When paper has no PDF info, fall back to formatted text."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            {
+                "relevance": 0.7,
+                "confidence": 0.8,
+                "justification": "Based on abstract",
+                "matching_keywords": [],
+                "research_question_alignment": "Moderate",
+            },
+            {"input_tokens": 100, "output_tokens": 50},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test {json_schema} {research_question} {keywords}")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper()  # No pdf_info
+        db.add(paper)
+
+        step = RelevanceScoringStep(
+            general_config={"research_question": "Test RQ", "keywords": []},
+            db=db,
+            cache_dir=tmp_path,
+        )
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        call_args = mock_claude.call.call_args
+        assert "TITLE:" in call_args.kwargs["text"]
+
+    @patch("paper_scanner.steps.relevance_scoring.ClaudeHandler")
+    def test_use_pdf_false_forces_text(self, mock_claude_class, tmp_path):
+        """When use_pdf=False, always use text even if PDF exists."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            {
+                "relevance": 0.6,
+                "confidence": 0.7,
+                "justification": "Abstract only",
+                "matching_keywords": [],
+                "research_question_alignment": "Weak",
+            },
+            {"input_tokens": 100, "output_tokens": 50},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test {json_schema} {research_question} {keywords}")
+
+        pdf_file = tmp_path / "paper.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4 fake content")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(pdf_info=PDFInfo(file_path=str(pdf_file)))
+        db.add(paper)
+
+        step = RelevanceScoringStep(
+            general_config={"research_question": "Test RQ", "keywords": []},
+            db=db,
+            cache_dir=tmp_path,
+        )
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file), "use_pdf": False})
+
+        call_args = mock_claude.call.call_args
+        assert "TITLE:" in call_args.kwargs["text"]
+
+    @patch("paper_scanner.steps.relevance_scoring.ClaudeHandler")
+    def test_falls_back_to_text_when_pdf_missing_on_disk(self, mock_claude_class, tmp_path):
+        """When pdf_info.file_path is set but file doesn't exist, fall back to text."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            {
+                "relevance": 0.7,
+                "confidence": 0.8,
+                "justification": "Fallback to text",
+                "matching_keywords": [],
+                "research_question_alignment": "Moderate",
+            },
+            {"input_tokens": 100, "output_tokens": 50},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test {json_schema} {research_question} {keywords}")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(pdf_info=PDFInfo(file_path="/nonexistent/paper.pdf"))
+        db.add(paper)
+
+        step = RelevanceScoringStep(
+            general_config={"research_question": "Test RQ", "keywords": []},
+            db=db,
+            cache_dir=tmp_path,
+        )
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        call_args = mock_claude.call.call_args
+        assert "TITLE:" in call_args.kwargs["text"]

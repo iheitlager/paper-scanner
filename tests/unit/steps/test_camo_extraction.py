@@ -8,7 +8,7 @@ import pytest
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.enum import PaperType, ScreeningDecision, StepStatus
-from paper_scanner.core.models import Author, ConceptualAnalysis, Paper
+from paper_scanner.core.models import Author, ConceptualAnalysis, PDFInfo, Paper
 from paper_scanner.steps.camo_extraction import (
     CAMOExtractionStep,
     _format_paper_text,
@@ -84,6 +84,15 @@ class TestValidate:
         p = tmp_path / "prompt.md"
         p.write_text("test")
         is_valid, errors = CAMOExtractionStep.validate({"prompt": str(p)})
+        assert is_valid is True
+
+    def test_invalid_use_pdf_type(self):
+        is_valid, errors = CAMOExtractionStep.validate({"use_pdf": "yes"})
+        assert is_valid is False
+        assert any("use_pdf" in e for e in errors)
+
+    def test_valid_use_pdf(self):
+        is_valid, errors = CAMOExtractionStep.validate({"use_pdf": True})
         assert is_valid is True
 
 
@@ -323,3 +332,109 @@ class TestExecute:
         with patch.dict("os.environ", {}, clear=True):
             with pytest.raises(Exception, match="ANTHROPIC_API_KEY"):
                 step.execute({})
+
+    @patch("paper_scanner.steps.camo_extraction.ClaudeHandler")
+    def test_sends_pdf_when_available(self, mock_claude_class, tmp_path):
+        """When use_pdf=True (default) and PDF exists, send PDF path to Claude."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            SAMPLE_RESPONSE,
+            {"input_tokens": 5000, "output_tokens": 500},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test {json_schema}")
+
+        pdf_file = tmp_path / "paper.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4 fake content")
+
+        db = PapersDatabase()
+        paper = _make_paper(pdf_info=PDFInfo(file_path=str(pdf_file)))
+        db.add(paper)
+
+        step = CAMOExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        call_args = mock_claude.call.call_args
+        assert call_args.kwargs["text"] == str(pdf_file)
+
+    @patch("paper_scanner.steps.camo_extraction.ClaudeHandler")
+    def test_falls_back_to_text_when_no_pdf(self, mock_claude_class, tmp_path):
+        """When paper has no PDF info, fall back to formatted text."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            SAMPLE_RESPONSE,
+            {"input_tokens": 100, "output_tokens": 50},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test {json_schema}")
+
+        db = PapersDatabase()
+        paper = _make_paper()  # No pdf_info
+        db.add(paper)
+
+        step = CAMOExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        call_args = mock_claude.call.call_args
+        assert "TITLE:" in call_args.kwargs["text"]
+
+    @patch("paper_scanner.steps.camo_extraction.ClaudeHandler")
+    def test_use_pdf_false_forces_text(self, mock_claude_class, tmp_path):
+        """When use_pdf=False, always use text even if PDF exists."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            SAMPLE_RESPONSE,
+            {"input_tokens": 100, "output_tokens": 50},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test {json_schema}")
+
+        pdf_file = tmp_path / "paper.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4 fake content")
+
+        db = PapersDatabase()
+        paper = _make_paper(pdf_info=PDFInfo(file_path=str(pdf_file)))
+        db.add(paper)
+
+        step = CAMOExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file), "use_pdf": False})
+
+        call_args = mock_claude.call.call_args
+        assert "TITLE:" in call_args.kwargs["text"]
+
+    @patch("paper_scanner.steps.camo_extraction.ClaudeHandler")
+    def test_falls_back_to_text_when_pdf_missing_on_disk(self, mock_claude_class, tmp_path):
+        """When pdf_info.file_path is set but file doesn't exist, fall back to text."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            SAMPLE_RESPONSE,
+            {"input_tokens": 100, "output_tokens": 50},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test {json_schema}")
+
+        db = PapersDatabase()
+        paper = _make_paper(pdf_info=PDFInfo(file_path="/nonexistent/paper.pdf"))
+        db.add(paper)
+
+        step = CAMOExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        call_args = mock_claude.call.call_args
+        assert "TITLE:" in call_args.kwargs["text"]

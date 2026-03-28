@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from paper_scanner.core.enum import PaperType, StepStatus
-from paper_scanner.core.models import Author, Paper, ResearchMethodClassification
+from paper_scanner.core.models import Author, PDFInfo, Paper, ResearchMethodClassification
 from paper_scanner.steps.metadata_extraction import (
     MetadataExtractionStep,
     _apply_metadata,
@@ -62,6 +62,15 @@ class TestValidate:
         is_valid, errors = MetadataExtractionStep.validate({"overwrite": "yes"})
         assert is_valid is False
         assert any("overwrite" in e for e in errors)
+
+    def test_invalid_use_pdf_type(self):
+        is_valid, errors = MetadataExtractionStep.validate({"use_pdf": "yes"})
+        assert is_valid is False
+        assert any("use_pdf" in e for e in errors)
+
+    def test_valid_use_pdf(self):
+        is_valid, errors = MetadataExtractionStep.validate({"use_pdf": True})
+        assert is_valid is True
 
 
 # ============================================================================
@@ -288,3 +297,128 @@ class TestExecute:
         assert result.stats["extracted"] == 1
         # Paper should NOT have been updated in db
         assert paper.research_method is None
+
+    @patch("paper_scanner.steps.metadata_extraction.ClaudeHandler")
+    def test_sends_pdf_when_available(self, mock_claude_class, tmp_path):
+        """When use_pdf=True (default) and PDF exists, send PDF path to Claude."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            {"research_method": {"empirical": True, "approach": "quantitative", "industry": None}},
+            {"input_tokens": 500, "output_tokens": 200},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test prompt {json_schema}")
+
+        # Create a fake PDF file
+        pdf_file = tmp_path / "paper.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4 fake content")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(
+            research_method=None,
+            pdf_info=PDFInfo(file_path=str(pdf_file)),
+        )
+        db.add(paper)
+
+        step = MetadataExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        # Verify PDF path was sent to Claude
+        call_args = mock_claude.call.call_args
+        assert call_args.kwargs["text"] == str(pdf_file)
+
+    @patch("paper_scanner.steps.metadata_extraction.ClaudeHandler")
+    def test_falls_back_to_text_when_no_pdf(self, mock_claude_class, tmp_path):
+        """When paper has no PDF info, fall back to formatted text."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            {"research_method": {"empirical": True, "approach": "qualitative", "industry": None}},
+            {"input_tokens": 100, "output_tokens": 50},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test prompt {json_schema}")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(research_method=None)  # No pdf_info
+        db.add(paper)
+
+        step = MetadataExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        call_args = mock_claude.call.call_args
+        assert "TITLE:" in call_args.kwargs["text"]
+
+    @patch("paper_scanner.steps.metadata_extraction.ClaudeHandler")
+    def test_use_pdf_false_forces_text(self, mock_claude_class, tmp_path):
+        """When use_pdf=False, always use text even if PDF exists."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            {"research_method": {"empirical": False}},
+            {"input_tokens": 100, "output_tokens": 50},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test prompt {json_schema}")
+
+        pdf_file = tmp_path / "paper.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4 fake content")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(
+            research_method=None,
+            pdf_info=PDFInfo(file_path=str(pdf_file)),
+        )
+        db.add(paper)
+
+        step = MetadataExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file), "use_pdf": False})
+
+        call_args = mock_claude.call.call_args
+        assert "TITLE:" in call_args.kwargs["text"]
+
+    @patch("paper_scanner.steps.metadata_extraction.ClaudeHandler")
+    def test_falls_back_to_text_when_pdf_missing_on_disk(self, mock_claude_class, tmp_path):
+        """When pdf_info.file_path is set but file doesn't exist, fall back to text."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            {"research_method": {"empirical": True, "approach": "quantitative", "industry": None}},
+            {"input_tokens": 100, "output_tokens": 50},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test prompt {json_schema}")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(
+            research_method=None,
+            pdf_info=PDFInfo(file_path="/nonexistent/paper.pdf"),
+        )
+        db.add(paper)
+
+        step = MetadataExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        call_args = mock_claude.call.call_args
+        assert "TITLE:" in call_args.kwargs["text"]
