@@ -397,6 +397,25 @@ class FullPaperScreening(BaseModel):
     metadata: Optional[ProcessingMetadata] = None
 
 # ============================================================================
+# RELEVANCE SCORE MODEL
+# ============================================================================
+
+class RelevanceScore(BaseModel):
+    """Relevance scoring result from LLM analysis."""
+
+    relevance: float = Field(ge=0, le=1, description="How relevant the paper is to the research question")
+    confidence: float = Field(ge=0, le=1, description="Confidence in the relevance assessment")
+    justification: str = Field(description="Brief explanation of the scoring rationale")
+    matching_keywords: List[str] = Field(default_factory=list)
+    research_question_alignment: Optional[str] = Field(
+        default=None,
+        description="How the paper relates to the research question",
+    )
+
+    metadata: Optional[ProcessingMetadata] = None
+
+
+# ============================================================================
 # SCREENING MODEL (aggregates all screening steps)
 # ============================================================================
 
@@ -423,6 +442,9 @@ class Screening(BaseModel):
 
     # Stage 6: Full paper screening (not excluded stages 0-3 means full paper review)
     full_paper_screening: Optional[FullPaperScreening] = None
+
+    # Relevance scoring (from LLM relevance scoring step)
+    relevance_scoring: Optional[RelevanceScore] = None
 
     manual_decision: Optional[ScreeningDecision] = None
     # Final decision (for further processing)
