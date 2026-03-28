@@ -19,6 +19,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "keyword_screening": "paper_scanner.steps.keyword_screening:KeywordScreeningStep",
     "llm_classification": "paper_scanner.steps.llm_classification:LLMClassificationStep",
     "metadata_extraction": "paper_scanner.steps.metadata_extraction:MetadataExtractionStep",
+    "relevance_filter": "paper_scanner.steps.relevance_filter:RelevanceFilterStep",
     "relevance_scoring": "paper_scanner.steps.relevance_scoring:RelevanceScoringStep",
     "load_files": "paper_scanner.steps.load_files:LoadFilesStep",
     "metadata_screening": "paper_scanner.steps.metadata_screening:MetadataScreeningStep",
