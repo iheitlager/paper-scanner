@@ -8,6 +8,7 @@ Screening.relevance_scoring.
 Configuration options:
   - model: Claude model to use (default: claude-haiku-4-5-20251001)
   - prompt: Path to prompt template (default: src/prompts/score-relevance.md)
+  - use_pdf: Send PDF natively to Claude when available (default: true)
 
 Environment:
   - ANTHROPIC_API_KEY: Anthropic API key
@@ -64,6 +65,9 @@ class RelevanceScoringStep(BaseStep):
                 if not prompt_path.exists():
                     errors.append(f"Prompt file not found: {config['prompt']}")
 
+        if "use_pdf" in config and not isinstance(config["use_pdf"], bool):
+            errors.append("'use_pdf' must be a boolean")
+
         return len(errors) == 0, errors
 
     def _load_prompt(self, config: Dict[str, Any]) -> str:
@@ -95,6 +99,7 @@ class RelevanceScoringStep(BaseStep):
         debug: bool = False,
     ) -> StepResult:
         model_name = config.get("model", "claude-haiku-4-5-20251001")
+        use_pdf = config.get("use_pdf", True)
 
         research_question = self.general_config.get("research_question", "")
         if not research_question:
@@ -141,9 +146,14 @@ class RelevanceScoringStep(BaseStep):
 
             start_time = datetime.now(timezone.utc)
 
-            paper_text = _format_paper_text(paper)
+            pdf_path = paper.pdf_info.file_path if paper.pdf_info else None
+            if use_pdf and pdf_path and os.path.exists(pdf_path):
+                text_input = pdf_path
+            else:
+                text_input = _format_paper_text(paper)
+
             parsed_response, token_usage = claude.call(
-                text=paper_text,
+                text=text_input,
                 system_prompt=system_prompt,
                 max_tokens=1024,
             )

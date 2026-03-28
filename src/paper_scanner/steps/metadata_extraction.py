@@ -8,6 +8,7 @@ Configuration options:
   - model: Claude model to use (default: claude-haiku-4-5-20251001)
   - prompt: Path to prompt template (default: src/prompts/extract-metadata.md)
   - overwrite: Whether to overwrite existing metadata (default: false)
+  - use_pdf: Send PDF natively to Claude when available (default: true)
 
 Environment:
   - ANTHROPIC_API_KEY: Anthropic API key
@@ -77,6 +78,9 @@ class MetadataExtractionStep(BaseStep):
         if "overwrite" in config and not isinstance(config["overwrite"], bool):
             errors.append("'overwrite' must be a boolean")
 
+        if "use_pdf" in config and not isinstance(config["use_pdf"], bool):
+            errors.append("'use_pdf' must be a boolean")
+
         return len(errors) == 0, errors
 
     def _load_prompt(self, config: Dict[str, Any]) -> str:
@@ -97,6 +101,7 @@ class MetadataExtractionStep(BaseStep):
     ) -> StepResult:
         model_name = config.get("model", "claude-haiku-4-5-20251001")
         overwrite = config.get("overwrite", False)
+        use_pdf = config.get("use_pdf", True)
 
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
@@ -139,9 +144,14 @@ class MetadataExtractionStep(BaseStep):
 
             start_time = datetime.now(timezone.utc)
 
-            paper_text = _format_paper_text(paper)
+            pdf_path = paper.pdf_info.file_path if paper.pdf_info else None
+            if use_pdf and pdf_path and os.path.exists(pdf_path):
+                text_input = pdf_path
+            else:
+                text_input = _format_paper_text(paper)
+
             parsed_response, token_usage = claude.call(
-                text=paper_text,
+                text=text_input,
                 system_prompt=system_prompt,
                 max_tokens=2048,
             )
