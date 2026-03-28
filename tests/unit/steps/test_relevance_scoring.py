@@ -399,3 +399,40 @@ class TestExecute:
 
         call_args = mock_claude.call.call_args
         assert "TITLE:" in call_args.kwargs["text"]
+
+    @patch("paper_scanner.steps.relevance_scoring.ClaudeHandler")
+    def test_falls_back_to_text_when_pdf_missing_on_disk(self, mock_claude_class, tmp_path):
+        """When pdf_info.file_path is set but file doesn't exist, fall back to text."""
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (
+            {
+                "relevance": 0.7,
+                "confidence": 0.8,
+                "justification": "Fallback to text",
+                "matching_keywords": [],
+                "research_question_alignment": "Moderate",
+            },
+            {"input_tokens": 100, "output_tokens": 50},
+        )
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test {json_schema} {research_question} {keywords}")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(pdf_info=PDFInfo(file_path="/nonexistent/paper.pdf"))
+        db.add(paper)
+
+        step = RelevanceScoringStep(
+            general_config={"research_question": "Test RQ", "keywords": []},
+            db=db,
+            cache_dir=tmp_path,
+        )
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        call_args = mock_claude.call.call_args
+        assert "TITLE:" in call_args.kwargs["text"]

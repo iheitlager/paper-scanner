@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.0] - 2026-03-28
+
+### Added
+
+- Send PDFs natively to Claude in LLM extraction steps (metadata, relevance, CAMO) instead of text-only
+- New `use_pdf` config option (default: `true`) for all three LLM steps to control PDF vs text mode
+- Shared `_llm_helpers` module to deduplicate PDF-or-text resolution and validation logic
+
 ## [3.8.2] - 2026-03-27
 
 ### Changed

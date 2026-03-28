@@ -33,6 +33,7 @@ from paper_scanner.core.step_result import StepResult
 from paper_scanner.models.anthropic import ClaudeHandler
 
 from .base import BaseStep
+from ._llm_helpers import resolve_llm_input, validate_use_pdf
 
 logging.getLogger("anthropic").setLevel(logging.WARNING)
 
@@ -65,8 +66,7 @@ class RelevanceScoringStep(BaseStep):
                 if not prompt_path.exists():
                     errors.append(f"Prompt file not found: {config['prompt']}")
 
-        if "use_pdf" in config and not isinstance(config["use_pdf"], bool):
-            errors.append("'use_pdf' must be a boolean")
+        validate_use_pdf(config, errors)
 
         return len(errors) == 0, errors
 
@@ -146,11 +146,7 @@ class RelevanceScoringStep(BaseStep):
 
             start_time = datetime.now(timezone.utc)
 
-            pdf_path = paper.pdf_info.file_path if paper.pdf_info else None
-            if use_pdf and pdf_path and os.path.exists(pdf_path):
-                text_input = pdf_path
-            else:
-                text_input = _format_paper_text(paper)
+            text_input = resolve_llm_input(paper, use_pdf, _format_paper_text)
 
             parsed_response, token_usage = claude.call(
                 text=text_input,
