@@ -435,6 +435,26 @@ class Screening(BaseModel):
 
 
 # ============================================================================
+# RESEARCH METHOD CLASSIFICATION MODEL
+# ============================================================================
+
+class ResearchMethodClassification(BaseModel):
+    """Research method classification from LLM metadata extraction."""
+
+    empirical: bool = Field(description="Whether the paper is empirical (vs theoretical/conceptual)")
+    approach: Optional[str] = Field(
+        default=None,
+        description="Research approach: quantitative, qualitative, or mixed",
+    )
+    industry: Optional[str] = Field(
+        default=None,
+        description="Industry sector or domain the research applies to",
+    )
+
+    metadata: Optional[ProcessingMetadata] = None
+
+
+# ============================================================================
 # CAMO MODEL
 # ============================================================================
 
@@ -707,6 +727,12 @@ class Paper(BaseModel):
     # ========================================
 
     pdf_info: Optional[PDFInfo] = None
+
+    # ========================================
+    # RESEARCH METHOD
+    # ========================================
+
+    research_method: Optional[ResearchMethodClassification] = None
 
     # ========================================
     # CONCEPTUAL ANALYSIS
