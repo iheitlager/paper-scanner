@@ -5,6 +5,7 @@ from typing import Dict
 # Map step names to module paths for lazy loading
 STEP_REGISTRY_PATHS: Dict[str, str] = {
     "bibtex_import": "paper_scanner.steps.bibtex_import:BibtexImportStep",
+    "camo_extraction": "paper_scanner.steps.camo_extraction:CAMOExtractionStep",
     "checkpoint": "paper_scanner.steps.checkpoint:CheckpointStep",
     "citations": "paper_scanner.steps.citations:CitationsStep",
     "deduplication": "paper_scanner.steps.deduplication:DeduplicationStep",
