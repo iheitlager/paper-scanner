@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.1] - 2026-03-29
+
+### Fixed
+
+- Patch step supports nested Pydantic fields via dot-notation (e.g. `screening.final_decision`)
+- Accept `set:` as intuitive alias for `replace_fields:` in patch configuration
+- Auto-coerce string values to enums when target field is an enum type
+- Warn on unknown patch keys instead of silently ignoring them
+
 ## [3.9.0] - 2026-03-28
 
 ### Added

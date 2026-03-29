@@ -2,16 +2,20 @@
 Patch step for paper scanner
 
 Updates existing paper records by DOI with field values from an external file or inline config.
-Supports replacing and appending field values.
+Supports replacing and appending field values. Dot-notation paths (e.g. screening.final_decision)
+are supported for nested Pydantic model fields.
 """
 
 import copy
+import enum
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
+from pydantic import BaseModel
 from rich.console import Console
 
 from paper_scanner.core.enum import StepStatus
@@ -21,7 +25,56 @@ from .base import BaseStep
 
 # Initialize rich console
 console = Console(file=sys.stderr)
+logger = logging.getLogger(__name__)
 
+# Keys recognized inside a patch entry (besides 'doi')
+_KNOWN_PATCH_KEYS = {"doi", "replace_fields", "append_fields", "set"}
+
+
+
+def _has_nested(obj: Any, path: str) -> bool:
+    """Check if a dot-notation path exists on a (possibly nested) object."""
+    parts = path.split(".")
+    for part in parts:
+        if not hasattr(obj, part):
+            return False
+        obj = getattr(obj, part)
+    return True
+
+
+def _get_nested(obj: Any, path: str) -> Any:
+    """Get a value via dot-notation path."""
+    for part in path.split("."):
+        obj = getattr(obj, part)
+    return obj
+
+
+def _set_nested(obj: Any, path: str, value: Any) -> None:
+    """Set a value via dot-notation path, coercing enums when needed."""
+    parts = path.split(".")
+    for part in parts[:-1]:
+        obj = getattr(obj, part)
+
+    field_name = parts[-1]
+
+    # Coerce string values to enums when the target field is an enum type
+    if isinstance(obj, BaseModel) and isinstance(value, str):
+        field_info = obj.__class__.model_fields.get(field_name)
+        if field_info and field_info.annotation:
+            annotation = field_info.annotation
+            # Unwrap Optional[X] → X
+            origin = getattr(annotation, "__origin__", None)
+            if origin is type(None):
+                pass
+            elif hasattr(annotation, "__args__"):
+                for arg in annotation.__args__:
+                    if isinstance(arg, type) and issubclass(arg, enum.Enum):
+                        annotation = arg
+                        break
+            if isinstance(annotation, type) and issubclass(annotation, enum.Enum):
+                value = annotation(value)
+
+    setattr(obj, field_name, value)
 
 
 def _load_patches_from_file(file_path: Path) -> List[Dict[str, Any]]:
@@ -76,36 +129,49 @@ def _apply_patch_to_paper(paper: Paper, patch: Dict[str, Any]) -> Tuple[bool, Op
     """
     Apply a patch to a paper object.
 
+    Supports dot-notation paths (e.g. ``screening.final_decision``) and
+    automatic enum coercion for Pydantic model fields. The ``set:`` key is
+    accepted as an alias for ``replace_fields:``.
+
     Args:
         paper: Paper to patch
-        patch: Patch dictionary with replace_fields and append_fields
+        patch: Patch dictionary with replace_fields/set and append_fields
 
     Returns:
         Tuple of (success, error_message)
     """
+    # 'set' is an alias for 'replace_fields'
     replace_fields = patch.get("replace_fields", {})
+    set_fields = patch.get("set", {})
+    replace_fields = {**replace_fields, **set_fields}
+
     append_fields = patch.get("append_fields", {})
 
+    # Warn on unknown keys
+    unknown_keys = set(patch.keys()) - _KNOWN_PATCH_KEYS
+    for key in sorted(unknown_keys):
+        logger.warning("Patch for DOI '%s': unknown key '%s' (ignored)", patch.get("doi", "?"), key)
+
     try:
-        # Apply replace operations
-        for field_name, value in replace_fields.items():
-            if not hasattr(paper, field_name):
-                return False, f"Paper has no field '{field_name}'"
-            setattr(paper, field_name, value)
+        # Apply replace operations (supports dot-notation)
+        for field_path, value in replace_fields.items():
+            if not _has_nested(paper, field_path):
+                return False, f"Paper has no field '{field_path}'"
+            _set_nested(paper, field_path, value)
 
-        # Apply append operations (for list fields)
-        for field_name, value in append_fields.items():
-            if not hasattr(paper, field_name):
-                return False, f"Paper has no field '{field_name}'"
+        # Apply append operations (for list fields, supports dot-notation)
+        for field_path, value in append_fields.items():
+            if not _has_nested(paper, field_path):
+                return False, f"Paper has no field '{field_path}'"
 
-            current = getattr(paper, field_name)
+            current = _get_nested(paper, field_path)
 
             # Handle string appending
             if isinstance(current, str):
                 if not isinstance(value, str):
-                    return False, f"Cannot append non-string to string field '{field_name}'"
+                    return False, f"Cannot append non-string to string field '{field_path}'"
                 new_value = current + value if current else value
-                setattr(paper, field_name, new_value)
+                _set_nested(paper, field_path, new_value)
 
             # Handle list appending
             elif isinstance(current, list):
@@ -115,7 +181,7 @@ def _apply_patch_to_paper(paper: Paper, patch: Dict[str, Any]) -> Tuple[bool, Op
                     current.append(value)
 
             else:
-                return False, f"Cannot append to field '{field_name}' of type {type(current).__name__}"
+                return False, f"Cannot append to field '{field_path}' of type {type(current).__name__}"
 
         return True, None
 
@@ -159,6 +225,8 @@ class PatchStep(BaseStep):
                         errors.append(f"Patch {i} missing required 'doi' field")
                     elif not isinstance(patch.get("replace_fields", {}), dict):
                         errors.append(f"Patch {i} 'replace_fields' must be a dictionary")
+                    elif not isinstance(patch.get("set", {}), dict):
+                        errors.append(f"Patch {i} 'set' must be a dictionary")
                     elif not isinstance(patch.get("append_fields", {}), dict):
                         errors.append(f"Patch {i} 'append_fields' must be a dictionary")
 
