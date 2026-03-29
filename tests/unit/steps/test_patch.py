@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 from paper_scanner.core.database import PapersDatabase
-from paper_scanner.core.enum import StepStatus
+from paper_scanner.core.enum import ScreeningDecision, StepStatus
 from paper_scanner.core.models import Author, Paper
 from paper_scanner.steps.patch import PatchStep, _apply_patch_to_paper, _load_patches_from_file
 
@@ -606,6 +606,148 @@ class TestApplyPatchToPaper:
         success, error = _apply_patch_to_paper(sample_paper, patch)
         assert success
         assert sample_paper.abstract == "Original abstract text more"
+
+    def test_apply_nested_field_replace(self, sample_paper):
+        """Should set nested fields via dot-notation."""
+        patch = {
+            "replace_fields": {"screening.final_decision": "included"}
+        }
+        success, error = _apply_patch_to_paper(sample_paper, patch)
+        assert success
+        assert error is None
+        assert sample_paper.screening.final_decision == ScreeningDecision.INCLUDED
+
+    def test_apply_nested_field_invalid_path(self, sample_paper):
+        """Should fail for invalid nested path."""
+        patch = {
+            "replace_fields": {"screening.nonexistent": "value"}
+        }
+        success, error = _apply_patch_to_paper(sample_paper, patch)
+        assert not success
+        assert "nonexistent" in error
+
+    def test_apply_set_key_alias(self, sample_paper):
+        """Should accept 'set' as alias for 'replace_fields'."""
+        patch = {
+            "set": {"abstract": "new abstract via set"}
+        }
+        success, error = _apply_patch_to_paper(sample_paper, patch)
+        assert success
+        assert sample_paper.abstract == "new abstract via set"
+
+    def test_apply_set_nested_enum(self, sample_paper):
+        """Should coerce string to enum for nested field."""
+        patch = {
+            "set": {"screening.final_decision": "included"}
+        }
+        success, error = _apply_patch_to_paper(sample_paper, patch)
+        assert success
+        assert sample_paper.screening.final_decision == ScreeningDecision.INCLUDED
+
+    def test_apply_unknown_keys_warns(self, sample_paper, caplog):
+        """Should warn on unknown patch keys."""
+        import logging
+
+        patch = {
+            "doi": "10.1080/test",
+            "set": {"abstract": "new"},
+            "bogus_key": "ignored",
+        }
+        with caplog.at_level(logging.WARNING, logger="paper_scanner.steps.patch"):
+            success, error = _apply_patch_to_paper(sample_paper, patch)
+        assert success
+        assert any("bogus_key" in msg for msg in caplog.messages)
+
+    def test_apply_nested_append_to_list(self, sample_paper):
+        """Should append to nested list fields via dot-notation."""
+        # screening.notes is a string, so test with a top-level nested list
+        # Use screening.notes as a string append test
+        sample_paper.screening.notes = "existing"
+        patch = {
+            "append_fields": {"screening.notes": " more"}
+        }
+        success, error = _apply_patch_to_paper(sample_paper, patch)
+        assert success
+        assert sample_paper.screening.notes == "existing more"
+
+
+# ============================================================================
+# EXECUTION TESTS — NESTED FIELDS & SET KEY
+# ============================================================================
+
+class TestExecuteNested:
+    """Tests for patch step execution with nested fields and set key."""
+
+    def test_execute_set_screening_final_decision(self, papers_db_with_sample, temp_cache_dir):
+        """Should patch screening.final_decision via 'set' key (issue #54)."""
+        config = {
+            "patches": [
+                {
+                    "doi": "10.1080/10864415.2024.2332047",
+                    "set": {
+                        "screening.final_decision": "included"
+                    }
+                }
+            ]
+        }
+
+        step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
+        result = step.execute(config, verbose=False, dry_run=False)
+
+        assert result["status"] == StepStatus.SUCCESS
+        assert result["patches_applied"] == 1
+
+        papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
+        assert papers[0].screening.final_decision == ScreeningDecision.INCLUDED
+
+    def test_execute_set_and_replace_fields_merged(self, papers_db_with_sample, temp_cache_dir):
+        """Should merge 'set' and 'replace_fields' in same patch."""
+        config = {
+            "patches": [
+                {
+                    "doi": "10.1080/10864415.2024.2332047",
+                    "replace_fields": {"abstract": "new abstract"},
+                    "set": {"screening.final_decision": "included"},
+                }
+            ]
+        }
+
+        step = PatchStep(general_config={}, db=papers_db_with_sample, cache_dir=temp_cache_dir)
+        result = step.execute(config, verbose=False, dry_run=False)
+
+        assert result["patches_applied"] == 1
+        papers = papers_db_with_sample.get_by_doi("10.1080/10864415.2024.2332047")
+        assert papers[0].abstract == "new abstract"
+        assert papers[0].screening.final_decision == ScreeningDecision.INCLUDED
+
+    def test_validate_set_key_accepted(self):
+        """Should validate patches with 'set' key."""
+        config = {
+            "patches": [
+                {
+                    "doi": "10.1234/test",
+                    "set": {"screening.final_decision": "included"}
+                }
+            ]
+        }
+        is_valid, errors = PatchStep.validate(config)
+        assert is_valid
+        assert errors == []
+
+    def test_validate_set_not_dict(self):
+        """Should fail when 'set' is not a dict."""
+        config = {
+            "patches": [
+                {
+                    "doi": "10.1234/test",
+                    "set": "invalid"
+                }
+            ]
+        }
+        is_valid, errors = PatchStep.validate(config)
+        assert not is_valid
+        assert any("set" in e for e in errors)
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
