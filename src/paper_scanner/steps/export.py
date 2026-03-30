@@ -153,7 +153,7 @@ class ExportStep(BaseStep):
             if duplicates_flag in ["only", "true", True]:
                 # export only duplicates
                 c &= p.duplicate_of is not None
-            elif duplicates_flag == ["no", "false", False]:
+            elif duplicates_flag in ["no", "false", False]:
                 # export only unique papers (default)
                 c &= p.duplicate_of is None
             # else do not care
@@ -161,7 +161,7 @@ class ExportStep(BaseStep):
             if includes_flag in ["only", "true", True]:
                 # export only papers that were included
                 c &= p.is_included is True
-            elif includes_flag == ["no", "false", False]:
+            elif includes_flag in ["no", "false", False]:
                 # export only papers that were excluded
                 c &= p.is_included is False
             # else export all papers
@@ -184,7 +184,7 @@ class ExportStep(BaseStep):
 
         if not dry_run:
             if self.output_format == "jsonl":
-                self._export_to_jsonl(papers_to_export)
+                self._export_jsonl(papers_to_export)
 
             elif self.output_format == "json":
                 self._export_json(papers_to_export)
@@ -213,8 +213,9 @@ class ExportStep(BaseStep):
         if self.is_stdout:
             with Console(file=sys.stdout, force_terminal=True) as console:
                 console.print(bibtex_content)
-        with open(self.output_path, 'w', encoding='utf-8') as f:
-            f.write(bibtex_content)
+        else:
+            with open(self.output_path, 'w', encoding='utf-8') as f:
+                f.write(bibtex_content)
 
     def _export_jsonl(self, papers: List[Any]) -> None:
         """Export papers to JSONL file."""
@@ -224,8 +225,9 @@ class ExportStep(BaseStep):
         if self.is_stdout:
             with Console(file=sys.stdout, force_terminal=True) as console:
                 console.print(jsonl_content)
-        with open(self.output_path, 'w', encoding='utf-8') as f:
-            f.write(jsonl_content)
+        else:
+            with open(self.output_path, 'w', encoding='utf-8') as f:
+                f.write(jsonl_content)
 
     def _export_json(self, papers: List[Any]) -> None:
         """Export papers to JSON file."""
@@ -235,5 +237,6 @@ class ExportStep(BaseStep):
         if self.is_stdout:
             with Console(file=sys.stdout, force_terminal=True) as console:
                 console.print(json_content)
-        with open(self.output_path, 'w', encoding='utf-8') as f:
-            f.write(json_content)
+        else:
+            with open(self.output_path, 'w', encoding='utf-8') as f:
+                f.write(json_content)

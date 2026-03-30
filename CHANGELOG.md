@@ -5,12 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.12.1] - 2026-03-30
+
+### Fixed
+
+- Export step method name mismatch: `_export_to_jsonl()` → `_export_jsonl()` (AttributeError at runtime)
+- Missing `else` clauses in all three export methods — wrote to file even when output was stdout
+- Wrong comparison operator (`==` vs `in`) for duplicates/includes "no"/"false" flag filtering (dead code)
+- Added 6 new tests covering JSONL/JSON file export, stdout export, and duplicate/include filtering (#65)
+
 ## [3.12.0] - 2026-03-30
 
 ### Added
 
 - Pipeline step completion line now shows records in/out counts (e.g. `ok: 5/5`) instead of step name, giving immediate visibility into data flow (#63)
-
 ## [3.11.0] - 2026-03-30
 
 ### Added
