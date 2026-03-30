@@ -7,7 +7,6 @@ a sequence of processing steps on the papers database.
 
 import inspect
 import json
-import os
 import shutil
 import sys
 import time
@@ -17,7 +16,6 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 from rich.console import Console
-from rich.panel import Panel
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.steps.halt import HaltException
@@ -227,9 +225,6 @@ def execute_run(
     """
 
     # Load and validate
-    if verbose:
-        console.print(f"Loading definition file: [bold cyan]{definition_file}[/bold cyan]\n")
-
     if not definition_file.exists():
         raise FileNotFoundError(f"Definition file not found: {definition_file}")
 
@@ -257,18 +252,12 @@ def execute_run(
     # Create cache directory if it doesn't exist
     cache_dir.mkdir(parents=True, exist_ok=True)
 
+    # Print header (once)
     if verbose:
-        console.print(f"Cache directory: [cyan]{cache_dir}[/cyan]")
-
-    # Print project info if available
-    if "project" in definition and verbose:
-        project = definition["project"]
-        description = project.get("description", "N/A")
-        project_info = f"[yellow]{description}[/yellow]\n[dim]Cache: {cache_dir}[/dim]"
-        project_panel = Panel(
-            project_info, title=f"[bold blue]{project.get('name', 'Unknown')}[/bold blue]", border_style="cyan"
-        )
-        console.print(project_panel)
+        project = definition.get("project", {})
+        project_name_display = project.get("name", "Unknown")
+        console.print(f"[cyan]Running: {definition_file.name}[/cyan] ({project_name_display})")
+        console.print(f"[dim]Cache: {cache_dir}[/dim]")
 
     # PRERUN: Check for existing checkpoints
     steps = definition.get("steps", [])
@@ -346,37 +335,51 @@ def execute_run(
         "errors": [],
         "checkpoint": str(checkpoint_file) if checkpoint_file else None,
         "resumed_from_step": resume_from_step,
-        "step_timings": [] if show_timings else None,
+        "step_timings": [],
         "total_duration_seconds": 0,
     }
 
-    for i, step_config in enumerate(steps, 1):
-        step_name = step_config.get("step", "unknown")
-        description = step_config.get("description", "")
+    for i, step_config in enumerate(steps):
+        # Parse step to get actual step type name
+        try:
+            parsed_step_name, step_params, parsed_desc = StepExecutor.parse_step_config(
+                step_config, builtin_steps or {}
+            )
+        except ValueError:
+            parsed_step_name = "unknown"
+            step_params = {}
+            parsed_desc = None
+
+        step_label = step_config.get("step", "unknown")
+        description = parsed_desc or step_config.get("description", "")
 
         # Check if we should skip this step (it's before the checkpoint resume point)
-        should_skip = resume_from_step is not None and i < resume_from_step
+        should_skip = resume_from_step is not None and (i + 1) < resume_from_step
 
-        # Ansible-style output
-        task_header = f"{step_name}"
-        if description:
-            task_header += f" | {description}"
+        # Validate-style output: → Step N: step_type - Description
+        step_desc = f" - {description}" if description else ""
+        step_header = f"Step {i}: [cyan]{parsed_step_name}[/cyan]{step_desc}"
 
         if should_skip:
             if verbose:
-                console.print(f"\n[bold magenta]TASK[/bold magenta] [cyan]{task_header}[/cyan]")
-                console.print(f"[dim]skipped[/dim]: [{step_name}] (checkpoint resume)")
+                console.print(f"  [dim]→ {step_header} (skipped — checkpoint resume)[/dim]")
             continue
 
         if verbose:
-            console.print(f"\n[bold magenta]TASK[/bold magenta] [cyan]{task_header}[/cyan]")
+            console.print(f"  [blue]→[/blue] {step_header}")
+            if step_params:
+                for param_key, param_value in step_params.items():
+                    if isinstance(param_value, (dict, list)):
+                        console.print(f"      [dim]{param_key}[/dim]: [cyan]({type(param_value).__name__})[/cyan]")
+                    else:
+                        console.print(f"      [dim]{param_key}[/dim]: [yellow]{param_value}[/yellow]")
             if dry_run:
-                console.print("[bold yellow](DRY RUN - no changes will be made)[/bold yellow]")
+                console.print("      [bold yellow](DRY RUN — no changes)[/bold yellow]")
         else:
-            console.print(f"\n[bold magenta]TASK[/bold magenta] [cyan]{task_header}[/cyan]")
+            console.print(f"  [blue]→[/blue] {step_header}")
 
-        # Start step timing
-        step_start_time = time.time() if show_timings else None
+        # Timing and record tracking
+        step_start_time = time.time()
         records_before = papers_db.count(primary_only=True)
 
         try:
@@ -387,23 +390,21 @@ def execute_run(
                 verbose=verbose,
                 dry_run=dry_run,
                 cache_dir=cache_dir,
-                step_index=i - 1,
+                step_index=i,
                 project_name=project_name,
                 project_config=definition.get("project"),
                 debug=debug,
                 builtin_steps=builtin_steps,
             )
 
-            # Record step timing
-            if show_timings:
-                step_duration = time.time() - step_start_time
-                results["step_timings"].append(
-                    {
-                        "step": step_name,
-                        "duration_seconds": round(step_duration, 2),
-                        "duration_ms": round(step_duration * 1000, 0),
-                    }
-                )
+            step_duration = time.time() - step_start_time
+            results["step_timings"].append(
+                {
+                    "step": step_label,
+                    "duration_seconds": round(step_duration, 2),
+                    "duration_ms": round(step_duration * 1000, 0),
+                }
+            )
 
             results["steps_executed"].append(step_result)
 
@@ -415,71 +416,57 @@ def execute_run(
             # Check if step failed
             if step_result.get("status") == "error":
                 error_msg = step_result.get("error", "Unknown error")
-                results["errors"].append(f"{step_name}: {error_msg}")
-                if verbose:
-                    console.print(f"[red]fatal[/red]: [{step_name}] {error_msg}")
-                else:
-                    console.print(f"[red]fatal[/red]: [{step_name}]")
+                results["errors"].append(f"{step_label}: {error_msg}")
+                console.print(f"    [red]✗[/red] {error_msg} ({step_duration:.1f}s)")
             else:
                 records_after = papers_db.count(primary_only=True)
-                console.print(f"[green]ok[/green]: {records_before}/{records_after}")
+                console.print(f"    [green]✓[/green] {records_before}/{records_after} ({step_duration:.1f}s)")
 
         except HaltException as e:
-            f"Pipeline halted: {str(e)}"
-            results["steps_executed"].append({"step": step_name, "status": "halted", "message": str(e)})
+            step_duration = time.time() - step_start_time
+            results["steps_executed"].append({"step": step_label, "status": "halted", "message": str(e)})
 
             # Track final papers statistics
             results["papers_total"] = papers_db.count(primary_only=False)
             results["papers_unique"] = papers_db.count(primary_only=True)
             results["papers_duplicates"] = papers_db.count(primary_only=False) - papers_db.count(primary_only=True)
 
-            console.print(f"[yellow]halt[/yellow]: [{step_name}] => {str(e)}")
+            console.print(f"    [yellow]⚠[/yellow] halt: {str(e)} ({step_duration:.1f}s)")
             break
 
         except Exception as e:
-            error_msg = f"Step {i} ({step_name}) failed: {str(e)}"
+            step_duration = time.time() - step_start_time
+            error_msg = f"Step {i} ({step_label}) failed: {str(e)}"
             results["errors"].append(error_msg)
-            console.print(f"[red bold]fatal[/red bold]: [{step_name}] => ERROR! {str(e)}")
+            console.print(f"    [red]✗[/red] ERROR: {str(e)} ({step_duration:.1f}s)")
             continue
 
     # Calculate total duration
     total_duration = time.time() - overall_start_time
     results["total_duration_seconds"] = round(total_duration, 2)
 
-    # Final summary (Ansible-style)
-    if verbose:
-        console.print(f"\n[bold cyan]{'=' * 70}[/bold cyan]")
-        console.print("[bold yellow]PLAY RECAP[/bold yellow]")
-        console.print(f"[bold cyan]{'=' * 70}[/bold cyan]")
+    # Final summary
+    ok_count = len(results["steps_executed"])
+    error_count = len(results["errors"])
 
-        ok_count = len(results["steps_executed"])
-        error_count = len(results["errors"])
-        changed_count = len([s for s in results["steps_executed"] if s.get("status") == "changed"])
+    summary_parts = [f"ok={ok_count}"]
+    if error_count > 0:
+        summary_parts.append(f"failed={error_count}")
+    summary_parts.append(f"time={results['total_duration_seconds']}s")
 
-        summary_line = f"ok={ok_count}"
-        if changed_count > 0:
-            summary_line += f" changed={changed_count}"
-        if error_count > 0:
-            summary_line += f" failed={error_count}"
+    console.print(f"\n[green]✓[/green] {definition_file.name}: {' '.join(summary_parts)}")
+    console.print(f"  papers: {results['papers_unique']} unique, {results['papers_duplicates']} duplicates, {results['papers_total']} total")
 
-        console.print(f"Definition file: [green]{summary_line}[/green]")
-        console.print(f"Total papers in database: [cyan]{results['papers_total']}[/cyan]")
-        console.print(f"Unique papers: [cyan]{results['papers_unique']}[/cyan]")
-        console.print(f"Duplicate papers: [cyan]{results['papers_duplicates']}[/cyan]")
+    if results["errors"]:
+        console.print("\n[red bold]Failed:[/red bold]")
+        for error in results["errors"]:
+            console.print(f"  [red]✗[/red] {error}")
 
-        if results["errors"]:
-            console.print("\n[red bold]Failed tasks:[/red bold]")
-            for error in results["errors"]:
-                console.print(f"  - [red]{error}[/red]")
-
-        # Show timing epilog if enabled
-        if show_timings and results["step_timings"]:
-            console.print("\n[bold yellow]TIMINGS[/bold yellow]")
-            for timing in results["step_timings"]:
-                console.print(
-                    f"  {timing['step']}: [cyan]{timing['duration_seconds']}s[/cyan] ({timing['duration_ms']:.0f}ms)"
-                )
-            console.print(f"  [bold yellow]Total[/bold yellow]: [cyan]{results['total_duration_seconds']}s[/cyan]")
+    # Show timing breakdown if --timings flag or verbose
+    if show_timings and results["step_timings"]:
+        console.print("\n[dim]Timings:[/dim]")
+        for timing in results["step_timings"]:
+            console.print(f"  [dim]{timing['step']}: {timing['duration_seconds']}s[/dim]")
 
     # Output results if requested
     if output_file:
