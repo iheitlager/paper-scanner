@@ -8,6 +8,7 @@ STEP_REGISTRY_PATHS: Dict[str, str] = {
     "camo_extraction": "paper_scanner.steps.camo_extraction:CAMOExtractionStep",
     "checkpoint": "paper_scanner.steps.checkpoint:CheckpointStep",
     "citations": "paper_scanner.steps.citations:CitationsStep",
+    "decision": "paper_scanner.steps.decision:DecisionStep",
     "deduplication": "paper_scanner.steps.deduplication:DeduplicationStep",
     "download_pdfs": "paper_scanner.steps.download_pdfs:DownloadPDFsStep",
     "echo": "paper_scanner.steps.echo:EchoStep",
