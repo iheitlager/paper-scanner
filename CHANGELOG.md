@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.10.0] - 2026-03-30
+
+### Added
+
+- LLM response caching for `metadata_extraction`, `relevance_scoring`, and `camo_extraction` steps
+- Two new config options per LLM step: `cache` (default: true) and `use_cache` (default: true)
+- Each step caches to its own subdirectory under `$XDG_CACHE_HOME/paper-scanner/api/llm/`
+- Cache keyed by DOI — papers without DOI always call the LLM
+- ADR-0002: Response caching strategy for API and LLM steps
+
 ## [3.9.1] - 2026-03-29
 
 ### Fixed
