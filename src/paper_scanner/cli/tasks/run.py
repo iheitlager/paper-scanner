@@ -377,6 +377,7 @@ def execute_run(
 
         # Start step timing
         step_start_time = time.time() if show_timings else None
+        records_before = papers_db.count(primary_only=True)
 
         try:
             step_result = StepExecutor.execute_step(
@@ -420,7 +421,8 @@ def execute_run(
                 else:
                     console.print(f"[red]fatal[/red]: [{step_name}]")
             else:
-                console.print(f"[green]ok[/green]: [{step_name}]")
+                records_after = papers_db.count(primary_only=True)
+                console.print(f"[green]ok[/green]: {records_before}/{records_after}")
 
         except HaltException as e:
             f"Pipeline halted: {str(e)}"
