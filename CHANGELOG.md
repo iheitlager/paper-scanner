@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.11.0] - 2026-03-30
+
+### Added
+
+- New deterministic `builtin.decision` step that sets `final_decision` (INCLUDED/EXCLUDED/MANUAL_REVIEW) based on configurable threshold rules over existing screening signals (#61)
+- Supports combining `relevance_score`, `confidence`, `keyword_passed`, and `metadata_passed` fields
+- Fills the gap where only the expensive `llm_classification` (Opus) could set `final_decision = INCLUDED`
+
 ## [3.10.0] - 2026-03-30
 
 ### Added
@@ -14,7 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Each step caches to its own subdirectory under `$XDG_CACHE_HOME/paper-scanner/api/llm/`
 - Cache keyed by DOI — papers without DOI always call the LLM
 - ADR-0002: Response caching strategy for API and LLM steps
-
 ## [3.9.1] - 2026-03-29
 
 ### Fixed
