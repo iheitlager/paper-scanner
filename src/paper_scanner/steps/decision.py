@@ -179,6 +179,8 @@ class DecisionStep(BaseStep):
         )
 
         def predicate(p: Paper) -> bool:
+            # is_excluded covers papers excluded by other mechanisms (e.g.
+            # deduplication) that should not be re-evaluated here.
             return (
                 p.screening.final_decision
                 in (ScreeningDecision.PENDING, ScreeningDecision.UNCERTAIN)
@@ -206,47 +208,49 @@ class DecisionStep(BaseStep):
             )
 
         for paper in all_papers:
+            decision = None
+
             # Try include conditions first
             if include_when:
                 include_result = _evaluate_conditions(paper, include_when)
                 if include_result is None:
+                    # Missing data for include fields — skip entirely since we
+                    # cannot make any determination without the primary signal
+                    logger.debug("Paper %s: skipped (missing include data)", paper.cite_key)
                     stats["skipped_missing"] += 1
                     continue
                 if include_result is True:
-                    if not dry_run:
-                        paper.screening.final_decision = ScreeningDecision.INCLUDED
-                        paper.screening.final_decision_by = "automated:decision"
-                        paper.screening.current_stage = "decision_complete"
-                        self.db.update(paper)
-                    stats["included"] += 1
-                    continue
+                    decision = ScreeningDecision.INCLUDED
 
-            # Try exclude conditions
-            if exclude_when:
+            # Try exclude conditions (only if not already included)
+            if decision is None and exclude_when:
                 exclude_result = _evaluate_conditions(paper, exclude_when)
-                if exclude_result is None:
-                    stats["skipped_missing"] += 1
-                    continue
                 if exclude_result is True:
-                    if not dry_run:
-                        paper.screening.final_decision = ScreeningDecision.EXCLUDED
-                        paper.screening.final_decision_by = "automated:decision"
-                        paper.screening.current_stage = "decision_complete"
-                        self.db.update(paper)
-                    stats["excluded"] += 1
-                    continue
+                    decision = ScreeningDecision.EXCLUDED
+                # Missing exclude data is non-fatal: fall through to otherwise
+                # (the paper already failed include, so route to fallback)
 
-            # Neither include nor exclude matched
+            # Apply fallback if neither matched
+            if decision is None:
+                decision = otherwise_decision
+
+            # Persist
             if not dry_run:
-                paper.screening.final_decision = otherwise_decision
+                paper.screening.final_decision = decision
                 paper.screening.final_decision_by = "automated:decision"
                 paper.screening.current_stage = "decision_complete"
                 self.db.update(paper)
 
-            if otherwise_decision == ScreeningDecision.MANUAL_REVIEW:
+            if decision == ScreeningDecision.INCLUDED:
+                stats["included"] += 1
+            elif decision == ScreeningDecision.EXCLUDED:
+                stats["excluded"] += 1
+            elif decision == ScreeningDecision.MANUAL_REVIEW:
                 stats["manual_review"] += 1
             else:
                 stats["pending"] += 1
+
+            logger.debug("Paper %s: %s", paper.cite_key, decision.value)
 
         return StepResult(
             status=StepStatus.SUCCESS,

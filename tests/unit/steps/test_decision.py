@@ -345,6 +345,21 @@ class TestExecute:
         assert result.stats["excluded"] == 1
         assert result.stats["manual_review"] == 1
 
+    def test_failed_include_missing_exclude_falls_through(self, tmp_path):
+        """If include fails and exclude has missing data, route to otherwise."""
+        # Paper has relevance data (fails include) but no keyword data (exclude needs it)
+        paper = _make_paper(relevance=0.4, confidence=0.5)
+        step, db = _make_step([paper], tmp_path)
+
+        result = step.execute({
+            "include_when": {"relevance_score": ">= 0.7"},
+            "exclude_when": {"keyword_passed": "== false"},
+            "otherwise": "manual_review",
+        })
+        assert result.stats["manual_review"] == 1
+        assert result.stats["skipped_missing"] == 0
+        assert paper.screening.final_decision == ScreeningDecision.MANUAL_REVIEW
+
     def test_current_stage_set(self, tmp_path):
         paper = _make_paper(relevance=0.9, confidence=0.9)
         step, db = _make_step([paper], tmp_path)
