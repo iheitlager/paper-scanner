@@ -422,3 +422,202 @@ class TestExecute:
 
         call_args = mock_claude.call.call_args
         assert "TITLE:" in call_args.kwargs["text"]
+
+
+# ============================================================================
+# Cache tests
+# ============================================================================
+
+
+class TestCache:
+    LLM_RESPONSE = {
+        "title": "ML in Healthcare",
+        "authors": [{"given_name": "Jane", "family_name": "Doe"}],
+        "abstract": "Abstract text",
+        "keywords": ["ml"],
+        "year": 2024,
+        "research_method": {
+            "empirical": True,
+            "approach": "quantitative",
+            "industry": "healthcare",
+        },
+    }
+
+    @patch("paper_scanner.steps.metadata_extraction.ClaudeHandler")
+    @patch("paper_scanner.steps.metadata_extraction.get_json_cache_dir")
+    def test_caches_llm_response(self, mock_cache_dir, mock_claude_class, tmp_path):
+        """When cache=True (default), LLM responses are stored in cache."""
+        mock_cache_dir.return_value = tmp_path / "cache"
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (self.LLM_RESPONSE, {"input_tokens": 500, "output_tokens": 200})
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test prompt {json_schema}")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(research_method=None, doi="10.1234/test.001")
+        db.add(paper)
+
+        step = MetadataExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file)})
+
+        # Verify cache directory was populated
+        cache_files = list((tmp_path / "cache" / "llm" / "metadata_extraction").glob("*.json"))
+        assert len(cache_files) == 1
+
+    @patch("paper_scanner.steps.metadata_extraction.ClaudeHandler")
+    @patch("paper_scanner.steps.metadata_extraction.get_json_cache_dir")
+    def test_uses_cached_response(self, mock_cache_dir, mock_claude_class, tmp_path):
+        """When use_cache=True (default), cached responses are used instead of LLM calls."""
+        mock_cache_dir.return_value = tmp_path / "cache"
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (self.LLM_RESPONSE, {"input_tokens": 500, "output_tokens": 200})
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test prompt {json_schema}")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        # First run: populate cache
+        db1 = PapersDatabase()
+        paper1 = _make_paper(research_method=None, doi="10.1234/test.002")
+        db1.add(paper1)
+
+        step1 = MetadataExtractionStep(general_config={}, db=db1, cache_dir=tmp_path)
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step1.execute({"prompt": str(prompt_file)})
+
+        assert mock_claude.call.call_count == 1
+
+        # Second run: should use cache, not call LLM
+        db2 = PapersDatabase()
+        paper2 = _make_paper(research_method=None, doi="10.1234/test.002")
+        db2.add(paper2)
+
+        step2 = MetadataExtractionStep(general_config={}, db=db2, cache_dir=tmp_path)
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            result = step2.execute({"prompt": str(prompt_file)})
+
+        assert mock_claude.call.call_count == 1  # No additional LLM call
+        assert result.stats["cache_hits"] == 1
+        assert result.stats["extracted"] == 1
+
+    @patch("paper_scanner.steps.metadata_extraction.ClaudeHandler")
+    @patch("paper_scanner.steps.metadata_extraction.get_json_cache_dir")
+    def test_use_cache_false_skips_cache_lookup(self, mock_cache_dir, mock_claude_class, tmp_path):
+        """When use_cache=False, always call LLM even if cache exists."""
+        mock_cache_dir.return_value = tmp_path / "cache"
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (self.LLM_RESPONSE, {"input_tokens": 500, "output_tokens": 200})
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test prompt {json_schema}")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        # First run: populate cache
+        db1 = PapersDatabase()
+        paper1 = _make_paper(research_method=None, doi="10.1234/test.003")
+        db1.add(paper1)
+
+        step1 = MetadataExtractionStep(general_config={}, db=db1, cache_dir=tmp_path)
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step1.execute({"prompt": str(prompt_file)})
+
+        # Second run with use_cache=False: should call LLM again
+        db2 = PapersDatabase()
+        paper2 = _make_paper(research_method=None, doi="10.1234/test.003")
+        db2.add(paper2)
+
+        step2 = MetadataExtractionStep(general_config={}, db=db2, cache_dir=tmp_path)
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            result = step2.execute({"prompt": str(prompt_file), "use_cache": False})
+
+        assert mock_claude.call.call_count == 2  # Called LLM both times
+        assert result.stats["cache_hits"] == 0
+
+    @patch("paper_scanner.steps.metadata_extraction.ClaudeHandler")
+    @patch("paper_scanner.steps.metadata_extraction.get_json_cache_dir")
+    def test_cache_false_does_not_store(self, mock_cache_dir, mock_claude_class, tmp_path):
+        """When cache=False, LLM responses are not stored."""
+        mock_cache_dir.return_value = tmp_path / "cache"
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (self.LLM_RESPONSE, {"input_tokens": 500, "output_tokens": 200})
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test prompt {json_schema}")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(research_method=None, doi="10.1234/test.004")
+        db.add(paper)
+
+        step = MetadataExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            step.execute({"prompt": str(prompt_file), "cache": False, "use_cache": False})
+
+        # Cache directory may exist but should have no files
+        cache_dir = tmp_path / "cache" / "llm" / "metadata_extraction"
+        if cache_dir.exists():
+            cache_files = list(cache_dir.glob("*.json"))
+            assert len(cache_files) == 0
+
+    @patch("paper_scanner.steps.metadata_extraction.ClaudeHandler")
+    @patch("paper_scanner.steps.metadata_extraction.get_json_cache_dir")
+    def test_no_cache_for_papers_without_doi(self, mock_cache_dir, mock_claude_class, tmp_path):
+        """Papers without DOI cannot be cached (no stable key)."""
+        mock_cache_dir.return_value = tmp_path / "cache"
+        mock_claude = MagicMock()
+        mock_claude_class.return_value = mock_claude
+        mock_claude.call.return_value = (self.LLM_RESPONSE, {"input_tokens": 500, "output_tokens": 200})
+
+        prompt_file = tmp_path / "prompt.md"
+        prompt_file.write_text("Test prompt {json_schema}")
+
+        from paper_scanner.core.database import PapersDatabase
+
+        db = PapersDatabase()
+        paper = _make_paper(research_method=None, doi=None)
+        db.add(paper)
+
+        step = MetadataExtractionStep(general_config={}, db=db, cache_dir=tmp_path)
+
+        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}):
+            result = step.execute({"prompt": str(prompt_file)})
+
+        assert result.stats["extracted"] == 1
+        assert result.stats["cache_hits"] == 0
+        # LLM was called (no cache available)
+        mock_claude.call.assert_called_once()
+
+
+# ============================================================================
+# Validation — cache options
+# ============================================================================
+
+
+class TestValidateCache:
+    def test_valid_cache_options(self):
+        is_valid, errors = MetadataExtractionStep.validate({"cache": True, "use_cache": False})
+        assert is_valid is True
+        assert errors == []
+
+    def test_invalid_cache_type(self):
+        is_valid, errors = MetadataExtractionStep.validate({"cache": "yes"})
+        assert is_valid is False
+        assert any("cache" in e for e in errors)
+
+    def test_invalid_use_cache_type(self):
+        is_valid, errors = MetadataExtractionStep.validate({"use_cache": "no"})
+        assert is_valid is False
+        assert any("use_cache" in e for e in errors)

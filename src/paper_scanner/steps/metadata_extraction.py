@@ -9,6 +9,8 @@ Configuration options:
   - prompt: Path to prompt template (default: src/prompts/extract-metadata.md)
   - overwrite: Whether to overwrite existing metadata (default: false)
   - use_pdf: Send PDF natively to Claude when available (default: true)
+  - cache: Whether to store LLM responses in cache (default: true)
+  - use_cache: Whether to check cache before calling the LLM (default: true)
 
 Environment:
   - ANTHROPIC_API_KEY: Anthropic API key
@@ -18,6 +20,8 @@ Example YAML:
     builtin.metadata_extraction:
       model: "claude-haiku-4-5-20251001"
       prompt: "src/prompts/extract-metadata.md"
+      cache: true
+      use_cache: true
 """
 
 import logging
@@ -26,6 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from paper_scanner.core.cache import JSONFileCache
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.exceptions import ConfigurationError, StepFatalError
 from paper_scanner.core.models import (
@@ -34,11 +39,12 @@ from paper_scanner.core.models import (
     ProcessingMetadata,
     ResearchMethodClassification,
 )
+from paper_scanner.core.paths import get_json_cache_dir
 from paper_scanner.core.step_result import StepResult
 from paper_scanner.models.anthropic import ClaudeHandler
 
-from .base import BaseStep
 from ._llm_helpers import resolve_llm_input, validate_use_pdf
+from .base import BaseStep
 
 logging.getLogger("anthropic").setLevel(logging.WARNING)
 
@@ -79,6 +85,12 @@ class MetadataExtractionStep(BaseStep):
         if "overwrite" in config and not isinstance(config["overwrite"], bool):
             errors.append("'overwrite' must be a boolean")
 
+        if "cache" in config and not isinstance(config["cache"], bool):
+            errors.append("'cache' must be a boolean")
+
+        if "use_cache" in config and not isinstance(config["use_cache"], bool):
+            errors.append("'use_cache' must be a boolean")
+
         validate_use_pdf(config, errors)
 
         return len(errors) == 0, errors
@@ -102,6 +114,8 @@ class MetadataExtractionStep(BaseStep):
         model_name = config.get("model", "claude-haiku-4-5-20251001")
         overwrite = config.get("overwrite", False)
         use_pdf = config.get("use_pdf", True)
+        cache_enabled = config.get("cache", True)
+        use_cache = config.get("use_cache", True)
 
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
@@ -113,6 +127,12 @@ class MetadataExtractionStep(BaseStep):
             claude = ClaudeHandler(api_key=api_key, model=model_name)
         except Exception as e:
             raise StepFatalError(f"Failed to initialize ClaudeHandler: {e}", e)
+
+        # Initialize LLM response cache
+        cache: Optional[JSONFileCache] = None
+        if cache_enabled or use_cache:
+            cache_dir = get_json_cache_dir() / "llm" / "metadata_extraction"
+            cache = JSONFileCache(cache_dir=cache_dir, default_ttl=None)
 
         def predicate(p: Paper) -> bool:
             if overwrite:
@@ -127,6 +147,7 @@ class MetadataExtractionStep(BaseStep):
             "extracted": 0,
             "skipped": 0,
             "errors": 0,
+            "cache_hits": 0,
             "total_tokens": 0,
         }
 
@@ -143,6 +164,18 @@ class MetadataExtractionStep(BaseStep):
                 self.callback(f"Extracting metadata {i}/{paper_count}: {paper.cite_key}")
 
             start_time = datetime.now(timezone.utc)
+            cache_key = paper.doi if paper.doi else None
+
+            # Try cache first
+            if use_cache and cache and cache_key:
+                cached = cache.get(cache_key)
+                if cached is not None:
+                    if not dry_run:
+                        _apply_metadata(paper, cached, model_name, start_time)
+                        self.db.update(paper)
+                    stats["cache_hits"] += 1
+                    stats["extracted"] += 1
+                    continue
 
             text_input = resolve_llm_input(paper, use_pdf, _format_paper_text)
 
@@ -158,15 +191,20 @@ class MetadataExtractionStep(BaseStep):
 
             stats["total_tokens"] += token_usage.get("output_tokens", 0)
 
+            # Store in cache
+            if cache_enabled and cache and cache_key:
+                cache.set(cache_key, parsed_response)
+
             if not dry_run:
                 _apply_metadata(paper, parsed_response, model_name, start_time)
                 self.db.update(paper)
 
             stats["extracted"] += 1
 
+        cache_msg = f", {stats['cache_hits']} from cache" if stats["cache_hits"] else ""
         return StepResult(
             status=StepStatus.SUCCESS,
-            message=f"Metadata extracted for {stats['extracted']} papers ({stats['errors']} errors)",
+            message=f"Metadata extracted for {stats['extracted']} papers ({stats['errors']} errors{cache_msg})",
             step="metadata_extraction",
             stats=stats,
         )
