@@ -9,6 +9,8 @@ Configuration options:
   - model: Claude model to use (default: claude-haiku-4-5-20251001)
   - prompt: Path to prompt template (default: src/prompts/score-relevance.md)
   - use_pdf: Send PDF natively to Claude when available (default: true)
+  - cache: Whether to store LLM responses in cache (default: true)
+  - use_cache: Whether to check cache before calling the LLM (default: true)
 
 Environment:
   - ANTHROPIC_API_KEY: Anthropic API key
@@ -26,14 +28,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from paper_scanner.core.cache import JSONFileCache
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.exceptions import ConfigurationError, StepFatalError
 from paper_scanner.core.models import Paper, ProcessingMetadata, RelevanceScore
+from paper_scanner.core.paths import get_json_cache_dir
 from paper_scanner.core.step_result import StepResult
 from paper_scanner.models.anthropic import ClaudeHandler
 
-from .base import BaseStep
 from ._llm_helpers import resolve_llm_input, validate_use_pdf
+from .base import BaseStep
 
 logging.getLogger("anthropic").setLevel(logging.WARNING)
 
@@ -65,6 +69,12 @@ class RelevanceScoringStep(BaseStep):
                 prompt_path = Path(config["prompt"])
                 if not prompt_path.exists():
                     errors.append(f"Prompt file not found: {config['prompt']}")
+
+        if "cache" in config and not isinstance(config["cache"], bool):
+            errors.append("'cache' must be a boolean")
+
+        if "use_cache" in config and not isinstance(config["use_cache"], bool):
+            errors.append("'use_cache' must be a boolean")
 
         validate_use_pdf(config, errors)
 
@@ -100,6 +110,8 @@ class RelevanceScoringStep(BaseStep):
     ) -> StepResult:
         model_name = config.get("model", "claude-haiku-4-5-20251001")
         use_pdf = config.get("use_pdf", True)
+        cache_enabled = config.get("cache", True)
+        use_cache = config.get("use_cache", True)
 
         research_question = self.general_config.get("research_question", "")
         if not research_question:
@@ -116,6 +128,12 @@ class RelevanceScoringStep(BaseStep):
         except Exception as e:
             raise StepFatalError(f"Failed to initialize ClaudeHandler: {e}", e)
 
+        # Initialize LLM response cache
+        cache: Optional[JSONFileCache] = None
+        if cache_enabled or use_cache:
+            cache_dir = get_json_cache_dir() / "llm" / "relevance_scoring"
+            cache = JSONFileCache(cache_dir=cache_dir, default_ttl=None)
+
         def predicate(p: Paper) -> bool:
             return p.screening.relevance_scoring is None and not p.is_excluded
 
@@ -126,6 +144,7 @@ class RelevanceScoringStep(BaseStep):
             "total_papers": paper_count,
             "scored": 0,
             "errors": 0,
+            "cache_hits": 0,
             "total_tokens": 0,
             "avg_relevance": 0.0,
         }
@@ -145,6 +164,21 @@ class RelevanceScoringStep(BaseStep):
                 self.callback(f"Scoring relevance {i}/{paper_count}: {paper.cite_key}")
 
             start_time = datetime.now(timezone.utc)
+            cache_key = paper.doi if paper.doi else None
+
+            # Try cache first
+            if use_cache and cache and cache_key:
+                cached = cache.get(cache_key)
+                if cached is not None:
+                    relevance = _parse_relevance(cached, model_name, start_time)
+                    if relevance is not None:
+                        if not dry_run:
+                            paper.screening.relevance_scoring = relevance
+                            self.db.update(paper)
+                        relevance_sum += relevance.relevance
+                        stats["cache_hits"] += 1
+                        stats["scored"] += 1
+                        continue
 
             text_input = resolve_llm_input(paper, use_pdf, _format_paper_text)
 
@@ -159,6 +193,10 @@ class RelevanceScoringStep(BaseStep):
                 continue
 
             stats["total_tokens"] += token_usage.get("output_tokens", 0)
+
+            # Store in cache
+            if cache_enabled and cache and cache_key:
+                cache.set(cache_key, parsed_response)
 
             relevance = _parse_relevance(parsed_response, model_name, start_time)
             if relevance is None:
@@ -176,9 +214,10 @@ class RelevanceScoringStep(BaseStep):
         if stats["scored"] > 0:
             stats["avg_relevance"] = round(relevance_sum / stats["scored"], 3)
 
+        cache_msg = f", {stats['cache_hits']} from cache" if stats["cache_hits"] else ""
         return StepResult(
             status=StepStatus.SUCCESS,
-            message=f"Scored {stats['scored']} papers (avg relevance: {stats['avg_relevance']}, {stats['errors']} errors)",
+            message=f"Scored {stats['scored']} papers (avg relevance: {stats['avg_relevance']}, {stats['errors']} errors{cache_msg})",
             step="relevance_scoring",
             stats=stats,
         )
