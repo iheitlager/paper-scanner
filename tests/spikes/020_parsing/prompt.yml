@@ -1,0 +1,61 @@
+# Academic Paper Metadata Extraction Prompt
+
+## Task
+Read the provided academic paper and extract bibliographic metadata into a structured YAML format.
+
+## Instructions
+1. Carefully read the paper to identify all metadata fields
+2. Extract information from the document header, abstract, section headings, and footer/citation information
+3. Output the metadata in the exact YAML schema specified below
+4. If a field is not available in the document, omit it from the output
+5. Preserve exact spelling of author names and journal titles
+6. For table of contents, include section numbers as they appear in the paper
+
+## Required Output Schema
+
+```yaml
+journal: <string - full journal name>
+title: <string - complete paper title including subtitle if present>
+authors:
+  - name: <string - author full name>
+    affiliation: <string - institution, department, location>
+  # repeat for each author
+year: <integer - publication year>
+volume: <integer - journal volume number>
+issue: <integer - journal issue number>
+pages: <string - page range as "start-end">
+doi: <string - Digital Object Identifier>
+
+table_of_contents:
+  - section: <string - section number and title>
+    subsections:
+      - <string - subsection number and title>
+      # repeat for each subsection
+  # repeat for each main section
+```
+
+## Field Definitions
+
+| Field | Type | Required | Source Location |
+|-------|------|----------|-----------------|
+| journal | string | yes | header/footer |
+| title | string | yes | first page header |
+| authors | array | yes | below title |
+| year | integer | yes | citation info/header |
+| volume | integer | yes | citation info |
+| issue | integer | no | citation info |
+| pages | string | no | citation info |
+| doi | string | no | footer/header |
+| table_of_contents | array | no | section headings throughout |
+
+## Notes
+- Authors should be listed in the order they appear in the paper
+- Affiliations should include department, institution, and location where available
+- Table of contents should reflect the actual hierarchical structure of the paper
+- Include numbered sections only (exclude Abstract, References unless numbered)
+
+## Input
+[Attach or paste academic paper here]
+
+## Output
+Provide only the YAML output with no additional commentary.
