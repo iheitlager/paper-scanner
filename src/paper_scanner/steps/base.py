@@ -7,7 +7,7 @@ a standard interface for step discovery, configuration validation, and execution
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Callable, TYPE_CHECKING
+from typing import Any, Dict, List, Tuple, Callable, TYPE_CHECKING, Optional
 
 from paper_scanner.core.database import PapersDatabase
 from paper_scanner.core.reporter import NOOP
@@ -106,6 +106,15 @@ class BaseStep(ABC):
             ...     print(f"Config errors: {errors}")
         """
         pass
+
+    @staticmethod
+    def _translate_flag(flag: Any) -> Optional[bool]:
+        """Translate boolean flag to string representation."""
+        if flag in ["only", "true", True]:
+            return True
+        elif flag in ["no", "false", False]:
+            return False
+        return None
 
     # TODO: remove verbose/debug
     @abstractmethod

@@ -7,6 +7,10 @@
 *.json
 !package.json
 !package-lock.json
+
+# Local data directories (PostgreSQL, cache, etc)
+data/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

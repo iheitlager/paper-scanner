@@ -7,7 +7,7 @@ Exports papers database to various formats (JSONL, BibTeX)
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 from rich.console import Console
 
@@ -84,11 +84,13 @@ class ExportStep(BaseStep):
         return len(errors) == 0, errors
 
     @staticmethod
-    def _translate_flag(flag: Any) -> str:
+    def _translate_flag(flag: Any) -> Optional[bool]:
         """Translate boolean flag to string representation."""
-        if isinstance(flag, bool):
-            return "true" if flag else "false"
-        return str(flag).lower()
+        if flag in ["only", "true", True]:
+            return True
+        elif flag in ["no", "false", False]:
+            return False
+        return None
 
     def execute(
         self,
@@ -143,26 +145,26 @@ class ExportStep(BaseStep):
         def predicate(p) -> bool:
             """Predicate to filter papers based on DOI flag."""
             c = True
-            if doi_flag in ["only", "true", True]:
+            if doi_flag == True:
                 # export if doi is set or 'only' if doi is set
                 c &= p.doi is not None
-            elif doi_flag in ["false", False]:
+            elif doi_flag == False:
                 # export if doi is not set
                 c &= p.doi is None
             # else do not care about doi
 
-            if duplicates_flag in ["only", "true", True]:
+            if duplicates_flag == True:
                 # export only duplicates
                 c &= p.duplicate_of is not None
-            elif duplicates_flag is ["no", "false", False]:
+            elif duplicates_flag == False:
                 # export only unique papers (default)
                 c &= p.duplicate_of is None
             # else do not care
 
-            if includes_flag in ["only", "true", True]:
+            if includes_flag == True:
                 # export only papers that were included
                 c &= p.is_included is True
-            elif includes_flag == ["no", "false", False]:
+            elif includes_flag == False:
                 # export only papers that were excluded
                 c &= p.is_included is False
             # else export all papers

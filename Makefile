@@ -113,11 +113,13 @@ stop: cleanup ## Stop Colima and clean up
 	
 docker-up: ## Start postgresql and web server with Docker Compose
 	@echo "Starting Docker containers..."
+	@mkdir -p data/postgresql
 	@docker-compose down 2>/dev/null || true
 	docker-compose build
 	docker-compose up -d
 	@echo "✓ Services started"
 	@echo "  Web Interface: http://localhost:8000"
+	@echo "  PostgreSQL data: ./data/postgresql"
 
 docker-down: ## Stop Docker containers
 	@echo "Stopping Docker containers..."
@@ -139,14 +141,16 @@ docker-rebuild: ## Rebuild and restart Docker web container
 	docker-compose up -d
 	@echo "✓ Containers rebuilt and started"
 
-docker-fresh: ## Stop containers, remove postgres volume, and reinit database with new schema
+docker-fresh: ## Stop containers, remove postgres data directory, and reinit database with new schema
 	@echo "Performing fresh database initialization..."
 	@docker-compose down
-	@docker volume rm paper-scanner_postgres_data 2>/dev/null || true
+	@rm -rf data/postgresql
+	@mkdir -p data/postgresql
 	@echo "Rebuilding and starting fresh containers..."
 	docker-compose build
 	docker-compose up -d
 	@echo "✓ Database reinitialized with new schema"
+	@echo "✓ Data directory: ./data/postgresql"
 	@echo "✓ Services started"
 
 cleanup: ## Clean up Docker resources

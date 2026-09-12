@@ -20,6 +20,7 @@ Configuration example:
     db_port: "$DB_PORT"
     db_name: "$DB_NAME"
     conflict_strategy: "skip"
+    includes: "only"
 ```
 """
 
@@ -28,7 +29,6 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 from dotenv import load_dotenv
-from rich.console import Console
 
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.exceptions import StepFatalError
@@ -36,8 +36,7 @@ from paper_scanner.core.step_result import StepResult
 from paper_scanner.io.sql import DatabaseConnectionPool, PaperToRowConverter, PaperUploader
 from paper_scanner.steps.base import BaseStep
 
-console = Console(file=sys.stderr)
-
+VALID_FLAGS = {"true", "false", "only", "all", "no"}
 
 class UploadDatabaseStep(BaseStep):
     """
@@ -105,7 +104,21 @@ class UploadDatabaseStep(BaseStep):
                 f"Invalid conflict_strategy: {conflict_strategy}. Must be: skip, update, raise"
             )
 
+        if "includes" in config:
+            c = config["includes"]
+            if c not in VALID_FLAGS:
+                errors.append(f"'includes' must be one of {VALID_FLAGS}, got {c}")
+
         return (len(errors) == 0, errors)
+
+    @staticmethod
+    def _translate_flag(flag: Any) -> Optional[bool]:
+        """Translate boolean flag to string representation."""
+        if flag in ["only", "true", True]:
+            return True
+        elif flag in ["no", "false", False]:
+            return False
+        return None
 
     def execute(
         self,
@@ -141,11 +154,25 @@ class UploadDatabaseStep(BaseStep):
                 "Missing database_url or incomplete component parameters"
             )
 
+        includes_flag = self._translate_flag(config.get("includes", "only")) # 'only', 'all', 'none'
         conflict_strategy = config.get("conflict_strategy", "skip")
         batch_size = int(config.get("batch_size", 100))
 
         # Get papers from in-memory database
-        papers = self.db.all(primary_only=False)
+        def predicate(p) -> bool:
+            """Predicate to filter papers based on includes flag."""
+            c = True
+            if includes_flag == True:
+                # export only papers that were included
+                c &= p.is_included is True
+            elif includes_flag == False:
+                # export only papers that were excluded
+                c &= p.is_included is False
+            # else export all papers
+
+            return c
+
+        papers = self.db.find(predicate)
         total_papers = len(papers)
 
         if total_papers == 0:
@@ -227,13 +254,6 @@ class UploadDatabaseStep(BaseStep):
                 all_stats["errors"].extend(stats["errors"])
                 all_stats["citation_edges"]["edges_inserted"] += stats["citation_edges"]["edges_inserted"]
                 all_stats["citation_edges"]["edges_skipped"] += stats["citation_edges"]["edges_skipped"]
-
-                # TODO: Move this outside the Step
-                if verbose and stats["error_count"] > 0:
-                    console.print(
-                        f"[yellow]Batch {batch_num}: "
-                        f"{stats['error_count']} errors[/yellow]"
-                    )
 
             all_stats["total_batches"] = total_batches
 
@@ -347,10 +367,7 @@ class UploadDatabaseStep(BaseStep):
             except Exception as e:
                 error_msg = f"Paper {i} ({paper.cite_key}): {str(e)}"
                 errors.append(error_msg)
-                if verbose:
-                    console.print(
-                        f"[red]Validation error: {error_msg}[/red]"
-                    )
+
 
         return errors
 

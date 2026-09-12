@@ -21,9 +21,8 @@ from paper_scanner.tools.fetchers.fetcher import Fetcher
 
 from .base import BaseStep
 
-console = Console(file=sys.stderr)
-
 VALID_SOURCES = {"crossref", "openalex", "core", "publisher"}
+VALID_FLAGS = {"true", "false", "only", "all", "no"}
 
 
 class DownloadPDFsStep(BaseStep):
@@ -70,12 +69,26 @@ class DownloadPDFsStep(BaseStep):
         else:
             errors.append("'sources' is required")
 
+        if "includes" in config:
+            c = config["includes"]
+            if c not in VALID_FLAGS:
+                errors.append(f"'includes' must be one of {VALID_FLAGS}, got {c}")
+
         # Validate output_errors (optional)
         if "output_errors" in config:
             if not isinstance(config["output_errors"], str):
                 errors.append("'output_errors' must be a string")
 
         return len(errors) == 0, errors
+
+    @staticmethod
+    def _translate_flag(flag: Any) -> Optional[bool]:
+        """Translate boolean flag to string representation."""
+        if flag in ["only", "true", True]:
+            return True
+        elif flag in ["no", "false", False]:
+            return False
+        return None
 
     def execute(
         self,
@@ -104,6 +117,7 @@ class DownloadPDFsStep(BaseStep):
         store_path = Path(config["store_path"]).expanduser()
         sources = config.get("sources", ["crossref"])
         output_errors = config.get("output_errors")
+        includes_flag = self._translate_flag(config.get("includes", "only")) # 'only', 'all', 'none'
 
         # Create store directory
         store_path.mkdir(parents=True, exist_ok=True)
@@ -114,13 +128,25 @@ class DownloadPDFsStep(BaseStep):
             methods=sources,
         )
 
-        # Find papers needing PDF downloads
-        papers_needing_pdf = self.db.find(
-            lambda p: (p.pdf_info is None or not p.pdf_info.file_path),
-            primary_only=True,
-        )
+        # Get papers from in-memory database
+        def predicate(p) -> bool:
+            """Predicate to filter papers based on DOI flag."""
+            if  p.pdf_info is not None and p.pdf_info.file_path:
+                return False
+            c = True
+            if includes_flag == True:
+                # export only papers that were included
+                c &= p.is_included is True
+            elif includes_flag == False:
+                # export only papers that were excluded
+                c &= p.is_included is False
+            # else export all papers
 
-        if not papers_needing_pdf:
+            return c
+
+        papers = self.db.find(predicate, primary_only=True)
+
+        if not papers:
             return StepResult(
                 status=StepStatus.SUCCESS,
                 stats={
@@ -138,12 +164,7 @@ class DownloadPDFsStep(BaseStep):
         errors = []
         error_details = []
 
-        if verbose:
-            console.print(
-                f"[cyan]Downloading PDFs for {len(papers_needing_pdf)} papers...[/cyan]"
-            )
-
-        for paper in papers_needing_pdf:
+        for paper in papers:
             try:
                 # Skip if no DOI
                 if not paper.doi:
@@ -171,16 +192,9 @@ class DownloadPDFsStep(BaseStep):
                         )
 
                     downloaded += 1
-                    if verbose:
-                        console.print(
-                            f"  [green]✓[/green] Downloaded: {paper.cite_key}"
-                        )
+
                 else:
                     skipped += 1
-                    if debug:
-                        console.print(
-                            f"  [yellow]✗[/yellow] No PDF found: {paper.cite_key} ({paper.doi})"
-                        )
 
             except Exception as e:
                 errors.append(str(e))
@@ -189,10 +203,6 @@ class DownloadPDFsStep(BaseStep):
                     "doi": paper.doi,
                     "error": str(e),
                 })
-                if debug:
-                    console.print(
-                        f"  [red]Error downloading {paper.cite_key}: {e}[/red]"
-                    )
 
         # Write error log if requested
         if output_errors and error_details:

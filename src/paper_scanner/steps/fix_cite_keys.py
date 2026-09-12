@@ -9,16 +9,13 @@ Only processes primary papers (excluding duplicates).
 import sys
 from typing import Any, Dict, List, Tuple
 
-from rich.console import Console
-
 from paper_scanner.core.cite_key import generate_cite_key, make_collision_suffix
 from paper_scanner.core.enum import StepStatus
 from paper_scanner.core.step_result import StepResult
 
 from .base import BaseStep
 
-# Initialize rich console
-console = Console(file=sys.stderr)
+VALID_FLAGS = {"true", "false", "only", "all", "no"}
 
 
 class FixCiteKeysStep(BaseStep):
@@ -35,8 +32,12 @@ class FixCiteKeysStep(BaseStep):
         Returns:
             Tuple of (is_valid, error_messages)
         """
-        # No configuration required
-        return True, []
+        if "includes" in config:
+            c = config["includes"]
+            if c not in VALID_FLAGS:
+                errors.append(f"'includes' must be one of {VALID_FLAGS}, got {c}")
+
+        return len(errors) == 0, errors
 
     def execute(
         self,
@@ -60,21 +61,37 @@ class FixCiteKeysStep(BaseStep):
         Returns:
             StepResult with status, count of updated/skipped papers, and any errors
         """
+        includes_flag = self._translate_flag(config.get("includes", "only")) # 'only', 'all', 'none'
+
         # Track results
         updated_papers = []
         skipped_papers = []
         error_messages = []
 
-        # Get all primary papers (duplicate_of is None)
-        primary_papers = self.db.all(primary_only=True)
+        # Get papers from in-memory database
+        def predicate(p) -> bool:
+            """Predicate to filter papers based on includes flag."""
+            c = True
+            if includes_flag == True:
+                # export only papers that were included
+                c &= p.is_included is True
+            elif includes_flag == False:
+                # export only papers that were excluded
+                c &= p.is_included is False
+            # else export all papers
+
+            return c
+
+        papers = self.db.find(predicate, primary_only=True)
 
         # Track all existing cite_keys for collision detection
-        used_keys = {paper.cite_key for paper in primary_papers}
+        # TODO: this is part of paper_db
+        used_keys = {paper.cite_key for paper in papers}
 
         # First pass: generate new keys and detect collisions
         new_keys_map = {}  # paper.id -> new_cite_key
 
-        for paper in primary_papers:
+        for paper in papers:
             try:
                 # Generate base key
                 base_key = generate_cite_key(paper)
@@ -105,7 +122,7 @@ class FixCiteKeysStep(BaseStep):
 
                     new_keys_map[paper.id] = new_key
                     updated_papers.append(paper.id)
-                    self.callback(f"{paper.cite_key} -> {new_key}", debug=True)
+                    self.callback(f"{paper.cite_key:<25} -> {new_key}", debug=True)
                 else:
                     skipped_papers.append(paper.id)
 
@@ -119,7 +136,7 @@ class FixCiteKeysStep(BaseStep):
 
         # Second pass: update papers in database (fatal if DB write fails)
         if not dry_run and new_keys_map:
-            for paper in primary_papers:
+            for paper in papers:
                 if paper.id in new_keys_map:
                     new_key = new_keys_map[paper.id]
                     paper.cite_key = new_key
@@ -127,7 +144,7 @@ class FixCiteKeysStep(BaseStep):
 
 
         # Determine final status
-        total_papers = len(primary_papers)
+        total_papers = len(papers)
         errors_count = len(error_messages)
 
         if errors_count > 0:
